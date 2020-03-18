@@ -118,7 +118,7 @@ AWS.CloudTrail.MFAEnabled
 	[PASS] Root MFA not enabled fails compliance
 	[PASS] User MFA not enabled fails compliance
 
-[INFO]: Zipping policies in tests/fixtures/valid_policies/ to tmp
+[INFO]: Zipping policies in tests/fixtures/valid\_policies/ to tmp
 [INFO]: Found credentials in environment variables.
 [INFO]: Uploading pack to Panther
 [INFO]: Upload success.

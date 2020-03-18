@@ -1,13 +1,13 @@
 # functional dependencies
-PyYAML==5.3
+PyYAML==5.3.1
 schema==0.7.1
 policyuniverse==1.3.2.1
-boto3==1.11.11
+boto3==1.12.24
 # ci dependencies
 bandit==1.6.2
-mypy==0.761
+mypy==0.770
 pylint==2.4.4
-pyfakefs==3.7.1
+pyfakefs==4.0.2
 yapf==0.29.0
 ## The following requirements were added by pip freeze:
 appnope==0.1.0
@@ -21,7 +21,7 @@ awscli==1.16.286
 backcall==0.1.0
 beautifulsoup4==4.8.1
 binaryornot==0.4.4
-botocore==1.14.11
+botocore==1.15.24
 bs4==0.0.1
 certifi==2019.9.11
 cfn-lint==0.26.0
