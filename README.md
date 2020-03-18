@@ -22,7 +22,7 @@ See the [Panther documentation](https://docs.runpanther.io/quick-start) for more
 
 ## Panther Analysis Tool
 
-`panther-cli` is a Python command line interface for testing, packaging, and deploying Panther Policies and Rules. This enables policies and rules to be managed in code and tracked via version control systems such as git or svn. This is also useful for devops and security personnel who prefer CLI management and configuration over web interfaces.
+`panther_analysis_tool` is a Python command line interface for testing, packaging, and deploying Panther Policies and Rules. This enables policies and rules to be managed in code and tracked via version control systems such as git or svn. This is also useful for devops and security personnel who prefer CLI management and configuration over web interfaces.
 
 ### Installation
 
@@ -35,13 +35,13 @@ $ source venv/bin/activate
 $ pipenv run -- make deps
 ```
 
-Use the [pip](https://pip.pypa.io/en/stable/) package manager (locally for now) to install `panther-cli`.
+Use the [pip](https://pip.pypa.io/en/stable/) package manager (locally for now) to install `panther_analysis_tool`.
 
 ```bash
 $ pipenv run -- pip3 install -e .
 ```
 
-If you want to use the `panther-cli` tool outside of the virtual environment, install it to the host directly.
+If you want to use the `panther_analysis_tool` tool outside of the virtual environment, install it to the host directly.
 
 ```bash
 $ make deps
@@ -50,15 +50,15 @@ $ pip3 install -e .
 
 ### Commands and Usage
 
-It is important to note that wherever the `panther-cli` refers to policies, it is actually referring to both policies and rules. So the `--policies` flag can be passed either a directory of policies, rules, or both.
+It is important to note that wherever the `panther_analysis_tool` refers to policies, it is actually referring to both policies and rules. So the `--policies` flag can be passed either a directory of policies, rules, or both.
 
 View available commands:
 
 ```bash
-$ panther-cli --help
-usage: panther_cli [-h] [--version] {test,zip,upload} ...
+$ panther_analysis_tool --help
+usage: panther_analysis_tool [-h] [--version] {test,zip,upload} ...
 
-Panther CLI: A tool for writing, testing, and packaging Panther Policies/Rules
+Panther Analysis Tool: A tool for writing, testing, and packaging Panther Policies/Rules
 
 positional arguments:
   {test,zip,upload}
@@ -75,7 +75,7 @@ optional arguments:
 Run tests:
 
 ```bash
-$ panther-cli test --policies tests/fixtures/valid_policies/
+$ panther_analysis_tool test --policies tests/fixtures/valid_policies/
 
 [INFO]: Testing Policies in tests/fixtures/valid_policies/
 
@@ -87,7 +87,7 @@ Testing policy 'AWS.IAM.MFAEnabled'
 Create packages to upload via the Panther UI:
 
 ```bash
-$ panther-cli zip --policies tests/fixtures/valid_policies/ --output-path tmp
+$ panther_analysis_tool zip --policies tests/fixtures/valid_policies/ --output-path tmp
 
 [INFO]: Testing Policies in tests/fixtures/valid_policies/
 
@@ -96,13 +96,13 @@ Testing policy 'AWS.IAM.MFAEnabled'
 	[PASS] User MFA not enabled fails compliance
 
 [INFO]: Zipping policies in tests/fixtures/valid_policies/ to tmp
-[INFO]: /Users/user_name/panther-cli/tmp/panther-policies-2019-01-01T16-00-00.zip
+[INFO]: /Users/user_name/panther_analysis_tool/tmp/panther-policies-2019-01-01T16-00-00.zip
 ```
 
 Upload packages to Panther directly. Note, this expects your environment to be setup the same way as if you were using the AWS CLI, see the setup instructions [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html). We also recommend using a credentials manager such as [aws-vault](https://github.com/99designs/aws-vault).
 
 ```bash
-$ panther-cli upload --policies tests/fixtures/valid_policies/ --output-path tmp
+$ panther_analysis_tool upload --policies tests/fixtures/valid_policies/ --output-path tmp
 
 [INFO]: Testing Policies in tests/fixtures/valid_policies/
 
@@ -136,7 +136,7 @@ AWS.CloudTrail.MFAEnabled
 In order to upload all currently available policies and rules to your Panther deployment, run the following command. This command will recursively traverse all directories under `analysis` and package all rules and policies it finds into one package and then upload them:
 
 ```bash
-$ panther-cli upload --policies analysis/ --output-path tmp
+$ panther_analysis_tool upload --policies analysis/ --output-path tmp
 ```
 
 ## Writing Policies

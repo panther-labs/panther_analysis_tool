@@ -327,11 +327,11 @@ def run_tests(policy: Dict[str, Any], run_func: Callable[[TestCase], bool],
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=
-        'Panther CLI: A tool for writing, testing, and packaging Panther Policies/Rules',
-        prog='panther_cli')
+        'Panther Analaysis Tool: A tool for writing, testing, and packaging Panther Policies/Rules',
+        prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther-cli 0.1.4')
+                        version='panther_analysis_tool 0.1.4')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
