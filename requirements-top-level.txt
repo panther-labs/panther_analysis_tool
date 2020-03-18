@@ -1,0 +1,10 @@
+# functional dependencies
+PyYAML
+schema
+boto3
+# ci dependencies
+bandit
+mypy
+pylint
+pyfakefs
+yapf

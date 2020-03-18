@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+
+import panther_analysis_tool
+panther_analysis_tool.main.run()
