@@ -32,7 +32,7 @@ The `panther_analysis_tool` is available on [pip](https://pip.pypa.io/en/stable/
 $ pip3 install panther_analysis_tool
 ```
 
-If you'd prefer instead to locally for development reasons, first setup your environment:
+If you'd prefer instead to run from source for development reasons, first setup your environment:
 
 ```bash
 $ make install
