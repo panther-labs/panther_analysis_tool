@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: panther-cli
+Version: 0.1.5
+Summary: Panther command line interface for writing, testing, and packaging policies/rules.
+Home-page: https://github.com/panther-labs/panther-analysis
+Author: Panther Labs Inc
+Author-email: hello@runpanther.io
+License: apache-2.0
+Description: UNKNOWN
+Keywords: Security,CLI
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Security
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.7

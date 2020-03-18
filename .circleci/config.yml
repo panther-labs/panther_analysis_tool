@@ -1,0 +1,23 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.7.4
+    steps:
+        - checkout
+        - run:
+            name: Install core utilities
+            command: make install
+        - run:
+            name: Setup the Virtual Environment
+            command: make venv && source venv/bin/activate
+        - run:
+            name: Install dependencies
+            command: pipenv run -- make deps
+        - run:
+            name: Install Panther CLI
+            command: pipenv run -- pip3 install -e .
+        - run:
+            name: CLI Tests
+            command: make ci && pipenv run make integration
