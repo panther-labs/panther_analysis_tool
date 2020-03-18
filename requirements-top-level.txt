@@ -1,7 +1,6 @@
 # functional dependencies
 PyYAML
 schema
-policyuniverse
 boto3
 # ci dependencies
 bandit

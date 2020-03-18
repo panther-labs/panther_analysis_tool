@@ -7,9 +7,9 @@ setup(
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',
     author='Panther Labs Inc',
-    author_email='hello@runpanther.io',
-    url='https://github.com/panther-labs/panther-analysis',
-    # download_url = 'https://github.com/user/reponame/archive/v_01.tar.gz',
+    author_email='pypi@runpanther.io',
+    url='https://github.com/panther-labs/panther_analysis_tool',
+    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.1.5.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=[
