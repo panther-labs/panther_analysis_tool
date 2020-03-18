@@ -10,9 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://gitter.im/runpanther/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge"><img src="https://badges.gitter.im/runpanther/community.svg" alt="Gitter"/></a>
-  <a href="https://circleci.com/gh/panther-labs/panther-analysis"><img src="https://circleci.com/gh/panther-labs/panther-analysis.svg?style=svg" alt="CircleCI"/></a>
-  <a href="https://cla-assistant.io/panther-labs/panther-analysis" alt="CLA Assistant"><img src="https://cla-assistant.io/readme/badge/panther-labs/panther-analysis"/></a>
+  <a href="https://panther-labs-oss-slackin.herokuapp.com/">Chat with us on Slack!</a>
+  <a href="https://circleci.com/gh/panther-labs/panther_analysis_tool"><img src="https://circleci.com/gh/panther-labs/panther_analysis_tool.svg?style=svg" alt="CircleCI"/></a>
 </p>
 
 ---
