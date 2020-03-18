@@ -6,7 +6,7 @@ from nose.tools import (assert_equal, assert_false, assert_is_instance,
                         assert_is_none, assert_true, raises, nottest,
                         with_setup)
 
-from panther_cli import main as panther_cli
+from panther_analysis_tool import main as panther_cli
 
 
 class TestPantherCLI(TestCase):
