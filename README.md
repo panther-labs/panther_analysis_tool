@@ -26,7 +26,13 @@ See the [Panther documentation](https://docs.runpanther.io/quick-start) for more
 
 ### Installation
 
-Setup your environment:
+The `panther_analysis_tool` is available on [pip](https://pip.pypa.io/en/stable/)! To get started using the tool, simply install with:
+
+```bash
+$ pip3 install panther_analysis_tool
+```
+
+If you'd prefer instead to run from source for development reasons, first setup your environment:
 
 ```bash
 $ make install
@@ -35,7 +41,7 @@ $ source venv/bin/activate
 $ pipenv run -- make deps
 ```
 
-Use the [pip](https://pip.pypa.io/en/stable/) package manager (locally for now) to install `panther_analysis_tool`.
+Use the pip package manager to install the local `panther_analysis_tool`.
 
 ```bash
 $ pipenv run -- pip3 install -e .
