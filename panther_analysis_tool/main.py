@@ -80,7 +80,9 @@ SPEC_SCHEMA = Schema(
             str,
         Optional('Suppressions'): [str],
         Optional('Tags'): [str],
-        Optional('Reports'): {str: object},
+        Optional('Reports'): {
+            str: object
+        },
         Optional('Tests'): [{
             'Name': str,
             'ResourceType': str,
