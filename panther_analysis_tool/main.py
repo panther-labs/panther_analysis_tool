@@ -80,12 +80,15 @@ SPEC_SCHEMA = Schema(
             str,
         Optional('Suppressions'): [str],
         Optional('Tags'): [str],
+        Optional('Reports'): {
+            str: object
+        },
         Optional('Tests'): [{
             'Name': str,
             'ResourceType': str,
             'ExpectedResult': bool,
             'Resource': object
-        }]
+        }],
     },
     ignore_extra_keys=False)
 
@@ -223,10 +226,6 @@ def upload_policies(args: argparse.Namespace) -> Tuple[int, str]:
         logging.info('Upload success.')
         logging.info('API Response:\n%s',
                      json.dumps(body, indent=2, sort_keys=True))
-        #logging.info(
-        #    '\n\t%d new policies\n\t%d modified policies\n\t%d new rules\n\t%d modified rules',
-        #    body['newPolicies'], body['modifiedPolicies'], body['newRules'],
-        #    body['modifiedRules'])
 
     return 0, ''
 
