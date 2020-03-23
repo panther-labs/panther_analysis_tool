@@ -165,14 +165,14 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         return return_code, ''
 
     logging.info('Zipping analysis packs in %s to %s', args.analysis,
-                 args.output_path)
+                 args.path)
     # example: 2019-08-05T18-23-25
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec='seconds').replace(
         ':', '-')
     filename = 'panther-analysis'
     return 0, shutil.make_archive(
-        os.path.join(args.output_path, '{}-{}'.format(filename, current_time)),
+        os.path.join(args.path, '{}-{}'.format(filename, current_time)),
         'zip', args.analysis)
 
 
@@ -355,7 +355,7 @@ def setup_parser() -> argparse.ArgumentParser:
         help='The relative path to Panther policies and rules.',
         required=True)
     zip_parser.add_argument(
-        '--output-path',
+        '--path',
         type=str,
         help='The path to write zipped policies and rules to.',
         required=True)
@@ -370,7 +370,7 @@ def setup_parser() -> argparse.ArgumentParser:
         help='The relative path to Panther policies and rules.',
         required=True)
     upload_parser.add_argument(
-        '--output-path',
+        '--path',
         default='.',
         type=str,
         help=
