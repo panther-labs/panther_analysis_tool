@@ -1,8 +1,7 @@
 # functional dependencies
 PyYAML==5.3.1
 schema==0.7.1
-policyuniverse==1.3.2.1
-boto3==1.12.24
+boto3==1.12.26
 # ci dependencies
 bandit==1.6.2
 mypy==0.770
@@ -21,7 +20,7 @@ awscli==1.16.286
 backcall==0.1.0
 beautifulsoup4==4.8.1
 binaryornot==0.4.4
-botocore==1.15.24
+botocore==1.15.26
 bs4==0.0.1
 certifi==2019.9.11
 cfn-lint==0.26.0
@@ -70,6 +69,7 @@ pbr==5.4.1
 pexpect==4.7.0
 pickleshare==0.7.5
 pipenv==2018.11.26
+policyuniverse==1.3.2.1
 poyo==0.5.0
 prompt-toolkit==2.0.10
 ptyprocess==0.6.0

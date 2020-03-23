@@ -31,4 +31,4 @@ unit:
 	pipenv run nosetests -v
 
 integration:
-	panther_analysis_tool test --policies tests/fixtures/valid_policies/
+	panther_analysis_tool test --path tests/fixtures/valid_policies/
