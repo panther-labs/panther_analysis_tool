@@ -164,16 +164,15 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code == 1:
         return return_code, ''
 
-    logging.info('Zipping analysis packs in %s to %s', args.analysis,
-                 args.path)
+    logging.info('Zipping analysis packs in %s to %s', args.path, args.out)
     # example: 2019-08-05T18-23-25
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec='seconds').replace(
         ':', '-')
     filename = 'panther-analysis'
     return 0, shutil.make_archive(
-        os.path.join(args.path, '{}-{}'.format(filename, current_time)),
-        'zip', args.analysis)
+        os.path.join(args.out, '{}-{}'.format(filename, current_time)), 'zip',
+        args.path)
 
 
 def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
@@ -242,10 +241,10 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     tests: List[str] = []
-    logging.info('Testing analysis packs in %s\n', args.analysis)
+    logging.info('Testing analysis packs in %s\n', args.path)
 
     # First import the globals file
-    specs = list(load_analysis_specs(args.analysis))
+    specs = list(load_analysis_specs(args.path))
     for analysis_spec_filename, dir_name, analysis_spec in specs:
         if analysis_spec.get('PolicyID') != 'aws_globals':
             continue
@@ -338,7 +337,7 @@ def setup_parser() -> argparse.ArgumentParser:
         'test',
         help='Validate analysis specifications and run policy and rule tests.')
     test_parser.add_argument(
-        '--analysis',
+        '--path',
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
@@ -350,12 +349,12 @@ def setup_parser() -> argparse.ArgumentParser:
         'Create an archive of local policies and rules for uploading to Panther.'
     )
     zip_parser.add_argument(
-        '--analysis',
+        '--path',
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
     zip_parser.add_argument(
-        '--path',
+        '--out',
         type=str,
         help='The path to write zipped policies and rules to.',
         required=True)
@@ -365,12 +364,12 @@ def setup_parser() -> argparse.ArgumentParser:
         'upload',
         help='Upload specified policies and rules to a Panther deployment.')
     upload_parser.add_argument(
-        '--analysis',
+        '--path',
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
     upload_parser.add_argument(
-        '--path',
+        '--out',
         default='.',
         type=str,
         help=

@@ -34,7 +34,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_is_instance(test_date_string, str)
 
     def test_load_policy_specs_from_folder(self):
-        args = pat.setup_parser().parse_args('test --analysis tests/fixtures'.split())
+        args = pat.setup_parser().parse_args('test --path tests/fixtures'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
@@ -48,7 +48,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            'zip --analysis tests/fixtures/valid_policies --output-path tmp/'.split())
+            'zip --path tests/fixtures/valid_policies --out tmp/'.split())
         return_code, out_filename = pat.zip_analysis(args)
         statinfo = os.stat(out_filename)
         assert_true(statinfo.st_size > 0)

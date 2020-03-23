@@ -83,7 +83,7 @@ optional arguments:
 Run tests:
 
 ```bash
-$ panther_analysis_tool test --analysis tests/fixtures/valid_policies/
+$ panther_analysis_tool test --path tests/fixtures/valid_policies/
 [INFO]: Testing analysis packs in tests/fixtures/valid_policies/
 
 AWS.IAM.MFAEnabled
@@ -94,7 +94,7 @@ AWS.IAM.MFAEnabled
 Create packages to upload via the Panther UI:
 
 ```bash
-$ panther_analysis_tool zip --analysis tests/fixtures/valid_policies/ --path tmp
+$ panther_analysis_tool zip --path tests/fixtures/valid_policies/ --out tmp
 [INFO]: Testing analysis packs in tests/fixtures/valid_policies/
 
 AWS.IAM.MFAEnabled
@@ -108,7 +108,7 @@ AWS.IAM.MFAEnabled
 Upload packages to Panther directly. Note, this expects your environment to be setup the same way as if you were using the AWS CLI, see the setup instructions [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html). We also recommend using a credentials manager such as [aws-vault](https://github.com/99designs/aws-vault).
 
 ```bash
-$ panther_analysis_tool upload --analysis tests/fixtures/valid_policies/ --path tmp
+$ panther_analysis_tool upload --path tests/fixtures/valid_policies/ --out tmp
 [INFO]: Testing analysis packs in tests/fixtures/valid_policies/
 
 AWS.IAM.MFAEnabled
