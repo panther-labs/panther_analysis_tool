@@ -64,28 +64,29 @@ View available commands:
 $ panther_analysis_tool --help
 usage: panther_analysis_tool [-h] [--version] {test,zip,upload} ...
 
-Panther Analysis Tool: A tool for writing, testing, and packaging Panther Policies/Rules
+Panther Analaysis Tool: A command line tool for managing Panther policies and
+rules.
 
 positional arguments:
   {test,zip,upload}
-    test             Validate policy specifications and run policy tests.
-    zip              Create an archive of local policies for uploading to
-                     Panther.
-    upload           Upload specified policies to a Panther deployment.
+    test             Validate analysis specifications and run policy and rule
+                     tests.
+    zip              Create an archive of local policies and rules for
+                     uploading to Panther.
+    upload           Upload specified policies and rules to a Panther
+                     deployment.
 
 optional arguments:
   -h, --help         show this help message and exit
-  --version          show program's version number and exit
-```
+  --version          show program's version number and exit```
 
 Run tests:
 
 ```bash
-$ panther_analysis_tool test --policies tests/fixtures/valid_policies/
+$ panther_analysis_tool test --analysis tests/fixtures/valid_policies/
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies/
 
-[INFO]: Testing Policies in tests/fixtures/valid_policies/
-
-Testing policy 'AWS.IAM.MFAEnabled'
+AWS.IAM.MFAEnabled
 	[PASS] Root MFA not enabled fails compliance
 	[PASS] User MFA not enabled fails compliance
 ```
@@ -93,24 +94,22 @@ Testing policy 'AWS.IAM.MFAEnabled'
 Create packages to upload via the Panther UI:
 
 ```bash
-$ panther_analysis_tool zip --policies tests/fixtures/valid_policies/ --output-path tmp
+$ panther_analysis_tool zip --analysis tests/fixtures/valid_policies/ --output-path tmp
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies/
 
-[INFO]: Testing Policies in tests/fixtures/valid_policies/
-
-Testing policy 'AWS.IAM.MFAEnabled'
+AWS.IAM.MFAEnabled
 	[PASS] Root MFA not enabled fails compliance
 	[PASS] User MFA not enabled fails compliance
 
-[INFO]: Zipping policies in tests/fixtures/valid_policies/ to tmp
-[INFO]: /Users/user_name/panther_analysis_tool/tmp/panther-policies-2019-01-01T16-00-00.zip
+[INFO]: Zipping analysis packs in tests/fixtures/valid_policies/ to tmp
+[INFO]: <current working directory>/tmp/panther-analysis-2020-03-23T12-48-18.zip
 ```
 
 Upload packages to Panther directly. Note, this expects your environment to be setup the same way as if you were using the AWS CLI, see the setup instructions [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html). We also recommend using a credentials manager such as [aws-vault](https://github.com/99designs/aws-vault).
 
 ```bash
-$ panther_analysis_tool upload --policies tests/fixtures/valid_policies/ --output-path tmp
-
-[INFO]: Testing Policies in tests/fixtures/valid_policies/
+$ panther_analysis_tool upload --analysis tests/fixtures/valid_policies/ --output-path tmp
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies/
 
 AWS.IAM.MFAEnabled
 	[PASS] Root MFA not enabled fails compliance
@@ -124,7 +123,7 @@ AWS.CloudTrail.MFAEnabled
 	[PASS] Root MFA not enabled fails compliance
 	[PASS] User MFA not enabled fails compliance
 
-[INFO]: Zipping policies in tests/fixtures/valid\_policies/ to tmp
+[INFO]: Zipping analysis packs in tests/fixtures/valid_policies/ to tmp
 [INFO]: Found credentials in environment variables.
 [INFO]: Uploading pack to Panther
 [INFO]: Upload success.
@@ -137,12 +136,6 @@ AWS.CloudTrail.MFAEnabled
   "totalPolicies": 2,
   "totalRules": 1
 }
-```
-
-In order to upload all currently available policies and rules to your Panther deployment, run the following command. This command will recursively traverse all directories under `analysis` and package all rules and policies it finds into one package and then upload them:
-
-```bash
-$ panther_analysis_tool upload --policies analysis/ --output-path tmp
 ```
 
 ## Writing Policies
