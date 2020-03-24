@@ -72,7 +72,7 @@ SPEC_SCHEMA = Schema(
             object,
         Optional('Description'):
             str,
-        Optional('DedupPeriod'):
+        Optional('DedupPeriodMinutes'):
             int,
         Optional('DisplayName'):
             str,
