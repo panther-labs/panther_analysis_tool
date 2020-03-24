@@ -72,6 +72,8 @@ SPEC_SCHEMA = Schema(
             object,
         Optional('Description'):
             str,
+        Optional('DedupPeriod'):
+            int,
         Optional('DisplayName'):
             str,
         Optional('Reference'):
