@@ -72,6 +72,8 @@ SPEC_SCHEMA = Schema(
             object,
         Optional('Description'):
             str,
+        Optional('DedupPeriodMinutes'):
+            int,
         Optional('DisplayName'):
             str,
         Optional('Reference'):
@@ -330,7 +332,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.1.7')
+                        version='panther_analysis_tool 0.1.8')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
