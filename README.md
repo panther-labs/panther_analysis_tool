@@ -64,7 +64,7 @@ View available commands:
 $ panther_analysis_tool --help
 usage: panther_analysis_tool [-h] [--version] {test,zip,upload} ...
 
-Panther Analaysis Tool: A command line tool for managing Panther policies and
+Panther Analysis Tool: A command line tool for managing Panther policies and
 rules.
 
 positional arguments:

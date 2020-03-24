@@ -328,7 +328,7 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=
-        'Panther Analaysis Tool: A command line tool for managing Panther policies and rules.',
+        'Panther Analysis Tool: A command line tool for managing Panther policies and rules.',
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
