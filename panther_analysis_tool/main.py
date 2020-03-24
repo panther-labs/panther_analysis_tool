@@ -57,9 +57,12 @@ SPEC_SCHEMA = Schema(
             bool,
         'Filename':
             str,
-        'PolicyID':
+        Optional('PolicyID'):
             str,
-        'ResourceTypes': [str],
+        Optional('RuleID'):
+            str,
+        Optional('ResourceTypes'): [str],
+        Optional('LogTypes'): [str],
         'Severity':
             Or("Info", "Low", "Medium", "High", "Critical"),
         Optional('ActionDelaySeconds'):
@@ -87,9 +90,11 @@ SPEC_SCHEMA = Schema(
         },
         Optional('Tests'): [{
             'Name': str,
-            'ResourceType': str,
+            Optional('LogType'): str,
+            Optional('ResourceType'): str,
             'ExpectedResult': bool,
-            'Resource': object
+            Optional('Log'): object,
+            Optional('Resource'): object,
         }],
     },
     ignore_extra_keys=False)
@@ -248,7 +253,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # First import the globals file
     specs = list(load_analysis_specs(args.path))
     for analysis_spec_filename, dir_name, analysis_spec in specs:
-        if analysis_spec.get('PolicyID') != 'aws_globals':
+        if (analysis_spec.get('PolicyID') or
+                analysis_spec['RuleID']) != 'aws_globals':
             continue
         module, load_err = load_module(
             os.path.join(dir_name, analysis_spec['Filename']))
@@ -260,7 +266,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # Next import each policy or rule and run its tests
     for analysis_spec_filename, dir_name, analysis_spec in specs:
-        if analysis_spec.get('PolicyID') == 'aws_globals':
+        analysis_id = analysis_spec.get('PolicyID') or analysis_spec['RuleID']
+        if analysis_id == 'aws_globals':
             continue
 
         try:
@@ -270,14 +277,14 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
-        print(analysis_spec['PolicyID'])
+        print(analysis_id)
 
         # Check if the PolicyID has already been loaded
-        if analysis_spec['PolicyID'] in tests:
+        if analysis_id in tests:
             print('\t[ERROR] Conflicting PolicyID\n')
             invalid_specs.append(
                 (analysis_spec_filename,
-                 'Conflicting PolicyID: {}'.format(analysis_spec['PolicyID'])))
+                 'Conflicting PolicyID: {}'.format(analysis_id)))
             continue
 
         module, load_err = load_module(
@@ -287,7 +294,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             invalid_specs.append((analysis_spec_filename, load_err))
             continue
 
-        tests.append(analysis_spec['PolicyID'])
+        tests.append(analysis_id)
         if analysis_spec['AnalysisType'] == 'policy':
             run_func = module.policy
         elif analysis_spec['AnalysisType'] == 'rule':
@@ -310,8 +317,9 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
 
     for unit_test in analysis['Tests']:
         try:
-            test_case = TestCase(unit_test['Resource'],
-                                 unit_test['ResourceType'])
+            test_case = TestCase(
+                unit_test.get('Resource') or unit_test['Log'],
+                unit_test.get('ResourceType') or unit_test['LogType'])
             result = run_func(test_case)
         except KeyError as err:
             print("KeyError: {0}".format(err))
@@ -319,7 +327,8 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
         test_result = 'PASS'
         if result != unit_test['ExpectedResult']:
             test_result = 'FAIL'
-            failed_tests[analysis['PolicyID']].append(unit_test['Name'])
+            failed_tests[analysis.get('PolicyID') or
+                         analysis['RuleID']].append(unit_test['Name'])
         print('\t[{}] {}'.format(test_result, unit_test['Name']))
 
     return failed_tests
@@ -332,7 +341,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.1.8')
+                        version='panther_analysis_tool 0.1.9')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
