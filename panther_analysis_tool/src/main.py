@@ -32,6 +32,8 @@ import yaml
 
 import boto3
 
+from . import helpers
+
 
 class TestCase():
 
@@ -118,7 +120,18 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     except FileNotFoundError as err:
         print('\t[ERROR] File not found, skipping\n')
         return None, err
+    except Exception as err:  # pylint: disable=broad-except
+        # Catch arbitrary exceptions thrown by user code
+        print('\t[ERROR] Error loading module, skipping\n')
+        return None, err
     return module, None
+
+
+# import the panther helper stubs
+#
+# When mocking is supported, these will be mocked. For now this is just here so that the
+# policies that import from Panther will pass validation.
+sys.modules['panther'], _ = load_module(helpers.__file__)
 
 
 def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
@@ -315,6 +328,12 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
               failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
 
+    # First check if any tests exist, so we can print a helpful message if not
+    if 'Tests' not in analysis:
+        analysis_id = analysis.get('PolicyID') or analysis['RuleID']
+        print('\tNo tests configured for {}'.format(analysis_id))
+        return failed_tests
+
     for unit_test in analysis['Tests']:
         try:
             test_case = TestCase(
@@ -341,7 +360,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.1.9')
+                        version='panther_analysis_tool 0.1.10')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
