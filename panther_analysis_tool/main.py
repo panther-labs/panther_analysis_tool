@@ -33,6 +33,11 @@ import yaml
 import boto3
 
 import helpers
+# import the panther helper stubs
+#
+# When mocking is supported, these will be mocked. For now this is just here so that the
+# policies that import from Panther will pass validation.
+sys.modules['panther'], _ = load_module(helpers.__file__)
 
 
 class TestCase():
@@ -49,6 +54,7 @@ class TestCase():
 
     def get(self, arg: str, default: Any = None) -> Any:
         return self._data.get(arg, default)
+
 
 SPEC_SCHEMA = Schema(
     {
@@ -119,7 +125,8 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     except FileNotFoundError as err:
         print('\t[ERROR] File not found, skipping\n')
         return None, err
-    except Exception as err:
+    except Exception as err:  # pylint: disable=broad-except
+        # Catch arbitrary exceptions thrown by user code
         print('\t[ERROR] Error loading module, skipping\n')
         return None, err
     return module, None
@@ -254,12 +261,6 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     tests: List[str] = []
     logging.info('Testing analysis packs in %s\n', args.path)
 
-    # First import the panther helper stubs
-    #
-    # When mocking is supported, these will be mocked. For now this is just here so that the policies
-    # that import from Panther will pass validation.
-    sys.modules['panther'], _ = load_module(helpers.__file__)
-
     # First import the globals file
     specs = list(load_analysis_specs(args.path))
     for analysis_spec_filename, dir_name, analysis_spec in specs:
@@ -329,8 +330,8 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
     if 'Tests' not in analysis:
         analysis_id = analysis.get('PolicyID') or analysis['RuleID']
         print('\tNo tests configured for {}'.format(analysis_id))
-        return {}
-        
+        return failed_tests
+
     for unit_test in analysis['Tests']:
         try:
             test_case = TestCase(

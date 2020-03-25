@@ -25,7 +25,7 @@ class PantherBadInput(Exception):
     """Error returned when a Panther helper function is provided bad input."""
 
 
-def get_s3_arn_by_name(name: str) -> str:
+def get_s3_arn_by_name(_: str) -> str:
     """This function is used to construct an s3 bucket ARN from its name."""
     return 'arn:aws:s3:::name'
 
@@ -35,7 +35,7 @@ def s3_lookup_by_name(name: str) -> Dict[str, Any]:
     return resource_lookup(get_s3_arn_by_name(name))
 
 
-def dynamo_lookup(key: str) -> Dict[str, Any]:
+def dynamo_lookup(_: str) -> Dict[str, Any]:
     """Make a dynamodb GetItem API call."""
     return {}
 
