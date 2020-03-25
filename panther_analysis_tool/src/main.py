@@ -126,11 +126,13 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         return None, err
     return module, None
 
+
 # import the panther helper stubs
 #
 # When mocking is supported, these will be mocked. For now this is just here so that the
 # policies that import from Panther will pass validation.
 sys.modules['panther'], _ = load_module(helpers.__file__)
+
 
 def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
     """Loads the analysis specifications from a file.
