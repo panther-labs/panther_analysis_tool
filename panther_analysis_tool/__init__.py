@@ -14,4 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 '''
 
-from panther_analysis_tool.src import main
+from panther_analysis_tool import main
