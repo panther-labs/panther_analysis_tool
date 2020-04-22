@@ -1,7 +1,7 @@
 # functional dependencies
 PyYAML==5.3.1
 schema==0.7.1
-boto3==1.12.26
+boto3==1.12.29
 # ci dependencies
 bandit==1.6.2
 mypy==0.770
@@ -20,7 +20,7 @@ awscli==1.16.286
 backcall==0.1.0
 beautifulsoup4==4.8.1
 binaryornot==0.4.4
-botocore==1.15.26
+botocore==1.15.29
 bs4==0.0.1
 certifi==2019.9.11
 cfn-lint==0.26.0
@@ -64,6 +64,7 @@ mypy-extensions==0.4.3
 nose==1.3.7
 nose2==0.9.1
 numpy==1.17.4
+-e git+git@github.com:panther-labs/panther_analysis_tool.git@eea71fea0d4d4965affa78cff2b38c8295da6414#egg=panther_analysis_tool
 parso==0.5.1
 pbr==5.4.1
 pexpect==4.7.0
