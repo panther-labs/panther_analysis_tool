@@ -1,7 +1,7 @@
 # functional dependencies
 PyYAML==5.3.1
-schema==0.7.1
-boto3==1.12.26
+schema==0.7.2
+boto3==1.12.43
 # ci dependencies
 bandit==1.6.2
 mypy==0.770
@@ -20,7 +20,8 @@ awscli==1.16.286
 backcall==0.1.0
 beautifulsoup4==4.8.1
 binaryornot==0.4.4
-botocore==1.15.26
+bleach==3.1.3
+botocore==1.15.43
 bs4==0.0.1
 certifi==2019.9.11
 cfn-lint==0.26.0
@@ -56,6 +57,7 @@ jmespath==0.9.4
 jsonpatch==1.24
 jsonpointer==2.0
 jsonschema==3.1.1
+keyring==21.2.0
 lazy-object-proxy==1.4.1
 MarkupSafe==1.1.1
 mccabe==0.6.1
@@ -64,22 +66,26 @@ mypy-extensions==0.4.3
 nose==1.3.7
 nose2==0.9.1
 numpy==1.17.4
+-e git+git@github.com:panther-labs/panther_analysis_tool.git@d5989a49109868811c3f15b84af21e8464efdeba#egg=panther_analysis_tool
 parso==0.5.1
 pbr==5.4.1
 pexpect==4.7.0
 pickleshare==0.7.5
 pipenv==2018.11.26
+pkginfo==1.5.0.1
 policyuniverse==1.3.2.1
 poyo==0.5.0
 prompt-toolkit==2.0.10
 ptyprocess==0.6.0
 pyasn1==0.4.8
-Pygments==2.4.2
+Pygments==2.6.1
 pyrsistent==0.15.4
 python-dateutil==2.8.0
 pytz==2019.3
+readme-renderer==25.0
 regex==2019.11.1
 requests==2.22.0
+requests-toolbelt==0.9.1
 rsa==3.4.2
 s3transfer==0.3.2
 serverlessrepo==0.1.9
@@ -90,7 +96,9 @@ soupsieve==1.9.5
 statistics==1.0.3.5
 stevedore==1.30.1
 suricata-update==1.1.0
+tqdm==4.43.0
 traitlets==4.3.3
+twine==3.1.1
 typed-ast==1.4.0
 typing-extensions==3.7.4
 tzlocal==2.0.0
@@ -98,6 +106,7 @@ urllib3==1.25.6
 virtualenv==16.7.7
 virtualenv-clone==0.5.3
 wcwidth==0.1.7
+webencodings==0.5.1
 websocket-client==0.56.0
 Werkzeug==0.16.0
 whichcraft==0.6.1

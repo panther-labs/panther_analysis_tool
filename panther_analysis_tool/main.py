@@ -32,8 +32,6 @@ import yaml
 
 import boto3
 
-from . import helpers
-
 
 class TestCase():
 
@@ -51,30 +49,74 @@ class TestCase():
         return self._data.get(arg, default)
 
 
-SPEC_SCHEMA = Schema(
+TYPE_SCHEMA = Schema({
+    'AnalysisType': Or("policy", "rule", "global"),
+},
+                     ignore_extra_keys=True)
+
+GLOBAL_SCHEMA = Schema(
+    {
+        'AnalysisType': Or("global"),
+        'Filename': str,
+        Optional('Description'): str,
+        Optional('Tags'): [str],
+    },
+    ignore_extra_keys=False)
+
+POLICY_SCHEMA = Schema(
     {
         'AnalysisType':
-            Or("policy", "rule"),
+            Or("policy"),
         'Enabled':
             bool,
         'Filename':
             str,
-        Optional('PolicyID'):
+        'PolicyID':
             str,
-        Optional('RuleID'):
-            str,
-        Optional('ResourceTypes'): [str],
-        Optional('LogTypes'): [str],
+        'ResourceTypes': [str],
         'Severity':
             Or("Info", "Low", "Medium", "High", "Critical"),
         Optional('ActionDelaySeconds'):
             int,
-        Optional('AlertFormat'):
-            str,
         Optional('AutoRemediationID'):
             str,
         Optional('AutoRemediationParameters'):
             object,
+        Optional('Description'):
+            str,
+        Optional('DisplayName'):
+            str,
+        Optional('Reference'):
+            str,
+        Optional('Runbook'):
+            str,
+        Optional('Suppressions'): [str],
+        Optional('Tags'): [str],
+        Optional('Reports'): {
+            str: object
+        },
+        Optional('Tests'): [{
+            'Name': str,
+            'ResourceType': str,
+            'ExpectedResult': bool,
+            'Resource': object,
+        }],
+    },
+    ignore_extra_keys=False)
+
+RULE_SCHEMA = Schema(
+    {
+        'AnalysisType':
+            Or("rule"),
+        'Enabled':
+            bool,
+        'Filename':
+            str,
+        'RuleID':
+            str,
+        'LogTypes': [str],
+        'Severity':
+            Or("Info", "Low", "Medium", "High", "Critical"),
         Optional('Description'):
             str,
         Optional('DedupPeriodMinutes'):
@@ -92,11 +134,9 @@ SPEC_SCHEMA = Schema(
         },
         Optional('Tests'): [{
             'Name': str,
-            Optional('LogType'): str,
-            Optional('ResourceType'): str,
+            'LogType': str,
             'ExpectedResult': bool,
-            Optional('Log'): object,
-            Optional('Resource'): object,
+            'Log': object,
         }],
     },
     ignore_extra_keys=False)
@@ -125,13 +165,6 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         print('\t[ERROR] Error loading module, skipping\n')
         return None, err
     return module, None
-
-
-# import the panther helper stubs
-#
-# When mocking is supported, these will be mocked. For now this is just here so that the
-# policies that import from Panther will pass validation.
-sys.modules['panther'], _ = load_module(helpers.__file__)
 
 
 def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
@@ -223,9 +256,9 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
                 json.dumps({
                     'Data': base64.b64encode(zip_bytes).decode('utf-8'),
                     # The UserID is required by Panther for this API call, but we have no way of
-                    # acquiring it and it isn't used for anything. This is a random, valid UUID so
-                    # that the input can be validated by the API.
-                    'UserID': 'c273fd96-88d0-41c4-a74e-941e17832915',
+                    # acquiring it and it isn't used for anything. This is a valid UUID used by the
+                    # Panther deployment tool to indicate this action was performed automatically.
+                    'UserID': '00000000-0000-4000-8000-000000000000',
                 }),
         }
 
@@ -239,6 +272,9 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         response_payload = json.loads(response_str)
 
         if response_payload['statusCode'] != 200:
+            logging.warning(
+                'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
+                response_payload['statusCode'], response_payload['body'])
             return 1, ''
 
         body = json.loads(response_payload['body'])
@@ -258,46 +294,35 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     tests: List[str] = []
     logging.info('Testing analysis packs in %s\n', args.path)
 
-    # First import the globals file
+    # First classify each file
     specs = list(load_analysis_specs(args.path))
-    for analysis_spec_filename, dir_name, analysis_spec in specs:
-        if (analysis_spec.get('PolicyID') or
-                analysis_spec['RuleID']) != 'aws_globals':
-            continue
+    global_analysis, analysis, invalid_specs = classify_analysis(specs)
+
+    # First import the globals
+    for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
         module, load_err = load_module(
             os.path.join(dir_name, analysis_spec['Filename']))
         # If the module could not be loaded, continue to the next
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
             break
-        sys.modules['aws_globals'] = module
+        sys.modules['panther'] = module
 
     # Next import each policy or rule and run its tests
-    for analysis_spec_filename, dir_name, analysis_spec in specs:
+    for analysis_spec_filename, dir_name, analysis_spec in analysis:
         analysis_id = analysis_spec.get('PolicyID') or analysis_spec['RuleID']
-        if analysis_id == 'aws_globals':
-            continue
-
-        try:
-            SPEC_SCHEMA.validate(analysis_spec)
-        except (SchemaError, SchemaMissingKeyError, SchemaForbiddenKeyError,
-                SchemaUnexpectedTypeError) as err:
-            invalid_specs.append((analysis_spec_filename, err))
-            continue
-
         print(analysis_id)
 
-        # Check if the PolicyID has already been loaded
+        # Check if the AnalysisID has already been loaded
         if analysis_id in tests:
-            print('\t[ERROR] Conflicting PolicyID\n')
+            print('\t[ERROR] Conflicting AnalysisID\n')
             invalid_specs.append(
                 (analysis_spec_filename,
-                 'Conflicting PolicyID: {}'.format(analysis_id)))
+                 'Conflicting AnalysisID: {}'.format(analysis_id)))
             continue
 
         module, load_err = load_module(
@@ -309,10 +334,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
         tests.append(analysis_id)
         if analysis_spec['AnalysisType'] == 'policy':
-            run_func = module.policy
+            failed_tests = run_tests(analysis_spec, module.policy, failed_tests)
         elif analysis_spec['AnalysisType'] == 'rule':
-            run_func = module.rule
-        failed_tests = run_tests(analysis_spec, run_func, failed_tests)
+            failed_tests = run_tests(analysis_spec, module.rule, failed_tests)
         print('')
 
     for analysis_id in failed_tests:
@@ -323,6 +347,37 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         print("Invalid: {}\n\t{}\n".format(spec_filename, spec_error))
 
     return int(bool(failed_tests or invalid_specs)), invalid_specs
+
+
+def classify_analysis(
+    specs: List[Tuple[str, str, Any]]
+) -> Tuple[List[Any], List[Any], List[Any]]:
+    # First determine the type of each file
+    global_analysis = []
+    analysis = []
+    invalid_specs = []
+
+    for analysis_spec_filename, dir_name, analysis_spec in specs:
+        try:
+            TYPE_SCHEMA.validate(analysis_spec)
+            if analysis_spec['AnalysisType'] == 'policy':
+                POLICY_SCHEMA.validate(analysis_spec)
+                analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
+            if analysis_spec['AnalysisType'] == 'rule':
+                RULE_SCHEMA.validate(analysis_spec)
+                analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
+            if analysis_spec['AnalysisType'] == 'global':
+                GLOBAL_SCHEMA.validate(analysis_spec)
+                global_analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
+        except (SchemaError, SchemaMissingKeyError, SchemaForbiddenKeyError,
+                SchemaUnexpectedTypeError) as err:
+            invalid_specs.append((analysis_spec_filename, err))
+            continue
+
+    return (global_analysis, analysis, invalid_specs)
 
 
 def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
