@@ -40,6 +40,22 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(invalid_specs[0][0],
                      'tests/fixtures/example_malformed_policy.yml')
 
+    def test_parse_filters(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_policies --filter AnalysisType=policy,global Severity=Critical'.split())
+        args.filter = pat.parse_filter(args.filter)
+        assert_true('AnalysisType' in args.filter.keys())
+        assert_true('policy' in args.filter['AnalysisType'])
+        assert_true('global' in args.filter['AnalysisType'])
+        assert_true('Severity' in args.filter.keys())
+        assert_true('Critical' in args.filter['Severity'])
+
+    def test_with_filters(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_policies --filter AnalysisType=policy,global'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
     def test_zip_analysis(self):
         # Note: This is a workaround for CI
         try:
