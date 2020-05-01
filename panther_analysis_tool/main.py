@@ -222,18 +222,15 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec='seconds').replace(
         ':', '-')
-    filename = 'panther-analysis'
-    zip_out = zipfile.ZipFile('{}-{}.zip'.format(filename, current_time), 'w',
-                              zipfile.ZIP_DEFLATED)
+    filename = 'panther-analysis-{}.zip'.format(current_time)
+    with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
+        analysis = filter_analysis(list(load_analysis_specs(args.path)),
+                                   args.filter)
+        for analysis_spec_filename, dir_name, analysis_spec in analysis:
+            zip_out.write(analysis_spec_filename)
+            zip_out.write(os.path.join(dir_name, analysis_spec['Filename']))
 
-    analysis = filter_analysis(list(load_analysis_specs(args.path)),
-                               args.filter)
-    for analysis_spec_filename, dir_name, analysis_spec in analysis:
-        zip_out.write(analysis_spec_filename)
-        zip_out.write(os.path.join(dir_name, analysis_spec['Filename']))
-
-    zip_out.close()
-    return 0, str(zip_out.filename)
+    return 0, filename
 
 
 def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
@@ -505,7 +502,6 @@ def setup_parser() -> argparse.ArgumentParser:
 
 # Parses the filters, expects a list of strings
 def parse_filter(filters: List[str]) -> Dict[str, Any]:
-    logging.info('Parsing filter in %s', str(filters))
     parsed_filters = {}
     for filt in filters:
         split = filt.split('=')
