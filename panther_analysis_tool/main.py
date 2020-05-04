@@ -23,9 +23,9 @@ from collections import defaultdict
 import json
 import logging
 import os
-import shutil
 import sys
 from typing import Any, Callable, DefaultDict, Dict, Iterator, List, Tuple
+import zipfile
 from schema import (Optional, Or, Schema, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
 import yaml
@@ -222,10 +222,15 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec='seconds').replace(
         ':', '-')
-    filename = 'panther-analysis'
-    return 0, shutil.make_archive(
-        os.path.join(args.out, '{}-{}'.format(filename, current_time)), 'zip',
-        args.path)
+    filename = 'panther-analysis-{}.zip'.format(current_time)
+    with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
+        analysis = filter_analysis(list(load_analysis_specs(args.path)),
+                                   args.filter)
+        for analysis_spec_filename, dir_name, analysis_spec in analysis:
+            zip_out.write(analysis_spec_filename)
+            zip_out.write(os.path.join(dir_name, analysis_spec['Filename']))
+
+    return 0, filename
 
 
 def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
@@ -302,6 +307,10 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     specs = list(load_analysis_specs(args.path))
     global_analysis, analysis, invalid_specs = classify_analysis(specs)
 
+    # Apply the filters as needed
+    global_analysis = filter_analysis(global_analysis, args.filter)
+    analysis = filter_analysis(analysis, args.filter)
+
     # First import the globals
     for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
         module, load_err = load_module(
@@ -347,6 +356,20 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         print("Invalid: {}\n\t{}\n".format(spec_filename, spec_error))
 
     return int(bool(failed_tests or invalid_specs)), invalid_specs
+
+
+def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
+    if filters is None:
+        return analysis
+
+    filtered_analysis = []
+    for file_name, dir_name, analysis_spec in analysis:
+        if all(
+                analysis_spec.get(key, "") in values
+                for key, values in filters.items()):
+            filtered_analysis.append((file_name, dir_name, analysis_spec))
+
+    return filtered_analysis
 
 
 def classify_analysis(
@@ -415,7 +438,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.2.1')
+                        version='panther_analysis_tool 0.2.2')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
@@ -426,6 +449,10 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
+    test_parser.add_argument('--filter',
+                             required=False,
+                             metavar="KEY=VALUE",
+                             nargs='+')
     test_parser.set_defaults(func=test_analysis)
 
     zip_parser = subparsers.add_parser(
@@ -443,6 +470,10 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         help='The path to write zipped policies and rules to.',
         required=True)
+    zip_parser.add_argument('--filter',
+                            required=False,
+                            metavar="KEY=VALUE",
+                            nargs='+')
     zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
@@ -460,9 +491,32 @@ def setup_parser() -> argparse.ArgumentParser:
         help=
         'The location to store a local copy of the packaged policies and rules.',
         required=False)
+    upload_parser.add_argument('--filter',
+                               required=False,
+                               metavar="KEY=VALUE",
+                               nargs='+')
     upload_parser.set_defaults(func=upload_analysis)
 
     return parser
+
+
+# Parses the filters, expects a list of strings
+def parse_filter(filters: List[str]) -> Dict[str, Any]:
+    parsed_filters = {}
+    for filt in filters:
+        split = filt.split('=')
+        if len(split) != 2 or split[0] == '' or split[1] == '':
+            logging.warning('Filter %s is not in format KEY=VALUE, skipping',
+                            filt)
+            continue
+        key = split[0]
+        if key not in list(GLOBAL_SCHEMA.schema.keys()) + list(
+                POLICY_SCHEMA.schema.keys()) + list(RULE_SCHEMA.schema.keys()):
+            logging.warning(
+                'Filter key %s is not a valid filter field, skipping', key)
+            continue
+        parsed_filters[key] = split[1].split(',')
+    return parsed_filters
 
 
 def run() -> None:
@@ -472,6 +526,8 @@ def run() -> None:
     parser = setup_parser()
     args = parser.parse_args()
     try:
+        if args.filter is not None:
+            args.filter = parse_filter(args.filter)
         return_code, out = args.func(args)
     except AttributeError:
         parser.print_help()
