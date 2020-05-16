@@ -24,7 +24,7 @@ import json
 import logging
 import os
 import sys
-from typing import Any, Callable, DefaultDict, Dict, Iterator, List, Tuple
+from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
 import zipfile
 from schema import (Optional, Or, Schema, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
@@ -342,10 +342,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             continue
 
         tests.append(analysis_id)
-        analysis_funcs = {
-            'dedup': None,
-            'title': None,
-        }
+        analysis_funcs = {}
         if analysis_spec['AnalysisType'] == 'policy':
             analysis_funcs['run'] = module.policy
         elif analysis_spec['AnalysisType'] == 'rule':
@@ -413,7 +410,7 @@ def classify_analysis(
     return (global_analysis, analysis, invalid_specs)
 
 
-def run_tests(analysis: Dict[str, Any], analysis_funcs: DefaultDict[str, Callable[[TestCase], bool]],
+def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
               failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
 
     # First check if any tests exist, so we can print a helpful message if not
@@ -437,9 +434,9 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: DefaultDict[str, Callabl
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
         print('\t[{}] {}'.format(test_result, unit_test['Name']))
-        if analysis_funcs['title']:
+        if analysis_funcs.get('title'):
             print('\t\t[Title] {}'.format(analysis_funcs['title'](test_case)))
-        if analysis_funcs['dedup']:
+        if analysis_funcs.get('dedup'):
             print('\t\t[Dedup] {}'.format(analysis_funcs['dedup'](test_case)))
 
     return failed_tests
