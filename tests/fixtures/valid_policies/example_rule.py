@@ -11,3 +11,9 @@ def rule(event):
 
     return cred_report.get('PasswordEnabled', False) and cred_report.get(
         'MfaActive', False)
+
+def dedup(event):
+    return event['UserName']
+
+def title(event):
+    return '{} does not have MFA enabled'.format(event['UserName'])

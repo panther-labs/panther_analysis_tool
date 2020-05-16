@@ -342,10 +342,20 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             continue
 
         tests.append(analysis_id)
+        analysis_funcs = {
+            'dedup': None,
+            'title': None,
+        }
         if analysis_spec['AnalysisType'] == 'policy':
-            failed_tests = run_tests(analysis_spec, module.policy, failed_tests)
+            analysis_funcs['run'] = module.policy
         elif analysis_spec['AnalysisType'] == 'rule':
-            failed_tests = run_tests(analysis_spec, module.rule, failed_tests)
+            analysis_funcs['run'] = module.rule
+            if 'dedup' in dir(module):
+                analysis_funcs['dedup'] = module.dedup
+            if 'title' in dir(module):
+                analysis_funcs['title'] = module.title
+
+        failed_tests = run_tests(analysis_spec, analysis_funcs, failed_tests)
         print('')
 
     for analysis_id in failed_tests:
@@ -403,7 +413,7 @@ def classify_analysis(
     return (global_analysis, analysis, invalid_specs)
 
 
-def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
+def run_tests(analysis: Dict[str, Any], analysis_funcs: DefaultDict[str, Callable[[TestCase], bool]],
               failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
 
     # First check if any tests exist, so we can print a helpful message if not
@@ -417,7 +427,7 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
             test_case = TestCase(
                 unit_test.get('Resource') or unit_test['Log'],
                 unit_test.get('ResourceType') or unit_test['LogType'])
-            result = run_func(test_case)
+            result = analysis_funcs['run'](test_case)
         except KeyError as err:
             print("KeyError: {0}".format(err))
             continue
@@ -427,6 +437,10 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
         print('\t[{}] {}'.format(test_result, unit_test['Name']))
+        if analysis_funcs['title']:
+            print('\t\t[Title] {}'.format(analysis_funcs['title'](test_case)))
+        if analysis_funcs['dedup']:
+            print('\t\t[Dedup] {}'.format(analysis_funcs['dedup'](test_case)))
 
     return failed_tests
 
