@@ -24,13 +24,15 @@ import json
 import logging
 import os
 import sys
-from typing import Any, Callable, DefaultDict, Dict, Iterator, List, Tuple
+from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
 import zipfile
 from schema import (Optional, Or, Schema, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
 import yaml
 
 import boto3
+
+HELPERS_LOCATION = 'global_helpers'
 
 
 class TestCase():
@@ -58,6 +60,7 @@ GLOBAL_SCHEMA = Schema(
     {
         'AnalysisType': Or("global"),
         'Filename': str,
+        'GlobalID': str,
         Optional('Description'): str,
         Optional('Tags'): [str],
     },
@@ -304,8 +307,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     logging.info('Testing analysis packs in %s\n', args.path)
 
     # First classify each file
-    specs = list(load_analysis_specs(args.path))
-    global_analysis, analysis, invalid_specs = classify_analysis(specs)
+    global_analysis, analysis, invalid_specs = classify_analysis(
+        list(load_analysis_specs(args.path)) +
+        list(load_analysis_specs(HELPERS_LOCATION)))
 
     # Apply the filters as needed
     global_analysis = filter_analysis(global_analysis, args.filter)
@@ -319,7 +323,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
             break
-        sys.modules['panther'] = module
+        sys.modules[analysis_spec['GlobalID']] = module
 
     # Next import each policy or rule and run its tests
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
@@ -342,10 +346,17 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             continue
 
         tests.append(analysis_id)
+        analysis_funcs = {}
         if analysis_spec['AnalysisType'] == 'policy':
-            failed_tests = run_tests(analysis_spec, module.policy, failed_tests)
+            analysis_funcs['run'] = module.policy
         elif analysis_spec['AnalysisType'] == 'rule':
-            failed_tests = run_tests(analysis_spec, module.rule, failed_tests)
+            analysis_funcs['run'] = module.rule
+            if 'dedup' in dir(module):
+                analysis_funcs['dedup'] = module.dedup
+            if 'title' in dir(module):
+                analysis_funcs['title'] = module.title
+
+        failed_tests = run_tests(analysis_spec, analysis_funcs, failed_tests)
         print('')
 
     for analysis_id in failed_tests:
@@ -403,7 +414,7 @@ def classify_analysis(
     return (global_analysis, analysis, invalid_specs)
 
 
-def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
+def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
               failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
 
     # First check if any tests exist, so we can print a helpful message if not
@@ -417,7 +428,7 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
             test_case = TestCase(
                 unit_test.get('Resource') or unit_test['Log'],
                 unit_test.get('ResourceType') or unit_test['LogType'])
-            result = run_func(test_case)
+            result = analysis_funcs['run'](test_case)
         except KeyError as err:
             print("KeyError: {0}".format(err))
             continue
@@ -427,6 +438,10 @@ def run_tests(analysis: Dict[str, Any], run_func: Callable[[TestCase], bool],
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
         print('\t[{}] {}'.format(test_result, unit_test['Name']))
+        if analysis_funcs.get('title'):
+            print('\t\t[Title] {}'.format(analysis_funcs['title'](test_case)))
+        if analysis_funcs.get('dedup'):
+            print('\t\t[Dedup] {}'.format(analysis_funcs['dedup'](test_case)))
 
     return failed_tests
 
@@ -438,7 +453,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.2.2')
+                        version='panther_analysis_tool 0.3.0')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
