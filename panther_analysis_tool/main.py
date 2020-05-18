@@ -453,7 +453,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.2.2')
+                        version='panther_analysis_tool 0.3.0')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
