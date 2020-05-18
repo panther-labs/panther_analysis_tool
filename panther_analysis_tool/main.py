@@ -34,6 +34,7 @@ import boto3
 
 HELPERS_LOCATION = 'global_helpers'
 
+
 class TestCase():
 
     def __init__(self, data: Dict[str, Any], schema: str) -> None:
@@ -59,8 +60,7 @@ GLOBAL_SCHEMA = Schema(
     {
         'AnalysisType': Or("global"),
         'Filename': str,
-        'GlobalID':
-            str,
+        'GlobalID': str,
         Optional('Description'): str,
         Optional('Tags'): [str],
     },
@@ -307,9 +307,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     logging.info('Testing analysis packs in %s\n', args.path)
 
     # First classify each file
-    specs = list(load_analysis_specs(args.path))
-    specs += list(load_analysis_specs(HELPERS_LOCATION))
-    global_analysis, analysis, invalid_specs = classify_analysis(specs)
+    global_analysis, analysis, invalid_specs = classify_analysis(
+        list(load_analysis_specs(args.path)) +
+        list(load_analysis_specs(HELPERS_LOCATION)))
 
     # Apply the filters as needed
     global_analysis = filter_analysis(global_analysis, args.filter)
