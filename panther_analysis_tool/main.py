@@ -32,6 +32,7 @@ import yaml
 
 import boto3
 
+HELPERS_LOCATION = 'global_helpers'
 
 class TestCase():
 
@@ -58,6 +59,8 @@ GLOBAL_SCHEMA = Schema(
     {
         'AnalysisType': Or("global"),
         'Filename': str,
+        'GlobalID':
+            str,
         Optional('Description'): str,
         Optional('Tags'): [str],
     },
@@ -305,6 +308,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file
     specs = list(load_analysis_specs(args.path))
+    specs += list(load_analysis_specs(HELPERS_LOCATION))
     global_analysis, analysis, invalid_specs = classify_analysis(specs)
 
     # Apply the filters as needed
@@ -319,7 +323,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
             break
-        sys.modules['panther'] = module
+        sys.modules[analysis_spec['GlobalID']] = module
 
     # Next import each policy or rule and run its tests
     for analysis_spec_filename, dir_name, analysis_spec in analysis:

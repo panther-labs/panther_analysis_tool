@@ -1,4 +1,5 @@
 AnalysisType: global
+GlobalID: panther
 Filename: helpers.py
 Tags:
   - AWS
