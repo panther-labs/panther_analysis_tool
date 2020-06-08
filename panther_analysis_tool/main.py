@@ -311,9 +311,15 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         list(load_analysis_specs(args.path)) +
         list(load_analysis_specs(HELPERS_LOCATION)))
 
+    if len(analysis) == 0:
+        return 1, "No valid analyses found in {}".format(args.path)
+        
     # Apply the filters as needed
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
+
+    if len(analysis) == 0:
+        return 1, "No analyses in {} matched filters {}".format(args.path, args.filter)
 
     # First import the globals
     for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
@@ -375,9 +381,15 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
     filtered_analysis = []
     for file_name, dir_name, analysis_spec in analysis:
-        if all(
-                analysis_spec.get(key, "") in values
-                for key, values in filters.items()):
+        match = True
+        for key, values in filters.items():
+            spec_value = analysis_spec.get(key, "") 
+            spec_value = spec_value if type(spec_value) is list else [spec_value]
+            if not set(spec_value).intersection(values):
+                match = False
+                break
+
+        if match:
             filtered_analysis.append((file_name, dir_name, analysis_spec))
 
     return filtered_analysis
@@ -410,6 +422,11 @@ def classify_analysis(
                 SchemaUnexpectedTypeError) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
+        except Exception as err:  # pylint: disable=broad-except
+            # Catch arbitrary exceptions thrown by bad specification files
+            logging.warn('Unexpected schema validation error "{}", please report this error message to our public repo'.format(err))
+            invalid_specs.append((analysis_spec_filename, err))
+            continue
 
     return (global_analysis, analysis, invalid_specs)
 
@@ -430,7 +447,11 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
                 unit_test.get('ResourceType') or unit_test['LogType'])
             result = analysis_funcs['run'](test_case)
         except KeyError as err:
-            print("KeyError: {0}".format(err))
+            logging.warn("KeyError: {0}".format(err))
+            continue
+        except Exception as err:  # pylint: disable=broad-except
+            # Catch arbitrary exceptions raised by user code
+            logging.warn('Unexpected exception: "{}"'.format(err))
             continue
         test_result = 'PASS'
         if result != unit_test['ExpectedResult']:
@@ -438,9 +459,9 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
         print('\t[{}] {}'.format(test_result, unit_test['Name']))
-        if analysis_funcs.get('title'):
+        if analysis_funcs.get('title') and unit_test['ExpectedResult']:
             print('\t\t[Title] {}'.format(analysis_funcs['title'](test_case)))
-        if analysis_funcs.get('dedup'):
+        if analysis_funcs.get('dedup') and unit_test['ExpectedResult']:
             print('\t\t[Dedup] {}'.format(analysis_funcs['dedup'](test_case)))
 
     return failed_tests
@@ -525,8 +546,8 @@ def parse_filter(filters: List[str]) -> Dict[str, Any]:
                             filt)
             continue
         key = split[0]
-        if key not in list(GLOBAL_SCHEMA.schema.keys()) + list(
-                POLICY_SCHEMA.schema.keys()) + list(RULE_SCHEMA.schema.keys()):
+        if not any([key in (list(GLOBAL_SCHEMA.schema.keys()) + list(
+                POLICY_SCHEMA.schema.keys()) + list(RULE_SCHEMA.schema.keys())) for key in (key, Optional(key))]):
             logging.warning(
                 'Filter key %s is not a valid filter field, skipping', key)
             continue
@@ -546,6 +567,10 @@ def run() -> None:
         return_code, out = args.func(args)
     except AttributeError:
         parser.print_help()
+        sys.exit(1)
+    except Exception as err:  # pylint: disable=broad-except
+        # Catch arbitrary exceptions without printing help message
+        logging.warn('Unexpected exception: "{}"'.format(err))
         sys.exit(1)
 
     if return_code == 1:
