@@ -428,9 +428,6 @@ def classify_analysis(
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
-            logging.warning(
-                'Schema validation error \'%s\' please report this message to our public repo',
-                err)
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
