@@ -14,7 +14,7 @@ lint:
 	yapf $(packages) --diff --parallel --recursive --style google
 	mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores || true # TODO(jack) Figure out why mypy is failing on 'has no attribute' error
 	bandit -r $(packages)
-	pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511 --exit-zero
+	pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912 --exit-zero
 
 venv:
 	virtualenv -p python3.7 venv

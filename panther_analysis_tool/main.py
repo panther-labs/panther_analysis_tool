@@ -312,14 +312,17 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         list(load_analysis_specs(HELPERS_LOCATION)))
 
     if len(analysis) == 0:
-        return 1, "No valid analyses found in {}".format(args.path)
-        
+        return 1, ["Nothing to test in {}".format(args.path)]
+
     # Apply the filters as needed
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
 
     if len(analysis) == 0:
-        return 1, "No analyses in {} matched filters {}".format(args.path, args.filter)
+        return 1, [
+            "No analyses in {} matched filters {}".format(
+                args.path, args.filter)
+        ]
 
     # First import the globals
     for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
@@ -383,8 +386,9 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
     for file_name, dir_name, analysis_spec in analysis:
         match = True
         for key, values in filters.items():
-            spec_value = analysis_spec.get(key, "") 
-            spec_value = spec_value if type(spec_value) is list else [spec_value]
+            spec_value = analysis_spec.get(key, "")
+            spec_value = spec_value if isinstance(spec_value,
+                                                  list) else [spec_value]
             if not set(spec_value).intersection(values):
                 match = False
                 break
@@ -424,7 +428,9 @@ def classify_analysis(
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
-            logging.warn('Unexpected schema validation error "{}", please report this error message to our public repo'.format(err))
+            logging.warning(
+                'Schema validation error \'%s\' please report this message to our public repo',
+                err)
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
@@ -447,11 +453,11 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
                 unit_test.get('ResourceType') or unit_test['LogType'])
             result = analysis_funcs['run'](test_case)
         except KeyError as err:
-            logging.warn("KeyError: {0}".format(err))
+            logging.warning('KeyError: {%s}', err)
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions raised by user code
-            logging.warn('Unexpected exception: "{}"'.format(err))
+            logging.warning('Unexpected exception: {%s}', err)
             continue
         test_result = 'PASS'
         if result != unit_test['ExpectedResult']:
@@ -546,8 +552,12 @@ def parse_filter(filters: List[str]) -> Dict[str, Any]:
                             filt)
             continue
         key = split[0]
-        if not any([key in (list(GLOBAL_SCHEMA.schema.keys()) + list(
-                POLICY_SCHEMA.schema.keys()) + list(RULE_SCHEMA.schema.keys())) for key in (key, Optional(key))]):
+        if not any([
+                key in (list(GLOBAL_SCHEMA.schema.keys()) +
+                        list(POLICY_SCHEMA.schema.keys()) +
+                        list(RULE_SCHEMA.schema.keys()))
+                for key in (key, Optional(key))
+        ]):
             logging.warning(
                 'Filter key %s is not a valid filter field, skipping', key)
             continue
@@ -570,7 +580,7 @@ def run() -> None:
         sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
-        logging.warn('Unexpected exception: "{}"'.format(err))
+        logging.warning('Unexpected exception: "%s"', err)
         sys.exit(1)
 
     if return_code == 1:
