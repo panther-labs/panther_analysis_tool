@@ -530,13 +530,8 @@ def run() -> None:
     parser = setup_parser()
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(format='[%(levelname)s]: %(message)s',
-                            level=logging.DEBUG)
-    else:
-        if args.debug:
-            logging.basicConfig(format='[%(levelname)s]: %(message)s',
-                                level=logging.INFO)
+    logging.basicConfig(format='[%(levelname)s]: %(message)s',
+                        level=logging.DEBUG if args.debug else logging.INFO)
 
     try:
         if args.filter is not None:
