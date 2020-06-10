@@ -34,3 +34,7 @@ integration:
 	panther_analysis_tool test --path tests/fixtures/valid_analysis/
 
 test: unit
+
+pypi:
+	pipenv run python3 setup.py sdist
+	pipenv run twine upload dist/*
