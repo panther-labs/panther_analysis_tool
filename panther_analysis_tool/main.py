@@ -35,7 +35,7 @@ import yaml
 
 from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
 
-HELPERS_LOCATION = 'global_helpers'
+HELPERS_LOCATION = './global_helpers'
 
 HELPERS_PATH_PATTERN = '*/global_helpers'
 RULES_PATH_PATTERN = '*rules*'
@@ -153,9 +153,14 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     filename = 'panther-analysis-{}.zip'.format(current_time)
     with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
         # Always zip the helpers
-        analysis = filter_analysis(list(load_analysis_specs(args.path)) +
-                                   list(load_analysis_specs(HELPERS_LOCATION)),
-                                   args.filter)
+        analysis = []
+        files: Dict[str, Any] = {}
+        for (file_name, f_path, spec) in list(load_analysis_specs(
+                args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
+            if file_name not in files:
+                analysis.append((file_name, f_path, spec))
+                files[file_name] = None
+        analysis = filter_analysis(analysis, args.filter)
         for analysis_spec_filename, dir_name, analysis_spec in analysis:
             zip_out.write(analysis_spec_filename)
             zip_out.write(os.path.join(dir_name, analysis_spec['Filename']))
