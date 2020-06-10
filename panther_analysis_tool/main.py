@@ -14,25 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 '''
 
+from collections import defaultdict
+from datetime import datetime
+from fnmatch import fnmatch
+from importlib.abc import Loader
+from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
 import argparse
 import base64
-from datetime import datetime
 import importlib.util
-from importlib.abc import Loader
-from collections import defaultdict
 import json
 import logging
 import os
 import sys
-from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
 import zipfile
-from schema import (Optional, Or, Schema, SchemaError, SchemaMissingKeyError,
+
+from schema import (Optional, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
+import boto3
 import yaml
 
-import boto3
+from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
 
 HELPERS_LOCATION = 'global_helpers'
+
+HELPERS_PATH_PATTERN = '*/global_helpers'
+RULES_PATH_PATTERN = '*rules*'
+POLICIES_PATH_PATTERN = '*policies*'
 
 
 class TestCase():
@@ -49,100 +56,6 @@ class TestCase():
 
     def get(self, arg: str, default: Any = None) -> Any:
         return self._data.get(arg, default)
-
-
-TYPE_SCHEMA = Schema({
-    'AnalysisType': Or("policy", "rule", "global"),
-},
-                     ignore_extra_keys=True)
-
-GLOBAL_SCHEMA = Schema(
-    {
-        'AnalysisType': Or("global"),
-        'Filename': str,
-        'GlobalID': str,
-        Optional('Description'): str,
-        Optional('Tags'): [str],
-    },
-    ignore_extra_keys=False)
-
-POLICY_SCHEMA = Schema(
-    {
-        'AnalysisType':
-            Or("policy"),
-        'Enabled':
-            bool,
-        'Filename':
-            str,
-        'PolicyID':
-            str,
-        'ResourceTypes': [str],
-        'Severity':
-            Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional('ActionDelaySeconds'):
-            int,
-        Optional('AutoRemediationID'):
-            str,
-        Optional('AutoRemediationParameters'):
-            object,
-        Optional('Description'):
-            str,
-        Optional('DisplayName'):
-            str,
-        Optional('Reference'):
-            str,
-        Optional('Runbook'):
-            str,
-        Optional('Suppressions'): [str],
-        Optional('Tags'): [str],
-        Optional('Reports'): {
-            str: object
-        },
-        Optional('Tests'): [{
-            'Name': str,
-            'ResourceType': str,
-            'ExpectedResult': bool,
-            'Resource': object,
-        }],
-    },
-    ignore_extra_keys=False)
-
-RULE_SCHEMA = Schema(
-    {
-        'AnalysisType':
-            Or("rule"),
-        'Enabled':
-            bool,
-        'Filename':
-            str,
-        'RuleID':
-            str,
-        'LogTypes': [str],
-        'Severity':
-            Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional('Description'):
-            str,
-        Optional('DedupPeriodMinutes'):
-            int,
-        Optional('DisplayName'):
-            str,
-        Optional('Reference'):
-            str,
-        Optional('Runbook'):
-            str,
-        Optional('Suppressions'): [str],
-        Optional('Tags'): [str],
-        Optional('Reports'): {
-            str: object
-        },
-        Optional('Tests'): [{
-            'Name': str,
-            'LogType': str,
-            'ExpectedResult': bool,
-            'Log': object,
-        }],
-    },
-    ignore_extra_keys=False)
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -179,15 +92,27 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
-    for dir_name, _, file_list in os.walk(directory):
+    for relative_path, _, file_list in os.walk(directory):
+        # If the user runs with no path/out args, filter to make sure
+        # we only run folders with valid analysis files.
+        if directory == os.getcwd():
+            if not any([
+                    fnmatch(relative_path, path_pattern)
+                    for path_pattern in (HELPERS_PATH_PATTERN,
+                                         RULES_PATH_PATTERN,
+                                         POLICIES_PATH_PATTERN)
+            ]):
+                logging.info('Skipping path %s', relative_path)
+                continue
         for filename in sorted(file_list):
-            spec_filename = os.path.join(dir_name, filename)
-            if filename.endswith('.yaml') or filename.endswith('.yml'):
+            spec_filename = os.path.join(relative_path, filename)
+            if fnmatch(filename, '*.y*ml'):
                 with open(spec_filename, 'r') as spec_file_obj:
-                    yield spec_filename, dir_name, yaml.safe_load(spec_file_obj)
-            if filename.endswith('.json'):
+                    yield spec_filename, relative_path, yaml.safe_load(
+                        spec_file_obj)
+            if fnmatch(filename, '*.json'):
                 with open(spec_filename, 'r') as spec_file_obj:
-                    yield spec_filename, dir_name, json.load(spec_file_obj)
+                    yield spec_filename, relative_path, json.load(spec_file_obj)
 
 
 def datetime_converted(obj: Any) -> Any:
@@ -227,7 +152,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         ':', '-')
     filename = 'panther-analysis-{}.zip'.format(current_time)
     with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
-        analysis = filter_analysis(list(load_analysis_specs(args.path)),
+        # Always zip the helpers
+        analysis = filter_analysis(list(load_analysis_specs(args.path)) +
+                                   list(load_analysis_specs(HELPERS_LOCATION)),
                                    args.filter)
         for analysis_spec_filename, dir_name, analysis_spec in analysis:
             zip_out.write(analysis_spec_filename)
@@ -471,6 +398,8 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
 
 def setup_parser() -> argparse.ArgumentParser:
+    cwd = os.getcwd()
+
     parser = argparse.ArgumentParser(
         description=
         'Panther Analysis Tool: A command line tool for managing Panther policies and rules.',
@@ -485,6 +414,7 @@ def setup_parser() -> argparse.ArgumentParser:
         help='Validate analysis specifications and run policy and rule tests.')
     test_parser.add_argument(
         '--path',
+        default=cwd,
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
@@ -501,11 +431,13 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     zip_parser.add_argument(
         '--path',
+        default=cwd,
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
     zip_parser.add_argument(
         '--out',
+        default=cwd,
         type=str,
         help='The path to write zipped policies and rules to.',
         required=True)
@@ -520,12 +452,13 @@ def setup_parser() -> argparse.ArgumentParser:
         help='Upload specified policies and rules to a Panther deployment.')
     upload_parser.add_argument(
         '--path',
+        default=cwd,
         type=str,
         help='The relative path to Panther policies and rules.',
         required=True)
     upload_parser.add_argument(
         '--out',
-        default='.',
+        default=cwd,
         type=str,
         help=
         'The location to store a local copy of the packaged policies and rules.',

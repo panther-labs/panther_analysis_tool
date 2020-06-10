@@ -32,3 +32,5 @@ unit:
 
 integration:
 	panther_analysis_tool test --path tests/fixtures/valid_policies/
+
+test: unit
