@@ -95,7 +95,7 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
     for relative_path, _, file_list in os.walk(directory):
         # If the user runs with no path/out args, filter to make sure
         # we only run folders with valid analysis files.
-        if directory == os.getcwd():
+        if directory == '.':
             if not any([
                     fnmatch(relative_path, path_pattern)
                     for path_pattern in (HELPERS_PATH_PATTERN,
@@ -398,15 +398,13 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
 
 def setup_parser() -> argparse.ArgumentParser:
-    cwd = os.getcwd()
-
     parser = argparse.ArgumentParser(
         description=
         'Panther Analysis Tool: A command line tool for managing Panther policies and rules.',
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.3.1')
+                        version='panther_analysis_tool 0.3.2-beta-2')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
@@ -414,10 +412,10 @@ def setup_parser() -> argparse.ArgumentParser:
         help='Validate analysis specifications and run policy and rule tests.')
     test_parser.add_argument(
         '--path',
-        default=cwd,
+        default='.',
         type=str,
         help='The relative path to Panther policies and rules.',
-        required=True)
+        required=False)
     test_parser.add_argument('--filter',
                              required=False,
                              metavar="KEY=VALUE",
@@ -431,16 +429,16 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     zip_parser.add_argument(
         '--path',
-        default=cwd,
+        default='.',
         type=str,
         help='The relative path to Panther policies and rules.',
-        required=True)
+        required=False)
     zip_parser.add_argument(
         '--out',
-        default=cwd,
+        default='.',
         type=str,
         help='The path to write zipped policies and rules to.',
-        required=True)
+        required=False)
     zip_parser.add_argument('--filter',
                             required=False,
                             metavar="KEY=VALUE",
@@ -452,13 +450,13 @@ def setup_parser() -> argparse.ArgumentParser:
         help='Upload specified policies and rules to a Panther deployment.')
     upload_parser.add_argument(
         '--path',
-        default=cwd,
+        default='.',
         type=str,
         help='The relative path to Panther policies and rules.',
-        required=True)
+        required=False)
     upload_parser.add_argument(
         '--out',
-        default=cwd,
+        default='.',
         type=str,
         help=
         'The location to store a local copy of the packaged policies and rules.',
