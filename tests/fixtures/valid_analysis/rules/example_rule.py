@@ -1,3 +1,5 @@
+from panther import test_helper # pylint: disable=import-error
+
 IGNORED_USERS = {}
 
 
@@ -9,8 +11,9 @@ def rule(event):
     if not cred_report:
         return True
 
-    return cred_report.get('PasswordEnabled', False) and cred_report.get(
-        'MfaActive', False)
+    return (test_helper() and
+            cred_report.get('PasswordEnabled', False) and
+            cred_report.get('MfaActive', False))
 
 def dedup(event):
     return event['UserName']
