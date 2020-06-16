@@ -61,7 +61,7 @@ POLICY_SCHEMA = Schema(
         Optional('Suppressions'): [str],
         Optional('Tags'): [str],
         Optional('Reports'): {
-            str: object
+            str: list
         },
         Optional('Tests'): [{
             'Name': str,
@@ -98,7 +98,7 @@ RULE_SCHEMA = Schema(
         Optional('Suppressions'): [str],
         Optional('Tags'): [str],
         Optional('Reports'): {
-            str: object
+            str: list
         },
         Optional('Tests'): [{
             'Name': str,

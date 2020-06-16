@@ -13,6 +13,11 @@ Tags:
   - AWS
   - CIS
   - SOC2
+Reports:
+  CIS:
+    - 1.1
+  MITRE:
+    - Extraction:Data Parsing
 Runbook: >
   Find out who disabled MFA on the account.
 Reference: https://www.link-to-info.io
