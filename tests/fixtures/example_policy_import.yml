@@ -9,7 +9,6 @@ ResourceTypes:
 Tests:
   -
     Name: Always Returns True
-    ResourceType: AWS.Import.Test
     ExpectedResult: true
     Resource:
       Key: value

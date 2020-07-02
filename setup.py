@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
     name='panther_analysis_tool',
     packages=['panther_analysis_tool'],
-    version='0.3.2',
+    version='0.3.3',
     license='apache-2.0',
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',

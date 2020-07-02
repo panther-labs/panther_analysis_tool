@@ -18,7 +18,6 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Root MFA not enabled fails compliance
-    LogType: AWS.CloudTrail
     ExpectedResult: false
     Log:
       Arn: arn:aws:iam::123456789012:user/root
@@ -29,7 +28,6 @@ Tests:
       UserName: root
   -
     Name: User MFA not enabled fails compliance
-    LogType: AWS.CloudTrail
     ExpectedResult: false
     Log:
       {

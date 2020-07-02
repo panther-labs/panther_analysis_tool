@@ -44,9 +44,12 @@ POLICIES_PATH_PATTERN = '*policies*'
 
 class TestCase():
 
-    def __init__(self, data: Dict[str, Any], schema: str) -> None:
+    def __init__(self, data: Dict[str, Any]) -> None:
+        """
+        Args:
+            data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy or rule against respectively.
+        """
         self._data = data
-        self.schema = schema
 
     def __getitem__(self, arg: str) -> Any:
         return self._data.get(arg, None)
@@ -402,9 +405,7 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
     for unit_test in analysis['Tests']:
         try:
-            test_case = TestCase(
-                unit_test.get('Resource') or unit_test['Log'],
-                unit_test.get('ResourceType') or unit_test['LogType'])
+            test_case = TestCase(unit_test.get('Resource') or unit_test['Log'])
             result = analysis_funcs['run'](test_case)
         except KeyError as err:
             logging.warning('KeyError: {%s}', err)
@@ -434,7 +435,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.3.2')
+                        version='panther_analysis_tool 0.3.3')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(

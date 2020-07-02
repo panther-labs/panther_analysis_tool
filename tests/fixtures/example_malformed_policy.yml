@@ -15,7 +15,6 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Root MFA not enabled triggers a violation.
-    ResourceType: AWS.IAM.RootUser.Snapshot
     ExpectedResult: false
     Resource:
       Arn: arn:aws:iam::123456789012:user/root
@@ -26,7 +25,6 @@ Tests:
       UserName: root
   -
     Name: User MFA not enabled triggers a violation.
-    ResourceType: AWS.IAM.User.Snapshot
     ExpectedResult: false
     Resource:
       {
@@ -40,7 +38,6 @@ Tests:
       }
   -
     Name: User with no password enabled does not trigger a policy violation.
-    ResourceType: AWS.IAM.User.Snapshot
     ExpectedResult: true
     DOG: lol
     Resource:

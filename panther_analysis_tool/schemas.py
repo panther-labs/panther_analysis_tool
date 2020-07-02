@@ -65,12 +65,13 @@ POLICY_SCHEMA = Schema(
         },
         Optional('Tests'): [{
             'Name': str,
-            'ResourceType': str,
+            Optional('ResourceType'):
+                str,  # Not needed anymore, optional for backwards compatibility
             'ExpectedResult': bool,
             'Resource': object,
         }],
     },
-    ignore_extra_keys=False)
+    ignore_extra_keys=False)  # Prevent user typos on optional fields
 
 RULE_SCHEMA = Schema(
     {
@@ -102,9 +103,10 @@ RULE_SCHEMA = Schema(
         },
         Optional('Tests'): [{
             'Name': str,
-            'LogType': str,
+            Optional('LogType'):
+                str,  # Not needed anymore, optional for backwards compatibility
             'ExpectedResult': bool,
             'Log': object,
         }],
     },
-    ignore_extra_keys=False)
+    ignore_extra_keys=False)  # Prevent user typos on optional fields
