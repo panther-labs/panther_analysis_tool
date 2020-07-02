@@ -223,7 +223,7 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Name to describe our first test.
-    Schema: Resource.Type.Here
+    ResourceType: Resource.Type.Here
     ExpectedResult: true/false
     Resource:
       Key: Values
@@ -288,7 +288,7 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Name to describe our first test.
-    ResourceType: Log.Type.Here
+    LogType: Log.Type.Here
     ExpectedResult: true/false
     Resource:
       Key: Values
