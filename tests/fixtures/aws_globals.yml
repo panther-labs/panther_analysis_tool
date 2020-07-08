@@ -13,5 +13,4 @@ Tests:
   -
     Name: Dummy Test
     ExpectedResult: true
-    ResourceType: AWS.Dummy.Type
     Resource: {}

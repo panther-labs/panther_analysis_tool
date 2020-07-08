@@ -223,7 +223,7 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Name to describe our first test.
-    ResourceType: Resource.Type.Here
+    ResourceType: Resource.Type.Here  # Not needed in Panther versions >= 1.6.0
     ExpectedResult: true/false
     Resource:
       Key: Values
@@ -288,7 +288,7 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Name to describe our first test.
-    LogType: Log.Type.Here
+    LogType: Log.Type.Here  # Not needed in Panther versions >= 1.6.0
     ExpectedResult: true/false
     Resource:
       Key: Values

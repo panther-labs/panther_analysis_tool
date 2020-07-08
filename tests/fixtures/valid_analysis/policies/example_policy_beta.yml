@@ -19,7 +19,6 @@ Reference: https://www.link-to-info.io
 Tests:
   -
     Name: Root MFA not enabled fails compliance
-    ResourceType: AWS.IAM.RootUser.Snapshot
     ExpectedResult: false
     Resource:
       Arn: arn:aws:iam::123456789012:user/root
@@ -30,7 +29,6 @@ Tests:
       UserName: root
   -
     Name: User MFA not enabled fails compliance
-    ResourceType: AWS.IAM.User.Snapshot
     ExpectedResult: false
     Resource:
       {
