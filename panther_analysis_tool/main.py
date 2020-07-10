@@ -409,10 +409,14 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
             result = analysis_funcs['run'](test_case)
         except KeyError as err:
             logging.warning('KeyError: {%s}', err)
+            failed_tests[analysis.get('PolicyID') or
+                         analysis['RuleID']].append(unit_test['Name'])
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions raised by user code
             logging.warning('Unexpected exception: {%s}', err)
+            failed_tests[analysis.get('PolicyID') or
+                         analysis['RuleID']].append(unit_test['Name'])
             continue
         test_result = 'PASS'
         if result != unit_test['ExpectedResult']:
@@ -538,9 +542,6 @@ def run() -> None:
         if args.filter is not None:
             args.filter = parse_filter(args.filter)
         return_code, out = args.func(args)
-    except AttributeError:
-        parser.print_help()
-        sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)

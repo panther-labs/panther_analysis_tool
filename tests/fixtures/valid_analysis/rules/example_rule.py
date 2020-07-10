@@ -1,4 +1,5 @@
 from panther import test_helper # pylint: disable=import-error
+import world_meme_database
 
 IGNORED_USERS = {}
 
