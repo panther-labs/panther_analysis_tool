@@ -54,6 +54,7 @@ POLICY_SCHEMA = Schema(
             str,
         Optional('DisplayName'):
             str,
+        Optional('OutputIds'): [str],
         Optional('Reference'):
             str,
         Optional('Runbook'):
@@ -92,6 +93,7 @@ RULE_SCHEMA = Schema(
             int,
         Optional('DisplayName'):
             str,
+        Optional('OutputIds'): [str],
         Optional('Reference'):
             str,
         Optional('Runbook'):
