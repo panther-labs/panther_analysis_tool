@@ -47,7 +47,8 @@ class TestCase():
     def __init__(self, data: Dict[str, Any]) -> None:
         """
         Args:
-            data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy or rule against respectively.
+            data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy
+            or rule against respectively.
         """
         self._data = data
 
@@ -307,7 +308,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     return int(bool(failed_tests or invalid_specs)), invalid_specs
 
 
-def print_summary(test_path: str, num_tests: int, failed_tests: List[Any],
+def print_summary(test_path: str, num_tests: int, failed_tests: Dict[str, list],
                   invalid_specs: List[Any]) -> None:
     '''Print a summary of passed, failed, and invalid specs'''
     print('--------------------------')
