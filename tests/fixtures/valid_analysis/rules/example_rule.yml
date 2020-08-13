@@ -3,6 +3,7 @@ Filename: example_rule.py
 DisplayName: MFA Rule
 Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
 Severity: High
+Threshold: 5
 RuleID: AWS.CloudTrail.MFAEnabled
 Enabled: true
 LogTypes:
