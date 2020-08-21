@@ -6,6 +6,9 @@ Severity: High
 Threshold: 5
 RuleID: AWS.CloudTrail.MFAEnabled
 Enabled: true
+SummaryAttributes:
+  - p_log_type
+  - p_any_ip_addresses
 LogTypes:
   - AWS.CloudTrail
 Tags:
