@@ -361,8 +361,8 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 
 def classify_analysis(
-    specs: List[Tuple[str, str, Any]]
-) -> Tuple[List[Any], List[Any], List[Any]]:
+    specs: List[Tuple[str, str,
+                      Any]]) -> Tuple[List[Any], List[Any], List[Any]]:
     # First determine the type of each file
     global_analysis = []
     analysis = []

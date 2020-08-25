@@ -98,9 +98,10 @@ RULE_SCHEMA = Schema(
             str,
         Optional('Runbook'):
             str,
+        Optional('SummaryAttributes'): [str],
+        Optional('Suppressions'): [str],
         Optional('Threshold'):
             int,
-        Optional('Suppressions'): [str],
         Optional('Tags'): [str],
         Optional('Reports'): {
             str: list
