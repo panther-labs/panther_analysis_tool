@@ -420,10 +420,13 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
                          analysis['RuleID']].append(unit_test['Name'])
             continue
 
+        # using a dictionary to map between the tests and their outcomes
+        # assume the test passes (default "PASS") 
+        # until failure condition is found (set to "FAIL")
         test_result = defaultdict(lambda: 'PASS')
         # check expected result
         if result != unit_test['ExpectedResult']:
-            test_result['expected'] = 'FAIL'
+            test_result['outcome'] = 'FAIL'
 
         # check dedup and title function return non-None
         if unit_test['ExpectedResult']:
@@ -431,14 +434,14 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
                 if analysis_funcs.get(func):
                     if not analysis_funcs[func](test_case):
                         test_result[func] = 'FAIL'
-                        test_result['expected'] = 'FAIL'
+                        test_result['outcome'] = 'FAIL'
 
         if test_result['expected'] == 'FAIL':
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
 
         # print results
-        print('\t[{}] {}'.format(test_result['expected'], unit_test['Name']))
+        print('\t[{}] {}'.format(test_result['outcome'], unit_test['Name']))
         for func in ['dedup', 'title']:
             if analysis_funcs.get(func) and unit_test['ExpectedResult']:
                 print('\t\t[{}] [{}] {}'.format(
