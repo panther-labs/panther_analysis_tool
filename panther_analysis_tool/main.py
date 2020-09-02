@@ -421,7 +421,7 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
             continue
 
         # using a dictionary to map between the tests and their outcomes
-        # assume the test passes (default "PASS") 
+        # assume the test passes (default "PASS")
         # until failure condition is found (set to "FAIL")
         test_result = defaultdict(lambda: 'PASS')
         # check expected result
