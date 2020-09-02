@@ -429,6 +429,7 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
             test_result['outcome'] = 'FAIL'
 
         # check dedup and title function return non-None
+        # Only applies to rules which match an incoming event
         if unit_test['ExpectedResult']:
             for func in ['dedup', 'title']:
                 if analysis_funcs.get(func):
@@ -436,7 +437,7 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
                         test_result[func] = 'FAIL'
                         test_result['outcome'] = 'FAIL'
 
-        if test_result['expected'] == 'FAIL':
+        if test_result['outcome'] == 'FAIL':
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
 
