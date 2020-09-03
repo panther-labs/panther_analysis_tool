@@ -419,16 +419,34 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
             continue
-        test_result = 'PASS'
+
+        # using a dictionary to map between the tests and their outcomes
+        # assume the test passes (default "PASS")
+        # until failure condition is found (set to "FAIL")
+        test_result = defaultdict(lambda: 'PASS')
+        # check expected result
         if result != unit_test['ExpectedResult']:
-            test_result = 'FAIL'
+            test_result['outcome'] = 'FAIL'
+
+        # check dedup and title function return non-None
+        # Only applies to rules which match an incoming event
+        if unit_test['ExpectedResult']:
+            for func in ['dedup', 'title']:
+                if analysis_funcs.get(func):
+                    if not analysis_funcs[func](test_case):
+                        test_result[func] = 'FAIL'
+                        test_result['outcome'] = 'FAIL'
+
+        if test_result['outcome'] == 'FAIL':
             failed_tests[analysis.get('PolicyID') or
                          analysis['RuleID']].append(unit_test['Name'])
-        print('\t[{}] {}'.format(test_result, unit_test['Name']))
-        if analysis_funcs.get('title') and unit_test['ExpectedResult']:
-            print('\t\t[Title] {}'.format(analysis_funcs['title'](test_case)))
-        if analysis_funcs.get('dedup') and unit_test['ExpectedResult']:
-            print('\t\t[Dedup] {}'.format(analysis_funcs['dedup'](test_case)))
+
+        # print results
+        print('\t[{}] {}'.format(test_result['outcome'], unit_test['Name']))
+        for func in ['dedup', 'title']:
+            if analysis_funcs.get(func) and unit_test['ExpectedResult']:
+                print('\t\t[{}] [{}] {}'.format(
+                    test_result[func], func, analysis_funcs[func](test_case)))
 
     return failed_tests
 

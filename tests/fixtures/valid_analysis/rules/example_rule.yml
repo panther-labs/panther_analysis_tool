@@ -43,3 +43,17 @@ Tests:
         },
         "UserName": "test"
       }
+  -
+    Name: User MFA enabled passes compliance.
+    ExpectedResult: true
+    Log:
+      {
+        "Arn": "arn:aws:iam::123456789012:user/test",
+        "CreateDate": "2019-01-01T00:00:00",
+        "CredentialReport": {
+          "MfaActive": true,
+          "PasswordEnabled": true
+        },
+        "UserName": "test"
+      }
+      
