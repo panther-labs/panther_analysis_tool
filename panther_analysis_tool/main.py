@@ -158,11 +158,10 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
         # Always zip the helpers
         analysis = []
-        files: Set[str] = Set()
+        files: Set[str] = set()
         for (file_name, f_path, spec) in list(load_analysis_specs(
                 args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
             if file_name not in files:
-                print(file_name)
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
                 files.add('./' + file_name)
