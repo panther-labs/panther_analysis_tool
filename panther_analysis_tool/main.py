@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import datetime
 from fnmatch import fnmatch
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Tuple
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 import argparse
 import base64
 import importlib.util
@@ -158,12 +158,13 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
         # Always zip the helpers
         analysis = []
-        files: Dict[str, Any] = {}
+        files: Set[str] = set()
         for (file_name, f_path, spec) in list(load_analysis_specs(
                 args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
-                files[file_name] = None
+                files.add(file_name)
+                files.add('./' + file_name)
         analysis = filter_analysis(analysis, args.filter)
         for analysis_spec_filename, dir_name, analysis_spec in analysis:
             zip_out.write(analysis_spec_filename)
@@ -247,14 +248,14 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         list(load_analysis_specs(args.path)) +
         list(load_analysis_specs(HELPERS_LOCATION)))
 
-    if len(analysis) == 0:
+    if len(analysis) == 0 and len(global_analysis) == 0:
         return 1, ["Nothing to test in {}".format(args.path)]
 
     # Apply the filters as needed
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
 
-    if len(analysis) == 0:
+    if len(analysis) == 0 and len(global_analysis) == 0:
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
@@ -458,7 +459,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.3.4')
+                        version='panther_analysis_tool 0.3.5')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
