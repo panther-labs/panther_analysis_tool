@@ -94,7 +94,7 @@ RULE_SCHEMA = Schema(
         Optional('DedupPeriodMinutes'):
             int,
         Optional('DisplayName'):
-            And(str, Regex("")),
+            And(str, NAME_ID_VALIDATION_REGEX),
         Optional('OutputIds'): [str],
         Optional('Reference'):
             str,
