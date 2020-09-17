@@ -16,7 +16,7 @@ limitations under the License.
 
 from schema import And, Optional, Or, Regex, Schema
 
-NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9\-\_\.\ \(\)]+$")
+NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema({
     'AnalysisType': Or("policy", "rule", "global"),
