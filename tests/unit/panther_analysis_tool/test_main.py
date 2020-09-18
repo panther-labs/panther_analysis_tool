@@ -67,7 +67,14 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 1)
+        assert_equal(len(invalid_specs), 2)
+
+    def test_invalid_characters(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High PolicyID=AWS.IAM.MFAEnabled'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 2)
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())

@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 '''
 
-from schema import Optional, Or, Schema
+from schema import And, Optional, Or, Regex, Schema
+
+NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema({
     'AnalysisType': Or("policy", "rule", "global"),
@@ -25,7 +27,7 @@ GLOBAL_SCHEMA = Schema(
     {
         'AnalysisType': Or("global"),
         'Filename': str,
-        'GlobalID': str,
+        'GlobalID': And(str, NAME_ID_VALIDATION_REGEX),
         Optional('Description'): str,
         Optional('Tags'): [str],
     },
@@ -40,7 +42,7 @@ POLICY_SCHEMA = Schema(
         'Filename':
             str,
         'PolicyID':
-            str,
+            And(str, NAME_ID_VALIDATION_REGEX),
         'ResourceTypes': [str],
         'Severity':
             Or("Info", "Low", "Medium", "High", "Critical"),
@@ -53,7 +55,7 @@ POLICY_SCHEMA = Schema(
         Optional('Description'):
             str,
         Optional('DisplayName'):
-            str,
+            And(str, NAME_ID_VALIDATION_REGEX),
         Optional('OutputIds'): [str],
         Optional('Reference'):
             str,
@@ -83,7 +85,7 @@ RULE_SCHEMA = Schema(
         'Filename':
             str,
         'RuleID':
-            str,
+            And(str, NAME_ID_VALIDATION_REGEX),
         'LogTypes': [str],
         'Severity':
             Or("Info", "Low", "Medium", "High", "Critical"),
@@ -92,7 +94,7 @@ RULE_SCHEMA = Schema(
         Optional('DedupPeriodMinutes'):
             int,
         Optional('DisplayName'):
-            str,
+            And(str, NAME_ID_VALIDATION_REGEX),
         Optional('OutputIds'): [str],
         Optional('Reference'):
             str,
