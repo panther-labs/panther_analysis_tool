@@ -87,7 +87,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
+def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
@@ -112,11 +112,18 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
             spec_filename = os.path.join(relative_path, filename)
             if fnmatch(filename, '*.y*ml'):
                 with open(spec_filename, 'r') as spec_file_obj:
-                    yield spec_filename, relative_path, yaml.safe_load(
-                        spec_file_obj)
+                    try:
+                        yield spec_filename, relative_path, yaml.safe_load(
+                            spec_file_obj), None
+                    except yaml.YAMLError as err:
+                        yield spec_filename, relative_path, None, err
             if fnmatch(filename, '*.json'):
                 with open(spec_filename, 'r') as spec_file_obj:
-                    yield spec_filename, relative_path, json.load(spec_file_obj)
+                    try:
+                        yield spec_filename, relative_path, json.load(
+                            spec_file_obj), None
+                    except ValueError as err:
+                        yield spec_filename, relative_path, None, err
 
 
 def datetime_converted(obj: Any) -> Any:
@@ -159,9 +166,10 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         # Always zip the helpers
         analysis = []
         files: Set[str] = set()
-        for (file_name, f_path, spec) in list(load_analysis_specs(
-                args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
-            if file_name not in files:
+        for (file_name, f_path, spec,
+             error) in list(load_analysis_specs(args.path)) + list(
+                 load_analysis_specs(HELPERS_LOCATION)):
+            if file_name not in files and not error:
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
                 files.add('./' + file_name)
@@ -362,28 +370,33 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 
 def classify_analysis(
-    specs: List[Tuple[str, str,
-                      Any]]) -> Tuple[List[Any], List[Any], List[Any]]:
+    specs: List[Tuple[str, str, Any, Any]]
+) -> Tuple[List[Any], List[Any], List[Any]]:
     # First determine the type of each file
     global_analysis = []
     analysis = []
     invalid_specs = []
 
-    for analysis_spec_filename, dir_name, analysis_spec in specs:
+    for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         try:
-            TYPE_SCHEMA.validate(analysis_spec)
-            if analysis_spec['AnalysisType'] == 'policy':
-                POLICY_SCHEMA.validate(analysis_spec)
-                analysis.append(
-                    (analysis_spec_filename, dir_name, analysis_spec))
-            if analysis_spec['AnalysisType'] == 'rule':
-                RULE_SCHEMA.validate(analysis_spec)
-                analysis.append(
-                    (analysis_spec_filename, dir_name, analysis_spec))
-            if analysis_spec['AnalysisType'] == 'global':
-                GLOBAL_SCHEMA.validate(analysis_spec)
-                global_analysis.append(
-                    (analysis_spec_filename, dir_name, analysis_spec))
+            # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
+            if error:
+                raise error
+            else:
+                # validate the schema
+                TYPE_SCHEMA.validate(analysis_spec)
+                if analysis_spec['AnalysisType'] == 'policy':
+                    POLICY_SCHEMA.validate(analysis_spec)
+                    analysis.append(
+                        (analysis_spec_filename, dir_name, analysis_spec))
+                if analysis_spec['AnalysisType'] == 'rule':
+                    RULE_SCHEMA.validate(analysis_spec)
+                    analysis.append(
+                        (analysis_spec_filename, dir_name, analysis_spec))
+                if analysis_spec['AnalysisType'] == 'global':
+                    GLOBAL_SCHEMA.validate(analysis_spec)
+                    global_analysis.append(
+                        (analysis_spec_filename, dir_name, analysis_spec))
         except (SchemaError, SchemaMissingKeyError, SchemaForbiddenKeyError,
                 SchemaUnexpectedTypeError) as err:
             invalid_specs.append((analysis_spec_filename, err))

@@ -17,13 +17,13 @@ class TestPantherAnalysisTool(TestCase):
         self.fs.add_real_directory(self.fixture_path)
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec in pat.load_analysis_specs('tests/fixtures'):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
             if spec_filename == 'example_policy.json':
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_yaml_policy_spec(self):
-        for spec_filename, _, loaded_spec in pat.load_analysis_specs('tests/fixtures'):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
             if spec_filename == 'example_policy.yml':
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
@@ -67,14 +67,14 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 2)
+        assert_equal(len(invalid_specs), 3)
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High PolicyID=AWS.IAM.MFAEnabled'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 2)
+        assert_equal(len(invalid_specs), 3)
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())
