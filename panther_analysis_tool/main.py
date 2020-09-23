@@ -382,21 +382,20 @@ def classify_analysis(
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
                 raise error
-            else:
-                # validate the schema
-                TYPE_SCHEMA.validate(analysis_spec)
-                if analysis_spec['AnalysisType'] == 'policy':
-                    POLICY_SCHEMA.validate(analysis_spec)
-                    analysis.append(
-                        (analysis_spec_filename, dir_name, analysis_spec))
-                if analysis_spec['AnalysisType'] == 'rule':
-                    RULE_SCHEMA.validate(analysis_spec)
-                    analysis.append(
-                        (analysis_spec_filename, dir_name, analysis_spec))
-                if analysis_spec['AnalysisType'] == 'global':
-                    GLOBAL_SCHEMA.validate(analysis_spec)
-                    global_analysis.append(
-                        (analysis_spec_filename, dir_name, analysis_spec))
+            # validate the schema
+            TYPE_SCHEMA.validate(analysis_spec)
+            if analysis_spec['AnalysisType'] == 'policy':
+                POLICY_SCHEMA.validate(analysis_spec)
+                analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
+            if analysis_spec['AnalysisType'] == 'rule':
+                RULE_SCHEMA.validate(analysis_spec)
+                analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
+            if analysis_spec['AnalysisType'] == 'global':
+                GLOBAL_SCHEMA.validate(analysis_spec)
+                global_analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
         except (SchemaError, SchemaMissingKeyError, SchemaForbiddenKeyError,
                 SchemaUnexpectedTypeError) as err:
             invalid_specs.append((analysis_spec_filename, err))
