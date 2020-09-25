@@ -1,5 +1,5 @@
 # functional dependencies
-PyYAML
+ruamel.yaml
 schema
 boto3
 # ci dependencies
@@ -9,3 +9,4 @@ pylint
 pyfakefs
 yapf
 nose
+PyYAML

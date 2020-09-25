@@ -31,7 +31,7 @@ import zipfile
 from schema import (Optional, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
 import boto3
-import yaml
+from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
 
 from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
 
@@ -97,6 +97,8 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     for relative_path, _, file_list in os.walk(directory):
+        # setup yaml object
+        yaml = YAML(typ='safe')
         # If the user runs with no path/out args, filter to make sure
         # we only run folders with valid analysis files.
         if directory == '.':
@@ -113,9 +115,12 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
             if fnmatch(filename, '*.y*ml'):
                 with open(spec_filename, 'r') as spec_file_obj:
                     try:
-                        yield spec_filename, relative_path, yaml.safe_load(
+                        yield spec_filename, relative_path, yaml.load(
                             spec_file_obj), None
-                    except yaml.YAMLError as err:
+                    except (YAMLParser.ParserError,
+                            YAMLScanner.ScannerError) as err:
+                        # recreate the yaml object and yeild the error
+                        yaml = YAML(typ='safe')
                         yield spec_filename, relative_path, None, err
             if fnmatch(filename, '*.json'):
                 with open(spec_filename, 'r') as spec_file_obj:
