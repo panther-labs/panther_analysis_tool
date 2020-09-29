@@ -78,7 +78,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         assert isinstance(spec.loader, Loader)  #nosec
         spec.loader.exec_module(module)
     except FileNotFoundError as err:
-        print('\t[ERROR] File not found, skipping\n')
+        print('\t[ERROR] File not found: ' + filename + ', skipping\n')
         return None, err
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions thrown by user code
@@ -97,12 +97,19 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     for relative_path, _, file_list in os.walk(directory):
-        # If the user runs with no path/out args, filter to make sure
-        # we only run folders with valid analysis files.
-        if relative_path in ['.', "./"] and directory in [".", "./"]:
-            # in order to grab files in the current directory, we need to strip leading
-            # '.' from the relative path
-            relative_path = ""
+        # If the user runs with no path args, filter to make sure
+        # we only run folders with valid analysis files. Ensure we test
+        # files in the current directory by not skipping this iteration
+        # when relative_path is the current dir
+        if directory in ['.', './'] and relative_path not in [".", "./"]:
+            if not any([
+                    fnmatch(relative_path, path_pattern)
+                    for path_pattern in (HELPERS_PATH_PATTERN,
+                                         RULES_PATH_PATTERN,
+                                         POLICIES_PATH_PATTERN)
+            ]):
+                logging.debug('Skipping path %s', relative_path)
+                continue
         for filename in sorted(file_list):
             spec_filename = os.path.join(relative_path, filename)
             if fnmatch(filename, '*.y*ml'):
