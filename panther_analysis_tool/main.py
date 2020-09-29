@@ -101,7 +101,7 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
         # we only run folders with valid analysis files. Ensure we test
         # files in the current directory by not skipping this iteration
         # when relative_path is the current dir
-        if directory in ['.', './'] and relative_path not in [".", "./"]:
+        if directory in ['.', './'] and relative_path not in ['.', './']:
             if not any([
                     fnmatch(relative_path, path_pattern)
                     for path_pattern in (HELPERS_PATH_PATTERN,
