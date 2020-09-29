@@ -553,7 +553,8 @@ def parse_filter(filters: List[str]) -> Dict[str, Any]:
 
 def run() -> None:
     parser = setup_parser()
-    args = parser.parse_args()
+    # if no args are passed, print the help output
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     logging.basicConfig(format='[%(levelname)s]: %(message)s',
                         level=logging.DEBUG if args.debug else logging.INFO)
