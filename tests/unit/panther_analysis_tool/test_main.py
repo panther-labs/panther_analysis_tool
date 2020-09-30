@@ -1,7 +1,7 @@
 from datetime import datetime
 import os
 
-from pyfakefs.fake_filesystem_unittest import TestCase
+from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 from nose.tools import (assert_equal, assert_false, assert_is_instance,
                         assert_is_none, assert_true, raises, nottest,
                         with_setup)
@@ -43,6 +43,34 @@ class TestPantherAnalysisTool(TestCase):
     def test_rules_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/rules'.split())
         return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_rules_from_current_dir(self):
+        # This is a work around to test running tool against current directory 
+        return_code = -1
+        invalid_specs = None
+        valid_rule_path = self.fixture_path + 'valid_analysis/rules'
+        # test default path, '.'
+        with Pause(self.fs):
+            original_path = os.getcwd()
+            os.chdir(valid_rule_path)
+            args = pat.setup_parser().parse_args('test'.split())
+            return_code, invalid_specs = pat.test_analysis(args)
+            os.chdir(original_path)
+        # asserts are outside of the pause to ensure the fakefs gets resumed
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+        return_code = -1
+        invalid_specs = None
+        # test explicitly setting current dir
+        with Pause(self.fs):
+            original_path = os.getcwd()
+            os.chdir(valid_rule_path)
+            args = pat.setup_parser().parse_args('test --path ./'.split())
+            return_code, invalid_specs = pat.test_analysis(args)
+            os.chdir(original_path)
+        # asserts are outside of the pause to ensure the fakefs gets resumed
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
