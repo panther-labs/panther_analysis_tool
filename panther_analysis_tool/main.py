@@ -28,10 +28,10 @@ import os
 import sys
 import zipfile
 
+from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
 from schema import (Optional, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
 import boto3
-from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
 
 from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
 
@@ -173,10 +173,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         # Always zip the helpers
         analysis = []
         files: Set[str] = set()
-        for (file_name, f_path, spec,
-             error) in list(load_analysis_specs(args.path)) + list(
-                 load_analysis_specs(HELPERS_LOCATION)):
-            if file_name not in files and not error:
+        for (file_name, f_path, spec, _) in list(load_analysis_specs(
+                args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
+            if file_name not in files:
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
                 files.add('./' + file_name)
