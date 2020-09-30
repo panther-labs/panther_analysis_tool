@@ -1,0 +1,25 @@
+AnalysisType: rule 
+Filename: example_strict_invalid_yaml.py
+DisplayName: Sample Rule - Strict Invalid YAML Check
+Severity: Info
+RuleID: Strict.Invalid.YAML.Check
+Enabled: true
+SummaryAttributes:
+  - p_log_type
+  - p_any_ip_addresses
+LogTypes:
+  - Sample.Log.Type
+Tags:
+  - Test
+Runbook: Sample Runbook
+Reference: https://www.link-to-info.io
+Tests:
+  -
+    Name: Testing invalid yaml
+    ExpectedResult: false
+    Log:
+      {
+        UserName:{ 
+          test: test
+        }
+      }
