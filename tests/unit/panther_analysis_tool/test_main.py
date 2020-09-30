@@ -90,6 +90,12 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
+    def test_aws_profiles(self):
+        aws_profile = "AWS_PROFILE"
+        args = pat.setup_parser().parse_args('upload --path tests/fixtures/valid_analysis --aws-profile myprofile'.split())
+        pat.set_env(aws_profile, args.aws_profile)
+        assert_equal(args.aws_profile, os.environ.get(aws_profile))
+
     def test_invalid_rule_definition(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=AWS.CloudTrail.MFAEnabled'.split())
         args.filter = pat.parse_filter(args.filter)

@@ -202,6 +202,12 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code == 1:
         return return_code, ''
 
+    # optionally set env variable for profile passed as argument
+    # this must be called prior to setting up the client
+    if args.aws_profile is not None:
+        logging.info('Using AWS profile: %s', args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
+
     client = boto3.client('lambda')
 
     with open(archive, 'rb') as analysis_zip:
@@ -524,6 +530,12 @@ def setup_parser() -> argparse.ArgumentParser:
         'upload',
         help='Upload specified policies and rules to a Panther deployment.')
     upload_parser.add_argument(
+        '--aws-profile',
+        type=str,
+        help=
+        'The AWS profile to use when uploading to an AWS Panther deployment.',
+        required=False)
+    upload_parser.add_argument(
         '--path',
         default='.',
         type=str,
@@ -567,6 +579,10 @@ def parse_filter(filters: List[str]) -> Dict[str, Any]:
             continue
         parsed_filters[key] = split[1].split(',')
     return parsed_filters
+
+
+def set_env(key: str, value: str) -> None:
+    os.environ[key] = value
 
 
 def run() -> None:
