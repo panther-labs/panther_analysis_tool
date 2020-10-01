@@ -425,7 +425,7 @@ def classify_analysis(
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
     regex = r"Wrong key(?:s)? (.+?) in (.*)$"
     matches = re.match(regex, str(err))
-    msg = '{} not in list of valid keys: [{}]'
+    msg = '{} not in list of valid keys: {}'
     try:
         if matches:
             raise SchemaWrongKeyError(msg.format(matches.group(1),

@@ -33,6 +33,20 @@ class TestPantherAnalysisTool(TestCase):
         test_date_string = pat.datetime_converted(test_date)
         assert_is_instance(test_date_string, str)
 
+    def test_handle_wrong_key_error(self):
+        sample_keys = ['DisplayName', 'Enabled', 'Filename']
+        expected_output = '{} not in list of valid keys: {}'
+        # test successful regex match and correct error returned
+        test_str = "Wrong key 'DisplaName' in {'DisplaName':'one','Enabled':true, 'Filename':'sample'}"
+        exc = Exception(test_str)
+        err = pat.handle_wrong_key_error(exc, sample_keys)
+        assert_equal(str(err), expected_output.format("'DisplaName'", sample_keys))
+        # test failing regex match
+        test_str = "Will not match"
+        exc = Exception(test_str)
+        err = pat.handle_wrong_key_error(exc, sample_keys)
+        assert_equal(str(err),  expected_output.format("UNKNOWN_KEY", sample_keys))
+
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures'.split())
         return_code, invalid_specs = pat.test_analysis(args)
