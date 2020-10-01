@@ -116,7 +116,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 2)
+        assert_equal(len(invalid_specs), 4)
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())
