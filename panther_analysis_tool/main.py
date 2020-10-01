@@ -28,10 +28,10 @@ import os
 import sys
 import zipfile
 
+from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
 from schema import (Optional, SchemaError, SchemaMissingKeyError,
                     SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
 import boto3
-import yaml
 
 from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
 
@@ -78,7 +78,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         assert isinstance(spec.loader, Loader)  #nosec
         spec.loader.exec_module(module)
     except FileNotFoundError as err:
-        print('\t[ERROR] File not found, skipping\n')
+        print('\t[ERROR] File not found: ' + filename + ', skipping\n')
         return None, err
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions thrown by user code
@@ -87,7 +87,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
+def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
@@ -97,9 +97,13 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     for relative_path, _, file_list in os.walk(directory):
-        # If the user runs with no path/out args, filter to make sure
-        # we only run folders with valid analysis files.
-        if directory == '.':
+        # setup yaml object
+        yaml = YAML(typ='safe')
+        # If the user runs with no path args, filter to make sure
+        # we only run folders with valid analysis files. Ensure we test
+        # files in the current directory by not skipping this iteration
+        # when relative_path is the current dir
+        if directory in ['.', './'] and relative_path not in ['.', './']:
             if not any([
                     fnmatch(relative_path, path_pattern)
                     for path_pattern in (HELPERS_PATH_PATTERN,
@@ -112,11 +116,21 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any]]:
             spec_filename = os.path.join(relative_path, filename)
             if fnmatch(filename, '*.y*ml'):
                 with open(spec_filename, 'r') as spec_file_obj:
-                    yield spec_filename, relative_path, yaml.safe_load(
-                        spec_file_obj)
+                    try:
+                        yield spec_filename, relative_path, yaml.load(
+                            spec_file_obj), None
+                    except (YAMLParser.ParserError,
+                            YAMLScanner.ScannerError) as err:
+                        # recreate the yaml object and yeild the error
+                        yaml = YAML(typ='safe')
+                        yield spec_filename, relative_path, None, err
             if fnmatch(filename, '*.json'):
                 with open(spec_filename, 'r') as spec_file_obj:
-                    yield spec_filename, relative_path, json.load(spec_file_obj)
+                    try:
+                        yield spec_filename, relative_path, json.load(
+                            spec_file_obj), None
+                    except ValueError as err:
+                        yield spec_filename, relative_path, None, err
 
 
 def datetime_converted(obj: Any) -> Any:
@@ -159,7 +173,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         # Always zip the helpers
         analysis = []
         files: Set[str] = set()
-        for (file_name, f_path, spec) in list(load_analysis_specs(
+        for (file_name, f_path, spec, _) in list(load_analysis_specs(
                 args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
@@ -187,6 +201,12 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return_code, archive = zip_analysis(args)
     if return_code == 1:
         return return_code, ''
+
+    # optionally set env variable for profile passed as argument
+    # this must be called prior to setting up the client
+    if args.aws_profile is not None:
+        logging.info('Using AWS profile: %s', args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
 
     client = boto3.client('lambda')
 
@@ -362,15 +382,19 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 
 def classify_analysis(
-    specs: List[Tuple[str, str,
-                      Any]]) -> Tuple[List[Any], List[Any], List[Any]]:
+    specs: List[Tuple[str, str, Any, Any]]
+) -> Tuple[List[Any], List[Any], List[Any]]:
     # First determine the type of each file
     global_analysis = []
     analysis = []
     invalid_specs = []
 
-    for analysis_spec_filename, dir_name, analysis_spec in specs:
+    for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         try:
+            # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
+            if error:
+                raise error
+            # validate the schema
             TYPE_SCHEMA.validate(analysis_spec)
             if analysis_spec['AnalysisType'] == 'policy':
                 POLICY_SCHEMA.validate(analysis_spec)
@@ -506,6 +530,12 @@ def setup_parser() -> argparse.ArgumentParser:
         'upload',
         help='Upload specified policies and rules to a Panther deployment.')
     upload_parser.add_argument(
+        '--aws-profile',
+        type=str,
+        help=
+        'The AWS profile to use when uploading to an AWS Panther deployment.',
+        required=False)
+    upload_parser.add_argument(
         '--path',
         default='.',
         type=str,
@@ -549,6 +579,10 @@ def parse_filter(filters: List[str]) -> Dict[str, Any]:
             continue
         parsed_filters[key] = split[1].split(',')
     return parsed_filters
+
+
+def set_env(key: str, value: str) -> None:
+    os.environ[key] = value
 
 
 def run() -> None:

@@ -13,7 +13,7 @@ setup(
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=[
-        'PyYAML',
+        'ruamel.yaml',
         'schema',
         'boto3',
     ],
