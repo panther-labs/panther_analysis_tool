@@ -25,12 +25,14 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import sys
 import zipfile
 
 from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
-from schema import (Optional, SchemaError, SchemaMissingKeyError,
-                    SchemaForbiddenKeyError, SchemaUnexpectedTypeError)
+from schema import (Optional, SchemaError, SchemaWrongKeyError,
+                    SchemaMissingKeyError, SchemaForbiddenKeyError,
+                    SchemaUnexpectedTypeError)
 import boto3
 
 from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
@@ -201,12 +203,6 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return_code, archive = zip_analysis(args)
     if return_code == 1:
         return return_code, ''
-
-    # optionally set env variable for profile passed as argument
-    # this must be called prior to setting up the client
-    if args.aws_profile is not None:
-        logging.info('Using AWS profile: %s', args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
 
     client = boto3.client('lambda')
 
@@ -388,8 +384,8 @@ def classify_analysis(
     global_analysis = []
     analysis = []
     invalid_specs = []
-
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
+        keys = list()
         try:
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
@@ -397,17 +393,23 @@ def classify_analysis(
             # validate the schema
             TYPE_SCHEMA.validate(analysis_spec)
             if analysis_spec['AnalysisType'] == 'policy':
+                keys = list(POLICY_SCHEMA.schema.keys())
                 POLICY_SCHEMA.validate(analysis_spec)
                 analysis.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
             if analysis_spec['AnalysisType'] == 'rule':
+                keys = list(RULE_SCHEMA.schema.keys())
                 RULE_SCHEMA.validate(analysis_spec)
                 analysis.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
             if analysis_spec['AnalysisType'] == 'global':
+                keys = list(GLOBAL_SCHEMA.schema.keys())
                 GLOBAL_SCHEMA.validate(analysis_spec)
                 global_analysis.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
+        except SchemaWrongKeyError as err:
+            invalid_specs.append(
+                (analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (SchemaError, SchemaMissingKeyError, SchemaForbiddenKeyError,
                 SchemaUnexpectedTypeError) as err:
             invalid_specs.append((analysis_spec_filename, err))
@@ -418,6 +420,19 @@ def classify_analysis(
             continue
 
     return (global_analysis, analysis, invalid_specs)
+
+
+def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
+    regex = r"Wrong key(?:s)? (.+?) in (.*)$"
+    matches = re.match(regex, str(err))
+    msg = '{} not in list of valid keys: [{}]'
+    try:
+        if matches:
+            raise SchemaWrongKeyError(msg.format(matches.group(1),
+                                                 keys)) from err
+        raise SchemaWrongKeyError(msg.format('UNKNOWN_KEY', keys)) from err
+    except SchemaWrongKeyError as exc:
+        return exc
 
 
 def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
