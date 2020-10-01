@@ -274,8 +274,8 @@ def rule(event):
 AnalysisType: rule
 Enabled: true
 Filename: example_rule.py
-PolicyID: Example.Rule.01
-ResourceTypes:
+RuleID: Example.Rule.01
+LogTypes:
   - Log.Type.Here
 Severity: Low
 DisplayName: Example Rule to Check the Format of the Spec
@@ -290,10 +290,10 @@ Tests:
     Name: Name to describe our first test.
     LogType: Log.Type.Here  # Not needed in Panther versions >= 1.6.0
     ExpectedResult: true/false
-    Resource:
-      Key: Values
-      For: Our Log
-      Based: On the Schema
+    Log:
+      {
+        "field1": "value1",
+      }
 ```
 
 The requirements for the Rule body and specification files are listed below.
