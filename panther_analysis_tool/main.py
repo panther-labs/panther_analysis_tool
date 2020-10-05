@@ -204,6 +204,12 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code == 1:
         return return_code, ''
 
+    # optionally set env variable for profile passed as argument
+    # this must be called prior to setting up the client
+    if args.aws_profile is not None:
+        logging.info('Using AWS profile: %s', args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
+
     client = boto3.client('lambda')
 
     with open(archive, 'rb') as analysis_zip:
