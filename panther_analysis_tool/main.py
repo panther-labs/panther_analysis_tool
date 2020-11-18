@@ -302,35 +302,42 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 def setup_data_models(
         data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
+    # data_model_log_types is a list used to ensure there is at
+    # most one enabled DataModel per LogType
     data_model_log_types: List[str] = []
+    # log_type_to_data_model is a dict used to map LogType to a unique
+    # data model
     log_type_to_data_model: Dict[str, DataModel] = dict()
     for analysis_spec_filename, dir_name, analysis_spec in data_models:
-        analysis_id = analysis_spec['DataModelID']
-        log_types = analysis_spec['LogTypes']
+        if analysis_spec['Enabled']:
+            analysis_id = analysis_spec['DataModelID']
+            log_types = analysis_spec['LogTypes']
 
-        # load optional python modules
-        module = None
-        if 'Filename' in analysis_spec:
-            module, load_err = load_module(
-                os.path.join(dir_name, analysis_spec['Filename']))
-            # If the module could not be loaded, continue to the next
-            if load_err:
-                invalid_specs.append((analysis_spec_filename, load_err))
-                break
-            sys.modules[analysis_id] = module
-        # setup the mapping lookups
-        data_model = DataModel(analysis_id, analysis_spec['Mappings'], module)
+            # load optional python modules
+            module = None
+            if 'Filename' in analysis_spec:
+                module, load_err = load_module(
+                    os.path.join(dir_name, analysis_spec['Filename']))
+                # If the module could not be loaded, continue to the next
+                if load_err:
+                    invalid_specs.append((analysis_spec_filename, load_err))
+                    break
+                sys.modules[analysis_id] = module
+            # setup the mapping lookups
+            data_model = DataModel(analysis_id, analysis_spec['Mappings'],
+                                   module)
 
-        # check if the LogType already has an enabled data model
-        for log_type in log_types:
-            if log_type in data_model_log_types:
-                print('\t[ERROR] Conflicting Enabled LogTypes\n')
-                invalid_specs.append(
-                    (analysis_spec_filename,
-                     'Conflicting Enabled LogType [{}] in Data Model [{}]'.
-                     format(log_type, analysis_id)))
-                continue
-            log_type_to_data_model[log_type] = data_model
+            # check if the LogType already has an enabled data model
+            for log_type in log_types:
+                if log_type in data_model_log_types:
+                    print('\t[ERROR] Conflicting Enabled LogTypes\n')
+                    invalid_specs.append(
+                        (analysis_spec_filename,
+                         'Conflicting Enabled LogType [{}] in Data Model [{}]'.
+                         format(log_type, analysis_id)))
+                    continue
+                log_type_to_data_model[log_type] = data_model
+                data_model_log_types.append(log_type)
     return log_type_to_data_model, invalid_specs
 
 
