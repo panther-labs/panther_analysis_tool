@@ -275,40 +275,72 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         ]
 
     # import each data model, global, policy, or rule and run its tests
+    # ensure IDs across types are unique
+    ids: List[str] = []
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
-        module, load_err = load_module(
-            os.path.join(dir_name, analysis_spec['Filename']))
-        # If the module could not be loaded, continue to the next
-        if load_err:
-            invalid_specs.append((analysis_spec_filename, load_err))
-            break
-        sys.modules[analysis_spec['GlobalID']] = module
+    global_ids, invalid_globals = setup_global_helpers(ids, global_analysis)
+    ids.extend(global_ids)
+    invalid_specs.extend(invalid_globals)
 
     # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(data_models)
+    log_type_to_data_model, data_model_ids, invalid_data_models = setup_data_models(
+        ids, data_models)
+    ids.extend(data_model_ids)
     invalid_specs.extend(invalid_data_models)
 
     # then, import rules and policies; run tests
-    failed_tests, invalid_rule_policy = setup_run_tests(log_type_to_data_model,
-                                                        analysis)
+    failed_tests, _, invalid_rule_policy = setup_run_tests(
+        ids, log_type_to_data_model, analysis)
     invalid_specs.extend(invalid_rule_policy)
 
     print_summary(args.path, len(analysis), failed_tests, invalid_specs)
     return int(bool(failed_tests or invalid_specs)), invalid_specs
 
 
+def setup_global_helpers(
+        ids: List[str],
+        global_analysis: List[Any]) -> Tuple[List[str], List[Any]]:
+    global_ids: List[str] = []
+    invalid_specs = []
+    for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
+        analysis_id = analysis_spec['GlobalID']
+        if analysis_id in ids or analysis_id in global_ids:
+            print('\t[ERROR] Conflicting AnalysisID\n')
+            invalid_specs.append(
+                (analysis_spec_filename,
+                 'Conflicting AnalysisID: {}'.format(analysis_id)))
+            continue
+        module, load_err = load_module(
+            os.path.join(dir_name, analysis_spec['Filename']))
+        # If the module could not be loaded, continue to the next
+        if load_err:
+            invalid_specs.append((analysis_spec_filename, load_err))
+            break
+        sys.modules[analysis_id] = module
+        global_ids.append(analysis_id)
+    return global_ids, invalid_specs
+
+
+# pylint: disable=too-many-locals
 def setup_data_models(
-        data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
+    ids: List[str], data_models: List[Any]
+) -> Tuple[Dict[str, DataModel], List[str], List[Any]]:
+    data_model_ids: List[str] = []
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
     log_type_to_data_model: Dict[str, DataModel] = dict()
     for analysis_spec_filename, dir_name, analysis_spec in data_models:
+        analysis_id = analysis_spec['DataModelID']
+        # Check if the DataModelId has already been claimed
+        if analysis_id in ids or analysis_id in data_model_ids:
+            print('\t[ERROR] Conflicting AnalysisID\n')
+            invalid_specs.append(
+                (analysis_spec_filename,
+                 'Conflicting AnalysisID: {}'.format(analysis_id)))
+            continue
         if analysis_spec['Enabled']:
-            analysis_id = analysis_spec['DataModelID']
-
             # load optional python modules
             module = None
             if 'Filename' in analysis_spec:
@@ -322,7 +354,6 @@ def setup_data_models(
             # setup the mapping lookups
             data_model = DataModel(analysis_id, analysis_spec['Mappings'],
                                    module)
-
             # check if the LogType already has an enabled data model
             for log_type in analysis_spec['LogTypes']:
                 if log_type in log_type_to_data_model:
@@ -333,22 +364,25 @@ def setup_data_models(
                          format(log_type, analysis_id)))
                     continue
                 log_type_to_data_model[log_type] = data_model
-    return log_type_to_data_model, invalid_specs
+        # whether disabled or not, we should have a unique ID per DataModel
+        data_model_ids.append(analysis_id)
+    return log_type_to_data_model, data_model_ids, invalid_specs
 
 
 def setup_run_tests(
-        log_type_to_data_model: Dict[str, DataModel],
-        analysis: List[Any]) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
+    ids: List[str], log_type_to_data_model: Dict[str,
+                                                 DataModel], analysis: List[Any]
+) -> Tuple[DefaultDict[str, List[Any]], List[str], List[Any]]:
+    rule_policy_ids: List[str] = []
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
-    tests: List[str] = []
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         analysis_type = analysis_spec['AnalysisType']
         analysis_id = analysis_spec.get('PolicyID') or analysis_spec['RuleID']
         print(analysis_id)
 
         # Check if the AnalysisID has already been loaded for all types
-        if analysis_id in tests:
+        if analysis_id in rule_policy_ids or analysis_id in ids:
             print('\t[ERROR] Conflicting AnalysisID\n')
             invalid_specs.append(
                 (analysis_spec_filename,
@@ -362,7 +396,7 @@ def setup_run_tests(
             invalid_specs.append((analysis_spec_filename, load_err))
             continue
 
-        tests.append(analysis_id)
+        rule_policy_ids.append(analysis_id)
         analysis_funcs = {}
         # analysis_data_models will hold the relevant data models
         #  for each Rule.  This will be passed to `run_tests` so each test
@@ -387,7 +421,7 @@ def setup_run_tests(
         failed_tests = run_tests(analysis_spec, analysis_funcs,
                                  analysis_data_models, failed_tests)
         print('')
-    return failed_tests, invalid_specs
+    return failed_tests, rule_policy_ids, invalid_specs
 
 
 def print_summary(test_path: str, num_tests: int, failed_tests: Dict[str, list],
