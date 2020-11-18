@@ -359,7 +359,7 @@ def setup_run_tests(
         module, load_err = load_module(
             os.path.join(dir_name, analysis_spec['Filename']))
         # If the module could not be loaded, continue to the next
-        if load_err and analysis_type in [GLOBAL, POLICY, RULE]:
+        if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
             continue
 
@@ -378,8 +378,8 @@ def setup_run_tests(
             if 'title' in dir(module):
                 analysis_funcs['title'] = module.title
             # setup data models, currently only supported in rules
-            #  data models are unique per LogType, this logic
-            #  adds the data models relevant to the test case logic
+            #  data models are unique per LogType, this logic adds
+            #  the data models for LogTypes defined in the the spec
             for log_type in analysis_spec['LogTypes']:
                 if log_type in log_type_to_data_model:
                     analysis_data_models.append(
