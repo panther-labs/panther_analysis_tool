@@ -1,7 +1,8 @@
 # functional dependencies
+boto3
+jsonpath-ng
 ruamel.yaml
 schema
-boto3
 # ci dependencies
 bandit
 mypy

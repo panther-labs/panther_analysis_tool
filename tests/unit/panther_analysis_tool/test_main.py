@@ -55,16 +55,16 @@ class TestPantherAnalysisTool(TestCase):
                      'tests/fixtures/example_malformed_policy.yml')
 
     def test_rules_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/rules'.split())
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_rules_from_current_dir(self):
-        # This is a work around to test running tool against current directory 
+        # This is a work around to test running tool against current directory
         return_code = -1
         invalid_specs = None
-        valid_rule_path = self.fixture_path + 'valid_analysis/rules'
+        valid_rule_path = self.fixture_path + 'valid_analysis/policies'
         # test default path, '.'
         with Pause(self.fs):
             original_path = os.getcwd()

@@ -1,0 +1,13 @@
+AnalysisType: datamodel
+DataModelID: GSuite.Events.DataModel
+Enabled: true
+Filename: example_data_model_python.py
+LogTypes: 
+  - GSuite.Events
+Mappings:
+  - Name: source_ip
+    Path: ipaddr
+  - Name: event_type
+    Method: get_event_type
+  - Name: user
+    Path: $.actor.email

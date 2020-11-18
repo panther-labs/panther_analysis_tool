@@ -13,6 +13,7 @@ setup(
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=[
+        'jsonpath-ng',
         'ruamel.yaml',
         'schema',
         'boto3',
