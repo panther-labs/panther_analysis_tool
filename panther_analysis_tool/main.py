@@ -308,7 +308,6 @@ def setup_data_models(
     for analysis_spec_filename, dir_name, analysis_spec in data_models:
         if analysis_spec['Enabled']:
             analysis_id = analysis_spec['DataModelID']
-            log_types = analysis_spec['LogTypes']
 
             # load optional python modules
             module = None
@@ -325,7 +324,7 @@ def setup_data_models(
                                    module)
 
             # check if the LogType already has an enabled data model
-            for log_type in log_types:
+            for log_type in analysis_spec['LogTypes']:
                 if log_type in log_type_to_data_model:
                     print('\t[ERROR] Conflicting Enabled LogTypes\n')
                     invalid_specs.append(
@@ -379,7 +378,7 @@ def setup_run_tests(
                 analysis_funcs['title'] = module.title
             # setup data models, currently only supported in rules
             #  data models are unique per LogType, this logic adds
-            #  the data models for LogTypes defined in the the spec
+            #  the data models for LogTypes defined in the the rule spec
             for log_type in analysis_spec['LogTypes']:
                 if log_type in log_type_to_data_model:
                     analysis_data_models.append(
