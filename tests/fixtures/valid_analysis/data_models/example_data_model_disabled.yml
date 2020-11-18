@@ -1,5 +1,5 @@
 AnalysisType: datamodel
-DataModelID: onelogin.DataModel
+DataModelID: onelogin.DataModel.Disabled
 Enabled: false
 LogTypes: 
   - OneLogin.Events
