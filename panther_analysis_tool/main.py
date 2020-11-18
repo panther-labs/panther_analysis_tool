@@ -40,6 +40,7 @@ from panther_analysis_tool.schemas import (TYPE_SCHEMA, DATA_MODEL_SCHEMA,
                                            RULE_SCHEMA)
 from panther_analysis_tool.test_case import DataModel, TestCase
 
+DATA_MODEL_LOCATION = './data_models'
 HELPERS_LOCATION = './global_helpers'
 
 DATA_MODEL_PATH_PATTERN = '*data_models*'
@@ -163,8 +164,10 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         # Always zip the helpers and data models
         analysis = []
         files: Set[str] = set()
-        for (file_name, f_path, spec, _) in list(load_analysis_specs(
-                args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
+        for (file_name, f_path, spec,
+             _) in list(load_analysis_specs(args.path)) + list(
+                 load_analysis_specs(HELPERS_LOCATION)) + list(
+                     load_analysis_specs(DATA_MODEL_LOCATION)):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
@@ -255,10 +258,11 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     logging.info('Testing analysis packs in %s\n', args.path)
 
-    # First classify each file
+    # First classify each file, always include globals and data models location
     data_models, global_analysis, analysis, invalid_specs = classify_analysis(
         list(load_analysis_specs(args.path)) +
-        list(load_analysis_specs(HELPERS_LOCATION)))
+        list(load_analysis_specs(HELPERS_LOCATION)) +
+        list(load_analysis_specs(DATA_MODEL_LOCATION)))
 
     if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
         return 1, ["Nothing to test in {}".format(args.path)]

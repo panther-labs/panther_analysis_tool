@@ -11,4 +11,3 @@ Mappings:
     Method: get_event_type
   - Name: user
     Path: $.actor.email
-  
