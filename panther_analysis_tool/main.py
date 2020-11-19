@@ -297,7 +297,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(log_type_to_data_model,
-                                                        analysis)
+                                                      analysis)
     invalid_specs.extend(invalid_detection)
 
     print_summary(args.path, len(analysis), failed_tests, invalid_specs)
