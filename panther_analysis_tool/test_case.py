@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional
 from jsonpath_ng import Fields
 from jsonpath_ng.ext import parse
@@ -47,6 +48,14 @@ class TestCase():
 
     def udm(self, key: str) -> Any:
         """Converts standard data model field to logtype field"""
+        # ensure that rules using `udm` have included p_log_type in their test
+        try:
+            self._data['p_log_type']
+        except KeyError as err:
+            logging.warning(
+                'Rules that use `udm` are required to define [p_log_type] in test cases'
+            )
+            raise err
         if self.data_model:
             # access values via standardized fields
             # check each data model that could apply
