@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Iterator, List
+from typing import Any, Callable, Dict, Iterator, List, Optional
 from jsonpath_ng import Fields
 from jsonpath_ng.ext import parse
 
@@ -26,7 +26,8 @@ class DataModel:
 
 class TestCase():
 
-    def __init__(self, data: Dict[str, Any], data_model: DataModel) -> None:
+    def __init__(self, data: Dict[str, Any],
+                 data_model: Optional[DataModel]) -> None:
         """
         Args:
             data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy
