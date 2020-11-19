@@ -335,7 +335,7 @@ def setup_data_models(
                 # If the module could not be loaded, continue to the next
                 if load_err:
                     invalid_specs.append((analysis_spec_filename, load_err))
-                    break
+                    continue
                 sys.modules[analysis_id] = module
             # setup the mapping lookups
             data_model = DataModel(analysis_id, analysis_spec['Mappings'],
