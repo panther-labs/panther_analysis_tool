@@ -3,7 +3,7 @@ Filename: example_policy.py
 DisplayName: MFA Is Enabled For User
 Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
 Severity: High
-PolicyID: AWS.IAM.MFAEnabled
+PolicyID: IAM.MFAEnabled
 Enabled: true
 ResourceTypes:
   - AWS.IAM.RootUser.Snapshot

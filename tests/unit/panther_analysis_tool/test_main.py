@@ -53,7 +53,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      'tests/fixtures/example_malformed_policy.yml')
-        assert_equal(len(invalid_specs), 9)
+        assert_equal(len(invalid_specs), 7)
 
     def test_rules_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())

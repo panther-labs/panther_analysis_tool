@@ -69,7 +69,6 @@ class TestCase():
                     method = data_model.methods.get(key)
                     if callable(method):
                         result = method(self._data)
-                        if result:
-                            return result
+                        return result
         # no matches, return None by default
         return None
