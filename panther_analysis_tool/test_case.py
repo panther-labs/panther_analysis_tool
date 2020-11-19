@@ -1,5 +1,6 @@
 from typing import Any, Callable, Dict, Iterator, List
-from jsonpath_ng import Fields, parse
+from jsonpath_ng import Fields
+from jsonpath_ng.ext import parse
 
 
 # pylint: disable=too-few-public-methods
@@ -25,15 +26,14 @@ class DataModel:
 
 class TestCase():
 
-    def __init__(self, data: Dict[str, Any],
-                 data_models: List[DataModel]) -> None:
+    def __init__(self, data: Dict[str, Any], data_model: DataModel) -> None:
         """
         Args:
             data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy
             or rule against respectively.
         """
         self._data = data
-        self.data_models = data_models
+        self.data_model = data_model
 
     def __getitem__(self, arg: str) -> Any:
         return self._data.get(arg, None)
@@ -46,29 +46,25 @@ class TestCase():
 
     def udm(self, key: str) -> Any:
         """Converts standard data model field to logtype field"""
-        # access values via normal logType fields
-        if key in self._data.keys():
-            return self.get(key)
-        if self.data_models:
+        if self.data_model:
             # access values via standardized fields
             # check each data model that could apply
-            for data_model in self.data_models:
-                if key in data_model.paths.keys():
-                    # we are dealing with a jsonpath
-                    json_path = data_model.paths.get(key)
-                    if json_path:
-                        matches = json_path.find(self._data)
-                        if len(matches) == 1:
-                            return matches[0].value
-                        if len(matches) > 1:
-                            raise Exception(
-                                'JSONPath [{}] in DataModel [{}], matched multiple fields.'
-                                .format(json_path, data_model.data_model_id))
-                if key in data_model.methods.keys():
-                    # we are dealing with method
-                    method = data_model.methods.get(key)
-                    if callable(method):
-                        result = method(self._data)
-                        return result
+            if key in self.data_model.paths:
+                # we are dealing with a jsonpath
+                json_path = self.data_model.paths.get(key)
+                if json_path:
+                    matches = json_path.find(self._data)
+                    if len(matches) == 1:
+                        return matches[0].value
+                    if len(matches) > 1:
+                        raise Exception(
+                            'JSONPath [{}] in DataModel [{}], matched multiple fields.'
+                            .format(json_path, self.data_model.data_model_id))
+            if key in self.data_model.methods:
+                # we are dealing with method
+                method = self.data_model.methods.get(key)
+                if callable(method):
+                    result = method(self._data)
+                    return result
         # no matches, return None by default
         return None

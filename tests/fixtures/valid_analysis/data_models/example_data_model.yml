@@ -5,6 +5,6 @@ LogTypes:
   - OneLogin.Events
 Mappings:
   - Name: source_ip
-    Path: ipAddress
+    Path: ipaddr
   - Name: user
     Path: $.actor_user_name

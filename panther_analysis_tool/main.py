@@ -371,10 +371,6 @@ def setup_run_tests(
             continue
 
         analysis_funcs = {}
-        # analysis_data_models will hold the relevant data models
-        #  for each Rule.  This will be passed to `run_tests` so each test
-        #  case has data model context
-        analysis_data_models: List[DataModel] = []
         if analysis_type == POLICY:
             analysis_funcs['run'] = module.policy
         elif analysis_type == RULE:
@@ -383,16 +379,9 @@ def setup_run_tests(
                 analysis_funcs['dedup'] = module.dedup
             if 'title' in dir(module):
                 analysis_funcs['title'] = module.title
-            # setup data models, currently only supported in rules
-            #  data models are unique per LogType, this logic adds
-            #  the data models for LogTypes defined in the the rule spec
-            for log_type in analysis_spec['LogTypes']:
-                if log_type in log_type_to_data_model:
-                    analysis_data_models.append(
-                        log_type_to_data_model[log_type])
 
         failed_tests = run_tests(analysis_spec, analysis_funcs,
-                                 analysis_data_models, failed_tests)
+                                 log_type_to_data_model, failed_tests)
         print('')
     return failed_tests, invalid_specs
 
@@ -532,7 +521,7 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 
 def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
-              analysis_data_models: List[DataModel],
+              analysis_data_models: Dict[str, DataModel],
               failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
 
     # First check if any tests exist, so we can print a helpful message if not
@@ -543,10 +532,10 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
     for unit_test in analysis['Tests']:
         try:
+            entry = unit_test.get('Resource') or unit_test['Log']
+            log_type = entry.get('p_log_type', '')
             # set up each test case, including any relevant data models
-            test_case = TestCase(
-                unit_test.get('Resource') or unit_test['Log'],
-                analysis_data_models)
+            test_case = TestCase(entry, analysis_data_models.get(log_type))
             result = analysis_funcs['run'](test_case)
         except KeyError as err:
             logging.warning('KeyError: {%s}', err)

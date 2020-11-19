@@ -3,10 +3,10 @@ DataModelID: GSuite.Events.DataModel
 Enabled: true
 Filename: example_data_model_python.py
 LogTypes: 
-  - GSuite.Events
+  - GSuite.Reports
 Mappings:
   - Name: source_ip
-    Path: ipaddr
+    Path: ipAddress
   - Name: event_type
     Method: get_event_type
   - Name: user
