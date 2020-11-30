@@ -35,33 +35,31 @@ from schema import (Optional, SchemaError, SchemaWrongKeyError,
                     SchemaUnexpectedTypeError)
 import boto3
 
-from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
+from panther_analysis_tool.schemas import (TYPE_SCHEMA, DATA_MODEL_SCHEMA,
+                                           GLOBAL_SCHEMA, POLICY_SCHEMA,
+                                           RULE_SCHEMA)
+from panther_analysis_tool.test_case import DataModel, TestCase
 
+DATA_MODEL_LOCATION = './data_models'
 HELPERS_LOCATION = './global_helpers'
 
+DATA_MODEL_PATH_PATTERN = '*data_models*'
 HELPERS_PATH_PATTERN = '*/global_helpers'
 RULES_PATH_PATTERN = '*rules*'
 POLICIES_PATH_PATTERN = '*policies*'
 
+DATAMODEL = 'datamodel'
+GLOBAL = 'global'
+RULE = 'rule'
+POLICY = 'policy'
 
-class TestCase():
 
-    def __init__(self, data: Dict[str, Any]) -> None:
-        """
-        Args:
-            data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy
-            or rule against respectively.
-        """
-        self._data = data
+# exception for conflicting ids
+class AnalysisIDConflictException(Exception):
 
-    def __getitem__(self, arg: str) -> Any:
-        return self._data.get(arg, None)
-
-    def __iter__(self) -> Iterator:
-        return iter(self._data)
-
-    def get(self, arg: str, default: Any = None) -> Any:
-        return self._data.get(arg, default)
+    def __init__(self, analysis_id: str):
+        self.message = 'Conflicting AnalysisID: [{}]'.format(analysis_id)
+        super().__init__(self.message)
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -107,10 +105,9 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
         # when relative_path is the current dir
         if directory in ['.', './'] and relative_path not in ['.', './']:
             if not any([
-                    fnmatch(relative_path, path_pattern)
-                    for path_pattern in (HELPERS_PATH_PATTERN,
-                                         RULES_PATH_PATTERN,
-                                         POLICIES_PATH_PATTERN)
+                    fnmatch(relative_path, path_pattern) for path_pattern in (
+                        DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
+                        RULES_PATH_PATTERN, POLICIES_PATH_PATTERN)
             ]):
                 logging.debug('Skipping path %s', relative_path)
                 continue
@@ -172,11 +169,13 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         ':', '-')
     filename = 'panther-analysis-{}.zip'.format(current_time)
     with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as zip_out:
-        # Always zip the helpers
+        # Always zip the helpers and data models
         analysis = []
         files: Set[str] = set()
-        for (file_name, f_path, spec, _) in list(load_analysis_specs(
-                args.path)) + list(load_analysis_specs(HELPERS_LOCATION)):
+        for (file_name, f_path, spec,
+             _) in list(load_analysis_specs(args.path)) + list(
+                 load_analysis_specs(HELPERS_LOCATION)) + list(
+                     load_analysis_specs(DATA_MODEL_LOCATION)):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
@@ -184,7 +183,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         analysis = filter_analysis(analysis, args.filter)
         for analysis_spec_filename, dir_name, analysis_spec in analysis:
             zip_out.write(analysis_spec_filename)
-            zip_out.write(os.path.join(dir_name, analysis_spec['Filename']))
+            # datamodels may not have python body
+            if 'Filename' in analysis_spec:
+                zip_out.write(os.path.join(dir_name, analysis_spec['Filename']))
 
     return 0, filename
 
@@ -262,49 +263,107 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
     failed_tests: DefaultDict[str, list] = defaultdict(list)
-    tests: List[str] = []
     logging.info('Testing analysis packs in %s\n', args.path)
 
-    # First classify each file
-    global_analysis, analysis, invalid_specs = classify_analysis(
+    # First classify each file, always include globals and data models location
+    data_models, global_analysis, analysis, invalid_specs = classify_analysis(
         list(load_analysis_specs(args.path)) +
-        list(load_analysis_specs(HELPERS_LOCATION)))
+        list(load_analysis_specs(HELPERS_LOCATION)) +
+        list(load_analysis_specs(DATA_MODEL_LOCATION)))
 
-    if len(analysis) == 0 and len(global_analysis) == 0:
+    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
+        if len(invalid_specs) > 0:
+            return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
     # Apply the filters as needed
+    data_models = filter_analysis(data_models, args.filter)
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
 
-    if len(analysis) == 0 and len(global_analysis) == 0:
+    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
         ]
 
-    # First import the globals
+    # import each data model, global, policy, or rule and run its tests
+    # first import the globals
+    #   add them sys.modules to be used by rule and/or policies tests
+    invalid_globals = setup_global_helpers(global_analysis)
+    invalid_specs.extend(invalid_globals)
+
+    # then, setup data model dictionary to be used in rule/policy tests
+    log_type_to_data_model, invalid_data_models = setup_data_models(data_models)
+    invalid_specs.extend(invalid_data_models)
+
+    # then, import rules and policies; run tests
+    failed_tests, invalid_detection = setup_run_tests(log_type_to_data_model,
+                                                      analysis)
+    invalid_specs.extend(invalid_detection)
+
+    print_summary(args.path, len(analysis), failed_tests, invalid_specs)
+    return int(bool(failed_tests or invalid_specs)), invalid_specs
+
+
+def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
+    invalid_specs = []
     for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
+        analysis_id = analysis_spec['GlobalID']
         module, load_err = load_module(
             os.path.join(dir_name, analysis_spec['Filename']))
         # If the module could not be loaded, continue to the next
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
             break
-        sys.modules[analysis_spec['GlobalID']] = module
+        sys.modules[analysis_id] = module
+    return invalid_specs
 
-    # Next import each policy or rule and run its tests
+
+def setup_data_models(
+        data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
+    invalid_specs = []
+    # log_type_to_data_model is a dict used to map LogType to a unique
+    # data model, ensuring there is at most one DataModel per LogType
+    log_type_to_data_model: Dict[str, DataModel] = dict()
+    for analysis_spec_filename, dir_name, analysis_spec in data_models:
+        analysis_id = analysis_spec['DataModelID']
+        if analysis_spec['Enabled']:
+            # load optional python modules
+            module = None
+            if 'Filename' in analysis_spec:
+                module, load_err = load_module(
+                    os.path.join(dir_name, analysis_spec['Filename']))
+                # If the module could not be loaded, continue to the next
+                if load_err:
+                    invalid_specs.append((analysis_spec_filename, load_err))
+                    continue
+                sys.modules[analysis_id] = module
+            # setup the mapping lookups
+            data_model = DataModel(analysis_id, analysis_spec['Mappings'],
+                                   module)
+            # check if the LogType already has an enabled data model
+            for log_type in analysis_spec['LogTypes']:
+                if log_type in log_type_to_data_model:
+                    print('\t[ERROR] Conflicting Enabled LogTypes\n')
+                    invalid_specs.append(
+                        (analysis_spec_filename,
+                         'Conflicting Enabled LogType [{}] in Data Model [{}]'.
+                         format(log_type, analysis_id)))
+                    continue
+                log_type_to_data_model[log_type] = data_model
+    return log_type_to_data_model, invalid_specs
+
+
+def setup_run_tests(
+        log_type_to_data_model: Dict[str, DataModel],
+        analysis: List[Any]) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
+    invalid_specs = []
+    failed_tests: DefaultDict[str, list] = defaultdict(list)
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
+        analysis_type = analysis_spec['AnalysisType']
         analysis_id = analysis_spec.get('PolicyID') or analysis_spec['RuleID']
         print(analysis_id)
-
-        # Check if the AnalysisID has already been loaded
-        if analysis_id in tests:
-            print('\t[ERROR] Conflicting AnalysisID\n')
-            invalid_specs.append(
-                (analysis_spec_filename,
-                 'Conflicting AnalysisID: {}'.format(analysis_id)))
-            continue
 
         module, load_err = load_module(
             os.path.join(dir_name, analysis_spec['Filename']))
@@ -313,22 +372,20 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             invalid_specs.append((analysis_spec_filename, load_err))
             continue
 
-        tests.append(analysis_id)
         analysis_funcs = {}
-        if analysis_spec['AnalysisType'] == 'policy':
+        if analysis_type == POLICY:
             analysis_funcs['run'] = module.policy
-        elif analysis_spec['AnalysisType'] == 'rule':
+        elif analysis_type == RULE:
             analysis_funcs['run'] = module.rule
             if 'dedup' in dir(module):
                 analysis_funcs['dedup'] = module.dedup
             if 'title' in dir(module):
                 analysis_funcs['title'] = module.title
 
-        failed_tests = run_tests(analysis_spec, analysis_funcs, failed_tests)
+        failed_tests = run_tests(analysis_spec, analysis_funcs,
+                                 log_type_to_data_model, failed_tests)
         print('')
-
-    print_summary(args.path, len(analysis), failed_tests, invalid_specs)
-    return int(bool(failed_tests or invalid_specs)), invalid_specs
+    return failed_tests, invalid_specs
 
 
 def print_summary(test_path: str, num_tests: int, failed_tests: Dict[str, list],
@@ -385,11 +442,17 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]]
-) -> Tuple[List[Any], List[Any], List[Any]]:
+) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
+
     # First determine the type of each file
+    data_models = []
     global_analysis = []
     analysis = []
     invalid_specs = []
+    # each analysis type must have a unique id, track used ids and
+    # add any duplicates to the invalid_specs
+    analysis_ids = []
+
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys = list()
         try:
@@ -398,20 +461,38 @@ def classify_analysis(
                 raise error
             # validate the schema
             TYPE_SCHEMA.validate(analysis_spec)
+            if analysis_spec['AnalysisType'] == 'datamodel':
+                keys = list(DATA_MODEL_SCHEMA.schema.keys())
+                DATA_MODEL_SCHEMA.validate(analysis_spec)
+                if analysis_spec['DataModelID'] in analysis_ids:
+                    raise AnalysisIDConflictException(
+                        analysis_spec['DataModelID'])
+                analysis_ids.append(analysis_spec['DataModelID'])
+                data_models.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
+            if analysis_spec['AnalysisType'] == 'global':
+                keys = list(GLOBAL_SCHEMA.schema.keys())
+                GLOBAL_SCHEMA.validate(analysis_spec)
+                if analysis_spec['GlobalID'] in analysis_ids:
+                    raise AnalysisIDConflictException(analysis_spec['GlobalID'])
+                analysis_ids.append(analysis_spec['GlobalID'])
+                global_analysis.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
             if analysis_spec['AnalysisType'] == 'policy':
                 keys = list(POLICY_SCHEMA.schema.keys())
                 POLICY_SCHEMA.validate(analysis_spec)
+                if analysis_spec['PolicyID'] in analysis_ids:
+                    raise AnalysisIDConflictException(analysis_spec['PolicyID'])
+                analysis_ids.append(analysis_spec['PolicyID'])
                 analysis.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
             if analysis_spec['AnalysisType'] == 'rule':
                 keys = list(RULE_SCHEMA.schema.keys())
                 RULE_SCHEMA.validate(analysis_spec)
+                if analysis_spec['RuleID'] in analysis_ids:
+                    raise AnalysisIDConflictException(analysis_spec['RuleID'])
+                analysis_ids.append(analysis_spec['RuleID'])
                 analysis.append(
-                    (analysis_spec_filename, dir_name, analysis_spec))
-            if analysis_spec['AnalysisType'] == 'global':
-                keys = list(GLOBAL_SCHEMA.schema.keys())
-                GLOBAL_SCHEMA.validate(analysis_spec)
-                global_analysis.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
         except SchemaWrongKeyError as err:
             invalid_specs.append(
@@ -425,7 +506,7 @@ def classify_analysis(
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
-    return (global_analysis, analysis, invalid_specs)
+    return (data_models, global_analysis, analysis, invalid_specs)
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
@@ -442,6 +523,7 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 
 def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
+              analysis_data_models: Dict[str, DataModel],
               failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
 
     # First check if any tests exist, so we can print a helpful message if not
@@ -452,7 +534,10 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
     for unit_test in analysis['Tests']:
         try:
-            test_case = TestCase(unit_test.get('Resource') or unit_test['Log'])
+            entry = unit_test.get('Resource') or unit_test['Log']
+            log_type = entry.get('p_log_type', '')
+            # set up each test case, including any relevant data models
+            test_case = TestCase(entry, analysis_data_models.get(log_type))
             result = analysis_funcs['run'](test_case)
         except KeyError as err:
             logging.warning('KeyError: {%s}', err)

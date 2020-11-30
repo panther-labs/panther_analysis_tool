@@ -4,7 +4,7 @@ DisplayName: MFA Rule
 Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
 Severity: Critical
 Threshold: 5
-RuleID: AWS.CloudTrail.MFAEnabled
+RuleID: AWS.CloudTrail.MFAEnabled.Missing.Field
 Enabled: true
 SummaryAttributes:
   - p_log_type

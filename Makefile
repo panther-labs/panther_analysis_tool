@@ -1,7 +1,7 @@
 packages = panther_analysis_tool
 
 ci:
-	pipenv run $(MAKE) lint unit integration
+	$(MAKE) lint unit integration
 
 deps:
 	pip3 install -r requirements.txt
@@ -11,10 +11,10 @@ deps-update:
 	pip3 freeze -r requirements-top-level.txt > requirements.txt
 
 lint:
-	yapf $(packages) --diff --parallel --recursive --style google
-	mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores || true # TODO(jack) Figure out why mypy is failing on 'has no attribute' error
-	bandit -r $(packages)
-	pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912 --exit-zero
+	pipenv run yapf $(packages) --diff --parallel --recursive --style google
+	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores || true # TODO(jack) Figure out why mypy is failing on 'has no attribute' error
+	pipenv run bandit -r $(packages)
+	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912 --exit-zero
 
 venv:
 	virtualenv -p python3.7 venv
@@ -31,7 +31,7 @@ unit:
 	pipenv run nosetests -v
 
 integration:
-	panther_analysis_tool test --path tests/fixtures/valid_analysis/
+	pipenv run panther_analysis_tool test --path tests/fixtures/valid_analysis/
 
 test: unit
 

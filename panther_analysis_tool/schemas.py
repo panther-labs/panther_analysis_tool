@@ -18,10 +18,26 @@ from schema import And, Optional, Or, Regex, Schema
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
-TYPE_SCHEMA = Schema({
-    'AnalysisType': Or("policy", "rule", "global"),
-},
-                     ignore_extra_keys=True)
+TYPE_SCHEMA = Schema(
+    {
+        'AnalysisType': Or("datamodel", "global", "policy", "rule"),
+    },
+    ignore_extra_keys=True)
+
+DATA_MODEL_SCHEMA = Schema(
+    {
+        'AnalysisType': Or("datamodel"),
+        'DataModelID': And(str, NAME_ID_VALIDATION_REGEX),
+        'Enabled': bool,
+        'LogTypes': [str],
+        'Mappings': [{
+            'Name': str,
+            Or('Method', 'Path'): str,
+        }],
+        Optional('DisplayName'): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional('Filename'): str,
+    },
+    ignore_extra_keys=False)
 
 GLOBAL_SCHEMA = Schema(
     {

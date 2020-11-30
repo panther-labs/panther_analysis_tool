@@ -1,0 +1,10 @@
+AnalysisType: datamodel
+DataModelID: onelogin.DataModel
+Enabled: true
+LogTypes: 
+  - OneLogin.Events
+Mappings:
+  - Name: source_ip
+    Path: ipaddr
+  - Name: user
+    Path: $.actor_user_name

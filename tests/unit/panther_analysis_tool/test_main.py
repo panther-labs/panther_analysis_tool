@@ -53,18 +53,19 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      'tests/fixtures/example_malformed_policy.yml')
+        assert_equal(len(invalid_specs), 7)
 
     def test_rules_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/rules'.split())
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_rules_from_current_dir(self):
-        # This is a work around to test running tool against current directory 
+        # This is a work around to test running tool against current directory
         return_code = -1
         invalid_specs = None
-        valid_rule_path = self.fixture_path + 'valid_analysis/rules'
+        valid_rule_path = self.fixture_path + 'valid_analysis/policies'
         # test default path, '.'
         with Pause(self.fs):
             original_path = os.getcwd()
@@ -113,6 +114,13 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_rule_definition(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=AWS.CloudTrail.MFAEnabled'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 4)
+
+    def test_invalid_rule_test(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Invalid.Test'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
