@@ -272,6 +272,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         list(load_analysis_specs(DATA_MODEL_LOCATION)))
 
     if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
+        if len(invalid_specs) > 0:
+            return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
     # Apply the filters as needed

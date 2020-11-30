@@ -58,7 +58,6 @@ class TestCase():
             raise err
         if self.data_model:
             # access values via standardized fields
-            # check each data model that could apply
             if key in self.data_model.paths:
                 # we are dealing with a jsonpath
                 json_path = self.data_model.paths.get(key)
