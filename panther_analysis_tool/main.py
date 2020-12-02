@@ -87,7 +87,8 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
+def load_analysis_specs(
+        directories: List[str]) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
@@ -96,40 +97,49 @@ def load_analysis_specs(directory: str) -> Iterator[Tuple[str, str, Any, Any]]:
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
-    for relative_path, _, file_list in os.walk(directory):
-        # setup yaml object
-        yaml = YAML(typ='safe')
-        # If the user runs with no path args, filter to make sure
-        # we only run folders with valid analysis files. Ensure we test
-        # files in the current directory by not skipping this iteration
-        # when relative_path is the current dir
-        if directory in ['.', './'] and relative_path not in ['.', './']:
-            if not any([
-                    fnmatch(relative_path, path_pattern) for path_pattern in (
-                        DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
-                        RULES_PATH_PATTERN, POLICIES_PATH_PATTERN)
-            ]):
-                logging.debug('Skipping path %s', relative_path)
-                continue
-        for filename in sorted(file_list):
-            spec_filename = os.path.join(relative_path, filename)
-            if fnmatch(filename, '*.y*ml'):
-                with open(spec_filename, 'r') as spec_file_obj:
-                    try:
-                        yield spec_filename, relative_path, yaml.load(
-                            spec_file_obj), None
-                    except (YAMLParser.ParserError,
-                            YAMLScanner.ScannerError) as err:
-                        # recreate the yaml object and yeild the error
-                        yaml = YAML(typ='safe')
-                        yield spec_filename, relative_path, None, err
-            if fnmatch(filename, '*.json'):
-                with open(spec_filename, 'r') as spec_file_obj:
-                    try:
-                        yield spec_filename, relative_path, json.load(
-                            spec_file_obj), None
-                    except ValueError as err:
-                        yield spec_filename, relative_path, None, err
+    # setup a list of paths to ensure we do not import the same files
+    # multiple times, which can happen when testing from root directory without filters
+    loaded_specs = []
+    for directory in directories:
+        for relative_path, _, file_list in os.walk(directory):
+            # setup yaml object
+            yaml = YAML(typ='safe')
+            # If the user runs with no path args, filter to make sure
+            # we only run folders with valid analysis files. Ensure we test
+            # files in the current directory by not skipping this iteration
+            # when relative_path is the current dir
+            if directory in ['.', './'] and relative_path not in ['.', './']:
+                if not any([
+                        fnmatch(relative_path, path_pattern)
+                        for path_pattern in (
+                            DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
+                            RULES_PATH_PATTERN, POLICIES_PATH_PATTERN)
+                ]):
+                    logging.debug('Skipping path %s', relative_path)
+                    continue
+            for filename in sorted(file_list):
+                spec_filename = os.path.join(relative_path, filename)
+                # skip loading files that have already been imported
+                if spec_filename in loaded_specs:
+                    continue
+                loaded_specs.append(spec_filename)
+                if fnmatch(filename, '*.y*ml'):
+                    with open(spec_filename, 'r') as spec_file_obj:
+                        try:
+                            yield spec_filename, relative_path, yaml.load(
+                                spec_file_obj), None
+                        except (YAMLParser.ParserError,
+                                YAMLScanner.ScannerError) as err:
+                            # recreate the yaml object and yeild the error
+                            yaml = YAML(typ='safe')
+                            yield spec_filename, relative_path, None, err
+                if fnmatch(filename, '*.json'):
+                    with open(spec_filename, 'r') as spec_file_obj:
+                        try:
+                            yield spec_filename, relative_path, json.load(
+                                spec_file_obj), None
+                        except ValueError as err:
+                            yield spec_filename, relative_path, None, err
 
 
 def datetime_converted(obj: Any) -> Any:
@@ -172,10 +182,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         # Always zip the helpers and data models
         analysis = []
         files: Set[str] = set()
-        for (file_name, f_path, spec,
-             _) in list(load_analysis_specs(args.path)) + list(
-                 load_analysis_specs(HELPERS_LOCATION)) + list(
-                     load_analysis_specs(DATA_MODEL_LOCATION)):
+        for (file_name, f_path, spec, _) in list(
+                load_analysis_specs(
+                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
@@ -216,18 +225,13 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     with open(archive, 'rb') as analysis_zip:
         zip_bytes = analysis_zip.read()
         payload = {
-            'resource':
-                '/upload',
-            'HTTPMethod':
-                'POST',
-            'Body':
-                json.dumps({
-                    'Data': base64.b64encode(zip_bytes).decode('utf-8'),
-                    # The UserID is required by Panther for this API call, but we have no way of
-                    # acquiring it and it isn't used for anything. This is a valid UUID used by the
-                    # Panther deployment tool to indicate this action was performed automatically.
-                    'UserID': '00000000-0000-4000-8000-000000000000',
-                }),
+            'bulkUpload': {
+                'data': base64.b64encode(zip_bytes).decode('utf-8'),
+                # The UserID is required by Panther for this API call, but we have no way of
+                # acquiring it and it isn't used for anything. This is a valid UUID used by the
+                # Panther deployment tool to indicate this action was performed automatically.
+                'userId': '00000000-0000-4000-8000-000000000000',
+            },
         }
 
         logging.info('Uploading pack to Panther')
@@ -239,11 +243,39 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         response_str = response['Payload'].read().decode('utf-8')
         response_payload = json.loads(response_str)
 
-        if response_payload['statusCode'] != 200:
-            logging.warning(
-                'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
-                response_payload['statusCode'], response_payload['body'])
-            return 1, ''
+        if response_payload.get(
+                'errorMessage') or response_payload.get('statusCode') != 200:
+            # try deprecated version, using analysis-api gateway
+            deprecated_payload = {
+                'resource':
+                    '/upload',
+                'HTTPMethod':
+                    'POST',
+                'Body':
+                    json.dumps({
+                        'Data': base64.b64encode(zip_bytes).decode('utf-8'),
+                        # The UserID is required by Panther for this API call, but we have
+                        # no way of acquiring it and it isn't used for anything. This is a
+                        # valid UUID used by the Panther deployment tool to indicate this
+                        # action was performed automatically.
+                        'UserID': '00000000-0000-4000-8000-000000000000',
+                    }),
+            }
+            response = client.invoke(FunctionName='panther-analysis-api',
+                                     InvocationType='RequestResponse',
+                                     LogType='None',
+                                     Payload=json.dumps(deprecated_payload))
+            response_str = response['Payload'].read().decode('utf-8')
+            response_payload = json.loads(response_str)
+
+            if response_payload.get('errorMessage') or response_payload.get(
+                    'statusCode') != 200:
+                logging.warning(
+                    'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
+                    response_payload.get('statusCode', 0),
+                    response_payload.get('errorMessage',
+                                         response_payload.get('body')))
+                return 1, ''
 
         body = json.loads(response_payload['body'])
         logging.info('Upload success.')
@@ -267,9 +299,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file, always include globals and data models location
     data_models, global_analysis, analysis, invalid_specs = classify_analysis(
-        list(load_analysis_specs(args.path)) +
-        list(load_analysis_specs(HELPERS_LOCATION)) +
-        list(load_analysis_specs(DATA_MODEL_LOCATION)))
+        list(
+            load_analysis_specs(
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
     if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
         if len(invalid_specs) > 0:
@@ -589,7 +621,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.4.0')
+                        version='panther_analysis_tool 0.4.1')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
