@@ -225,18 +225,13 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     with open(archive, 'rb') as analysis_zip:
         zip_bytes = analysis_zip.read()
         payload = {
-            'resource':
-                '/upload',
-            'HTTPMethod':
-                'POST',
-            'Body':
-                json.dumps({
-                    'Data': base64.b64encode(zip_bytes).decode('utf-8'),
-                    # The UserID is required by Panther for this API call, but we have no way of
-                    # acquiring it and it isn't used for anything. This is a valid UUID used by the
-                    # Panther deployment tool to indicate this action was performed automatically.
-                    'UserID': '00000000-0000-4000-8000-000000000000',
-                }),
+            'bulkUpload': {
+                'data': base64.b64encode(zip_bytes).decode('utf-8'),
+                # The UserID is required by Panther for this API call, but we have no way of
+                # acquiring it and it isn't used for anything. This is a valid UUID used by the
+                # Panther deployment tool to indicate this action was performed automatically.
+                'userId': '00000000-0000-4000-8000-000000000000',
+            },
         }
 
         logging.info('Uploading pack to Panther')
@@ -248,11 +243,37 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         response_str = response['Payload'].read().decode('utf-8')
         response_payload = json.loads(response_str)
 
-        if response_payload['statusCode'] != 200:
-            logging.warning(
-                'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
-                response_payload['statusCode'], response_payload['body'])
-            return 1, ''
+        if response_payload.get(
+                'errorMessage') or response_payload.get('statusCode') != 200:
+            # try deprecated version, using analysis-api gateway
+            deprecated_payload = {
+                'resource':
+                    '/upload',
+                'HTTPMethod':
+                    'POST',
+                'Body':
+                    json.dumps({
+                        'Data': base64.b64encode(zip_bytes).decode('utf-8'),
+                        # The UserID is required by Panther for this API call, but we have
+                        # no way of acquiring it and it isn't used for anything. This is a
+                        # valid UUID used by the Panther deployment tool to indicate this
+                        # action was performed automatically.
+                        'UserID': '00000000-0000-4000-8000-000000000000',
+                    }),
+            }
+            response = client.invoke(FunctionName='panther-analysis-api',
+                                     InvocationType='RequestResponse',
+                                     LogType='None',
+                                     Payload=json.dumps(deprecated_payload))
+            response_str = response['Payload'].read().decode('utf-8')
+            response_payload = json.loads(response_str)
+
+            if response_payload.get('errorMessage') or response_payload.get(
+                    'statusCode') != 200:
+                logging.warning(
+                    'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
+                    response_payload['statusCode'], response_payload['body'])
+                return 1, ''
 
         body = json.loads(response_payload['body'])
         logging.info('Upload success.')
@@ -598,7 +619,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.4.0')
+                        version='panther_analysis_tool 0.4.1')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
