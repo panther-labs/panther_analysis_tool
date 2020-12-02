@@ -272,7 +272,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
                     'statusCode') != 200:
                 logging.warning(
                     'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
-                    response_payload['statusCode'], response_payload['body'])
+                    response_payload.get('statusCode', 0), response_payload.get('errorMessage', response_payload.get('body')))
                 return 1, ''
 
         body = json.loads(response_payload['body'])
