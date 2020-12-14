@@ -147,6 +147,27 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
+    def test_with_minimum_tests(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 1'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_with_minimum_tests_failing(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 2'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        # Failing, because some of the fixtures only have one test case
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_with_minimum_tests_no_passing(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        # Failing, because while there are two unit tests they both have expected result False
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 4)
+
     def test_zip_analysis(self):
         # Note: This is a workaround for CI
         try:

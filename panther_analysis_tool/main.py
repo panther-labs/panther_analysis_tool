@@ -331,7 +331,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(log_type_to_data_model,
-                                                      analysis)
+                                                      analysis,
+                                                      args.minimum_tests)
     invalid_specs.extend(invalid_detection)
 
     print_summary(args.path, len(analysis), failed_tests, invalid_specs)
@@ -388,8 +389,8 @@ def setup_data_models(
 
 
 def setup_run_tests(
-        log_type_to_data_model: Dict[str, DataModel],
-        analysis: List[Any]) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
+        log_type_to_data_model: Dict[str, DataModel], analysis: List[Any],
+        minimum_tests: int) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
@@ -415,7 +416,8 @@ def setup_run_tests(
                 analysis_funcs['title'] = module.title
 
         failed_tests = run_tests(analysis_spec, analysis_funcs,
-                                 log_type_to_data_model, failed_tests)
+                                 log_type_to_data_model, failed_tests,
+                                 minimum_tests)
         print('')
     return failed_tests, invalid_specs
 
@@ -556,7 +558,13 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
               analysis_data_models: Dict[str, DataModel],
-              failed_tests: DefaultDict[str, list]) -> DefaultDict[str, list]:
+              failed_tests: DefaultDict[str, list],
+              minimum_tests: int) -> DefaultDict[str, list]:
+
+    if len(analysis.get('Tests', [])) < minimum_tests:
+        failed_tests[analysis.get('PolicyID') or analysis['RuleID']].append(
+            'Insufficient test coverage, {} tests required but only {} found.'.
+            format(minimum_tests, len(analysis.get('Tests', []))))
 
     # First check if any tests exist, so we can print a helpful message if not
     if 'Tests' not in analysis:
@@ -611,6 +619,13 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
                 print('\t\t[{}] [{}] {}'.format(
                     test_result[func], func, analysis_funcs[func](test_case)))
 
+    if minimum_tests > 1 and not (
+        [x for x in analysis['Tests'] if x['ExpectedResult']] and
+        [x for x in analysis['Tests'] if not x['ExpectedResult']]):
+        failed_tests[analysis.get('PolicyID') or analysis['RuleID']].append(
+            'Insufficient test coverage: expected at least one passing and one failing test.'
+        )
+
     return failed_tests
 
 
@@ -637,6 +652,15 @@ def setup_parser() -> argparse.ArgumentParser:
                              required=False,
                              metavar="KEY=VALUE",
                              nargs='+')
+    test_parser.add_argument(
+        '--minimum-tests',
+        default='0',
+        type=int,
+        help=
+        'The minimum number of tests in order for a detection to be considered passing. If a number'
+        +
+        'greater than 1 is specified, at least one True and one False test is required.',
+        required=False)
     test_parser.add_argument('--debug', action='store_true', dest='debug')
     test_parser.set_defaults(func=test_analysis)
 
@@ -661,6 +685,15 @@ def setup_parser() -> argparse.ArgumentParser:
                             required=False,
                             metavar="KEY=VALUE",
                             nargs='+')
+    zip_parser.add_argument(
+        '--minimum-tests',
+        default='0',
+        type=int,
+        help=
+        'The minimum number of tests in order for a detection to be considered passing. If a number'
+        +
+        'greater than 1 is specified, at least one True and one False test is required.',
+        required=False)
     zip_parser.add_argument('--debug', action='store_true', dest='debug')
     zip_parser.set_defaults(func=zip_analysis)
 
@@ -685,6 +718,15 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         help=
         'The location to store a local copy of the packaged policies and rules.',
+        required=False)
+    upload_parser.add_argument(
+        '--minimum-tests',
+        default='0',
+        type=int,
+        help=
+        'The minimum number of tests in order for a detection to be considered passing. If a number'
+        +
+        'greater than 1 is specified, at least one True and one False test is required.',
         required=False)
     upload_parser.add_argument('--filter',
                                required=False,
