@@ -563,7 +563,7 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
     if len(analysis.get('Tests', [])) < minimum_tests:
         failed_tests[analysis.get('PolicyID') or analysis['RuleID']].append(
-            'Insufficient test coverage, {} tests required but only {} found.'.
+            'Insufficient test coverage: {} tests required but only {} found'.
             format(minimum_tests, len(analysis.get('Tests', []))))
 
     # First check if any tests exist, so we can print a helpful message if not
@@ -623,7 +623,7 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
         [x for x in analysis['Tests'] if x['ExpectedResult']] and
         [x for x in analysis['Tests'] if not x['ExpectedResult']]):
         failed_tests[analysis.get('PolicyID') or analysis['RuleID']].append(
-            'Insufficient test coverage: expected at least one passing and one failing test.'
+            'Insufficient test coverage: expected at least one positive and one negative test'
         )
 
     return failed_tests
