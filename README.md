@@ -76,7 +76,8 @@ positional arguments:
 
 optional arguments:
   -h, --help         show this help message and exit
-  --version          show program's version number and exit```
+  --version          show program's version number and exit
+```
 
 Run tests:
 
@@ -136,11 +137,11 @@ AWS.CloudTrail.MFAEnabled
 }
 ```
 
-The `test`, `zip`, and `upload` commands all supporting filtering. Filtering works by passing the `--filter` argument with a list of filters specified in the format `KEY=VALUE1,VALUE2`. The keys can be any valid field in a policy or rule. When using a filter, only anaylsis that matches each filter specified will be considered. For example, the following command will test only items with the AnalysisType of policy AND the severity of High:
+The `test`, `zip`, and `upload` commands all support filtering. Filtering works by passing the `--filter` argument with a list of filters specified in the format `KEY=VALUE1,VALUE2`. The keys can be any valid field in a policy or rule. When using a filter, only anaylsis that matches each filter specified will be considered. For example, the following command will test only items with the AnalysisType of policy AND the severity of High:
 
 ```
-panther\_analysis\_tool test --path tests/fixtures/valid\_policies --filter AnalysisType=policy Severity=High
-[INFO]: Testing analysis packs in tests/fixtures/valid\_policies
+panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy Severity=High
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies
 
 AWS.IAM.BetaTest
 	[PASS] Root MFA not enabled fails compliance
@@ -150,8 +151,8 @@ AWS.IAM.BetaTest
 Whereas the following command will test items with the AnalysisType policy OR rule, AND the severity High:
 
 ```
-panther\_analysis\_tool test --path tests/fixtures/valid\_policies --filter AnalysisType=policy,rule Severity=High
-[INFO]: Testing analysis packs in tests/fixtures/valid\_policies
+panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,rule Severity=High
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies
 
 AWS.IAM.BetaTest
 	[PASS] Root MFA not enabled fails compliance
@@ -165,13 +166,13 @@ AWS.CloudTrail.MFAEnabled
 When writing policies or rules that refer to the `global` analysis types, be sure to include them in your filter. You can include an empty string as a value in a filter, and it will mean the filter is only applied if the field exists. The following command will return an error, because the policy in question imports a global but the global does not have a severity so it is excluded by the filter:
 
 ```
-panther\_analysis\_tool test --path tests/fixtures/valid\_policies --filter AnalysisType=policy,global Severity=Critical
-[INFO]: Testing analysis packs in tests/fixtures/valid\_policies
+panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,global Severity=Critical
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies
 
 AWS.IAM.MFAEnabled
 	[ERROR] Error loading module, skipping
 
-Invalid: tests/fixtures/valid\_policies/example\_policy.yml
+Invalid: tests/fixtures/valid_policies/example_policy.yml
 	No module named 'panther'
 
 [ERROR]: [('tests/fixtures/valid_policies/example_policy.yml', ModuleNotFoundError("No module named 'panther'"))]
@@ -180,8 +181,8 @@ Invalid: tests/fixtures/valid\_policies/example\_policy.yml
 If you want this query to work, you need to allow for the severity field to be absent like this:
 
 ```
-panther\_analysis\_tool test --path tests/fixtures/valid\_policies --filter AnalysisType=policy,global Severity=Critical,""
-[INFO]: Testing analysis packs in tests/fixtures/valid\_policies
+panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,global Severity=Critical,""
+[INFO]: Testing analysis packs in tests/fixtures/valid_policies
 
 AWS.IAM.MFAEnabled
 	[PASS] Root MFA not enabled fails compliance
@@ -189,6 +190,44 @@ AWS.IAM.MFAEnabled
 ```
 
 Filters work for the `zip` and `upload` commands in the exact same way they work for the `test` command.
+
+In addition to filtering, you can set a minimum number of unit tests with the `--minimum-tests` flag. Detections that don't have the minimum number of tests will be considered failing, and if `--minimum-tests` is set to 2 or greater it will also enforce that at least one test must return True and one must return False.
+
+```
+panther_analysis_tool test --path tests/fixtures/valid_policies --minimum-tests 2
+% panther_analysis_tool test --path okta_rules --minimum-tests 2
+[INFO]: Testing analysis packs in okta_rules
+
+Okta.AdminRoleAssigned
+	[PASS] Admin Access Assigned
+
+Okta.BruteForceLogins
+	[PASS] Failed login
+
+Okta.GeographicallyImprobableAccess
+	[PASS] Non Login
+	[PASS] Failed Login
+
+--------------------------
+Panther CLI Test Summary
+	Path: okta_rules
+	Passed: 0
+	Failed: 3
+	Invalid: 0
+
+--------------------------
+Failed Tests Summary
+	Okta.AdminRoleAssigned
+		['Insufficient test coverage, 2 tests required but only 1 found.', 'Insufficient test coverage: expected at least one passing and one failing test.']
+
+	Okta.BruteForceLogins
+		['Insufficient test coverage, 2 tests required but only 1 found.', 'Insufficient test coverage: expected at least one passing and one failing test.']
+
+	Okta.GeographicallyImprobableAccess
+		['Insufficient test coverage: expected at least one passing and one failing test.']
+```
+
+So in this case even though the rules passed all their tests, they're still considered failing because they do not have the correct test coverage.
 
 ## Writing Policies
 
