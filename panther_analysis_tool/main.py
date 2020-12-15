@@ -167,10 +167,10 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     Returns:
         A tuple of return code and the archive filename.
     """
-    return_code, _ = test_analysis(args)
-
-    if return_code == 1:
-        return return_code, ''
+    if not args.skip_tests:
+        return_code, _ = test_analysis(args)
+        if return_code == 1:
+            return return_code, ''
 
     logging.info('Zipping analysis packs in %s to %s', args.path, args.out)
     # example: 2019-08-05T18-23-25
@@ -636,7 +636,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.4.1')
+                        version='panther_analysis_tool 0.4.2')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
@@ -695,6 +695,9 @@ def setup_parser() -> argparse.ArgumentParser:
         'greater than 1 is specified, at least one True and one False test is required.',
         required=False)
     zip_parser.add_argument('--debug', action='store_true', dest='debug')
+    zip_parser.add_argument('--skip-tests',
+                            action='store_true',
+                            dest='skip_tests')
     zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
@@ -733,6 +736,9 @@ def setup_parser() -> argparse.ArgumentParser:
                                metavar="KEY=VALUE",
                                nargs='+')
     upload_parser.add_argument('--debug', action='store_true', dest='debug')
+    upload_parser.add_argument('--skip-tests',
+                               action='store_true',
+                               dest='skip_tests')
     upload_parser.set_defaults(func=upload_analysis)
 
     return parser
