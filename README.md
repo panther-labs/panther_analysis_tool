@@ -76,7 +76,8 @@ positional arguments:
 
 optional arguments:
   -h, --help         show this help message and exit
-  --version          show program's version number and exit```
+  --version          show program's version number and exit
+```
 
 Run tests:
 
@@ -189,6 +190,44 @@ AWS.IAM.MFAEnabled
 ```
 
 Filters work for the `zip` and `upload` commands in the exact same way they work for the `test` command.
+
+In addition to filtering, you can set a minimum number of unit tests with the `--minimum-tests` flag. Detections that don't have the minimum number of tests will be considered failing, and if `--minimum-tests` is set to 2 or greater it will also enforce that at least one test must return True and one must return False.
+
+```
+panther\_analysis\_tool test --path tests/fixtures/valid\_policies --minimum-tests 2
+% panther_analysis_tool test --path okta_rules --minimum-tests 2
+[INFO]: Testing analysis packs in okta_rules
+
+Okta.AdminRoleAssigned
+	[PASS] Admin Access Assigned
+
+Okta.BruteForceLogins
+	[PASS] Failed login
+
+Okta.GeographicallyImprobableAccess
+	[PASS] Non Login
+	[PASS] Failed Login
+
+--------------------------
+Panther CLI Test Summary
+	Path: okta_rules
+	Passed: 0
+	Failed: 3
+	Invalid: 0
+
+--------------------------
+Failed Tests Summary
+	Okta.AdminRoleAssigned
+		['Insufficient test coverage, 2 tests required but only 1 found.', 'Insufficient test coverage: expected at least one passing and one failing test.']
+
+	Okta.BruteForceLogins
+		['Insufficient test coverage, 2 tests required but only 1 found.', 'Insufficient test coverage: expected at least one passing and one failing test.']
+
+	Okta.GeographicallyImprobableAccess
+		['Insufficient test coverage: expected at least one passing and one failing test.']
+```
+
+So in this case even though the rules passed all their tests, they're still considered failing because they do not have the correct test coverage.
 
 ## Writing Policies
 
