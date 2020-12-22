@@ -47,6 +47,9 @@ class TestCase(Mapping):
     def __len__(self) -> int:
         return len(self._data)
 
+    def get(self, arg: str, default: Any = None) -> Any:
+        return self._data.get(arg, default)
+
     def udm(self, key: str) -> Any:
         """Converts standard data model field to logtype field"""
         # ensure that rules using `udm` have included p_log_type in their test
