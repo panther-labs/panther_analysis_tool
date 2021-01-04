@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional
 from jsonpath_ng import Fields
@@ -25,7 +26,7 @@ class DataModel:
                 self.paths[mapping['Name']] = parse(mapping['Path'])
 
 
-class TestCase():
+class TestCase(Mapping):
 
     def __init__(self, data: Dict[str, Any],
                  data_model: Optional[DataModel]) -> None:
@@ -42,6 +43,9 @@ class TestCase():
 
     def __iter__(self) -> Iterator:
         return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
 
     def get(self, arg: str, default: Any = None) -> Any:
         return self._data.get(arg, default)

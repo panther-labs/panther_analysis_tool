@@ -10,27 +10,23 @@
 </p>
 
 <p align="center">
-  <a href="https://panther-labs-oss-slackin.herokuapp.com/">Chat with us on Slack!</a>
+  <a href="https://slack.runpanther.io/">Chat with us on Slack!</a>
   <a href="https://circleci.com/gh/panther-labs/panther_analysis_tool"><img src="https://circleci.com/gh/panther-labs/panther_analysis_tool.svg?style=svg" alt="CircleCI"/></a>
 </p>
 
 ---
 
-This repository contains a CLI tool for testing and packaging Panther policies and rules.
+`panther_analysis_tool` is a Python CLI for testing, packaging, and deploying Panther Detections defined in code. See the [Panther documentation](https://docs.runpanther.io/quick-start) for more details on Panther.
 
-See the [Panther documentation](https://docs.runpanther.io/quick-start) for more details on Panther.
+# Installation
 
-## Panther Analysis Tool
-
-`panther_analysis_tool` is a Python command line interface for testing, packaging, and deploying Panther Policies and Rules. This enables policies and rules to be managed in code and tracked via version control systems such as git or svn. This is also useful for devops and security personnel who prefer CLI management and configuration over web interfaces.
-
-### Installation
-
-The `panther_analysis_tool` is available on [pip](https://pip.pypa.io/en/stable/)! To get started using the tool, simply install with:
+Install simply with pip:
 
 ```bash
 $ pip3 install panther_analysis_tool
 ```
+
+## Build From Source
 
 If you'd prefer instead to run from source for development reasons, first setup your environment:
 
@@ -39,22 +35,17 @@ $ make install
 $ make venv
 $ source venv/bin/activate
 $ pipenv run -- make deps
-```
-
-Use the pip package manager to install the local `panther_analysis_tool`.
-
-```bash
 $ pipenv run -- pip3 install -e .
 ```
 
-If you want to use the `panther_analysis_tool` tool outside of the virtual environment, install it to the host directly.
+If you would rather use the `panther_analysis_tool` outside of the virtual environment, install it  directly:
 
 ```bash
 $ make deps
 $ pip3 install -e .
 ```
 
-### Commands and Usage
+# Commands and Usage
 
 View available commands:
 
@@ -229,143 +220,7 @@ Failed Tests Summary
 
 So in this case even though the rules passed all their tests, they're still considered failing because they do not have the correct test coverage.
 
-## Writing Policies
-
-Each Panther Policy consists of a Python body and a YAML or JSON specification file.
-
-In the Python body, returning a value of `True` indicates the resource being evaluated is compliant. Returning a value of `False` indicates the resource is non-compliant, and an alert may be sent or an auto-remediation may be performed as a result.
-
-The specification file defines the attributes of the Policy. This includes settings such as `Enabled`, `Severity`, and `ResourceTypes`, as well as metadata such as `DisplayName`, `Tags`, and `Runbook`. See the [Writing Local Policies](https://docs.runpanther.io/policies/writing-local) documentation for more details on what fields may be present, and how they are configured.
-
-`example_policy.py`
-```python
-def policy(resource):
-  return True
-```
-
-`example_policy.yml`
-```yaml
-AnalysisType: policy
-Enabled: true
-Filename: example_policy.py
-PolicyID: Example.Policy.01
-ResourceTypes:
-  - Resource.Type.Here
-Severity: Low
-DisplayName: Example Policy to Check the Format of the Spec
-Tags:
-  - Tags
-  - Go
-  - Here
-Runbook: Find out who changed the spec format.
-Reference: https://www.link-to-info.io
-Tests:
-  -
-    Name: Name to describe our first test.
-    ResourceType: Resource.Type.Here  # Not needed in Panther versions >= 1.6.0
-    ExpectedResult: true/false
-    Resource:
-      Key: Values
-      For: Our Resource
-      Based: On the Schema
-```
-
-The requirements for the Policy body and specification files are listed below.
-
-The Python body MUST:
-  - Be valid Python3
-  - Define a function `policy` that accepts one argument
-  - Return a `bool` from the `policy` function
-
-The Python body SHOULD:
-  - Name the argument to the `policy` function `resource`
-
-The Python body MAY:
-  - Import standard Python3 libraries
-  - Define additional helper functions as needed
-  - Define variables and classes outside the scope of the `policy` function
-
-The specification file MUST:
-  - Be valid JSON/YAML
-  - Define an `AnalysisType` field with the value `policy`
-  - Define the additional following fields:
-    - Enabled
-    - FileName
-    - PolicyID
-    - ResourceTypes
-    - Severity
-
-
-## Writing Rules
-
-Rules are very similar to Policies, and require a similar Python body and JSON or YAML specification file as Policies require.
-
-One very important distinction between Policies and Rules is the meaning of the return value. For Rules, returning a value of `False` indicates that the event being evaluated should not be alerted on. Returning a value of `True` indicates that the event is suspicious, and an alert may be sent or an auto-remediation may be performed as a result.
-
-`example_rule.py`
-```python
-def rule(event):
-  return False
-```
-
-`example_rule.yml`
-```yaml
-AnalysisType: rule
-Enabled: true
-Filename: example_rule.py
-RuleID: Example.Rule.01
-LogTypes:
-  - Log.Type.Here
-Severity: Low
-DisplayName: Example Rule to Check the Format of the Spec
-Tags:
-  - Tags
-  - Go
-  - Here
-Runbook: Find out who changed the spec format.
-Reference: https://www.link-to-info.io
-Tests:
-  -
-    Name: Name to describe our first test.
-    LogType: Log.Type.Here  # Not needed in Panther versions >= 1.6.0
-    ExpectedResult: true/false
-    Log:
-      {
-        "field1": "value1",
-      }
-```
-
-The requirements for the Rule body and specification files are listed below.
-
-The Python body MUST:
-  - Be valid Python3
-  - Define a function `rule` that accepts one argument
-  - Return a `bool` from the `rule` function
-
-The Python body SHOULD:
-  - Name the argument to the `rule` function `event`
-
-The Python body MAY:
-  - Import standard Python3 libraries
-  - Define additional helper functions as needed
-  - Define variables and classes outside the scope of the `rule` function
-
-The specification file MUST:
-  - Be valid JSON/YAML
-  - Define an `AnalysisType` field with the value `rule`
-  - Define the additional following fields:
-    - Enabled
-    - FileName
-    - PolicyID
-    - ResourceTypes
-    - Severity
-
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
-
-## Contributing
+# Contributing
 
 We welcome all contributions! Please read the [contributing guidelines](https://github.com/panther-labs/panther-analysis/blob/master/CONTRIBUTING.md) before submitting pull requests.
 

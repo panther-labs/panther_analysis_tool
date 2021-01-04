@@ -2,14 +2,14 @@ from distutils.core import setup
 setup(
     name='panther_analysis_tool',
     packages=['panther_analysis_tool'],
-    version='0.4.2',
+    version='0.4.3',
     license='apache-2.0',
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',
     author='Panther Labs Inc',
     author_email='pypi@runpanther.io',
     url='https://github.com/panther-labs/panther_analysis_tool',
-    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.4.2.tar.gz',
+    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.4.3.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=[
