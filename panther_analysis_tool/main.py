@@ -243,8 +243,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         response_str = response['Payload'].read().decode('utf-8')
         response_payload = json.loads(response_str)
 
-        if response_payload.get(
-                'errorMessage') or response_payload.get('statusCode') != 200:
+        if response_payload.get('errorMessage'):
             # try deprecated version, using analysis-api gateway
             deprecated_payload = {
                 'resource':
@@ -268,14 +267,14 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
             response_str = response['Payload'].read().decode('utf-8')
             response_payload = json.loads(response_str)
 
-            if response_payload.get('errorMessage') or response_payload.get(
-                    'statusCode') != 200:
-                logging.warning(
-                    'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
-                    response_payload.get('statusCode', 0),
-                    response_payload.get('errorMessage',
-                                         response_payload.get('body')))
-                return 1, ''
+        if  response_payload.get('errorMessage') or response_payload.get(
+                'statusCode') != 200:
+            logging.warning(
+                'Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s',
+                response_payload.get('statusCode', 0),
+                response_payload.get('errorMessage',
+                                        response_payload.get('body')))
+            return 1, ''
 
         body = json.loads(response_payload['body'])
         logging.info('Upload success.')
