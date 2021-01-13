@@ -322,7 +322,7 @@ def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
         # If the module could not be loaded, continue to the next
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
-            break
+            continue
         sys.modules[analysis_id] = module
     return invalid_specs
 
