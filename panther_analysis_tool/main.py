@@ -322,7 +322,7 @@ def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
         # If the module could not be loaded, continue to the next
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
-            break
+            continue
         sys.modules[analysis_id] = module
     return invalid_specs
 
@@ -610,7 +610,7 @@ def setup_parser() -> argparse.ArgumentParser:
         prog='panther_analysis_tool')
     parser.add_argument('--version',
                         action='version',
-                        version='panther_analysis_tool 0.4.3')
+                        version='panther_analysis_tool 0.4.4')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
