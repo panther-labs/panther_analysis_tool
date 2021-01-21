@@ -41,6 +41,9 @@ class TestCase(Mapping):
     def __getitem__(self, arg: str) -> Any:
         return self._data.get(arg, None)
 
+    def __contains__(self, key: str) -> Bool:
+        return key in self._data
+
     def __iter__(self) -> Iterator:
         return iter(self._data)
 
