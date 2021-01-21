@@ -7,6 +7,9 @@ def rule(event):
     if event['UserName'] in IGNORED_USERS:
         return False
 
+    if 'CredentialReport' not in event:
+        return False
+
     cred_report = event.get('CredentialReport', {})
     if not cred_report:
         return True
