@@ -433,7 +433,7 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
                           os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
-        elif fnmatch(dir_name, DATA_MODEL_LOCATION):
+        if fnmatch(dir_name, DATA_MODEL_LOCATION):
             logging.debug('auto-adding data model file %s',
                           os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
