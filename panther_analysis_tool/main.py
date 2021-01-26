@@ -37,7 +37,7 @@ import boto3
 
 from panther_analysis_tool.schemas import (TYPE_SCHEMA, DATA_MODEL_SCHEMA,
                                            GLOBAL_SCHEMA, POLICY_SCHEMA,
-                                           RULE_SCHEMA)
+                                           RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA)
 from panther_analysis_tool.test_case import DataModel, TestCase
 
 DATA_MODEL_LOCATION = './data_models'
@@ -272,12 +272,12 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     logging.info('Testing analysis packs in %s\n', args.path)
 
     # First classify each file, always include globals and data models location
-    data_models, global_analysis, analysis, invalid_specs = classify_analysis(
+    data_models, global_analysis, analysis, invalid_specs, queries = classify_analysis(
         list(
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
+    if all(len(x) == 0 for x in [data_models, global_analysis, analysis, queries]):
         if len(invalid_specs) > 0:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -286,8 +286,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     data_models = filter_analysis(data_models, args.filter)
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
+    queries = filter_analysis(queries, args.filter)
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
+    if all(len(x) == 0 for x in [data_models, global_analysis, analysis, queries]):
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
@@ -455,13 +456,15 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]]
-) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
+) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[Any]]:
 
     # First determine the type of each file
     data_models = []
     global_analysis = []
     analysis = []
     invalid_specs = []
+    queries = []
+
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
     analysis_ids = []
@@ -507,6 +510,14 @@ def classify_analysis(
                 analysis_ids.append(analysis_spec['RuleID'])
                 analysis.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
+            if analysis_spec['AnalysisType'] == 'scheduled_query':
+                keys = list(SCHEDULED_QUERY_SCHEMA.schema.keys())
+                SCHEDULED_QUERY_SCHEMA.validate(analysis_spec)
+                if analysis_spec['QueryName'] in analysis_ids:
+                    raise AnalysisIDConflictException(analysis_spec['QueryName'])
+                analysis_ids.append(analysis_spec['QueryName'])
+                queries.append(
+                    (analysis_spec_filename, dir_name, analysis_spec))
         except SchemaWrongKeyError as err:
             invalid_specs.append(
                 (analysis_spec_filename, handle_wrong_key_error(err, keys)))
@@ -519,7 +530,7 @@ def classify_analysis(
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
-    return (data_models, global_analysis, analysis, invalid_specs)
+    return (data_models, global_analysis, analysis, invalid_specs, queries)
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
