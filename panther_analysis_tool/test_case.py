@@ -41,7 +41,7 @@ class TestCase(Mapping):
     def __getitem__(self, arg: str) -> Any:
         return self._data.get(arg, None)
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: object) -> bool:
         return key in self._data
 
     def __iter__(self) -> Iterator:
@@ -50,7 +50,7 @@ class TestCase(Mapping):
     def __len__(self) -> int:
         return len(self._data)
 
-    def get(self, arg: str, default: Any = None) -> Any:
+    def get(self, arg: Any, default: Any = None) -> Any:
         return self._data.get(arg, default)
 
     def udm(self, key: str) -> Any:

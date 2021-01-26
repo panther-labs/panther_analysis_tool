@@ -20,7 +20,9 @@ NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema(
     {
-        'AnalysisType': Or("datamodel", "global", "policy", "rule", "scheduled_rule", "scheduled_query"),
+        'AnalysisType':
+            Or("datamodel", "global", "policy", "rule", "scheduled_rule",
+               "scheduled_query"),
     },
     ignore_extra_keys=True)
 
@@ -136,12 +138,9 @@ RULE_SCHEMA = Schema(
 
 SCHEDULED_QUERY_SCHEMA = Schema(
     {
-        'AnalysisType':
-            Or("scheduled_query"),
-        'QueryName':
-            And(str, NAME_ID_VALIDATION_REGEX),
-        'Enabled':
-            bool,
+        'AnalysisType': Or("scheduled_query"),
+        'QueryName': And(str, NAME_ID_VALIDATION_REGEX),
+        'Enabled': bool,
         'Query': str,
         'Schedule': {
             Or('CronExpression', 'RateMinutes'): Or(str, int),

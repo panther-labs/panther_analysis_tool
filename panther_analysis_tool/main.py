@@ -277,7 +277,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis, queries]):
+    if all(
+            len(x) == 0
+            for x in [data_models, global_analysis, analysis, queries]):
         if len(invalid_specs) > 0:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -288,7 +290,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     analysis = filter_analysis(analysis, args.filter)
     queries = filter_analysis(queries, args.filter)
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis, queries]):
+    if all(
+            len(x) == 0
+            for x in [data_models, global_analysis, analysis, queries]):
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
@@ -514,7 +518,8 @@ def classify_analysis(
                 keys = list(SCHEDULED_QUERY_SCHEMA.schema.keys())
                 SCHEDULED_QUERY_SCHEMA.validate(analysis_spec)
                 if analysis_spec['QueryName'] in analysis_ids:
-                    raise AnalysisIDConflictException(analysis_spec['QueryName'])
+                    raise AnalysisIDConflictException(
+                        analysis_spec['QueryName'])
                 analysis_ids.append(analysis_spec['QueryName'])
                 queries.append(
                     (analysis_spec_filename, dir_name, analysis_spec))
