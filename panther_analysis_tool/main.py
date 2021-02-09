@@ -258,6 +258,70 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     return 0, ''
 
+def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """Updates managed schemas in a Panther deployment.
+
+    Returns 1 if the update fails.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and the archive filename.
+    """
+
+    # optionally set env variable for profile passed as argument
+    # this must be called prior to setting up the client
+    if args.aws_profile is not None:
+        logging.info('Using AWS profile: %s', args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
+
+    client = boto3.client('lambda')
+    logging.info('Fetching updates')
+    response = client.invoke(FunctionName='panther-logtypes-api',
+            InvocationType='RequestResponse',
+            Payload=json.dumps({
+                'ListManagedSchemaUpdates': {}
+            }))
+    response_str = response['Payload'].read().decode('utf-8')
+    response_payload = json.loads(response_str)
+    api_err = response_payload['error']
+    if api_err is not None:
+        logging.error(
+                'Failed to list managed schema updates\n\tcode: %s\n\terror message: %s',
+                api_err['code'],
+                api_err['message'])
+        return 1, ''
+    releases = response_payload['releases']
+    if releases is None:
+        logging.Info('No updates available.')
+        return 0, ''
+    print('Available versions:')
+    for (i, release) in enumerate(releases):
+        print('%d: %s'%(i,release.get('tag')))
+    choice = int(input('choose which version to install: '))
+    chosen = releases[choice]
+
+    response = client.invoke(FunctionName='panther-logtypes-api',
+            InvocationType='RequestResponse',
+            Payload=json.dumps({
+                'UpdateManagedSchemas': {
+                    'release': chosen.get('tag'),
+                    'manifestURL': chosen.get('manifestURL')
+                }
+            }))
+    response_str = response['Payload'].read().decode('utf-8')
+    response_payload = json.loads(response_str)
+    api_err = response_payload['error']
+    if api_err is not None:
+        logging.error(
+                'Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s',
+                chosen.get('tag'),
+                api_err['code'],
+                api_err['message'])
+        return 1, ''
+    logging.info('Managed schemas updated successfully')
+    return 0, ''
 
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
@@ -720,6 +784,15 @@ def setup_parser() -> argparse.ArgumentParser:
                                dest='skip_tests')
     upload_parser.set_defaults(func=upload_analysis)
 
+    update_schemas_parser = subparsers.add_parser(
+            'update-schemas',
+            help='Update managed schemas on a Panther deployment.')
+    update_schemas.add_argument(
+        '--aws-profile',
+        type=str,
+        help='The AWS profile to use when updating the AWS Panther deployment.',
+        required=False)
+    update_schemas.set_defaults(func=update_schemas)
     return parser
 
 
