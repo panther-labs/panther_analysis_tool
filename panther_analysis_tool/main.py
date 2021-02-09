@@ -87,8 +87,8 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(
-        directories: List[str]) -> Iterator[Tuple[str, str, Any, Any]]:
+def load_analysis_specs(directories: List[str]
+                       ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
@@ -258,6 +258,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     return 0, ''
 
+
 def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     """Updates managed schemas in a Panther deployment.
 
@@ -279,18 +280,16 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     client = boto3.client('lambda')
     logging.info('Fetching updates')
     response = client.invoke(FunctionName='panther-logtypes-api',
-            InvocationType='RequestResponse',
-            Payload=json.dumps({
-                'ListManagedSchemaUpdates': {}
-            }))
+                             InvocationType='RequestResponse',
+                             Payload=json.dumps(
+                                 {'ListManagedSchemaUpdates': {}}))
     response_str = response['Payload'].read().decode('utf-8')
     response_payload = json.loads(response_str)
     api_err = response_payload['error']
     if api_err is not None:
         logging.error(
-                'Failed to list managed schema updates\n\tcode: %s\n\terror message: %s',
-                api_err['code'],
-                api_err['message'])
+            'Failed to list managed schema updates\n\tcode: %s\n\terror message: %s',
+            api_err['code'], api_err['message'])
         return 1, ''
     releases = response_payload['releases']
     if releases is None:
@@ -298,30 +297,29 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         return 0, ''
     print('Available versions:')
     for (i, release) in enumerate(releases):
-        print('%d: %s'%(i,release.get('tag')))
+        print('%d: %s' % (i, release.get('tag')))
     choice = int(input('choose which version to install: '))
     chosen = releases[choice]
 
     response = client.invoke(FunctionName='panther-logtypes-api',
-            InvocationType='RequestResponse',
-            Payload=json.dumps({
-                'UpdateManagedSchemas': {
-                    'release': chosen.get('tag'),
-                    'manifestURL': chosen.get('manifestURL')
-                }
-            }))
+                             InvocationType='RequestResponse',
+                             Payload=json.dumps({
+                                 'UpdateManagedSchemas': {
+                                     'release': chosen.get('tag'),
+                                     'manifestURL': chosen.get('manifestURL')
+                                 }
+                             }))
     response_str = response['Payload'].read().decode('utf-8')
     response_payload = json.loads(response_str)
     api_err = response_payload['error']
     if api_err is not None:
         logging.error(
-                'Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s',
-                chosen.get('tag'),
-                api_err['code'],
-                api_err['message'])
+            'Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s',
+            chosen.get('tag'), api_err['code'], api_err['message'])
         return 1, ''
     logging.info('Managed schemas updated successfully')
     return 0, ''
+
 
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
@@ -391,8 +389,8 @@ def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
     return invalid_specs
 
 
-def setup_data_models(
-        data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
+def setup_data_models(data_models: List[Any]
+                     ) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
@@ -426,9 +424,9 @@ def setup_data_models(
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests(
-        log_type_to_data_model: Dict[str, DataModel], analysis: List[Any],
-        minimum_tests: int) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
+def setup_run_tests(log_type_to_data_model: Dict[str, DataModel],
+                    analysis: List[Any], minimum_tests: int
+                   ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
@@ -517,9 +515,8 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
     return filtered_analysis
 
 
-def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]]
-) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
+def classify_analysis(specs: List[Tuple[str, str, Any, Any]]
+                     ) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
 
     # First determine the type of each file
     data_models = []
@@ -680,6 +677,7 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument('--version',
                         action='version',
                         version='panther_analysis_tool 0.4.5')
+    parser.add_argument('--debug', action='store_true', dest='debug')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
@@ -704,7 +702,6 @@ def setup_parser() -> argparse.ArgumentParser:
         +
         'greater than 1 is specified, at least one True and one False test is required.',
         required=False)
-    test_parser.add_argument('--debug', action='store_true', dest='debug')
     test_parser.set_defaults(func=test_analysis)
 
     zip_parser = subparsers.add_parser(
@@ -737,7 +734,6 @@ def setup_parser() -> argparse.ArgumentParser:
         +
         'greater than 1 is specified, at least one True and one False test is required.',
         required=False)
-    zip_parser.add_argument('--debug', action='store_true', dest='debug')
     zip_parser.add_argument('--skip-tests',
                             action='store_true',
                             dest='skip_tests')
@@ -778,21 +774,20 @@ def setup_parser() -> argparse.ArgumentParser:
                                required=False,
                                metavar="KEY=VALUE",
                                nargs='+')
-    upload_parser.add_argument('--debug', action='store_true', dest='debug')
     upload_parser.add_argument('--skip-tests',
                                action='store_true',
                                dest='skip_tests')
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
-            'update-schemas',
-            help='Update managed schemas on a Panther deployment.')
-    update_schemas.add_argument(
+        'update-schemas',
+        help='Update managed schemas on a Panther deployment.')
+    update_schemas_parser.add_argument(
         '--aws-profile',
         type=str,
         help='The AWS profile to use when updating the AWS Panther deployment.',
         required=False)
-    update_schemas.set_defaults(func=update_schemas)
+    update_schemas_parser.set_defaults(func=update_schemas)
     return parser
 
 
@@ -831,9 +826,10 @@ def run() -> None:
     logging.basicConfig(format='[%(levelname)s]: %(message)s',
                         level=logging.DEBUG if args.debug else logging.INFO)
 
+    if hasattr(args, 'filter') and args.filter is not None:
+        args.filter = parse_filter(args.filter)
+
     try:
-        if args.filter is not None:
-            args.filter = parse_filter(args.filter)
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
