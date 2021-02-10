@@ -169,7 +169,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     """
     if not args.skip_tests:
         return_code, _ = test_analysis(args)
-        if return_code == 1:
+        if return_code != 0:
             return return_code, ''
 
     logging.info('Zipping analysis packs in %s to %s', args.path, args.out)
@@ -355,7 +355,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if all([data_models, global_analysis, analysis]):
+    if not any([data_models, global_analysis, analysis]):
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -365,7 +365,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
 
-    if all([data_models, global_analysis, analysis]):
+    if not any([data_models, global_analysis, analysis]):
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
