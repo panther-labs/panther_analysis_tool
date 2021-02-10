@@ -285,37 +285,52 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
                                  {'ListManagedSchemaUpdates': {}}))
     response_str = response['Payload'].read().decode('utf-8')
     response_payload = json.loads(response_str)
-    api_err = response_payload['error']
+
+    api_err = response_payload.get('error')
     if api_err is not None:
         logging.error(
             'Failed to list managed schema updates\n\tcode: %s\n\terror message: %s',
             api_err['code'], api_err['message'])
         return 1, ''
-    releases = response_payload['releases']
-    if releases is None:
-        logging.Info('No updates available.')
+
+    releases = response_payload.get('releases')
+    if releases is None or len(releases) is 0:
+        logging.info('No updates available.')
         return 0, ''
-    print('Available versions:')
-    for (i, release) in enumerate(releases):
-        print('%d: %s' % (i, release.get('tag')))
-    choice = int(input('choose which version to install: '))
-    chosen = releases[choice]
+
+    tags = [r.get('tag') for r in releases]
+    tagLatest = tags[-1]
+    while True:
+        print('Available versions:')
+        for tag in tags:
+            print('\t%s' % tag)
+        print('Panther will update managed schemas to the latest version (%s)' %
+              tag)
+        prompt = 'Choose a different version (%s): '.format(tag)
+
+        choice = input(prompt).strip() or tagLatest  # nosec
+        if choice in tags:
+            break
+        else:
+            logging.error('Chosen tag %s is not valid', choice)
+
+    manifestURL = releases[tags.index(choice)].get('manifestURL')
 
     response = client.invoke(FunctionName='panther-logtypes-api',
                              InvocationType='RequestResponse',
                              Payload=json.dumps({
                                  'UpdateManagedSchemas': {
-                                     'release': chosen.get('tag'),
-                                     'manifestURL': chosen.get('manifestURL')
+                                     'release': choice,
+                                     'manifestURL': manifestURL
                                  }
                              }))
     response_str = response['Payload'].read().decode('utf-8')
     response_payload = json.loads(response_str)
-    api_err = response_payload['error']
+    api_err = response_payload.get('error')
     if api_err is not None:
         logging.error(
             'Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s',
-            chosen.get('tag'), api_err['code'], api_err['message'])
+            choice, api_err['code'], api_err['message'])
         return 1, ''
     logging.info('Managed schemas updated successfully')
     return 0, ''
