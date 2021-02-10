@@ -3,7 +3,7 @@ setup(
     name='panther_analysis_tool',
     packages=['panther_analysis_tool'],
     version='0.4.5',
-    license='apache-2.0',
+    license='AGPL-3.0',
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',
     author='Panther Labs Inc',
@@ -22,7 +22,7 @@ setup(
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Topic :: Security',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: GNU Affero General Public License v3',
         'Programming Language :: Python :: 3.7',
     ],
 )
