@@ -304,10 +304,11 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         print('Available versions:')
         for tag in tags:
             print('\t%s' % tag)
-        print('Panther will update managed schemas to the latest version (%s)' %
-              tag)
-        prompt = 'Choose a different version (%s): '.format(tag)
+            print(
+                'Panther will update managed schemas to the latest version (%s)'
+                % tag)
 
+        prompt = 'Choose a different version ({0}): '.format(latest_tag)
         choice = input(prompt).strip() or latest_tag  # nosec
         if choice in tags:
             break
@@ -354,8 +355,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
-        if len(invalid_specs) > 0:
+    if all([data_models, global_analysis, analysis]):
+        if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
@@ -364,7 +365,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
+    if all([data_models, global_analysis, analysis]):
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
