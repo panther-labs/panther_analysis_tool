@@ -87,8 +87,8 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(directories: List[str]
-                       ) -> Iterator[Tuple[str, str, Any, Any]]:
+def load_analysis_specs(
+        directories: List[str]) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
@@ -404,8 +404,8 @@ def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
     return invalid_specs
 
 
-def setup_data_models(data_models: List[Any]
-                     ) -> Tuple[Dict[str, DataModel], List[Any]]:
+def setup_data_models(
+        data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
@@ -439,9 +439,9 @@ def setup_data_models(data_models: List[Any]
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests(log_type_to_data_model: Dict[str, DataModel],
-                    analysis: List[Any], minimum_tests: int
-                   ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
+def setup_run_tests(
+        log_type_to_data_model: Dict[str, DataModel], analysis: List[Any],
+        minimum_tests: int) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
@@ -530,8 +530,9 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
     return filtered_analysis
 
 
-def classify_analysis(specs: List[Tuple[str, str, Any, Any]]
-                     ) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
+def classify_analysis(
+    specs: List[Tuple[str, str, Any, Any]]
+) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
 
     # First determine the type of each file
     data_models = []
