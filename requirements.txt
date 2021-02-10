@@ -26,7 +26,6 @@ jmespath==0.10.0
 lazy-object-proxy==1.4.3
 mccabe==0.6.1
 mypy-extensions==0.4.3
--e git+git@github.com:panther-labs/panther_analysis_tool.git@95e3ff2806676faa6098d6e0ef2365a50ed4d902#egg=panther_analysis_tool
 pbr==5.5.1
 ply==3.11
 python-dateutil==2.8.1
