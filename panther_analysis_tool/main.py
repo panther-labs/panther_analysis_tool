@@ -172,7 +172,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     """
     if not args.skip_tests:
         return_code, _ = test_analysis(args)
-        if return_code == 1:
+        if return_code != 0:
             return return_code, ''
 
     logging.info('Zipping analysis packs in %s to %s', args.path, args.out)
@@ -262,6 +262,83 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ''
 
 
+def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """Updates managed schemas in a Panther deployment.
+
+    Returns 1 if the update fails.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and the archive filename.
+    """
+
+    # optionally set env variable for profile passed as argument
+    # this must be called prior to setting up the client
+    if args.aws_profile is not None:
+        logging.info('Using AWS profile: %s', args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
+
+    client = boto3.client('lambda')
+    logging.info('Fetching updates')
+    response = client.invoke(FunctionName='panther-logtypes-api',
+                             InvocationType='RequestResponse',
+                             Payload=json.dumps(
+                                 {'ListManagedSchemaUpdates': {}}))
+    response_str = response['Payload'].read().decode('utf-8')
+    response_payload = json.loads(response_str)
+
+    api_err = response_payload.get('error')
+    if api_err is not None:
+        logging.error(
+            'Failed to list managed schema updates\n\tcode: %s\n\terror message: %s',
+            api_err['code'], api_err['message'])
+        return 1, ''
+
+    releases = response_payload.get('releases')
+    if not releases:
+        logging.info('No updates available.')
+        return 0, ''
+
+    tags = [r.get('tag') for r in releases]
+    latest_tag = tags[-1]
+    while True:
+        print('Available versions:')
+        for tag in tags:
+            print('\t%s' % tag)
+        print('Panther will update managed schemas to the latest version (%s)' %
+              tag)
+
+        prompt = 'Choose a different version ({0}): '.format(latest_tag)
+        choice = input(prompt).strip() or latest_tag  # nosec
+        if choice in tags:
+            break
+        else:
+            logging.error('Chosen tag %s is not valid', choice)
+
+    manifest_url = releases[tags.index(choice)].get('manifestURL')
+
+    response = client.invoke(FunctionName='panther-logtypes-api',
+                             InvocationType='RequestResponse',
+                             Payload=json.dumps({
+                                 'UpdateManagedSchemas': {
+                                     'release': choice,
+                                     'manifestURL': manifest_url
+                                 }
+                             }))
+    response_str = response['Payload'].read().decode('utf-8')
+    response_payload = json.loads(response_str)
+    api_err = response_payload.get('error')
+    if api_err is not None:
+        logging.error(
+            'Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s',
+            choice, api_err['code'], api_err['message'])
+        return 1, ''
+    logging.info('Managed schemas updated successfully')
+    return 0, ''
+
+
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -280,8 +357,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
-        if len(invalid_specs) > 0:
+    if not any([data_models, global_analysis, analysis]):
+        if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
@@ -290,7 +367,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     global_analysis = filter_analysis(global_analysis, args.filter)
     analysis = filter_analysis(analysis, args.filter)
 
-    if all(len(x) == 0 for x in [data_models, global_analysis, analysis]):
+    if not any([data_models, global_analysis, analysis]):
         return 1, [
             "No analyses in {} matched filters {}".format(
                 args.path, args.filter)
@@ -619,6 +696,7 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument('--version',
                         action='version',
                         version='panther_analysis_tool 0.4.5')
+    parser.add_argument('--debug', action='store_true', dest='debug')
     subparsers = parser.add_subparsers()
 
     test_parser = subparsers.add_parser(
@@ -643,7 +721,6 @@ def setup_parser() -> argparse.ArgumentParser:
         +
         'greater than 1 is specified, at least one True and one False test is required.',
         required=False)
-    test_parser.add_argument('--debug', action='store_true', dest='debug')
     test_parser.set_defaults(func=test_analysis)
 
     zip_parser = subparsers.add_parser(
@@ -676,7 +753,6 @@ def setup_parser() -> argparse.ArgumentParser:
         +
         'greater than 1 is specified, at least one True and one False test is required.',
         required=False)
-    zip_parser.add_argument('--debug', action='store_true', dest='debug')
     zip_parser.add_argument('--skip-tests',
                             action='store_true',
                             dest='skip_tests')
@@ -717,12 +793,20 @@ def setup_parser() -> argparse.ArgumentParser:
                                required=False,
                                metavar="KEY=VALUE",
                                nargs='+')
-    upload_parser.add_argument('--debug', action='store_true', dest='debug')
     upload_parser.add_argument('--skip-tests',
                                action='store_true',
                                dest='skip_tests')
     upload_parser.set_defaults(func=upload_analysis)
 
+    update_schemas_parser = subparsers.add_parser(
+        'update-schemas',
+        help='Update managed schemas on a Panther deployment.')
+    update_schemas_parser.add_argument(
+        '--aws-profile',
+        type=str,
+        help='The AWS profile to use when updating the AWS Panther deployment.',
+        required=False)
+    update_schemas_parser.set_defaults(func=update_schemas)
     return parser
 
 
@@ -761,9 +845,10 @@ def run() -> None:
     logging.basicConfig(format='[%(levelname)s]: %(message)s',
                         level=logging.DEBUG if args.debug else logging.INFO)
 
+    if getattr(args, 'filter', None) is not None:
+        args.filter = parse_filter(args.filter)
+
     try:
-        if args.filter is not None:
-            args.filter = parse_filter(args.filter)
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
