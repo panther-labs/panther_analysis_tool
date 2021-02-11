@@ -304,9 +304,8 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         print('Available versions:')
         for tag in tags:
             print('\t%s' % tag)
-            print(
-                'Panther will update managed schemas to the latest version (%s)'
-                % tag)
+        print('Panther will update managed schemas to the latest version (%s)' %
+              tag)
 
         prompt = 'Choose a different version ({0}): '.format(latest_tag)
         choice = input(prompt).strip() or latest_tag  # nosec
