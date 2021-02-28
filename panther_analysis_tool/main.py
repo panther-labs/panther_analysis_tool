@@ -308,7 +308,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         for tag in tags:
             print('\t%s' % tag)
         print('Panther will update managed schemas to the latest version (%s)' %
-              tag)
+              latest_tag)
 
         prompt = 'Choose a different version ({0}): '.format(latest_tag)
         choice = input(prompt).strip() or latest_tag  # nosec
@@ -723,11 +723,32 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False)
     test_parser.set_defaults(func=test_analysis)
 
+    zip_schemas_parser = subparsers.add_parser(
+        'zip-schemas',
+        help='Create a release asset archive of managed schemas.')
+    zip_schemas_parser.add_argument('--release',
+                                    type=str,
+                                    help='The release this asset is for',
+                                    required=True)
+    zip_schemas_parser.add_argument(
+        '--out',
+        default='.',
+        type=str,
+        help='The path to write managed schemas asset to.',
+        required=False)
+    zip_schemas_parser.add_argument('--path',
+                                    default='.',
+                                    type=str,
+                                    help='The path to Panther analysis repo.',
+                                    required=True)
+    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
+
     zip_parser = subparsers.add_parser(
         'zip',
         help=
         'Create an archive of local policies and rules for uploading to Panther.'
     )
+
     zip_parser.add_argument(
         '--path',
         default='.',
@@ -808,6 +829,42 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False)
     update_schemas_parser.set_defaults(func=update_schemas)
     return parser
+
+
+def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """Packs managed schemas into a local zip file.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and the archive filename.
+    """
+
+    logging.info('Zipping managed schemas asset for release %s in %s to %s',
+                 args.release, args.path, args.out)
+    archive = 'managed-schemas-{}.zip'.format(args.release)
+    schema_dir = os.path.join(args.path, "schemas")
+    filenames = [
+        os.path.join(root, f) for root, dirs, files in os.walk(schema_dir)
+        if not fnmatch(root, "*/tests") for f in files if fnmatch(f, "*.yml")
+    ]
+    manifest = []
+    for filename in filenames:
+        with open(filename) as f:
+            lines = f.readlines()
+            manifest.append("---")
+            manifest.extend(lines)
+
+    logging.info("found %d schema files", len(filenames))
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zip_out:
+        # Set the archive comment to the release version
+        zip_out.comment = bytes(args.release, encoding="utf8")
+        # Add the manifest.yml file
+        data = "\n".join(manifest)
+        zip_out.writestr("manifest.yml", data)
+
+    return 0, archive
 
 
 # Parses the filters, expects a list of strings
