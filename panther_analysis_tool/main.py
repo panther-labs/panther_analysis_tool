@@ -346,22 +346,17 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 def generate_release_assets(args: argparse.Namespace) -> int:
     # First, generate the appropriate zip file
     # set the output file to appropriate name for the release: panther-analysis-all.zip
-    release_filename = 'panther-analysis-all.zip'
-    signature_filename = 'panther-analysis-all.sig'
-    args.out = release_filename
+    release_file = args.out + '/' + 'panther-analysis-all.zip'
+    signature_filename = args.out + '/' + 'panther-analysis-all.sig'
     return_code, archive = zip_analysis(args)
     if return_code == 1:
         return return_code, ''
-    logging.info('Release zip file generated: %s', release_filename)
+    os.rename(archive, release_file)
+    logging.info('Release zip file generated: %s', release_file)
     #  If a key is provided, sign a hash of the file
     if args.kms_id is not None:
         # Then generate the sha512 sum of the zip file
-        archive_hash = hashlib.sha512()
-        with open(archive, "rb") as f:
-            block = f.read(archive_hash.block_size)
-            while block:
-                archive_hash.update(block)
-                block = f.read(archive_hash.block_size)
+        archive_hash = generate_hash(release_file)
         # optionally set env variable for profile passed as argument
         # this must be called prior to setting up the client
         if args.aws_profile is not None:
@@ -376,18 +371,31 @@ def generate_release_assets(args: argparse.Namespace) -> int:
                 MessageType='DIGEST',
                 SigningAlgorithm='RSASSA_PKCS1_V1_5_SHA_512',
             )
-            # write signature out to file
-            with open(signature_filename, 'wb') as f:
-                f.write(response.Signature)
-            logging.info('Release signature file generated: %s', signature_filename)
+            if response.get('Signature'):
+                # write signature out to file
+                with open(signature_filename, 'wb') as f:
+                    f.write(base64.b64encode(response.get('Signature')))
+                logging.info('Release signature file generated: %s', signature_filename)
+            else:
+                logging.error('Missing signtaure in response: %s', response)
+                return 1, ''
         except Exception as err:
             logging.error(
                 'Failed to sign panther-analysis-all.zip using key (%s)',
                 args.kms_id)
             logging.error(err)
-            return 1
-    return 0
+            return 1, ''
+    return 0, ''
 
+def generate_hash(filename: str) -> str:
+    hash_bytes = hashlib.sha512()
+    with open(filename, "rb") as f:
+        block = f.read(hash_bytes.block_size)
+        while block:
+            hash_bytes.update(block)
+            block = f.read(hash_bytes.block_size)
+    # convert to byte string
+    return hash_bytes.digest()
 
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
@@ -418,7 +426,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     if len(specs[DETECTION]) == 0:
         return 1, [
-            "No analyses in {} matched filters {}".format(
+            "No analysis in {} matched filters {}".format(
                 args.path, args.filter)
         ]
 
@@ -586,13 +594,12 @@ def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]]
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
 
-    # First setup return dict containing different 
+    # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
     classified_specs = dict()
-    classified_specs[DATAMODEL] = []
-    classified_specs[DETECTION] = []
-    classified_specs[GLOBAL] = []
+    for key in [DATAMODEL, DETECTION, GLOBAL, PACK]:
+        classified_specs[key] = []
 
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
@@ -787,6 +794,12 @@ def setup_parser() -> argparse.ArgumentParser:
         'The minimum number of tests in order for a detection to be considered passing. If a number'
         +
         'greater than 1 is specified, at least one True and one False test is required.',
+        required=False)
+    release_parser.add_argument(
+        '--out',
+        default='.',
+        type=str,
+        help='The path to write zipped policies and rules to.',
         required=False)
     release_parser.add_argument(
         '--path',

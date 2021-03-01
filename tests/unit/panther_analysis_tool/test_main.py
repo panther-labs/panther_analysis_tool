@@ -18,15 +18,24 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_valid_json_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
-            if spec_filename == 'example_policy.json':
+            if spec_filename.endswith('example_policy.json'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
-            if spec_filename == 'example_policy.yml':
+            if spec_filename.endswith('example_policy.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
+
+    def test_valid_pack_spec(self):
+        pack_loaded = False
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
+            if spec_filename.endswith('sample-pack.yml'):
+                assert_is_instance(loaded_spec, dict)
+                assert_true(loaded_spec != {})
+                pack_loaded = True
+        assert_true(pack_loaded)
 
     def test_datetime_converted(self):
         test_date = datetime.now()
@@ -113,7 +122,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(args.aws_profile, os.environ.get(aws_profile))
 
     def test_invalid_rule_definition(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=AWS.CloudTrail.MFAEnabled'.split())
+        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=AWS.CloudTrail.MFAEnabled'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -127,7 +136,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(len(invalid_specs), 4)
 
     def test_invalid_characters(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High PolicyID=AWS.IAM.MFAEnabled'.split())
+        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High ResourceTypes=AWS.IAM.User'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -182,3 +191,18 @@ class TestPantherAnalysisTool(TestCase):
         assert_true(statinfo.st_size > 0)
         assert_equal(return_code, 0)
         assert_true(out_filename.endswith('.zip'))
+
+    def test_generate_release_assets(self):
+        # Note: This is a workaround for CI
+        try:
+            self.fs.create_dir('tmp/release/')
+        except OSError:
+            pass
+
+        args = pat.setup_parser().parse_args(
+            'release --path tests/fixtures/valid_analysis --out tmp/release/'.split())
+        return_code, _ = pat.generate_release_assets(args)
+        analysis_file = 'tmp/release/panther-analysis-all.zip'
+        statinfo = os.stat(analysis_file)
+        assert_true(statinfo.st_size > 0)
+        assert_equal(return_code, 0)
