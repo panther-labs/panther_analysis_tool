@@ -46,7 +46,6 @@ from panther_analysis_tool.test_case import DataModel, TestCase
 
 DATA_MODEL_LOCATION = './data_models'
 HELPERS_LOCATION = './global_helpers'
-PACKS_LOCATION = './packs'
 
 DATA_MODEL_PATH_PATTERN = '*data_models*'
 HELPERS_PATH_PATTERN = '*/global_helpers'
@@ -426,8 +425,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         return 1, ["Nothing to test in {}".format(args.path)]
 
     # Apply the filters as needed
-    for k in specs:
-        specs[k] = filter_analysis(specs[k], args.filter)
+    for key in specs:
+        specs[key] = filter_analysis(specs[key], args.filter)
 
     if len(specs[DETECTION]) == 0:
         return 1, [
