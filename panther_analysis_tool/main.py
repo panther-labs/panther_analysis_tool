@@ -121,7 +121,8 @@ def load_analysis_specs(
                         fnmatch(relative_path, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
-                            RULES_PATH_PATTERN, PACKS_PATH_PATTERN, POLICIES_PATH_PATTERN)
+                            RULES_PATH_PATTERN, PACKS_PATH_PATTERN,
+                            POLICIES_PATH_PATTERN)
                 ]):
                     logging.debug('Skipping path %s', relative_path)
                     continue
@@ -343,6 +344,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     logging.info('Managed schemas updated successfully')
     return 0, ''
 
+
 def generate_release_assets(args: argparse.Namespace) -> int:
     # First, generate the appropriate zip file
     # set the output file to appropriate name for the release: panther-analysis-all.zip
@@ -375,7 +377,8 @@ def generate_release_assets(args: argparse.Namespace) -> int:
                 # write signature out to file
                 with open(signature_filename, 'wb') as f:
                     f.write(base64.b64encode(response.get('Signature')))
-                logging.info('Release signature file generated: %s', signature_filename)
+                logging.info('Release signature file generated: %s',
+                             signature_filename)
             else:
                 logging.error('Missing signtaure in response: %s', response)
                 return 1, ''
@@ -387,6 +390,7 @@ def generate_release_assets(args: argparse.Namespace) -> int:
             return 1, ''
     return 0, ''
 
+
 def generate_hash(filename: str) -> str:
     hash_bytes = hashlib.sha512()
     with open(filename, "rb") as f:
@@ -396,6 +400,7 @@ def generate_hash(filename: str) -> str:
             block = f.read(hash_bytes.block_size)
     # convert to byte string
     return hash_bytes.digest()
+
 
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
@@ -437,7 +442,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     invalid_specs.extend(invalid_globals)
 
     # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
+    log_type_to_data_model, invalid_data_models = setup_data_models(
+        specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
 
     # then, import rules and policies; run tests
@@ -775,14 +781,14 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(
         '--aws-profile',
         type=str,
-        help=
-        'The AWS profile to use when singing github release asset.',
+        help='The AWS profile to use when singing github release asset.',
         required=False)
     release_parser.add_argument('--filter',
-                               required=False,
-                               metavar="KEY=VALUE",
-                               nargs='+')
-    release_parser.add_argument('--kms-id',
+                                required=False,
+                                metavar="KEY=VALUE",
+                                nargs='+')
+    release_parser.add_argument(
+        '--kms-id',
         type=str,
         help='The key id to use to sign the release asset.',
         required=False)
@@ -808,8 +814,8 @@ def setup_parser() -> argparse.ArgumentParser:
         help='The relative path to Panther policies and rules.',
         required=False)
     release_parser.add_argument('--skip-tests',
-                            action='store_true',
-                            dest='skip_tests')
+                                action='store_true',
+                                dest='skip_tests')
     release_parser.set_defaults(func=generate_release_assets)
 
     test_parser = subparsers.add_parser(
