@@ -21,17 +21,22 @@ from collections import defaultdict
 from datetime import datetime
 from fnmatch import fnmatch
 from importlib.abc import Loader
+from requests.auth import HTTPBasicAuth
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 import argparse
 import base64
+import getpass
 import hashlib
 import importlib.util
 import json
 import logging
 import os
 import re
+import requests
 import sys
 import zipfile
+
+import traceback
 
 from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
 from schema import (Optional, SchemaError, SchemaWrongKeyError,
@@ -59,7 +64,6 @@ GLOBAL = 'global'
 RULE = 'rule'
 PACK = 'pack'
 POLICY = 'policy'
-
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
@@ -344,7 +348,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ''
 
 
-def generate_release_assets(args: argparse.Namespace) -> int:
+def generate_release_assets(args: argparse.Namespace) -> (int, str):
     # First, generate the appropriate zip file
     # set the output file to appropriate name for the release: panther-analysis-all.zip
     release_file = args.out + '/' + 'panther-analysis-all.zip'
@@ -389,6 +393,36 @@ def generate_release_assets(args: argparse.Namespace) -> int:
             return 1, ''
     return 0, ''
 
+def publish_release(args: argparse.Namespace) -> (int, str):
+    # first, generate the release assets
+    current_time = datetime.now().isoformat(timespec='seconds').replace(':', '-')
+    release_dir = args.out if args.out != '.' else f'release-{current_time}'
+    if not os.path.isdir(release_dir):
+        logging.info(f'Creating release directory: {release_dir}', )
+        os.mkdir(release_dir)
+    args.out = release_dir
+    generate_release_assets(args)
+    release_url = f'https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases'
+    # prompt for access token to use to interact with Github
+    try: 
+        api_token = getpass.getpass("API Token: ") 
+    except Exception as error: 
+        logging.error(f'Error retrieving github api token {error}')
+        return 1, ''
+    headers = {'Authorization': f'token {api_token}'}
+    # ensure this tag doesn't already exist
+    response = requests.get(release_url + f'/tags/{args.github_tag}', auth=('machine-user-oss', api_token))
+    if response.status_code == 200:
+        logging.error(f'tag already exists {args.github_tag}')
+        return 1, ''
+    # then attempt to publish to Github 
+    payload = {'tag_name': args.github_tag}
+    payload['body'] = args.body if args.body else ''
+    response = requests.post(release_url, auth=('machine-user-oss', api_token), data=payload)
+    if response.status_code != 201:
+        logging.error(f'error creating release ({args.github_tag}) in repo ({release_url})')
+        return 1, ''
+    return 0, ''
 
 def generate_hash(filename: str) -> str:
     hash_bytes = hashlib.sha512()
@@ -770,7 +804,80 @@ def setup_parser() -> argparse.ArgumentParser:
                         action='version',
                         version='panther_analysis_tool 0.4.5')
     parser.add_argument('--debug', action='store_true', dest='debug')
+    parser.add_argument('--filter',
+                                required=False,
+                                metavar="KEY=VALUE",
+                                nargs='+')
+    parser.add_argument(
+        '--minimum-tests',
+        default='0',
+        type=int,
+        help=
+        'The minimum number of tests in order for a detection to be considered passing. If a number'
+        +
+        'greater than 1 is specified, at least one True and one False test is required.',
+        required=False)
+    parser.add_argument(
+        '--path',
+        default='.',
+        type=str,
+        help='The relative path to Panther policies and rules.',
+        required=False)
+    parser.add_argument(
+        '--out',
+        default='.',
+        type=str,
+        help='The path to write zipped policies and rules to.',
+        required=False)
+    parser.add_argument('--skip-tests',
+                                action='store_true',
+                                dest='skip_tests')    
     subparsers = parser.add_subparsers()
+
+    publish_parser = subparsers.add_parser(
+        'publish',
+        help=
+        'Publish a new release to a github repo.'
+    )
+    publish_parser.add_argument(
+        '--aws-profile',
+        type=str,
+        help=
+        'The AWS profile to use when singing github release asset.',
+        required=False)
+    publish_parser.add_argument('--body',
+        type=str,
+        help='The body or description of the release.',
+        required=False)
+    publish_parser.add_argument('--github-owner',
+        type=str,
+        help='The github owner where to publish the release.',
+        required=True)
+    publish_parser.add_argument('--github-repository',
+        type=str,
+        help='The github repository where to publish the release.',
+        required=True)
+    publish_parser.add_argument('--github-tag',
+        type=str,
+        help='The tag to assign to the release.',
+        required=True)
+    publish_parser.add_argument('--kms-id',
+        type=str,
+        help='The key id to use to sign the release asset.',
+        required=False)
+    publish_parser.add_argument(
+        '--minimum-tests',
+        default='0',
+        type=int,
+        help=
+        'The minimum number of tests in order for a detection to be considered passing. If a number'
+        +
+        'greater than 1 is specified, at least one True and one False test is required.',
+        required=False)
+    publish_parser.add_argument('--skip-tests',
+                            action='store_true',
+                            dest='skip_tests')
+    publish_parser.set_defaults(func=publish_release)
 
     release_parser = subparsers.add_parser(
         'release',
@@ -782,99 +889,17 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         help='The AWS profile to use when singing github release asset.',
         required=False)
-    release_parser.add_argument('--filter',
-                                required=False,
-                                metavar="KEY=VALUE",
-                                nargs='+')
     release_parser.add_argument(
         '--kms-id',
         type=str,
         help='The key id to use to sign the release asset.',
         required=False)
-    release_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
-    release_parser.add_argument(
-        '--out',
-        default='.',
-        type=str,
-        help='The path to write zipped policies and rules to.',
-        required=False)
-    release_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    release_parser.add_argument('--skip-tests',
-                                action='store_true',
-                                dest='skip_tests')
     release_parser.set_defaults(func=generate_release_assets)
 
     test_parser = subparsers.add_parser(
         'test',
         help='Validate analysis specifications and run policy and rule tests.')
-    test_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    test_parser.add_argument('--filter',
-                             required=False,
-                             metavar="KEY=VALUE",
-                             nargs='+')
-    test_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
     test_parser.set_defaults(func=test_analysis)
-
-    zip_parser = subparsers.add_parser(
-        'zip',
-        help=
-        'Create an archive of local policies and rules for uploading to Panther.'
-    )
-    zip_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    zip_parser.add_argument(
-        '--out',
-        default='.',
-        type=str,
-        help='The path to write zipped policies and rules to.',
-        required=False)
-    zip_parser.add_argument('--filter',
-                            required=False,
-                            metavar="KEY=VALUE",
-                            nargs='+')
-    zip_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
-    zip_parser.add_argument('--skip-tests',
-                            action='store_true',
-                            dest='skip_tests')
-    zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
         'upload',
@@ -885,35 +910,6 @@ def setup_parser() -> argparse.ArgumentParser:
         help=
         'The AWS profile to use when uploading to an AWS Panther deployment.',
         required=False)
-    upload_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    upload_parser.add_argument(
-        '--out',
-        default='.',
-        type=str,
-        help=
-        'The location to store a local copy of the packaged policies and rules.',
-        required=False)
-    upload_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
-    upload_parser.add_argument('--filter',
-                               required=False,
-                               metavar="KEY=VALUE",
-                               nargs='+')
-    upload_parser.add_argument('--skip-tests',
-                               action='store_true',
-                               dest='skip_tests')
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
@@ -925,6 +921,14 @@ def setup_parser() -> argparse.ArgumentParser:
         help='The AWS profile to use when updating the AWS Panther deployment.',
         required=False)
     update_schemas_parser.set_defaults(func=update_schemas)
+
+    zip_parser = subparsers.add_parser(
+        'zip',
+        help=
+        'Create an archive of local policies and rules for uploading to Panther.'
+    )
+    zip_parser.set_defaults(func=zip_analysis)
+
     return parser
 
 
@@ -971,6 +975,7 @@ def run() -> None:
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
+        traceback.print_exc()
         sys.exit(1)
 
     if return_code == 1:
