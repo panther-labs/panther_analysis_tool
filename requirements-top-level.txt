@@ -5,9 +5,10 @@ ruamel.yaml
 schema
 # ci dependencies
 bandit
+black
+isort
 mypy
 pylint
 pyfakefs
-yapf
 nose
 PyYAML
