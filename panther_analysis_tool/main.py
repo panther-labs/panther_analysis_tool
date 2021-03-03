@@ -18,6 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from collections import defaultdict
+import subprocess
+import tempfile
 from datetime import datetime
 from fnmatch import fnmatch
 from importlib.abc import Loader
@@ -728,19 +730,14 @@ def setup_parser() -> argparse.ArgumentParser:
         help='Create a release asset archive of managed schemas.')
     zip_schemas_parser.add_argument('--release',
                                     type=str,
-                                    help='The release this asset is for',
+                                    help='The release tag this asset is for',
                                     required=True)
     zip_schemas_parser.add_argument(
         '--out',
         default='.',
         type=str,
-        help='The path to write managed schemas asset to.',
+        help='The path to write zipped schemas asset to.',
         required=False)
-    zip_schemas_parser.add_argument('--path',
-                                    default='.',
-                                    type=str,
-                                    help='The path to Panther analysis repo.',
-                                    required=True)
     zip_schemas_parser.set_defaults(func=zip_managed_schemas)
 
     zip_parser = subparsers.add_parser(
@@ -832,7 +829,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
 
 def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
-    """Packs managed schemas into a local zip file.
+    """Packs managed schemas of a tagged release into a local zip file.
 
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
@@ -841,28 +838,47 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
 
-    logging.info('Zipping managed schemas asset for release %s in %s to %s',
-                 args.release, args.path, args.out)
-    archive = 'managed-schemas-{}.zip'.format(args.release)
-    schema_dir = os.path.join(args.path, "schemas")
-    filenames = [
-        os.path.join(root, f) for root, dirs, files in os.walk(schema_dir)
-        if not fnmatch(root, "*/tests") for f in files if fnmatch(f, "*.yml")
-    ]
     manifest = []
-    for filename in filenames:
-        with open(filename) as f:
-            lines = f.readlines()
-            manifest.append("---")
-            manifest.extend(lines)
+    with tempfile.TemporaryDirectory(prefix="zip-managed-schemas-") as tmp_dir:
+        repo_url = "https://github.com/panther-labs/panther-analysis"
+        repo_dir = os.path.join(tmp_dir, "panther-analysis")
 
-    logging.info("found %d schema files", len(filenames))
+        logging.info("Cloning %s tag of %s", args.release, repo_url, repo_dir)
+        result = subprocess.run([
+            "git", "clone", "--branch", args.release, "--depth", "1", "-c",
+            "advice.detachedHead=false", repo_url, repo_dir
+        ])
+        if result.returncode != 0:
+            return result.returncode, ""
+
+        schema_dir = os.path.join(repo_dir, "schemas")
+        filenames = [
+            os.path.join(root, f) for root, dirs, files in os.walk(schema_dir)
+            if not fnmatch(root, "*/tests") for f in files
+            if fnmatch(f, "*.yml")
+        ]
+        if not filenames:
+            logging.error("Release %s does not contain any managed schema file",
+                          args.release)
+            return 1, ""
+
+        logging.info('Building manifest.yml for %d managed schemas found in release %s',
+                     len(filenames), args.release)
+        for filename in filenames:
+            with open(filename) as f:
+                lines = f.readlines()
+                manifest.append("---\n")
+                manifest.extend(lines)
+
+
+    archive = os.path.join(args.out,
+                           'managed-schemas-{}.zip'.format(args.release))
+    logging.info('Zipping release asset archive %s', archive)
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zip_out:
         # Set the archive comment to the release version
         zip_out.comment = bytes(args.release, encoding="utf8")
         # Add the manifest.yml file
-        data = "\n".join(manifest)
-        zip_out.writestr("manifest.yml", data)
+        zip_out.writestr("manifest.yml", "".join(manifest))
 
     return 0, archive
 
