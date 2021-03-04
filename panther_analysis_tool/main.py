@@ -843,7 +843,8 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         repo_url = "https://github.com/panther-labs/panther-analysis"
         repo_dir = os.path.join(tmp_dir, "panther-analysis")
 
-        logging.info("Cloning %s tag of %s %s", args.release, repo_url, repo_dir)
+        logging.info("Cloning %s tag of %s %s", args.release, repo_url,
+                     repo_dir)
         result = subprocess.run([
             "git", "clone", "--branch", args.release, "--depth", "1", "-c",
             "advice.detachedHead=false", repo_url, repo_dir
