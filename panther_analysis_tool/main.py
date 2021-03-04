@@ -116,13 +116,13 @@ def load_analysis_specs(
             # files in the current directory by not skipping this iteration
             # when relative_path is the current dir
             if directory in ['.', './'] and relative_path not in ['.', './']:
-                if not any([
+                if not any((
                         fnmatch(relative_path, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
                             RULES_PATH_PATTERN, PACKS_PATH_PATTERN,
                             POLICIES_PATH_PATTERN)
-                ]):
+                )):
                     logging.debug('Skipping path %s', relative_path)
                     continue
             for filename in sorted(file_list):
@@ -374,8 +374,8 @@ def generate_release_assets(args: argparse.Namespace) -> int:
             )
             if response.get('Signature'):
                 # write signature out to file
-                with open(signature_filename, 'wb') as f:
-                    f.write(base64.b64encode(response.get('Signature')))
+                with open(signature_filename, 'wb') as filename:
+                    filename.write(base64.b64encode(response.get('Signature')))
                 logging.info('Release signature file generated: %s',
                              signature_filename)
             else:
@@ -419,7 +419,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if any((len(specs[key]) == 0 for key in (specs))):
+    if all((len(specs[key]) == 0 for key in specs)):
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -428,7 +428,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     for key in specs:
         specs[key] = filter_analysis(specs[key], args.filter)
 
-    if any((len(specs[key]) == 0 for key in (specs))):
+    if all((len(specs[key]) == 0 for key in specs)):
         return 1, [
             "No analysis in {} matched filters {}".format(
                 args.path, args.filter)
