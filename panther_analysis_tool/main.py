@@ -116,13 +116,11 @@ def load_analysis_specs(
             # files in the current directory by not skipping this iteration
             # when relative_path is the current dir
             if directory in ['.', './'] and relative_path not in ['.', './']:
-                if not any((
-                        fnmatch(relative_path, path_pattern)
-                        for path_pattern in (
-                            DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
-                            RULES_PATH_PATTERN, PACKS_PATH_PATTERN,
-                            POLICIES_PATH_PATTERN)
-                )):
+                if not any((fnmatch(relative_path, path_pattern)
+                            for path_pattern in (
+                                DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN,
+                                RULES_PATH_PATTERN, PACKS_PATH_PATTERN,
+                                POLICIES_PATH_PATTERN))):
                     logging.debug('Skipping path %s', relative_path)
                     continue
             for filename in sorted(file_list):
