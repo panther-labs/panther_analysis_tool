@@ -419,7 +419,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             load_analysis_specs(
                 [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])))
 
-    if len(specs[DETECTION]) == 0:
+    if any((len(specs[key]) == 0 for key in (specs))):
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -428,7 +428,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     for key in specs:
         specs[key] = filter_analysis(specs[key], args.filter)
 
-    if len(specs[DETECTION]) == 0:
+    if any((len(specs[key]) == 0 for key in (specs))):
         return 1, [
             "No analysis in {} matched filters {}".format(
                 args.path, args.filter)
