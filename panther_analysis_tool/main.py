@@ -862,14 +862,14 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
                           args.release)
             return 1, ""
 
-        logging.info('Building manifest.yml for %d managed schemas found in release %s',
-                     len(filenames), args.release)
+        logging.info(
+            'Building manifest.yml for %d managed schemas found in release %s',
+            len(filenames), args.release)
         for filename in filenames:
             with open(filename) as f:
                 lines = f.readlines()
                 manifest.append("---\n")
                 manifest.extend(lines)
-
 
     archive = os.path.join(args.out,
                            'managed-schemas-{}.zip'.format(args.release))
