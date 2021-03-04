@@ -342,7 +342,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ''
 
 
-def generate_release_assets(args: argparse.Namespace) -> int:
+def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
     # First, generate the appropriate zip file
     # set the output file to appropriate name for the release: panther-analysis-all.zip
     release_file = args.out + '/' + 'panther-analysis-all.zip'
@@ -388,7 +388,7 @@ def generate_release_assets(args: argparse.Namespace) -> int:
     return 0, ''
 
 
-def generate_hash(filename: str) -> str:
+def generate_hash(filename: str) -> bytes:
     hash_bytes = hashlib.sha512()
     with open(filename, "rb") as f:
         block = f.read(hash_bytes.block_size)
@@ -600,7 +600,7 @@ def classify_analysis(
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
-    classified_specs = dict()
+    classified_specs: Dict[str, List[Any]] = dict()
     for key in [DATAMODEL, DETECTION, GLOBAL, PACK]:
         classified_specs[key] = []
 
@@ -760,6 +760,46 @@ def run_tests(analysis: Dict[str, Any], analysis_funcs: Dict[str, Any],
 
 
 def setup_parser() -> argparse.ArgumentParser:
+    # setup dictionary of named args for some common arguments across commands
+    filter_name = "--filter"
+    filter_arg: Dict[str, Any] = {
+        "required": False,
+        "metavar": "KEY=VALUE",
+        "nargs": '+'
+    }
+    min_test_name = "--minimum-tests"
+    min_test_arg: Dict[str, Any] = {
+        "default":
+            0,
+        "type":
+            int,
+        "help":
+            "The minimum number of tests in order for a detection to be considered passing. If a number"
+            +
+            "greater than 1 is specified, at least one True and one False test is required.",
+        "required":
+            False
+    }
+    out_name = "--out"
+    out_arg: Dict[str, Any] = {
+        "default": ".",
+        "type": str,
+        "help": "The location to store a local copy of the release assets.",
+        "required": False
+    }
+    path_name = '--path'
+    path_arg: Dict[str, Any] = {
+        "default": ".",
+        "type": str,
+        "help": "The relative path to Panther policies and rules.",
+        "required": False
+    }
+    skip_test_name = "--skip-tests"
+    skip_test_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "dest": "skip_tests"
+    }
+
     parser = argparse.ArgumentParser(
         description=
         'Panther Analysis Tool: A command line tool for managing Panther policies and rules.',
@@ -789,54 +829,19 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         help='The key id to use to sign the release asset.',
         required=False)
-    release_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
-    release_parser.add_argument(
-        '--out',
-        default='.',
-        type=str,
-        help='The path to write zipped policies and rules to.',
-        required=False)
-    release_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    release_parser.add_argument('--skip-tests',
-                                action='store_true',
-                                dest='skip_tests')
+    release_parser.add_argument(min_test_name, **min_test_arg)
+    release_parser.add_argument(out_name, **out_arg)
+    release_parser.add_argument(path_name, **path_arg)
+    release_parser.add_argument(skip_test_name, **skip_test_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     test_parser = subparsers.add_parser(
         'test',
         help='Validate analysis specifications and run policy and rule tests.')
-    test_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    test_parser.add_argument('--filter',
-                             required=False,
-                             metavar="KEY=VALUE",
-                             nargs='+')
-    test_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
+    test_parser.add_argument(filter_name, **filter_arg)
+    test_parser.add_argument(min_test_name, **min_test_arg)
+    test_parser.add_argument(path_name, **path_arg)
+
     test_parser.set_defaults(func=test_analysis)
 
     zip_parser = subparsers.add_parser(
@@ -844,34 +849,11 @@ def setup_parser() -> argparse.ArgumentParser:
         help=
         'Create an archive of local policies and rules for uploading to Panther.'
     )
-    zip_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    zip_parser.add_argument(
-        '--out',
-        default='.',
-        type=str,
-        help='The path to write zipped policies and rules to.',
-        required=False)
-    zip_parser.add_argument('--filter',
-                            required=False,
-                            metavar="KEY=VALUE",
-                            nargs='+')
-    zip_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
-    zip_parser.add_argument('--skip-tests',
-                            action='store_true',
-                            dest='skip_tests')
+    zip_parser.add_argument(filter_name, **filter_arg)
+    zip_parser.add_argument(min_test_name, **min_test_arg)
+    zip_parser.add_argument(out_name, **out_arg)
+    zip_parser.add_argument(path_name, **path_arg)
+    zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
@@ -883,35 +865,11 @@ def setup_parser() -> argparse.ArgumentParser:
         help=
         'The AWS profile to use when uploading to an AWS Panther deployment.',
         required=False)
-    upload_parser.add_argument(
-        '--path',
-        default='.',
-        type=str,
-        help='The relative path to Panther policies and rules.',
-        required=False)
-    upload_parser.add_argument(
-        '--out',
-        default='.',
-        type=str,
-        help=
-        'The location to store a local copy of the packaged policies and rules.',
-        required=False)
-    upload_parser.add_argument(
-        '--minimum-tests',
-        default='0',
-        type=int,
-        help=
-        'The minimum number of tests in order for a detection to be considered passing. If a number'
-        +
-        'greater than 1 is specified, at least one True and one False test is required.',
-        required=False)
-    upload_parser.add_argument('--filter',
-                               required=False,
-                               metavar="KEY=VALUE",
-                               nargs='+')
-    upload_parser.add_argument('--skip-tests',
-                               action='store_true',
-                               dest='skip_tests')
+    upload_parser.add_argument(filter_name, **filter_arg)
+    upload_parser.add_argument(min_test_name, **min_test_arg)
+    upload_parser.add_argument(out_name, **out_arg)
+    upload_parser.add_argument(path_name, **path_arg)
+    upload_parser.add_argument(skip_test_name, **skip_test_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
