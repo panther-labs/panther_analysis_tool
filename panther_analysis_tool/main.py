@@ -24,7 +24,9 @@ import json
 import logging
 import os
 import re
+import subprocess  # nosec
 import sys
+import tempfile
 import zipfile
 from collections import defaultdict
 from datetime import datetime
@@ -33,6 +35,7 @@ from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 
 import boto3
+import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -327,6 +330,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         choice = input(prompt).strip() or latest_tag  # nosec
         if choice in tags:
             break
+
         logging.error("Chosen tag %s is not valid", choice)
 
     manifest_url = releases[tags.index(choice)].get("manifestURL")
@@ -733,10 +737,26 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     test_parser.set_defaults(func=test_analysis)
 
+    zip_schemas_parser = subparsers.add_parser(
+        "zip-schemas", help="Create a release asset archive of managed schemas."
+    )
+    zip_schemas_parser.add_argument(
+        "--release", type=str, help="The release tag this asset is for", required=True
+    )
+    zip_schemas_parser.add_argument(
+        "--out",
+        default=".",
+        type=str,
+        help="The path to write zipped schemas asset to.",
+        required=False,
+    )
+    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
+
     zip_parser = subparsers.add_parser(
         "zip",
         help="Create an archive of local policies and rules for uploading to Panther.",
     )
+
     zip_parser.add_argument(
         "--path",
         default=".",
@@ -811,6 +831,75 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     update_schemas_parser.set_defaults(func=update_schemas)
     return parser
+
+
+def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """Packs managed schemas of a tagged release into a local zip file.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and the archive filename.
+    """
+
+    manifest = []
+    with tempfile.TemporaryDirectory(prefix="zip-managed-schemas-") as tmp_dir:
+        repo_url = "https://github.com/panther-labs/panther-analysis"
+        repo_dir = os.path.join(tmp_dir, "panther-analysis")
+        rel = args.release
+        if not semver.VersionInfo.isvalid(rel[1:] if rel.startswith("v") else rel):
+            logging.error("Invalid release tag %s", rel)
+            return 1, ""
+
+        logging.info("Cloning %s tag of %s", rel, repo_url)
+        # nosec
+        cmd = [
+            "git",
+            "clone",
+            "--branch",
+            rel,
+            "--depth",
+            "1",
+            "-c",
+            "advice.detachedHead=false",
+            repo_url,
+            repo_dir,
+        ]
+        result = subprocess.run(cmd, check=True, timeout=120)  # nosec
+        if result.returncode != 0:
+            return result.returncode, ""
+
+        schema_dir = os.path.join(repo_dir, "schemas")
+        filenames = [
+            os.path.join(root, f)
+            for root, dirs, files in os.walk(schema_dir)
+            if not fnmatch(root, "*/tests")
+            for f in files
+            if fnmatch(f, "*.yml")
+        ]
+        if not filenames:
+            logging.error("Release %s does not contain any managed schema file", rel)
+            return 1, ""
+
+        logging.info(
+            "Building manifest.yml for %d managed schemas found in release %s", len(filenames), rel
+        )
+        for filename in filenames:
+            with open(filename) as yml:
+                lines = yml.readlines()
+                manifest.append("---\n")
+                manifest.extend(lines)
+
+    archive = os.path.join(args.out, "managed-schemas-{}.zip".format(rel))
+    logging.info("Zipping release asset archive %s", archive)
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zip_out:
+        # Set the archive comment to the release version
+        zip_out.comment = bytes(rel, encoding="utf8")
+        # Add the manifest.yml file
+        zip_out.writestr("manifest.yml", "".join(manifest))
+
+    return 0, archive
 
 
 # Parses the filters, expects a list of strings
