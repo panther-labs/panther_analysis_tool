@@ -1,0 +1,63 @@
+# Copyright (C) 2020 Panther Labs Inc
+#
+# Panther Enterprise is licensed under the terms of a commercial license available from
+# Panther Labs Inc ("Panther Commercial License") by contacting contact@runpanther.com.
+# All use, distribution, and/or modification of this software, whether commercial or non-commercial,
+# falls under the Panther Commercial License to the extent it is permitted.
+
+on:
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - closed
+
+jobs:
+  update_task_on_pr_open:
+    if: ${{ github.event.pull_request.state == 'open' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: everphone-gmbh/github-asana-action@c4d0c3aeb4768dc9dc45fb60b843c0510da20dd5
+        name: Adds a comment to the related Asana task whenever a PR has been opened
+        with:
+          asana-pat: ${{ secrets.ASANA_PAT }}
+          action: 'add-comment'
+          text: ${{ format('A Pull Request has been opened {0}', github.event.pull_request.html_url) }}
+          is-pinned: true
+
+      - uses: everphone-gmbh/github-asana-action@c4d0c3aeb4768dc9dc45fb60b843c0510da20dd5
+        name: Moves the Asana task to "In Review" when the PR is opened
+        with:
+          asana-pat: ${{ secrets.ASANA_PAT }}
+          action: 'move-section'
+          targets: '[{"project": "Eng Sprint: Current", "section": "In Review"}]'
+
+  update_task_on_pr_close:
+    if: ${{ github.event.pull_request.state == 'closed' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: everphone-gmbh/github-asana-action@c4d0c3aeb4768dc9dc45fb60b843c0510da20dd5
+        name: Adds a comment to the related Asana task when the PR is closed
+        with:
+          asana-pat: ${{ secrets.ASANA_PAT }}
+          action: 'add-comment'
+          text: ${{ format('A Pull Request is now closed {0}', github.event.pull_request.html_url) }}
+
+      - uses: everphone-gmbh/github-asana-action@c4d0c3aeb4768dc9dc45fb60b843c0510da20dd5
+        name: Closes the related Asana tasks when the PR gets merged
+        if: github.event.pull_request.merged
+        with:
+          asana-pat: ${{ secrets.ASANA_PAT }}
+          action: 'complete-task'
+          trigger-phrase: 'closes'
+          is-complete: true
+
+      - uses: everphone-gmbh/github-asana-action@c4d0c3aeb4768dc9dc45fb60b843c0510da20dd5
+        name: Moves the Asana ticket to "Complete" when the PR gets merged
+        if: github.event.pull_request.merged
+        with:
+          asana-pat: ${{ secrets.ASANA_PAT }}
+          action: 'move-section'
+          targets: '[{"project": "Eng Sprint: Current", "section": "Complete"}]'
+          trigger-phrase: 'closes'
