@@ -23,7 +23,7 @@ NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema(
     {
-        'AnalysisType': Or("datamodel", "global", "pack", "policy", "rule"),
+        'AnalysisType': Or("datamodel", "global", "pack", "Pack", "policy", "rule"),
     },
     ignore_extra_keys=True)
 
