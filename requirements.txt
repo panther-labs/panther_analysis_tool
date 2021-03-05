@@ -3,6 +3,7 @@ boto3==1.17.5
 jsonpath-ng==1.5.2
 ruamel.yaml==0.16.12
 schema==0.7.4
+semver==2.13.0
 # ci dependencies
 bandit==1.7.0
 mypy==0.800
@@ -26,6 +27,7 @@ jmespath==0.10.0
 lazy-object-proxy==1.4.3
 mccabe==0.6.1
 mypy-extensions==0.4.3
+-e git+git@github.com:panther-labs/panther_analysis_tool.git@e1e3e63f43307598b81704ea057dfbc1861622a8#egg=panther_analysis_tool
 pbr==5.5.1
 ply==3.11
 python-dateutil==2.8.1

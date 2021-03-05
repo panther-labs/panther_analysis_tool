@@ -17,23 +17,24 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-from collections import defaultdict
-import subprocess
-import tempfile
-from datetime import datetime
-from fnmatch import fnmatch
-from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-import argparse
-import base64
-import importlib.util
 import json
 import logging
 import os
 import re
 import sys
+import subprocess  # nosec
 import zipfile
+import argparse
+import base64
+import importlib.util
+import tempfile
+from collections import defaultdict
+from datetime import datetime
+from fnmatch import fnmatch
+from importlib.abc import Loader
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 
+import semver
 from ruamel.yaml import YAML, parser as YAMLParser, scanner as YAMLScanner
 from schema import (Optional, SchemaError, SchemaWrongKeyError,
                     SchemaMissingKeyError, SchemaForbiddenKeyError,
@@ -316,8 +317,8 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         choice = input(prompt).strip() or latest_tag  # nosec
         if choice in tags:
             break
-        else:
-            logging.error('Chosen tag %s is not valid', choice)
+
+        logging.error('Chosen tag %s is not valid', choice)
 
     manifest_url = releases[tags.index(choice)].get('manifestURL')
 
@@ -842,13 +843,19 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     with tempfile.TemporaryDirectory(prefix="zip-managed-schemas-") as tmp_dir:
         repo_url = "https://github.com/panther-labs/panther-analysis"
         repo_dir = os.path.join(tmp_dir, "panther-analysis")
+        rel = args.release
+        if not semver.VersionInfo.isvalid(
+                rel[1:] if rel.startswith("v") else rel):
+            logging.error("Invalid release tag %s", rel)
+            return 1, ""
 
-        logging.info("Cloning %s tag of %s %s", args.release, repo_url,
-                     repo_dir)
-        result = subprocess.run([
-            "git", "clone", "--branch", args.release, "--depth", "1", "-c",
+        logging.info("Cloning %s tag of %s %s", rel, repo_url, repo_dir)
+        # nosec
+        cmd = [
+            "git", "clone", "--branch", rel, "--depth", "1", "-c",
             "advice.detachedHead=false", repo_url, repo_dir
-        ])
+        ]
+        result = subprocess.run(cmd, check=True, timeout=120)  # nosec
         if result.returncode != 0:
             return result.returncode, ""
 
@@ -860,24 +867,23 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         ]
         if not filenames:
             logging.error("Release %s does not contain any managed schema file",
-                          args.release)
+                          rel)
             return 1, ""
 
         logging.info(
             'Building manifest.yml for %d managed schemas found in release %s',
-            len(filenames), args.release)
+            len(filenames), rel)
         for filename in filenames:
-            with open(filename) as f:
-                lines = f.readlines()
+            with open(filename) as yml:
+                lines = yml.readlines()
                 manifest.append("---\n")
                 manifest.extend(lines)
 
-    archive = os.path.join(args.out,
-                           'managed-schemas-{}.zip'.format(args.release))
+    archive = os.path.join(args.out, 'managed-schemas-{}.zip'.format(rel))
     logging.info('Zipping release asset archive %s', archive)
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zip_out:
         # Set the archive comment to the release version
-        zip_out.comment = bytes(args.release, encoding="utf8")
+        zip_out.comment = bytes(rel, encoding="utf8")
         # Add the manifest.yml file
         zip_out.writestr("manifest.yml", "".join(manifest))
 
