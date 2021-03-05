@@ -849,7 +849,7 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
             logging.error("Invalid release tag %s", rel)
             return 1, ""
 
-        logging.info("Cloning %s tag of %s %s", rel, repo_url, repo_dir)
+        logging.info("Cloning %s tag of %s", rel, repo_url)
         # nosec
         cmd = [
             "git", "clone", "--branch", rel, "--depth", "1", "-c",
