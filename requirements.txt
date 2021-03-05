@@ -3,6 +3,7 @@ boto3==1.17.5
 jsonpath-ng==1.5.2
 ruamel.yaml==0.16.12
 schema==0.7.4
+semver==2.13.0
 # ci dependencies
 bandit==1.7.0
 mypy==0.800
