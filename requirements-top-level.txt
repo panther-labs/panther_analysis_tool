@@ -3,11 +3,13 @@ boto3
 jsonpath-ng
 ruamel.yaml
 schema
+semver
 # ci dependencies
 bandit
+black
+isort
 mypy
 pylint
 pyfakefs
-yapf
 nose
 PyYAML
