@@ -200,7 +200,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            'release --path tests/fixtures/valid_analysis --out tmp/release/'.split())
+            'release --path tests/fixtures/valid_analysis --out tmp/release/ --kms-key='.split())
         return_code, _ = pat.generate_release_assets(args)
         analysis_file = 'tmp/release/panther-analysis-all.zip'
         statinfo = os.stat(analysis_file)

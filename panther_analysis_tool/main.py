@@ -382,8 +382,9 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
         return return_code, ""
     os.rename(archive, release_file)
     logging.info("Release zip file generated: %s", release_file)
+    logging.info("kms key info: %s", args.kms_key)
     #  If a key is provided, sign a hash of the file
-    if args.kms_id is not None:
+    if args.kms_key:
         # Then generate the sha512 sum of the zip file
         archive_hash = generate_hash(release_file)
         # optionally set env variable for profile passed as argument
@@ -395,7 +396,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
         client = boto3.client("kms")
         try:
             response = client.sign(
-                KeyId=args.kms_id,
+                KeyId=args.kms_key,
                 Message=archive_hash,
                 MessageType="DIGEST",
                 SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_512",
@@ -409,7 +410,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
                 logging.error("Missing signtaure in response: %s", response)
                 return 1, ""
         except botocore.exceptions.ClientError as err:
-            logging.error("Failed to sign panther-analysis-all.zip using key (%s)", args.kms_id)
+            logging.error("Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key)
             logging.error(err)
             return 1, ""
     return 0, ""
@@ -835,7 +836,11 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     release_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
     release_parser.add_argument(
-        "--kms-id", type=str, help="The key id to use to sign the release asset.", required=False
+        "--kms-key",
+        default="arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
+        type=str,
+        help="The key id to use to sign the release asset.",
+        required=False
     )
     release_parser.add_argument(min_test_name, **min_test_arg)
     release_parser.add_argument(out_name, **out_arg)
