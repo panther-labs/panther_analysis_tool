@@ -966,7 +966,7 @@ def run() -> None:
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter)
 
-    global RULE_SCHEMA, POLICY_SCHEMA
+    global RULE_SCHEMA, POLICY_SCHEMA  # pylint: disable=global-statement
     RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
 
     try:
