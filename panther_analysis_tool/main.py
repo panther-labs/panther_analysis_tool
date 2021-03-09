@@ -42,8 +42,8 @@ from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
-    Schema,
     Optional,
+    Schema,
     SchemaError,
     SchemaForbiddenKeyError,
     SchemaMissingKeyError,
@@ -378,7 +378,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
     release_file = args.out + "/" + "panther-analysis-all.zip"
     signature_filename = args.out + "/" + "panther-analysis-all.sig"
     return_code, archive = zip_analysis(args)
-    if return_code == 1:
+    if return_code != 0:
         return return_code, ""
     os.rename(archive, release_file)
     logging.info("Release zip file generated: %s", release_file)
@@ -840,7 +840,7 @@ def setup_parser() -> argparse.ArgumentParser:
         default="arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
         type=str,
         help="The key id to use to sign the release asset.",
-        required=False
+        required=False,
     )
     release_parser.add_argument(min_test_name, **min_test_arg)
     release_parser.add_argument(out_name, **out_arg)
