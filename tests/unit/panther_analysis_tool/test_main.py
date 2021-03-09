@@ -11,10 +11,10 @@ from panther_analysis_tool import main as pat
 
 
 class TestPantherAnalysisTool(TestCase):
-    print(f"{os.getcwd()}\n{os.listdir()}")
     fixture_path = 'tests/fixtures/'
 
     def setUp(self):
+        print(f"{os.getcwd()}\n{os.listdir()}")
         self.setUpPyfakefs()
         self.fs.add_real_directory(self.fixture_path)
 
@@ -62,6 +62,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_rules_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())
         pat.set_rule_policy_schema(args)
+        args.filter = None
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -90,6 +91,7 @@ class TestPantherAnalysisTool(TestCase):
             original_path = os.getcwd()
             os.chdir(valid_rule_path)
             args = pat.setup_parser().parse_args('test --path ./'.split())
+            args.filter = None
             return_code, invalid_specs = pat.test_analysis(args)
             os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
