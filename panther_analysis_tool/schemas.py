@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from schema import And, Optional, Or, Regex, Schema
+from typing import Tuple
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
@@ -58,7 +59,7 @@ GLOBAL_SCHEMA = Schema(
 )
 
 
-def get_rule_policy_schema(ignore_extra_keys=False) -> (Schema, Schema):
+def get_rule_policy_schema(ignore_extra_keys=False) -> Tuple[Schema, Schema]:
     #  pylint: disable=invalid-name
     POLICY_SCHEMA = Schema(
         {
