@@ -17,8 +17,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from schema import And, Optional, Or, Regex, Schema
 from typing import Tuple
+from schema import And, Optional, Or, Regex, Schema
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
