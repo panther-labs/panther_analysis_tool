@@ -33,10 +33,9 @@ from datetime import datetime
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-
+from distutils.util import strtobool
 import boto3
 import semver
-from distutils.util import strtobool
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -965,7 +964,7 @@ def run() -> None:
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter)
 
-    global RULE_SCHEMA, POLICY_SCHEMA
+    global RULE_SCHEMA, POLICY_SCHEMA  # pylint: disable=global-variable-undefined
     RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
 
     try:
