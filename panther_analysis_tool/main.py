@@ -982,6 +982,7 @@ def run() -> None:
         level=logging.DEBUG if args.debug else logging.INFO,
     )
 
+    args.filter = None
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter_list)
 
