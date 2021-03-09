@@ -50,6 +50,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures'.split())
+        args.filter = None
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
@@ -150,12 +151,14 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 1'.split())
+        args.filter = None
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_with_minimum_tests_failing(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 2'.split())
+        args.filter = None
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
         assert_equal(return_code, 1)
@@ -178,6 +181,7 @@ class TestPantherAnalysisTool(TestCase):
 
         args = pat.setup_parser().parse_args(
             'zip --path tests/fixtures/valid_analysis --out tmp/'.split())
+        args.filter = None
         return_code, out_filename = pat.zip_analysis(args)
         statinfo = os.stat(out_filename)
         assert_true(statinfo.st_size > 0)
