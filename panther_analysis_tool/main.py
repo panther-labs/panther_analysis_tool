@@ -642,9 +642,9 @@ def classify_analysis(
             TYPE_SCHEMA.validate(analysis_spec)
             analysis_type = analysis_spec["AnalysisType"]
             # validate the particular analysis type schema
-            analysis_schema = SCHEMAS.get(analysis_type)
-            keys = list(analysis_schema.schema.keys()) if analysis_schema else []
-            SCHEMAS[analysis_type].validate(analysis_spec)
+            analysis_schema = SCHEMAS[analysis_type]
+            keys = list(analysis_schema.schema.keys())
+            analysis_schema.validate(analysis_spec)
             # lookup the analysis type id and validate there aren't any conflicts
             analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
             if analysis_id in analysis_ids:
