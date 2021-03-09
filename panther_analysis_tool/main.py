@@ -972,6 +972,11 @@ def set_env(key: str, value: str) -> None:
     os.environ[key] = value
 
 
+def set_rule_policy_schema(args: argparse.Namespace) -> None:
+    global RULE_SCHEMA, POLICY_SCHEMA  # pylint: disable=global-statement
+    RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
+
+
 def run() -> None:
     parser = setup_parser()
     # if no args are passed, print the help output
@@ -981,13 +986,10 @@ def run() -> None:
         format="[%(levelname)s]: %(message)s",
         level=logging.DEBUG if args.debug else logging.INFO,
     )
-
+    set_rule_policy_schema(args)
     args.filter = None
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter_list)
-
-    global RULE_SCHEMA, POLICY_SCHEMA  # pylint: disable=global-statement
-    RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
 
     try:
         return_code, out = args.func(args)

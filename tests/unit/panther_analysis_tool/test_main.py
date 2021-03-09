@@ -51,6 +51,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures'.split())
         args.filter = None
+        pat.set_rule_policy_schema(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
@@ -59,6 +60,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_rules_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())
+        pat.set_rule_policy_schema(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -73,6 +75,7 @@ class TestPantherAnalysisTool(TestCase):
             original_path = os.getcwd()
             os.chdir(valid_rule_path)
             args = pat.setup_parser().parse_args('test'.split())
+            pat.set_rule_policy_schema(args)
             return_code, invalid_specs = pat.test_analysis(args)
             os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
@@ -93,6 +96,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_parse_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter AnalysisType=policy,global Severity=Critical'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         assert_true('AnalysisType' in args.filter.keys())
         assert_true('policy' in args.filter['AnalysisType'])
@@ -102,6 +106,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter AnalysisType=policy,global'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -116,6 +121,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_rule_definition(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=AWS.CloudTrail.MFAEnabled'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -123,6 +129,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_rule_test(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Invalid.Test'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -130,6 +137,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High PolicyID=AWS.IAM.MFAEnabled'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         self.equal = assert_equal(return_code, 1)
@@ -137,6 +145,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Unknown.Exception'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -144,6 +153,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -151,6 +161,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 1'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = None
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -158,6 +169,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests_failing(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 2'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = None
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
@@ -166,6 +178,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests_no_passing(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
@@ -181,6 +194,7 @@ class TestPantherAnalysisTool(TestCase):
 
         args = pat.setup_parser().parse_args(
             'zip --path tests/fixtures/valid_analysis --out tmp/'.split())
+        pat.set_rule_policy_schema(args)
         args.filter = None
         return_code, out_filename = pat.zip_analysis(args)
         statinfo = os.stat(out_filename)
