@@ -58,7 +58,7 @@ GLOBAL_SCHEMA = Schema(
 )
 
 
-def get_rule_policy_schema(ignore_extra_keys=False):
+def get_rule_policy_schema(ignore_extra_keys=False) -> (Schema, Schema):
     #  pylint: disable=invalid-name
     POLICY_SCHEMA = Schema(
         {

@@ -41,6 +41,7 @@ from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
     Optional,
+    Schema,
     SchemaError,
     SchemaForbiddenKeyError,
     SchemaMissingKeyError,
@@ -55,6 +56,7 @@ from panther_analysis_tool.schemas import (
     get_rule_policy_schema
 )
 from panther_analysis_tool.test_case import DataModel, TestCase
+RULE_SCHEMA, POLICY_SCHEMA = Schema, Schema
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
 
@@ -964,7 +966,7 @@ def run() -> None:
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter)
 
-    global RULE_SCHEMA, POLICY_SCHEMA  # pylint: disable=global-variable-undefined
+    global RULE_SCHEMA, POLICY_SCHEMA
     RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
 
     try:
