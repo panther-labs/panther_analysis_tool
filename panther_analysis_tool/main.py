@@ -382,7 +382,6 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
         return return_code, ""
     os.rename(archive, release_file)
     logging.info("Release zip file generated: %s", release_file)
-    logging.info("kms key info: %s", args.kms_key)
     #  If a key is provided, sign a hash of the file
     if args.kms_key:
         # Then generate the sha512 sum of the zip file
@@ -785,6 +784,12 @@ def run_tests(
 def setup_parser() -> argparse.ArgumentParser:
     # pylint: disable=too-many-statements,too-many-locals
     # setup dictionary of named args for some common arguments across commands
+    aws_profile_name = "--aws-profile"
+    aws_profile_arg = {
+        "type": str,
+        "help": "The AWS profile to use when updating the AWS Panther deployment.",
+        "required": False,
+    }
     filter_name = "--filter"
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
     min_test_name = "--minimum-tests"
@@ -828,13 +833,8 @@ def setup_parser() -> argparse.ArgumentParser:
         + "Generates a file called panther-analysis-all.zip and optionally generates "
         + "panther-analysis-all.sig",
     )
-    release_parser.add_argument(
-        "--aws-profile",
-        type=str,
-        help="The AWS profile to use when singing github release asset.",
-        required=False,
-    )
-    release_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
+    release_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    release_parser.add_argument(filter_name, **filter_arg)
     release_parser.add_argument(
         "--kms-key",
         default="arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
@@ -879,12 +879,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser = subparsers.add_parser(
         "upload", help="Upload specified policies and rules to a Panther deployment."
     )
-    upload_parser.add_argument(
-        "--aws-profile",
-        type=str,
-        help="The AWS profile to use when uploading to an AWS Panther deployment.",
-        required=False,
-    )
+    upload_parser.add_argument(aws_profile_name, **aws_profile_arg)
     upload_parser.add_argument(filter_name, **filter_arg)
     upload_parser.add_argument(min_test_name, **min_test_arg)
     upload_parser.add_argument(out_name, **out_arg)
@@ -895,12 +890,7 @@ def setup_parser() -> argparse.ArgumentParser:
     update_schemas_parser = subparsers.add_parser(
         "update-schemas", help="Update managed schemas on a Panther deployment."
     )
-    update_schemas_parser.add_argument(
-        "--aws-profile",
-        type=str,
-        help="The AWS profile to use when updating the AWS Panther deployment.",
-        required=False,
-    )
+    update_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
     update_schemas_parser.set_defaults(func=update_schemas)
     return parser
 
