@@ -14,7 +14,6 @@ class TestPantherAnalysisTool(TestCase):
     fixture_path = 'tests/fixtures/'
 
     def setUp(self):
-        print(f"{os.getcwd()}\n{os.listdir()}")
         self.setUpPyfakefs()
         self.fs.add_real_directory(self.fixture_path)
 
@@ -91,6 +90,7 @@ class TestPantherAnalysisTool(TestCase):
             original_path = os.getcwd()
             os.chdir(valid_rule_path)
             args = pat.setup_parser().parse_args('test --path ./'.split())
+            pat.set_rule_policy_schema(args)
             args.filter = None
             return_code, invalid_specs = pat.test_analysis(args)
             os.chdir(original_path)
