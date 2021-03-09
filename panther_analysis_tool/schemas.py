@@ -59,7 +59,7 @@ GLOBAL_SCHEMA = Schema(
 )
 
 
-def get_rule_policy_schema(ignore_extra_keys=False) -> Tuple[Schema, Schema]:
+def get_rule_policy_schema(ignore_extra_keys: bool = False) -> Tuple[Schema, Schema]:
     #  pylint: disable=invalid-name
     POLICY_SCHEMA = Schema(
         {

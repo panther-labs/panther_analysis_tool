@@ -108,14 +108,14 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
     """Loads the analysis specifications from a file.
 
     Args:
-        directory: The relative path to Panther policies or rules.
+        directories: The relative path to Panther policies or rules.
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
-    loaded_specs = []
+    loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
             # setup yaml object
@@ -559,10 +559,10 @@ def classify_analysis(
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
-    analysis_ids = []
+    analysis_ids: List[Any] = []
 
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
-        keys = list()
+        keys: List[Any] = list()
         try:
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
@@ -668,7 +668,7 @@ def run_tests(
         # using a dictionary to map between the tests and their outcomes
         # assume the test passes (default "PASS")
         # until failure condition is found (set to "FAIL")
-        test_result = defaultdict(lambda: "PASS")
+        test_result: Dict[Any, str] = defaultdict(lambda: "PASS")
         # check expected result
         if result != unit_test["ExpectedResult"]:
             test_result["outcome"] = "FAIL"
@@ -731,7 +731,7 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
         metavar="KEY=VALUE",
         nargs="+",
-        type=list,
+        type=List[str],
         dest='filter_list',
     )
     test_parser.add_argument(
@@ -791,7 +791,7 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
         metavar="KEY=VALUE",
         nargs="+",
-        type=list,
+        type=List[str],
         dest='filter_list',
     )
     zip_parser.add_argument(
@@ -857,7 +857,7 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
         metavar="KEY=VALUE",
         nargs="+",
-        type=list,
+        type=List[str],
         dest='filter_list',
     )
     upload_parser.add_argument("--skip-tests", action="store_true", dest="skip_tests")
