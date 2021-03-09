@@ -5,6 +5,7 @@ from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 from nose.tools import (assert_equal, assert_false, assert_is_instance,
                         assert_is_none, assert_true, raises, nottest,
                         with_setup)
+from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
 
@@ -17,13 +18,13 @@ class TestPantherAnalysisTool(TestCase):
         self.fs.add_real_directory(self.fixture_path)
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(['tests/fixtures']):
             if spec_filename == 'example_policy.json':
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_yaml_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs('tests/fixtures'):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(['tests/fixtures']):
             if spec_filename == 'example_policy.yml':
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
@@ -38,12 +39,12 @@ class TestPantherAnalysisTool(TestCase):
         expected_output = '{} not in list of valid keys: {}'
         # test successful regex match and correct error returned
         test_str = "Wrong key 'DisplaName' in {'DisplaName':'one','Enabled':true, 'Filename':'sample'}"
-        exc = Exception(test_str)
+        exc = SchemaWrongKeyError(test_str)
         err = pat.handle_wrong_key_error(exc, sample_keys)
         assert_equal(str(err), expected_output.format("'DisplaName'", sample_keys))
         # test failing regex match
         test_str = "Will not match"
-        exc = Exception(test_str)
+        exc = SchemaWrongKeyError(test_str)
         err = pat.handle_wrong_key_error(exc, sample_keys)
         assert_equal(str(err),  expected_output.format("UNKNOWN_KEY", sample_keys))
 
