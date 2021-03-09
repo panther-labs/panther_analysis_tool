@@ -731,7 +731,6 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
         metavar="KEY=VALUE",
         nargs="+",
-        type=List[str],
         dest='filter_list',
     )
     test_parser.add_argument(
@@ -791,7 +790,6 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
         metavar="KEY=VALUE",
         nargs="+",
-        type=List[str],
         dest='filter_list',
     )
     zip_parser.add_argument(
@@ -857,7 +855,6 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
         metavar="KEY=VALUE",
         nargs="+",
-        type=List[str],
         dest='filter_list',
     )
     upload_parser.add_argument("--skip-tests", action="store_true", dest="skip_tests")
