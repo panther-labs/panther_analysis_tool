@@ -91,7 +91,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_parse_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter AnalysisType=policy,global Severity=Critical'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         assert_true('AnalysisType' in args.filter.keys())
         assert_true('policy' in args.filter['AnalysisType'])
         assert_true('global' in args.filter['AnalysisType'])
@@ -100,7 +100,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter AnalysisType=policy,global'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -114,35 +114,35 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_rule_definition(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=AWS.CloudTrail.MFAEnabled'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_invalid_rule_test(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Invalid.Test'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High PolicyID=AWS.IAM.MFAEnabled'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
+        self.equal = assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Unknown.Exception'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -162,7 +162,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests_no_passing(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
-        args.filter = pat.parse_filter(args.filter)
+        args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
         assert_equal(return_code, 1)
