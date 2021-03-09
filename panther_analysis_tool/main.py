@@ -36,6 +36,7 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 
 import boto3
 import semver
+from distutils.util import strtobool
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -51,11 +52,12 @@ from schema import (
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
-    POLICY_SCHEMA,
-    RULE_SCHEMA,
     TYPE_SCHEMA,
+    get_rule_policy_schema
 )
 from panther_analysis_tool.test_case import DataModel, TestCase
+
+global RULE_SCHEMA, POLICY_SCHEMA
 
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
@@ -735,6 +737,13 @@ def setup_parser() -> argparse.ArgumentParser:
         + "is required.",
         required=False,
     )
+    test_parser.add_argument(
+        "--ignore-extra-keys",
+        default=False,
+        type=strtobool,
+        help="Meant for advanced users; allows skipping of extra keys from schema validation.",
+        required=False,
+    )
     test_parser.set_defaults(func=test_analysis)
 
     zip_schemas_parser = subparsers.add_parser(
@@ -781,6 +790,13 @@ def setup_parser() -> argparse.ArgumentParser:
         + "is required.",
         required=False,
     )
+    zip_parser.add_argument(
+        "--ignore-extra-keys",
+        default=False,
+        type=strtobool,
+        help="Meant for advanced users; allows skipping of extra keys from schema validation.",
+        required=False,
+    )
     zip_parser.add_argument("--skip-tests", action="store_true", dest="skip_tests")
     zip_parser.set_defaults(func=zip_analysis)
 
@@ -814,6 +830,13 @@ def setup_parser() -> argparse.ArgumentParser:
         help="The minimum number of tests in order for a detection to be considered passing."
         + "If a number greater than 1 is specified, at least one True and one False test "
         + "is required.",
+        required=False,
+    )
+    upload_parser.add_argument(
+        "--ignore-extra-keys",
+        default=False,
+        type=strtobool,
+        help="Meant for advanced users; allows skipping of extra keys from schema validation.",
         required=False,
     )
     upload_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
@@ -944,6 +967,9 @@ def run() -> None:
 
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter)
+
+    global RULE_SCHEMA, POLICY_SCHEMA
+    RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
 
     try:
         return_code, out = args.func(args)

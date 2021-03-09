@@ -57,68 +57,72 @@ GLOBAL_SCHEMA = Schema(
     ignore_extra_keys=False,
 )
 
-POLICY_SCHEMA = Schema(
-    {
-        "AnalysisType": Or("policy"),
-        "Enabled": bool,
-        "Filename": str,
-        "PolicyID": And(str, NAME_ID_VALIDATION_REGEX),
-        "ResourceTypes": [str],
-        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional("ActionDelaySeconds"): int,
-        Optional("AutoRemediationID"): str,
-        Optional("AutoRemediationParameters"): object,
-        Optional("Description"): str,
-        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("OutputIds"): [str],
-        Optional("Reference"): str,
-        Optional("Runbook"): str,
-        Optional("Suppressions"): [str],
-        Optional("Tags"): [str],
-        Optional("Reports"): {str: list},
-        Optional("Tests"): [
-            {
-                "Name": str,
-                Optional(
-                    "ResourceType"
-                ): str,  # Not needed anymore, optional for backwards compatibility
-                "ExpectedResult": bool,
-                "Resource": object,
-            }
-        ],
-    },
-    ignore_extra_keys=False,
-)  # Prevent user typos on optional fields
 
-RULE_SCHEMA = Schema(
-    {
-        "AnalysisType": Or("rule"),
-        "Enabled": bool,
-        "Filename": str,
-        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        "LogTypes": [str],
-        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): int,
-        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("OutputIds"): [str],
-        Optional("Reference"): str,
-        Optional("Runbook"): str,
-        Optional("SummaryAttributes"): [str],
-        Optional("Suppressions"): [str],
-        Optional("Threshold"): int,
-        Optional("Tags"): [str],
-        Optional("Reports"): {str: list},
-        Optional("Tests"): [
-            {
-                "Name": str,
-                Optional(
-                    "LogType"
-                ): str,  # Not needed anymore, optional for backwards compatibility
-                "ExpectedResult": bool,
-                "Log": object,
-            }
-        ],
-    },
-    ignore_extra_keys=False,
-)  # Prevent user typos on optional fields
+def get_rule_policy_schema(ignore_extra_keys=False):
+    POLICY_SCHEMA = Schema(
+        {
+            "AnalysisType": Or("policy"),
+            "Enabled": bool,
+            "Filename": str,
+            "PolicyID": And(str, NAME_ID_VALIDATION_REGEX),
+            "ResourceTypes": [str],
+            "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+            Optional("ActionDelaySeconds"): int,
+            Optional("AutoRemediationID"): str,
+            Optional("AutoRemediationParameters"): object,
+            Optional("Description"): str,
+            Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+            Optional("OutputIds"): [str],
+            Optional("Reference"): str,
+            Optional("Runbook"): str,
+            Optional("Suppressions"): [str],
+            Optional("Tags"): [str],
+            Optional("Reports"): {str: list},
+            Optional("Tests"): [
+                {
+                    "Name": str,
+                    Optional(
+                        "ResourceType"
+                    ): str,  # Not needed anymore, optional for backwards compatibility
+                    "ExpectedResult": bool,
+                    "Resource": object,
+                }
+            ],
+        },
+        ignore_extra_keys=ignore_extra_keys,
+    )  # Prevent user typos on optional fields
+
+    RULE_SCHEMA = Schema(
+        {
+            "AnalysisType": Or("rule"),
+            "Enabled": bool,
+            "Filename": str,
+            "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+            "LogTypes": [str],
+            "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+            Optional("Description"): str,
+            Optional("DedupPeriodMinutes"): int,
+            Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+            Optional("OutputIds"): [str],
+            Optional("Reference"): str,
+            Optional("Runbook"): str,
+            Optional("SummaryAttributes"): [str],
+            Optional("Suppressions"): [str],
+            Optional("Threshold"): int,
+            Optional("Tags"): [str],
+            Optional("Reports"): {str: list},
+            Optional("Tests"): [
+                {
+                    "Name": str,
+                    Optional(
+                        "LogType"
+                    ): str,  # Not needed anymore, optional for backwards compatibility
+                    "ExpectedResult": bool,
+                    "Log": object,
+                }
+            ],
+        },
+        ignore_extra_keys=ignore_extra_keys,
+    )  # Prevent user typos on optional fields
+
+    return RULE_SCHEMA, POLICY_SCHEMA
