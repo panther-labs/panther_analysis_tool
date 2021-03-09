@@ -785,7 +785,7 @@ def setup_parser() -> argparse.ArgumentParser:
     # pylint: disable=too-many-statements,too-many-locals
     # setup dictionary of named args for some common arguments across commands
     aws_profile_name = "--aws-profile"
-    aws_profile_arg = {
+    aws_profile_arg: Dict[str, Any] = {
         "type": str,
         "help": "The AWS profile to use when updating the AWS Panther deployment.",
         "required": False,
