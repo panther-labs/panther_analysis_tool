@@ -56,9 +56,6 @@ from panther_analysis_tool.schemas import (
     get_rule_policy_schema
 )
 from panther_analysis_tool.test_case import DataModel, TestCase
-
-global RULE_SCHEMA, POLICY_SCHEMA
-
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
 
