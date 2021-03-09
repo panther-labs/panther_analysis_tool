@@ -725,7 +725,14 @@ def setup_parser() -> argparse.ArgumentParser:
         help="The relative path to Panther policies and rules.",
         required=False,
     )
-    test_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
+    test_parser.add_argument(
+        "--filter",
+        required=False,
+        metavar="KEY=VALUE",
+        nargs="+",
+        type=list,
+        dest='filter_list',
+    )
     test_parser.add_argument(
         "--minimum-tests",
         default="0",
@@ -778,7 +785,14 @@ def setup_parser() -> argparse.ArgumentParser:
         help="The path to write zipped policies and rules to.",
         required=False,
     )
-    zip_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
+    zip_parser.add_argument(
+        "--filter",
+        required=False,
+        metavar="KEY=VALUE",
+        nargs="+",
+        type=list,
+        dest='filter_list',
+    )
     zip_parser.add_argument(
         "--minimum-tests",
         default="0",
@@ -837,7 +851,14 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Meant for advanced users; allows skipping of extra keys from schema validation.",
         required=False,
     )
-    upload_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
+    upload_parser.add_argument(
+        "--filter",
+        required=False,
+        metavar="KEY=VALUE",
+        nargs="+",
+        type=list,
+        dest='filter_list',
+    )
     upload_parser.add_argument("--skip-tests", action="store_true", dest="skip_tests")
     upload_parser.set_defaults(func=upload_analysis)
 
@@ -964,7 +985,7 @@ def run() -> None:
     )
 
     if getattr(args, "filter", None) is not None:
-        args.filter = parse_filter(args.filter)
+        args.filter = parse_filter(args.filter_list)
 
     global RULE_SCHEMA, POLICY_SCHEMA  # pylint: disable=global-statement
     RULE_SCHEMA, POLICY_SCHEMA = get_rule_policy_schema(bool(args.ignore_extra_keys))
