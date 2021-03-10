@@ -31,10 +31,11 @@ import tempfile
 import zipfile
 from collections import defaultdict
 from datetime import datetime
+from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-from distutils.util import strtobool
+
 import boto3
 import botocore
 import semver
@@ -449,12 +450,15 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     specs, invalid_specs = classify_analysis(
         list(load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION]))
     )
+    logging.info("Done classifying analysis packs")
+    print(specs)
 
     if all((len(specs[key]) == 0 for key in specs)):
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
+    logging.info("AAA")
     # Apply the filters as needed
     for key in specs:
         specs[key] = filter_analysis(specs[key], args.filter)
@@ -462,15 +466,18 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     if all((len(specs[key]) == 0 for key in specs)):
         return 1, ["No analysis in {} matched filters {}".format(args.path, args.filter)]
 
+    logging.info("BBB")
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
     invalid_globals = setup_global_helpers(specs[GLOBAL])
     invalid_specs.extend(invalid_globals)
 
+    logging.info("CCC")
     # then, setup data model dictionary to be used in rule/policy tests
     log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
+    logging.info("DDD")
 
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
@@ -684,20 +691,20 @@ def classify_analysis(
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
-    key = "UNKNOWN_ID"
+    analysis_id = "UNKNOWN_ID"
     if analysis_type == DATAMODEL:
-        key = analysis_spec["DataModelID"]
+        analysis_id = analysis_spec["DataModelID"]
     if analysis_type == GLOBAL:
-        key = analysis_spec["GlobalID"]
+        analysis_id = analysis_spec["GlobalID"]
     if analysis_type == PACK:
-        key = analysis_spec["PackID"]
+        analysis_id = analysis_spec["PackID"]
     if analysis_type == POLICY:
-        key = analysis_spec["PolicyID"]
+        analysis_id = analysis_spec["PolicyID"]
     if analysis_type == QUERY:
-        key = analysis_spec["QueryName"]
+        analysis_id = analysis_spec["QueryName"]
     if analysis_type in [RULE, SCHEDULED_RULE]:
-        key = analysis_spec["RuleID"]
-    return analysis_spec[key]
+        analysis_id = analysis_spec["RuleID"]
+    return analysis_id
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
