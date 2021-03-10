@@ -34,7 +34,7 @@ from datetime import datetime
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-
+from distutils.util import strtobool
 import boto3
 import botocore
 import semver
@@ -85,6 +85,7 @@ SCHEMAS: Dict[str, Schema] = {
     RULE: RULE_SCHEMA,
 }
 
+
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
     def __init__(self, analysis_id: str):
@@ -121,14 +122,14 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
     """Loads the analysis specifications from a file.
 
     Args:
-        directory: The relative path to Panther policies or rules.
+        directories: The relative path to Panther policies or rules.
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
-    loaded_specs = []
+    loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
             # setup yaml object
@@ -629,10 +630,10 @@ def classify_analysis(
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
-    analysis_ids = []
+    analysis_ids: List[Any] = []
 
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
-        keys = list()
+        keys: List[Any] = list()
         try:
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
@@ -743,7 +744,7 @@ def run_tests(
         # using a dictionary to map between the tests and their outcomes
         # assume the test passes (default "PASS")
         # until failure condition is found (set to "FAIL")
-        test_result = defaultdict(lambda: "PASS")
+        test_result: Dict[Any, str] = defaultdict(lambda: "PASS")
         # check expected result
         if result != unit_test["ExpectedResult"]:
             test_result["outcome"] = "FAIL"
@@ -817,6 +818,13 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     skip_test_name = "--skip-tests"
     skip_test_arg: Dict[str, Any] = {"action": "store_true", "dest": "skip_tests"}
+    ignore_extra_keys_name = "--ignore-extra-keys"
+    ignore_extra_keys_arg: Dict[str, Any] = {
+        "required": False,
+        "default": False,
+        "type": strtobool,
+        "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
+    }
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
@@ -854,6 +862,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(filter_name, **filter_arg)
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)
+    test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     test_parser.set_defaults(func=test_analysis)
 
     zip_schemas_parser = subparsers.add_parser(
@@ -874,6 +883,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(out_name, **out_arg)
     zip_parser.add_argument(path_name, **path_arg)
     zip_parser.add_argument(skip_test_name, **skip_test_arg)
+    zip_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
@@ -885,6 +895,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(out_name, **out_arg)
     upload_parser.add_argument(path_name, **path_arg)
     upload_parser.add_argument(skip_test_name, **skip_test_arg)
+    upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
@@ -1006,6 +1017,11 @@ def run() -> None:
 
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter)
+
+    # Although not best practice, the alternative is ugly and significantly harder to maintain.
+    if bool(getattr(args, "ignore_extra_keys", None)):
+        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
         return_code, out = args.func(args)
