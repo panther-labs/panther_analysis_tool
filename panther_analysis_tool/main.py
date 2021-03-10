@@ -19,12 +19,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
+import getpass
 import hashlib
 import importlib.util
 import json
 import logging
 import os
 import re
+import requests
 import subprocess  # nosec
 import sys
 import tempfile
@@ -426,52 +428,9 @@ def generate_hash(filename: str) -> bytes:
     return hash_bytes.digest()
 
 
-def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
-    # First, generate the appropriate zip file
-    # set the output file to appropriate name for the release: panther-analysis-all.zip
-    release_file = args.out + "/" + "panther-analysis-all.zip"
-    signature_filename = args.out + "/" + "panther-analysis-all.sig"
-    return_code, archive = zip_analysis(args)
-    if return_code != 0:
-        return return_code, ""
-    os.rename(archive, release_file)
-    logging.info("Release zip file generated: %s", release_file)
-    #  If a key is provided, sign a hash of the file
-    if args.kms_key:
-        # Then generate the sha512 sum of the zip file
-        archive_hash = generate_hash(release_file)
-        # optionally set env variable for profile passed as argument
-        # this must be called prior to setting up the client
-        if args.aws_profile is not None:
-            logging.info("Using AWS profile: %s", args.aws_profile)
-            set_env("AWS_PROFILE", args.aws_profile)
-
-        client = boto3.client("kms")
-        try:
-            response = client.sign(
-                KeyId=args.kms_key,
-                Message=archive_hash,
-                MessageType="DIGEST",
-                SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_512",
-            )
-            if response.get("Signature"):
-                # write signature out to file
-                with open(signature_filename, "wb") as filename:
-                    filename.write(base64.b64encode(response.get("Signature")))
-                logging.info("Release signature file generated: %s", signature_filename)
-            else:
-                logging.error("Missing signtaure in response: %s", response)
-                return 1, ""
-        except botocore.exceptions.ClientError as err:
-            logging.error("Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key)
-            logging.error(err)
-            return 1, ""
-    return 0, ""
-
-
-def clone_github(path: str) -> (int, str):
-    repo_url = "https://github.com/panther-labs/panther-analysis"
-    repo_dir = os.path.join(path, "panther-analysis")
+def clone_github(owner: str, repo: str, path: str) -> (int, str):
+    repo_url = f"https://github.com/{owner}/{repo}"
+    repo_dir = os.path.join(path, f"{repo}")
     logging.info("Cloning master branch of %s", repo_url)
     result = subprocess.run(
         [
@@ -492,18 +451,21 @@ def clone_github(path: str) -> (int, str):
 
 
 def publish_release(args: argparse.Namespace) -> (int, str):
-    # first, ensure this tag doesn't already exist
+    # first, ensure the appropriate github access token is set in the env
+    username = os.environ['GITHUB_USERNAME']
+    api_token = os.environ['GITHUB_TOKEN']
+    if not username:
+        logging.error("error: GITHUB_USERNAME env variable must be set")
+        return 1, ""
+    if not api_token:
+        logging.error("error: GITHUB_TOKEN env variable must be set")
+        return 1, ""    
+    # ensure this tag doesn't already exist
     release_url = (
         f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
     )
     headers = {"accept": "application/vnd.github.v3+json"}
     # prompt for access token to use to interact with Github
-    try:
-        username = input("Github username: ")
-        api_token = getpass.getpass("Github API Token: ")
-    except Exception as error:
-        logging.error(f"Error retrieving github api token {error}")
-        return 1, ""
     response = requests.get(
         release_url + f"/tags/{args.github_tag}", auth=(username, api_token), headers=headers
     )
@@ -519,7 +481,7 @@ def publish_release(args: argparse.Namespace) -> (int, str):
         )
         os.mkdir(release_dir)
     # pull latest version of the panther-anlaysis repo
-    return_code, out = clone_github(release_dir)
+    return_code, out = clone_github(args.github_owner, args.github_repository, release_dir)
     if return_code != 0:
         return return_code, out
     # generate zip based on latest version of repo
@@ -935,6 +897,13 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     filter_name = "--filter"
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
+    kms_key_name = "--kms-key"
+    kms_key_arg: Dict[str, Any] = {
+        "default": "arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
+        "type": str,
+        "help": "The key id to use to sign the release asset.",
+        "required": False,
+    }
     min_test_name = "--minimum-tests"
     min_test_arg: Dict[str, Any] = {
         "default": 0,
@@ -978,13 +947,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     release_parser.add_argument(aws_profile_name, **aws_profile_arg)
     release_parser.add_argument(filter_name, **filter_arg)
-    release_parser.add_argument(
-        "--kms-key",
-        default="arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
-        type=str,
-        help="The key id to use to sign the release asset.",
-        required=False,
-    )
+    release_parser.add_argument(kms_key_name, **kms_key_arg)
     release_parser.add_argument(min_test_name, **min_test_arg)
     release_parser.add_argument(out_name, **out_arg)
     release_parser.add_argument(path_name, **path_arg)
@@ -998,6 +961,39 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)
     test_parser.set_defaults(func=test_analysis)
+
+    publish_parser = subparsers.add_parser(
+        "publish",
+        help="Publishes a new release, generates the release assets, and uploads them"
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig",
+    )
+    publish_parser.add_argument(
+        '--github-owner',
+        help="The github owner of the repsitory",
+        type=str,
+        default="panther-labs",
+    )
+    publish_parser.add_argument(
+        '--github-repository',
+        help="The github repsitory name",
+        type=str, 
+        default="panther-analysis",
+    )
+    publish_parser.add_argument(
+        '--github-tag',
+        help="The tag name for this release",
+        type=str, 
+        required=True,
+    )
+    publish_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    publish_parser.add_argument(filter_name, **filter_arg)
+    publish_parser.add_argument(kms_key_name, **kms_key_arg)
+    publish_parser.add_argument(min_test_name, **min_test_arg)
+    publish_parser.add_argument(out_name, **out_arg)
+    publish_parser.add_argument(path_name, **path_arg)
+    publish_parser.add_argument(skip_test_name, **skip_test_arg)
+    publish_parser.set_defaults(func=publish_release)
 
     zip_schemas_parser = subparsers.add_parser(
         "zip-schemas", help="Create a release asset archive of managed schemas."
@@ -1166,7 +1162,6 @@ def run() -> None:
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
-        traceback.print_exc()
         sys.exit(1)
 
     if return_code == 1:
