@@ -1,18 +1,21 @@
-'''
-Copyright 2020 Panther Labs Inc
+"""
+Panther Analysis Tool is a command line interface for writing,
+testing, and packaging policies/rules.
+Copyright (C) 2020 Panther Labs Inc
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-   http://www.apache.org/licenses/LICENSE-2.0
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-'''
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 
 from schema import And, Optional, Or, Regex, Schema
 
@@ -21,118 +24,115 @@ NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 TYPE_SCHEMA = Schema(
     {
         'AnalysisType':
-            Or("datamodel", "global", "policy", "rule", "scheduled_rule",
+            Or("datamodel", "global", "pack", "policy", "rule", "scheduled_rule",
                "scheduled_query"),
     },
-    ignore_extra_keys=True)
+    ignore_extra_keys=True,
+)
 
 DATA_MODEL_SCHEMA = Schema(
     {
-        'AnalysisType': Or("datamodel"),
-        'DataModelID': And(str, NAME_ID_VALIDATION_REGEX),
-        'Enabled': bool,
-        'LogTypes': [str],
-        'Mappings': [{
-            'Name': str,
-            Or('Method', 'Path'): str,
-        }],
-        Optional('DisplayName'): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional('Filename'): str,
+        "AnalysisType": Or("datamodel"),
+        "DataModelID": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        "LogTypes": [str],
+        "Mappings": [
+            {
+                "Name": str,
+                Or("Method", "Path"): str,
+            }
+        ],
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Filename"): str,
     },
-    ignore_extra_keys=False)
+    ignore_extra_keys=False,
+)
 
 GLOBAL_SCHEMA = Schema(
     {
-        'AnalysisType': Or("global"),
-        'Filename': str,
-        'GlobalID': And(str, NAME_ID_VALIDATION_REGEX),
-        Optional('Description'): str,
-        Optional('Tags'): [str],
+        "AnalysisType": Or("global"),
+        "Filename": str,
+        "GlobalID": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Description"): str,
+        Optional("Tags"): [str],
     },
-    ignore_extra_keys=False)
+    ignore_extra_keys=False,
+)
+
+PACK_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("pack"),
+        "PackID": And(str, NAME_ID_VALIDATION_REGEX),
+        "PackDefinition": {
+            "IDs": [str],
+        },
+        Optional("Description"): str,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+    }
+)
 
 POLICY_SCHEMA = Schema(
     {
-        'AnalysisType':
-            Or("policy"),
-        'Enabled':
-            bool,
-        'Filename':
-            str,
-        'PolicyID':
-            And(str, NAME_ID_VALIDATION_REGEX),
-        'ResourceTypes': [str],
-        'Severity':
-            Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional('ActionDelaySeconds'):
-            int,
-        Optional('AutoRemediationID'):
-            str,
-        Optional('AutoRemediationParameters'):
-            object,
-        Optional('Description'):
-            str,
-        Optional('DisplayName'):
-            And(str, NAME_ID_VALIDATION_REGEX),
-        Optional('OutputIds'): [str],
-        Optional('Reference'):
-            str,
-        Optional('Runbook'):
-            str,
-        Optional('Suppressions'): [str],
-        Optional('Tags'): [str],
-        Optional('Reports'): {
-            str: list
-        },
-        Optional('Tests'): [{
-            'Name': str,
-            Optional('ResourceType'):
-                str,  # Not needed anymore, optional for backwards compatibility
-            'ExpectedResult': bool,
-            'Resource': object,
-        }],
+        "AnalysisType": Or("policy"),
+        "Enabled": bool,
+        "Filename": str,
+        "PolicyID": And(str, NAME_ID_VALIDATION_REGEX),
+        "ResourceTypes": [str],
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("ActionDelaySeconds"): int,
+        Optional("AutoRemediationID"): str,
+        Optional("AutoRemediationParameters"): object,
+        Optional("Description"): str,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("Suppressions"): [str],
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("Tests"): [
+            {
+                "Name": str,
+                Optional(
+                    "ResourceType"
+                ): str,  # Not needed anymore, optional for backwards compatibility
+                "ExpectedResult": bool,
+                "Resource": object,
+            }
+        ],
     },
-    ignore_extra_keys=False)  # Prevent user typos on optional fields
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
 
 RULE_SCHEMA = Schema(
     {
-        'AnalysisType':
-            Or("rule"),
-        'Enabled':
-            bool,
-        'Filename':
-            str,
-        'RuleID':
-            And(str, NAME_ID_VALIDATION_REGEX),
-        'LogTypes': [str],
-        'Severity':
-            Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional('Description'):
-            str,
-        Optional('DedupPeriodMinutes'):
-            int,
-        Optional('DisplayName'):
-            And(str, NAME_ID_VALIDATION_REGEX),
-        Optional('OutputIds'): [str],
-        Optional('Reference'):
-            str,
-        Optional('Runbook'):
-            str,
-        Optional('SummaryAttributes'): [str],
-        Optional('Suppressions'): [str],
-        Optional('Threshold'):
-            int,
-        Optional('Tags'): [str],
-        Optional('Reports'): {
-            str: list
-        },
-        Optional('Tests'): [{
-            'Name': str,
-            Optional('LogType'):
-                str,  # Not needed anymore, optional for backwards compatibility
-            'ExpectedResult': bool,
-            'Log': object,
-        }],
+        "AnalysisType": Or("rule"),
+        "Enabled": bool,
+        "Filename": str,
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        "LogTypes": [str],
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Suppressions"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("Tests"): [
+            {
+                "Name": str,
+                Optional(
+                    "LogType"
+                ): str,  # Not needed anymore, optional for backwards compatibility
+                "ExpectedResult": bool,
+                "Log": object,
+            }
+        ],
     },
     ignore_extra_keys=False)  # Prevent user typos on optional fields
 

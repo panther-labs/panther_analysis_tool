@@ -1,0 +1,9 @@
+AnalysisType: pack
+Description: This pack groups amazing rules and policies
+DisplayName: Sample Pack Data
+PackID: Sample.Pack
+PackDefinition:
+  IDs:
+    - AWS.IAM.MFAEnabled
+    - AWS.IAM.BetaTest
+    - AWS.CloudTrail.MFAEnabled
