@@ -19,14 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
-import getpass
 import hashlib
 import importlib.util
 import json
 import logging
+import mimetypes
 import os
 import re
-import requests
 import subprocess  # nosec
 import sys
 import tempfile
@@ -39,6 +38,7 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 
 import boto3
 import botocore
+import requests
 import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
@@ -428,107 +428,130 @@ def generate_hash(filename: str) -> bytes:
     return hash_bytes.digest()
 
 
-def clone_github(owner: str, repo: str, path: str) -> (int, str):
-    repo_url = f"https://github.com/{owner}/{repo}"
-    repo_dir = os.path.join(path, f"{repo}")
-    logging.info("Cloning master branch of %s", repo_url)
-    result = subprocess.run(
-        [
-            "git",
-            "clone",
-            "--branch",
-            "master",
-            "--depth",
-            "1",
-            "-c",
-            "advice.detachedHead=false",
-            repo_url,
-            repo_dir,
-        ],
-        shell=False,
-    )
-    return result.returncode, ""
-
-
-def publish_release(args: argparse.Namespace) -> (int, str):
+def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     # first, ensure the appropriate github access token is set in the env
-    username = os.environ['GITHUB_USERNAME']
-    api_token = os.environ['GITHUB_TOKEN']
-    if not username:
-        logging.error("error: GITHUB_USERNAME env variable must be set")
-        return 1, ""
+    api_token = os.environ.get("GITHUB_TOKEN")
     if not api_token:
         logging.error("error: GITHUB_TOKEN env variable must be set")
-        return 1, ""    
-    # ensure this tag doesn't already exist
+        return 1, ""
     release_url = (
         f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
     )
-    headers = {"accept": "application/vnd.github.v3+json"}
-    # prompt for access token to use to interact with Github
-    response = requests.get(
-        release_url + f"/tags/{args.github_tag}", auth=(username, api_token), headers=headers
-    )
+    # setup appropriate https headers
+    headers = {"accept": "application/vnd.github.v3+json", "Authorization": f"token {api_token}"}
+    # check this tag doesn't already exist
+    response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers)
     if response.status_code == 200:
-        logging.error(f"tag already exists {args.github_tag}")
+        logging.error("tag already exists %s", args.github_tag)
         return 1, ""
     # create the release directory
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
     release_dir = args.out if args.out != "." else f"release-{current_time}"
-    if not os.path.isdir(release_dir):
-        logging.info(
-            f"Creating release directory: {release_dir}",
-        )
-        os.mkdir(release_dir)
-    # pull latest version of the panther-anlaysis repo
-    return_code, out = clone_github(args.github_owner, args.github_repository, release_dir)
+    # setup and generate release assets
+    return_code = setup_release(args, release_dir, api_token)
     if return_code != 0:
-        return return_code, out
-    # generate zip based on latest version of repo
-    owd = os.getcwd()
-    try:
-        # first change dir to release direectory
-        os.chdir(release_dir)
-        args.path = "."
-        # run generate assets from release directory
-        return_code, out = generate_release_assets(args)
-        if return_code != 0:
-            return return_code, out
-    finally:
-        # change back to original working directory (owd)
-        os.chdir(owd)
-    # then attempt to publish to Github
-    payload = {"tag_name": args.github_tag, "draft": True}
-    if args.body:
-        payload["body"] = json.dumps(args.body)
-    response = requests.post(
-        release_url, auth=(username, api_token), data=json.dumps(payload), headers=headers
-    )
-    if response.status_code != 201:
-        logging.error(f"error creating release ({args.github_tag}) in repo ({release_url})")
-        logging.error(response.json())
-        return 1, ""
-    # add release assets
-    response = requests.post(
-        release_url, auth=(username, api_token), data=json.dumps(payload), headers=headers
-    )
-    if response.status_code != 201:
-        logging.error(f"error creating release ({args.github_tag}) in repo ({release_url})")
-        logging.error(response.json())
-        return 1, ""
-    logging.info(f"draft release ({args.github_tag}) created in repo ({release_url})")
+        return return_code, ""
+    # then publish to Github
+    return_code = publish_github(args.github_tag, args.body, headers, release_url, release_dir)
+    if return_code != 0:
+        return return_code, ""
+    logging.info("draft release (%s) created in repo (%s)", args.github_tag, release_url)
     return 0, ""
 
 
-def generate_hash(filename: str) -> str:
-    hash_bytes = hashlib.sha512()
-    with open(filename, "rb") as f:
-        block = f.read(hash_bytes.block_size)
-        while block:
-            hash_bytes.update(block)
-            block = f.read(hash_bytes.block_size)
-    # convert to byte string
-    return hash_bytes.digest()
+def clone_github(
+    owner: str, repo: str, branch: str, path: str, access_token: str
+) -> Tuple[int, str]:
+    repo_url = (
+        f"https://{access_token}@github.com/{owner}/{repo}"
+        if access_token
+        else f"https://github.com/{owner}/{repo}"
+    )
+    repo_dir = os.path.join(path, f"{repo}")
+    logging.info("Cloning %s branch of %s/%s", branch, owner, repo)
+    cmd = [
+        "git",
+        "clone",
+        "--branch",
+        branch,
+        "--depth",
+        "1",
+        "-c",
+        "advice.detachedHead=false",
+        repo_url,
+        repo_dir,
+    ]
+    result = subprocess.run(cmd, check=True, timeout=120)  # nosec
+    return result.returncode, ""
+
+
+def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int:
+    if not os.path.isdir(release_dir):
+        logging.info(
+            "Creating release directory: %s",
+            release_dir,
+        )
+        os.mkdir(release_dir)
+    # pull latest version of the github repo
+    return_code, _ = clone_github(
+        args.github_owner, args.github_repository, args.github_branch, release_dir, token
+    )
+    if return_code != 0:
+        return return_code
+    # generate zip based on latest version of repo
+    owd = os.getcwd()
+    # change dir to release directory
+    os.chdir(release_dir)
+    args.path = "."
+    # run generate assets from release directory
+    return_code, _ = generate_release_assets(args)
+    if return_code != 0:
+        return return_code
+    os.chdir(owd)
+    return 0
+
+
+def publish_github(tag: str, body: str, headers: dict, release_url: str, release_dir: str) -> int:
+    payload = {"tag_name": tag, "draft": True}
+    if body:
+        payload["body"] = json.dumps(body)
+    response = requests.post(release_url, data=json.dumps(payload), headers=headers)
+    if response.status_code != 201:
+        logging.error("error creating release (%s) in repo (%s)", tag, release_url)
+        logging.error(response.json())
+        return 1
+    upload_url = response.json().get("upload_url", "").replace("{?name,label}", "")
+    if not upload_url:
+        logging.error("no upload url in response - assets not uploaded")
+        logging.info("draft release (%s) created in repo (%s)", tag, release_url)
+        return 1
+    return_code = upload_assets_github(upload_url, headers, release_dir)
+    if return_code != 0:
+        return return_code
+    return 0
+
+
+def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> int:
+    return_code = 0
+    # first, find the release assets
+    assets = [
+        filename
+        for filename in os.listdir(release_dir)
+        if os.path.isfile(release_dir + "/" + filename)
+    ]
+    # add release assets
+    for filename in assets:
+        headers["Content-Type"] = mimetypes.guess_type(filename)[0]
+        params = [("name", filename)]
+        data = open(release_dir + "/" + filename, "rb").read()
+        response = requests.post(upload_url, data=data, headers=headers, params=params)
+        if response.status_code != 201:
+            logging.error("error uploading release asset (%s)", filename)
+            logging.error(response.json())
+            return_code = 1
+            continue
+        logging.info("sucessfull upload of release asset (%s)", filename)
+    return return_code
 
 
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
@@ -969,19 +992,31 @@ def setup_parser() -> argparse.ArgumentParser:
         + "panther-analysis-all.sig",
     )
     publish_parser.add_argument(
-        '--github-owner',
+        "--body",
+        help="The text body for the release",
+        type=str,
+        default="",
+    )
+    publish_parser.add_argument(
+        "--github-branch",
+        help="The branch to base the release on",
+        type=str,
+        default="main",
+    )
+    publish_parser.add_argument(
+        "--github-owner",
         help="The github owner of the repsitory",
         type=str,
         default="panther-labs",
     )
     publish_parser.add_argument(
-        '--github-repository',
+        "--github-repository",
         help="The github repsitory name",
         type=str,
         default="panther-analysis",
     )
     publish_parser.add_argument(
-        '--github-tag',
+        "--github-tag",
         help="The tag name for this release",
         type=str,
         required=True,
