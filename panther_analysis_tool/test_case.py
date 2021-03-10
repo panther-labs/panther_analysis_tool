@@ -1,15 +1,16 @@
-from collections.abc import Mapping
 import logging
+from collections.abc import Mapping
 from typing import Any, Callable, Dict, Iterator, List, Optional
+
 from jsonpath_ng import Fields
 from jsonpath_ng.ext import parse
 
 
 # pylint: disable=too-few-public-methods
 class DataModel:
-
-    def __init__(self, data_model_id: str,
-                 source_mappings: List[Dict[str, str]], mapping_module: Any):
+    def __init__(
+        self, data_model_id: str, source_mappings: List[Dict[str, str]], mapping_module: Any
+    ):
         self.data_model_id: str = data_model_id
         self.paths: Dict[str, Fields] = dict()
         self.methods: Dict[str, Callable] = dict()
@@ -19,17 +20,14 @@ class DataModel:
     def extract_mappings(self, source_mappings: List[Dict[str, str]]) -> None:
         for mapping in source_mappings:
             # every mapping should have a name and either a method or path
-            if 'Method' in mapping:
-                self.methods[mapping['Name']] = getattr(self.module,
-                                                        mapping['Method'])
+            if "Method" in mapping:
+                self.methods[mapping["Name"]] = getattr(self.module, mapping["Method"])
             else:
-                self.paths[mapping['Name']] = parse(mapping['Path'])
+                self.paths[mapping["Name"]] = parse(mapping["Path"])
 
 
 class TestCase(Mapping):
-
-    def __init__(self, data: Dict[str, Any],
-                 data_model: Optional[DataModel]) -> None:
+    def __init__(self, data: Dict[str, Any], data_model: Optional[DataModel]) -> None:
         """
         Args:
             data (Dict[str, Any]): An AWS Resource representation or Log event to test the policy
@@ -41,7 +39,7 @@ class TestCase(Mapping):
     def __getitem__(self, arg: str) -> Any:
         return self._data.get(arg, None)
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: object) -> bool:
         return key in self._data
 
     def __iter__(self) -> Iterator:
@@ -50,17 +48,17 @@ class TestCase(Mapping):
     def __len__(self) -> int:
         return len(self._data)
 
-    def get(self, arg: str, default: Any = None) -> Any:
-        return self._data.get(arg, default)
+    def get(self, key: str, default: Optional[object] = None) -> Any:
+        return self._data.get(key, default)
 
     def udm(self, key: str) -> Any:
         """Converts standard data model field to logtype field"""
         # ensure that rules using `udm` have included p_log_type in their test
         try:
-            self._data['p_log_type']
+            self._data["p_log_type"]
         except KeyError as err:
             logging.warning(
-                'Rules that use `udm` are required to define [p_log_type] in test cases'
+                "Rules that use `udm` are required to define [p_log_type] in test cases"
             )
             raise err
         if self.data_model:
@@ -74,8 +72,10 @@ class TestCase(Mapping):
                         return matches[0].value
                     if len(matches) > 1:
                         raise Exception(
-                            'JSONPath [{}] in DataModel [{}], matched multiple fields.'
-                            .format(json_path, self.data_model.data_model_id))
+                            "JSONPath [{}] in DataModel [{}], matched multiple fields.".format(
+                                json_path, self.data_model.data_model_id
+                            )
+                        )
             if key in self.data_model.methods:
                 # we are dealing with method
                 method = self.data_model.methods.get(key)
