@@ -57,6 +57,7 @@ from panther_analysis_tool.schemas import (
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.test_case import DataModel, TestCase
@@ -73,15 +74,17 @@ POLICIES_PATH_PATTERN = "*policies*"
 DATAMODEL = "datamodel"
 DETECTION = "detection"
 GLOBAL = "global"
-RULE = "rule"
 PACK = "pack"
 POLICY = "policy"
+QUERY = "scheduled_query"
+RULE = "rule"
 
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
+    QUERY: SCHEDULED_QUERY_SCHEMA,
     RULE: RULE_SCHEMA,
 }
 
@@ -623,7 +626,7 @@ def classify_analysis(
     # types of detections, meta types that can be zipped
     # or uploaded
     classified_specs: Dict[str, List[Any]] = dict()
-    for key in [DATAMODEL, DETECTION, GLOBAL, PACK]:
+    for key in [DATAMODEL, DETECTION, GLOBAL, PACK, QUERY]:
         classified_specs[key] = []
 
     invalid_specs = []
@@ -681,12 +684,14 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
         return analysis_spec["DataModelID"]
     if analysis_type == GLOBAL:
         return analysis_spec["GlobalID"]
-    if analysis_type == POLICY:
-        return analysis_spec["PolicyID"]
-    if analysis_type == RULE:
-        return analysis_spec["RuleID"]
     if analysis_type == PACK:
         return analysis_spec["PackID"]
+    if analysis_type == POLICY:
+        return analysis_spec["PolicyID"]
+    if analysis_type == QUERY:
+        return analysis_spec["QueryName"]
+    if analysis_type == RULE:
+        return analysis_spec["RuleID"]
     return "UNKNOWN_ID"
 
 

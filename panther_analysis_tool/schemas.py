@@ -141,7 +141,7 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         'AnalysisType': Or("scheduled_query"),
         'QueryName': And(str, NAME_ID_VALIDATION_REGEX),
         'Enabled': bool,
-        'Query': str,
+        Or('Query', 'AthenaQuery', 'SnowflakeQuery'): str,
         'Schedule': {
             Or('CronExpression', 'RateMinutes'): Or(str, int),
             'TimeoutMinutes': int,
