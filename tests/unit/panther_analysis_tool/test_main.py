@@ -64,8 +64,26 @@ class TestPantherAnalysisTool(TestCase):
                      'tests/fixtures/example_malformed_policy.yml')
         assert_equal(len(invalid_specs), 7)
 
-    def test_rules_from_folder(self):
+    def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_rules_from_folder(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/rules'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_queries_from_folder(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/queries'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_scheduled_rules_from_folder(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/scheduled_rules'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)

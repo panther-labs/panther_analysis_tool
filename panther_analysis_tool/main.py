@@ -67,9 +67,10 @@ HELPERS_LOCATION = "./global_helpers"
 
 DATA_MODEL_PATH_PATTERN = "*data_models*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
-RULES_PATH_PATTERN = "*rules*"
 PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
+QUERIES_PATH_PATTERN = "*queries*"
+RULES_PATH_PATTERN = "*rules*"
 
 DATAMODEL = "datamodel"
 DETECTION = "detection"
