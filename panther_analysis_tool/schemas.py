@@ -23,7 +23,7 @@ NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema(
     {
-        "AnalysisType": Or("datamodel", "global", "policy", "rule"),
+        "AnalysisType": Or("datamodel", "global", "pack", "policy", "rule"),
     },
     ignore_extra_keys=True,
 )
@@ -55,6 +55,18 @@ GLOBAL_SCHEMA = Schema(
         Optional("Tags"): [str],
     },
     ignore_extra_keys=False,
+)
+
+PACK_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("pack"),
+        "PackID": And(str, NAME_ID_VALIDATION_REGEX),
+        "PackDefinition": {
+            "IDs": [str],
+        },
+        Optional("Description"): str,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+    }
 )
 
 POLICY_SCHEMA = Schema(

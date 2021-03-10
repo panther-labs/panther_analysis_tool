@@ -13,7 +13,7 @@ deps-update:
 lint:
 	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores || true # TODO(jack) Figure out why mypy is failing on 'has no attribute' error
 	pipenv run bandit -r $(packages)
-	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912 --max-line-length=100
+	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912,too-many-lines --max-line-length=100
 
 venv:
 	virtualenv -p python3.7 venv

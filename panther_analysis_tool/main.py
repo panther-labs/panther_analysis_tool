@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
+import hashlib
 import importlib.util
 import json
 import logging
@@ -35,12 +36,14 @@ from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 
 import boto3
+import botocore
 import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
     Optional,
+    Schema,
     SchemaError,
     SchemaForbiddenKeyError,
     SchemaMissingKeyError,
@@ -51,6 +54,7 @@ from schema import (
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
+    PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
     TYPE_SCHEMA,
@@ -63,13 +67,23 @@ HELPERS_LOCATION = "./global_helpers"
 DATA_MODEL_PATH_PATTERN = "*data_models*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
 RULES_PATH_PATTERN = "*rules*"
+PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
 
 DATAMODEL = "datamodel"
+DETECTION = "detection"
 GLOBAL = "global"
 RULE = "rule"
+PACK = "pack"
 POLICY = "policy"
 
+SCHEMAS: Dict[str, Schema] = {
+    DATAMODEL: DATA_MODEL_SCHEMA,
+    GLOBAL: GLOBAL_SCHEMA,
+    PACK: PACK_SCHEMA,
+    POLICY: POLICY_SCHEMA,
+    RULE: RULE_SCHEMA,
+}
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
@@ -131,6 +145,7 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
                             DATA_MODEL_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
                             RULES_PATH_PATTERN,
+                            PACKS_PATH_PATTERN,
                             POLICIES_PATH_PATTERN,
                         )
                     )
@@ -357,6 +372,60 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
+def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
+    # First, generate the appropriate zip file
+    # set the output file to appropriate name for the release: panther-analysis-all.zip
+    release_file = args.out + "/" + "panther-analysis-all.zip"
+    signature_filename = args.out + "/" + "panther-analysis-all.sig"
+    return_code, archive = zip_analysis(args)
+    if return_code != 0:
+        return return_code, ""
+    os.rename(archive, release_file)
+    logging.info("Release zip file generated: %s", release_file)
+    #  If a key is provided, sign a hash of the file
+    if args.kms_key:
+        # Then generate the sha512 sum of the zip file
+        archive_hash = generate_hash(release_file)
+        # optionally set env variable for profile passed as argument
+        # this must be called prior to setting up the client
+        if args.aws_profile is not None:
+            logging.info("Using AWS profile: %s", args.aws_profile)
+            set_env("AWS_PROFILE", args.aws_profile)
+
+        client = boto3.client("kms")
+        try:
+            response = client.sign(
+                KeyId=args.kms_key,
+                Message=archive_hash,
+                MessageType="DIGEST",
+                SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_512",
+            )
+            if response.get("Signature"):
+                # write signature out to file
+                with open(signature_filename, "wb") as filename:
+                    filename.write(base64.b64encode(response.get("Signature")))
+                logging.info("Release signature file generated: %s", signature_filename)
+            else:
+                logging.error("Missing signtaure in response: %s", response)
+                return 1, ""
+        except botocore.exceptions.ClientError as err:
+            logging.error("Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key)
+            logging.error(err)
+            return 1, ""
+    return 0, ""
+
+
+def generate_hash(filename: str) -> bytes:
+    hash_bytes = hashlib.sha512()
+    with open(filename, "rb") as name:
+        block = name.read(hash_bytes.block_size)
+        while block:
+            hash_bytes.update(block)
+            block = name.read(hash_bytes.block_size)
+    # convert to byte string
+    return hash_bytes.digest()
+
+
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -370,40 +439,39 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     logging.info("Testing analysis packs in %s\n", args.path)
 
     # First classify each file, always include globals and data models location
-    data_models, global_analysis, analysis, invalid_specs = classify_analysis(
+    specs, invalid_specs = classify_analysis(
         list(load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION]))
     )
 
-    if not any([data_models, global_analysis, analysis]):
+    if all((len(specs[key]) == 0 for key in specs)):
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
     # Apply the filters as needed
-    data_models = filter_analysis(data_models, args.filter)
-    global_analysis = filter_analysis(global_analysis, args.filter)
-    analysis = filter_analysis(analysis, args.filter)
+    for key in specs:
+        specs[key] = filter_analysis(specs[key], args.filter)
 
-    if not any([data_models, global_analysis, analysis]):
-        return 1, ["No analyses in {} matched filters {}".format(args.path, args.filter)]
+    if all((len(specs[key]) == 0 for key in specs)):
+        return 1, ["No analysis in {} matched filters {}".format(args.path, args.filter)]
 
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    invalid_globals = setup_global_helpers(global_analysis)
+    invalid_globals = setup_global_helpers(specs[GLOBAL])
     invalid_specs.extend(invalid_globals)
 
     # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(data_models)
+    log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
 
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
-        log_type_to_data_model, analysis, args.minimum_tests
+        log_type_to_data_model, specs[DETECTION], args.minimum_tests
     )
     invalid_specs.extend(invalid_detection)
 
-    print_summary(args.path, len(analysis), failed_tests, invalid_specs)
+    print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
     return int(bool(failed_tests or invalid_specs)), invalid_specs
 
 
@@ -549,12 +617,15 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]]
-) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
+) -> Tuple[Dict[str, List[Any]], List[Any]]:
 
-    # First determine the type of each file
-    data_models = []
-    global_analysis = []
-    analysis = []
+    # First setup return dict containing different
+    # types of detections, meta types that can be zipped
+    # or uploaded
+    classified_specs: Dict[str, List[Any]] = dict()
+    for key in [DATAMODEL, DETECTION, GLOBAL, PACK]:
+        classified_specs[key] = []
+
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
@@ -566,36 +637,27 @@ def classify_analysis(
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
                 raise error
-            # validate the schema
+            # validate the schema has a valid analysis type
             TYPE_SCHEMA.validate(analysis_spec)
-            if analysis_spec["AnalysisType"] == "datamodel":
-                keys = list(DATA_MODEL_SCHEMA.schema.keys())
-                DATA_MODEL_SCHEMA.validate(analysis_spec)
-                if analysis_spec["DataModelID"] in analysis_ids:
-                    raise AnalysisIDConflictException(analysis_spec["DataModelID"])
-                analysis_ids.append(analysis_spec["DataModelID"])
-                data_models.append((analysis_spec_filename, dir_name, analysis_spec))
-            if analysis_spec["AnalysisType"] == "global":
-                keys = list(GLOBAL_SCHEMA.schema.keys())
-                GLOBAL_SCHEMA.validate(analysis_spec)
-                if analysis_spec["GlobalID"] in analysis_ids:
-                    raise AnalysisIDConflictException(analysis_spec["GlobalID"])
-                analysis_ids.append(analysis_spec["GlobalID"])
-                global_analysis.append((analysis_spec_filename, dir_name, analysis_spec))
-            if analysis_spec["AnalysisType"] == "policy":
-                keys = list(POLICY_SCHEMA.schema.keys())
-                POLICY_SCHEMA.validate(analysis_spec)
-                if analysis_spec["PolicyID"] in analysis_ids:
-                    raise AnalysisIDConflictException(analysis_spec["PolicyID"])
-                analysis_ids.append(analysis_spec["PolicyID"])
-                analysis.append((analysis_spec_filename, dir_name, analysis_spec))
-            if analysis_spec["AnalysisType"] == "rule":
-                keys = list(RULE_SCHEMA.schema.keys())
-                RULE_SCHEMA.validate(analysis_spec)
-                if analysis_spec["RuleID"] in analysis_ids:
-                    raise AnalysisIDConflictException(analysis_spec["RuleID"])
-                analysis_ids.append(analysis_spec["RuleID"])
-                analysis.append((analysis_spec_filename, dir_name, analysis_spec))
+            analysis_type = analysis_spec["AnalysisType"]
+            # validate the particular analysis type schema
+            analysis_schema = SCHEMAS[analysis_type]
+            keys = list(analysis_schema.schema.keys())
+            analysis_schema.validate(analysis_spec)
+            # lookup the analysis type id and validate there aren't any conflicts
+            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+            if analysis_id in analysis_ids:
+                raise AnalysisIDConflictException(analysis_id)
+            analysis_ids.append(analysis_id)
+            # add the validated analysis type to the classified specs
+            if analysis_type in [RULE, POLICY]:
+                classified_specs[DETECTION].append(
+                    (analysis_spec_filename, dir_name, analysis_spec)
+                )
+            else:
+                classified_specs[analysis_type].append(
+                    (analysis_spec_filename, dir_name, analysis_spec)
+                )
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
@@ -611,7 +673,21 @@ def classify_analysis(
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
-    return (data_models, global_analysis, analysis, invalid_specs)
+    return (classified_specs, invalid_specs)
+
+
+def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
+    if analysis_type == DATAMODEL:
+        return analysis_spec["DataModelID"]
+    if analysis_type == GLOBAL:
+        return analysis_spec["GlobalID"]
+    if analysis_type == POLICY:
+        return analysis_spec["PolicyID"]
+    if analysis_type == RULE:
+        return analysis_spec["RuleID"]
+    if analysis_type == PACK:
+        return analysis_spec["PackID"]
+    return "UNKNOWN_ID"
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
@@ -706,6 +782,42 @@ def run_tests(
 
 
 def setup_parser() -> argparse.ArgumentParser:
+    # pylint: disable=too-many-statements,too-many-locals
+    # setup dictionary of named args for some common arguments across commands
+    aws_profile_name = "--aws-profile"
+    aws_profile_arg: Dict[str, Any] = {
+        "type": str,
+        "help": "The AWS profile to use when updating the AWS Panther deployment.",
+        "required": False,
+    }
+    filter_name = "--filter"
+    filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
+    min_test_name = "--minimum-tests"
+    min_test_arg: Dict[str, Any] = {
+        "default": 0,
+        "type": int,
+        "help": "The minimum number of tests in order for a detection to be considered passing. "
+        + "If a number greater than 1 is specified, at least one True and one False test is "
+        + "required.",
+        "required": False,
+    }
+    out_name = "--out"
+    out_arg: Dict[str, Any] = {
+        "default": ".",
+        "type": str,
+        "help": "The path to store output files.",
+        "required": False,
+    }
+    path_name = "--path"
+    path_arg: Dict[str, Any] = {
+        "default": ".",
+        "type": str,
+        "help": "The relative path to Panther policies and rules.",
+        "required": False,
+    }
+    skip_test_name = "--skip-tests"
+    skip_test_arg: Dict[str, Any] = {"action": "store_true", "dest": "skip_tests"}
+
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
         + "managing Panther policies and rules.",
@@ -715,26 +827,33 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
+    release_parser = subparsers.add_parser(
+        "release",
+        help="Create release assets for repository containing panther detections. "
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig",
+    )
+    release_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    release_parser.add_argument(filter_name, **filter_arg)
+    release_parser.add_argument(
+        "--kms-key",
+        default="arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
+        type=str,
+        help="The key id to use to sign the release asset.",
+        required=False,
+    )
+    release_parser.add_argument(min_test_name, **min_test_arg)
+    release_parser.add_argument(out_name, **out_arg)
+    release_parser.add_argument(path_name, **path_arg)
+    release_parser.add_argument(skip_test_name, **skip_test_arg)
+    release_parser.set_defaults(func=generate_release_assets)
+
     test_parser = subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
-    test_parser.add_argument(
-        "--path",
-        default=".",
-        type=str,
-        help="The relative path to Panther policies and rules.",
-        required=False,
-    )
-    test_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
-    test_parser.add_argument(
-        "--minimum-tests",
-        default="0",
-        type=int,
-        help="The minimum number of tests in order for a detection to be considered passing. "
-        + "If a number greater than 1 is specified, at least one True and one False test "
-        + "is required.",
-        required=False,
-    )
+    test_parser.add_argument(filter_name, **filter_arg)
+    test_parser.add_argument(min_test_name, **min_test_arg)
+    test_parser.add_argument(path_name, **path_arg)
     test_parser.set_defaults(func=test_analysis)
 
     zip_schemas_parser = subparsers.add_parser(
@@ -743,92 +862,35 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_schemas_parser.add_argument(
         "--release", type=str, help="The release tag this asset is for", required=True
     )
-    zip_schemas_parser.add_argument(
-        "--out",
-        default=".",
-        type=str,
-        help="The path to write zipped schemas asset to.",
-        required=False,
-    )
+    zip_schemas_parser.add_argument(out_name, **out_arg)
     zip_schemas_parser.set_defaults(func=zip_managed_schemas)
 
     zip_parser = subparsers.add_parser(
         "zip",
         help="Create an archive of local policies and rules for uploading to Panther.",
     )
-
-    zip_parser.add_argument(
-        "--path",
-        default=".",
-        type=str,
-        help="The relative path to Panther policies and rules.",
-        required=False,
-    )
-    zip_parser.add_argument(
-        "--out",
-        default=".",
-        type=str,
-        help="The path to write zipped policies and rules to.",
-        required=False,
-    )
-    zip_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
-    zip_parser.add_argument(
-        "--minimum-tests",
-        default="0",
-        type=int,
-        help="The minimum number of tests in order for a detection to be considered passing. "
-        + "If a number greater than 1 is specified, at least one True and one False test "
-        + "is required.",
-        required=False,
-    )
-    zip_parser.add_argument("--skip-tests", action="store_true", dest="skip_tests")
+    zip_parser.add_argument(filter_name, **filter_arg)
+    zip_parser.add_argument(min_test_name, **min_test_arg)
+    zip_parser.add_argument(out_name, **out_arg)
+    zip_parser.add_argument(path_name, **path_arg)
+    zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
         "upload", help="Upload specified policies and rules to a Panther deployment."
     )
-    upload_parser.add_argument(
-        "--aws-profile",
-        type=str,
-        help="The AWS profile to use when uploading to an AWS Panther deployment.",
-        required=False,
-    )
-    upload_parser.add_argument(
-        "--path",
-        default=".",
-        type=str,
-        help="The relative path to Panther policies and rules.",
-        required=False,
-    )
-    upload_parser.add_argument(
-        "--out",
-        default=".",
-        type=str,
-        help="The location to store a local copy of the packaged policies and rules.",
-        required=False,
-    )
-    upload_parser.add_argument(
-        "--minimum-tests",
-        default="0",
-        type=int,
-        help="The minimum number of tests in order for a detection to be considered passing."
-        + "If a number greater than 1 is specified, at least one True and one False test "
-        + "is required.",
-        required=False,
-    )
-    upload_parser.add_argument("--filter", required=False, metavar="KEY=VALUE", nargs="+")
-    upload_parser.add_argument("--skip-tests", action="store_true", dest="skip_tests")
+    upload_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    upload_parser.add_argument(filter_name, **filter_arg)
+    upload_parser.add_argument(min_test_name, **min_test_arg)
+    upload_parser.add_argument(out_name, **out_arg)
+    upload_parser.add_argument(path_name, **path_arg)
+    upload_parser.add_argument(skip_test_name, **skip_test_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
         "update-schemas", help="Update managed schemas on a Panther deployment."
     )
-    update_schemas_parser.add_argument(
-        "--aws-profile",
-        type=str,
-        help="The AWS profile to use when updating the AWS Panther deployment.",
-        required=False,
-    )
+    update_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
     update_schemas_parser.set_defaults(func=update_schemas)
     return parser
 
