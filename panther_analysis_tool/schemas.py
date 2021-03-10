@@ -71,18 +71,6 @@ PACK_SCHEMA = Schema(
 
 POLICY_SCHEMA = Schema(
     {
-        "AnalysisType": Or("pack"),
-        "PackID": And(str, NAME_ID_VALIDATION_REGEX),
-        "PackDefinition": {
-            "IDs": [str],
-        },
-        Optional("Description"): str,
-        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-    }
-)
-
-POLICY_SCHEMA = Schema(
-    {
         "AnalysisType": Or("policy"),
         "Enabled": bool,
         "Filename": str,

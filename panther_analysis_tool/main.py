@@ -52,7 +52,7 @@ from schema import (
     SchemaUnexpectedTypeError,
     SchemaWrongKeyError,
 )
-
+import traceback
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -481,7 +481,7 @@ def clone_github(
         repo_url,
         repo_dir,
     ]
-    result = subprocess.run(cmd, check=True, timeout=120)  # nosec
+    result = subprocess.run(cmd, check=False, timeout=120)  # nosec
     return result.returncode, ""
 
 
@@ -1026,29 +1026,8 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument(kms_key_name, **kms_key_arg)
     publish_parser.add_argument(min_test_name, **min_test_arg)
     publish_parser.add_argument(out_name, **out_arg)
-    publish_parser.add_argument(path_name, **path_arg)
     publish_parser.add_argument(skip_test_name, **skip_test_arg)
     publish_parser.set_defaults(func=publish_release)
-
-    zip_schemas_parser = subparsers.add_parser(
-        "zip-schemas", help="Create a release asset archive of managed schemas."
-    )
-    zip_schemas_parser.add_argument(
-        "--release", type=str, help="The release tag this asset is for", required=True
-    )
-    zip_schemas_parser.add_argument(out_name, **out_arg)
-    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
-
-    zip_parser = subparsers.add_parser(
-        "zip",
-        help="Create an archive of local policies and rules for uploading to Panther.",
-    )
-    zip_parser.add_argument(filter_name, **filter_arg)
-    zip_parser.add_argument(min_test_name, **min_test_arg)
-    zip_parser.add_argument(out_name, **out_arg)
-    zip_parser.add_argument(path_name, **path_arg)
-    zip_parser.add_argument(skip_test_name, **skip_test_arg)
-    zip_parser.set_defaults(func=zip_analysis)
 
     upload_parser = subparsers.add_parser(
         "upload", help="Upload specified policies and rules to a Panther deployment."
@@ -1077,6 +1056,15 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
+    zip_schemas_parser = subparsers.add_parser(
+        "zip-schemas", help="Create a release asset archive of managed schemas."
+    )
+    zip_schemas_parser.add_argument(
+        "--release", type=str, help="The release tag this asset is for", required=True
+    )
+    zip_schemas_parser.add_argument(out_name, **out_arg)
+    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
+    
     return parser
 
 
@@ -1196,6 +1184,7 @@ def run() -> None:
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
+        traceback.print_exc()
         logging.warning('Unhandled exception: "%s"', err)
         sys.exit(1)
 
