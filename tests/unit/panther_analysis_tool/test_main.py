@@ -144,7 +144,7 @@ class TestPantherAnalysisTool(TestCase):
         pat.set_rule_policy_schema(args)
         args.filter = pat.parse_filter(args.filter_list)
         return_code, invalid_specs = pat.test_analysis(args)
-        self.equal = assert_equal(return_code, 1)
+        assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_unknown_exception(self):
