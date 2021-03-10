@@ -977,13 +977,13 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument(
         '--github-repository',
         help="The github repsitory name",
-        type=str, 
+        type=str,
         default="panther-analysis",
     )
     publish_parser.add_argument(
         '--github-tag',
         help="The tag name for this release",
-        type=str, 
+        type=str,
         required=True,
     )
     publish_parser.add_argument(aws_profile_name, **aws_profile_arg)
