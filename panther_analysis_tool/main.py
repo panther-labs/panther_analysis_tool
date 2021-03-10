@@ -77,6 +77,7 @@ GLOBAL = "global"
 PACK = "pack"
 POLICY = "policy"
 QUERY = "scheduled_query"
+SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
 
 SCHEMAS: Dict[str, Schema] = {
@@ -86,6 +87,7 @@ SCHEMAS: Dict[str, Schema] = {
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
     RULE: RULE_SCHEMA,
+    SCHEDULED_RULE: RULE_SCHEMA,
 }
 
 # exception for conflicting ids
@@ -546,7 +548,7 @@ def setup_run_tests(
         analysis_funcs = {}
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
-        elif analysis_type == RULE:
+        elif analysis_type == RULE or analysis_type == SCHEDULED_RULE:
             analysis_funcs["run"] = module.rule
             if "dedup" in dir(module):
                 analysis_funcs["dedup"] = module.dedup
@@ -653,7 +655,7 @@ def classify_analysis(
                 raise AnalysisIDConflictException(analysis_id)
             analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
-            if analysis_type in [RULE, POLICY]:
+            if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
@@ -690,7 +692,7 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
         return analysis_spec["PolicyID"]
     if analysis_type == QUERY:
         return analysis_spec["QueryName"]
-    if analysis_type == RULE:
+    if analysis_type == RULE or analysis_type == SCHEDULED_RULE:
         return analysis_spec["RuleID"]
     return "UNKNOWN_ID"
 

@@ -106,11 +106,11 @@ POLICY_SCHEMA = Schema(
 
 RULE_SCHEMA = Schema(
     {
-        "AnalysisType": Or("rule"),
+        "AnalysisType": Or("rule", "scheduled_rule"),
         "Enabled": bool,
         "Filename": str,
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        "LogTypes": [str],
+        Or("LogTypes", "ScheduledQueries"): [str],
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
