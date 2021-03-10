@@ -23,9 +23,9 @@ NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema(
     {
-        'AnalysisType':
-            Or("datamodel", "global", "pack", "policy", "rule", "scheduled_rule",
-               "scheduled_query"),
+        "AnalysisType": Or(
+            "datamodel", "global", "pack", "policy", "rule", "scheduled_rule", "scheduled_query"
+        ),
     },
     ignore_extra_keys=True,
 )
@@ -134,19 +134,21 @@ RULE_SCHEMA = Schema(
             }
         ],
     },
-    ignore_extra_keys=False)  # Prevent user typos on optional fields
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
 
 SCHEDULED_QUERY_SCHEMA = Schema(
     {
-        'AnalysisType': Or("scheduled_query"),
-        'QueryName': And(str, NAME_ID_VALIDATION_REGEX),
-        'Enabled': bool,
-        Or('Query', 'AthenaQuery', 'SnowflakeQuery'): str,
-        'Schedule': {
-            Or('CronExpression', 'RateMinutes'): Or(str, int),
-            'TimeoutMinutes': int,
+        "AnalysisType": Or("scheduled_query"),
+        "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        "Schedule": {
+            Or("CronExpression", "RateMinutes"): Or(str, int),
+            "TimeoutMinutes": int,
         },
-        Optional('Description'): str,
-        Optional('Tags'): [str],
+        Optional("Description"): str,
+        Optional("Tags"): [str],
     },
-    ignore_extra_keys=False)  # Prevent user typos on optional fields
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields

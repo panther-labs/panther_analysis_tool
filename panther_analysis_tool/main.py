@@ -549,7 +549,7 @@ def setup_run_tests(
         analysis_funcs = {}
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
-        elif analysis_type == RULE or analysis_type == SCHEDULED_RULE:
+        elif analysis_type in [RULE, SCHEDULED_RULE]:
             analysis_funcs["run"] = module.rule
             if "dedup" in dir(module):
                 analysis_funcs["dedup"] = module.dedup
@@ -683,19 +683,20 @@ def classify_analysis(
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
+    key = "UNKNOWN_ID"
     if analysis_type == DATAMODEL:
-        return analysis_spec["DataModelID"]
+        key = analysis_spec["DataModelID"]
     if analysis_type == GLOBAL:
-        return analysis_spec["GlobalID"]
+        key = analysis_spec["GlobalID"]
     if analysis_type == PACK:
-        return analysis_spec["PackID"]
+        key = analysis_spec["PackID"]
     if analysis_type == POLICY:
-        return analysis_spec["PolicyID"]
+        key = analysis_spec["PolicyID"]
     if analysis_type == QUERY:
-        return analysis_spec["QueryName"]
-    if analysis_type == RULE or analysis_type == SCHEDULED_RULE:
-        return analysis_spec["RuleID"]
-    return "UNKNOWN_ID"
+        key = analysis_spec["QueryName"]
+    if analysis_type in [RULE, SCHEDULED_RULE]:
+        key = analysis_spec["RuleID"]
+    return analysis_spec[key]
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
