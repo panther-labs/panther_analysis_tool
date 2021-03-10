@@ -1018,6 +1018,7 @@ def run() -> None:
     if getattr(args, "filter", None) is not None:
         args.filter = parse_filter(args.filter)
 
+    # Although not best practice, the alternative is rather ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
