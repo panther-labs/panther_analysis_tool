@@ -1,6 +1,7 @@
 # functional dependencies
 boto3
 jsonpath-ng
+requests
 ruamel.yaml
 schema
 semver
