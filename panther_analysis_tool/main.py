@@ -52,7 +52,7 @@ from schema import (
     SchemaUnexpectedTypeError,
     SchemaWrongKeyError,
 )
-import traceback
+
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -1064,7 +1064,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     zip_schemas_parser.add_argument(out_name, **out_arg)
     zip_schemas_parser.set_defaults(func=zip_managed_schemas)
-    
+
     return parser
 
 
@@ -1184,7 +1184,6 @@ def run() -> None:
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
-        traceback.print_exc()
         logging.warning('Unhandled exception: "%s"', err)
         sys.exit(1)
 
