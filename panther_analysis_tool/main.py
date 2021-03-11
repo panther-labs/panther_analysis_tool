@@ -31,10 +31,11 @@ import tempfile
 import zipfile
 from collections import defaultdict
 from datetime import datetime
+from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-from distutils.util import strtobool
+
 import boto3
 import botocore
 import semver
@@ -57,6 +58,7 @@ from panther_analysis_tool.schemas import (
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.test_case import DataModel, TestCase
@@ -66,23 +68,28 @@ HELPERS_LOCATION = "./global_helpers"
 
 DATA_MODEL_PATH_PATTERN = "*data_models*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
-RULES_PATH_PATTERN = "*rules*"
 PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
+QUERIES_PATH_PATTERN = "*queries*"
+RULES_PATH_PATTERN = "*rules*"
 
 DATAMODEL = "datamodel"
 DETECTION = "detection"
 GLOBAL = "global"
-RULE = "rule"
 PACK = "pack"
 POLICY = "policy"
+QUERY = "scheduled_query"
+SCHEDULED_RULE = "scheduled_rule"
+RULE = "rule"
 
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
+    QUERY: SCHEDULED_QUERY_SCHEMA,
     RULE: RULE_SCHEMA,
+    SCHEDULED_RULE: RULE_SCHEMA,
 }
 
 
@@ -551,7 +558,7 @@ def setup_run_tests(
         analysis_funcs = {}
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
-        elif analysis_type == RULE:
+        elif analysis_type in [RULE, SCHEDULED_RULE]:
             analysis_funcs["run"] = module.rule
             if "dedup" in dir(module):
                 analysis_funcs["dedup"] = module.dedup
@@ -631,7 +638,7 @@ def classify_analysis(
     # types of detections, meta types that can be zipped
     # or uploaded
     classified_specs: Dict[str, List[Any]] = dict()
-    for key in [DATAMODEL, DETECTION, GLOBAL, PACK]:
+    for key in [DATAMODEL, DETECTION, GLOBAL, PACK, QUERY]:
         classified_specs[key] = []
 
     invalid_specs = []
@@ -658,7 +665,7 @@ def classify_analysis(
                 raise AnalysisIDConflictException(analysis_id)
             analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
-            if analysis_type in [RULE, POLICY]:
+            if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
@@ -685,17 +692,20 @@ def classify_analysis(
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
+    analysis_id = "UNKNOWN_ID"
     if analysis_type == DATAMODEL:
-        return analysis_spec["DataModelID"]
+        analysis_id = analysis_spec["DataModelID"]
     if analysis_type == GLOBAL:
-        return analysis_spec["GlobalID"]
-    if analysis_type == POLICY:
-        return analysis_spec["PolicyID"]
-    if analysis_type == RULE:
-        return analysis_spec["RuleID"]
+        analysis_id = analysis_spec["GlobalID"]
     if analysis_type == PACK:
-        return analysis_spec["PackID"]
-    return "UNKNOWN_ID"
+        analysis_id = analysis_spec["PackID"]
+    if analysis_type == POLICY:
+        analysis_id = analysis_spec["PolicyID"]
+    if analysis_type == QUERY:
+        analysis_id = analysis_spec["QueryName"]
+    if analysis_type in [RULE, SCHEDULED_RULE]:
+        analysis_id = analysis_spec["RuleID"]
+    return analysis_id
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:

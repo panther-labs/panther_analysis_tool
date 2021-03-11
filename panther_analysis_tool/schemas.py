@@ -23,7 +23,9 @@ NAME_ID_VALIDATION_REGEX = Regex(r"^[A-Za-z0-9_. ()-]+$")
 
 TYPE_SCHEMA = Schema(
     {
-        "AnalysisType": Or("datamodel", "global", "pack", "policy", "rule"),
+        "AnalysisType": Or(
+            "datamodel", "global", "pack", "policy", "rule", "scheduled_rule", "scheduled_query"
+        ),
     },
     ignore_extra_keys=True,
 )
@@ -104,11 +106,11 @@ POLICY_SCHEMA = Schema(
 
 RULE_SCHEMA = Schema(
     {
-        "AnalysisType": Or("rule"),
+        "AnalysisType": Or("rule", "scheduled_rule"),
         "Enabled": bool,
         "Filename": str,
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        "LogTypes": [str],
+        Or("LogTypes", "ScheduledQueries"): [str],
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
@@ -131,6 +133,22 @@ RULE_SCHEMA = Schema(
                 "Log": object,
             }
         ],
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+SCHEDULED_QUERY_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("scheduled_query"),
+        "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        "Schedule": {
+            Or("CronExpression", "RateMinutes"): Or(str, int),
+            "TimeoutMinutes": int,
+        },
+        Optional("Description"): str,
+        Optional("Tags"): [str],
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
