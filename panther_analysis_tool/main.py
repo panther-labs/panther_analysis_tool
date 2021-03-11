@@ -210,6 +210,14 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
     filename = "panther-analysis-{}.zip".format(current_time)
+    if args.out:
+        if not os.path.isdir(args.out):
+            logging.info(
+                "Creating directory: %s",
+                args.out,
+            )
+            os.mkdir(args.out)
+        filename = args.out.rstrip("/") + "/" + filename
     with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as zip_out:
         # Always zip the helpers and data models
         analysis = []
@@ -227,7 +235,6 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
             # datamodels may not have python body
             if "Filename" in analysis_spec:
                 zip_out.write(os.path.join(dir_name, analysis_spec["Filename"]))
-
     return 0, filename
 
 
