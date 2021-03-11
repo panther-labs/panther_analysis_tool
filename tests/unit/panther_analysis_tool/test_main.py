@@ -205,6 +205,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             'zip --path tests/fixtures/valid_analysis --out tmp/'.split())
         return_code, out_filename = pat.zip_analysis(args)
+        assert_true(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
         assert_true(statinfo.st_size > 0)
         assert_equal(return_code, 0)
