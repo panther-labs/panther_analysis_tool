@@ -32,10 +32,11 @@ import tempfile
 import zipfile
 from collections import defaultdict
 from datetime import datetime
+from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-from distutils.util import strtobool
+
 import boto3
 import botocore
 import requests
