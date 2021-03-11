@@ -216,7 +216,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
                 "Creating directory: %s",
                 args.out,
             )
-            os.mkdir(args.out)
+            os.makedirs(args.out)
         filename = args.out.rstrip("/") + "/" + filename
     with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as zip_out:
         # Always zip the helpers and data models
