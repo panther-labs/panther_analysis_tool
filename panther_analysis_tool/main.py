@@ -520,16 +520,14 @@ def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int
     args.path = "."
     # run generate assets from release directory
     return_code, _ = generate_release_assets(args)
-    if return_code != 0:
-        return return_code
     os.chdir(owd)
-    return 0
+    return return_code
 
 
 def publish_github(tag: str, body: str, headers: dict, release_url: str, release_dir: str) -> int:
     payload = {"tag_name": tag, "draft": True}
     if body:
-        payload["body"] = json.dumps(body)
+        payload["body"] = body
     response = requests.post(release_url, data=json.dumps(payload), headers=headers)
     if response.status_code != 201:
         logging.error("error creating release (%s) in repo (%s)", tag, release_url)
@@ -540,10 +538,7 @@ def publish_github(tag: str, body: str, headers: dict, release_url: str, release
         logging.error("no upload url in response - assets not uploaded")
         logging.info("draft release (%s) created in repo (%s)", tag, release_url)
         return 1
-    return_code = upload_assets_github(upload_url, headers, release_dir)
-    if return_code != 0:
-        return return_code
-    return 0
+    return upload_assets_github(upload_url, headers, release_dir)
 
 
 def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> int:
@@ -940,7 +935,6 @@ def setup_parser() -> argparse.ArgumentParser:
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
     kms_key_name = "--kms-key"
     kms_key_arg: Dict[str, Any] = {
-        "default": "arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
         "type": str,
         "help": "The key id to use to sign the release asset.",
         "required": False,
