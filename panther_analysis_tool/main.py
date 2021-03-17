@@ -23,6 +23,7 @@ import hashlib
 import importlib.util
 import json
 import logging
+import mimetypes
 import os
 import re
 import subprocess  # nosec
@@ -38,6 +39,7 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 
 import boto3
 import botocore
+import requests
 import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
@@ -441,6 +443,127 @@ def generate_hash(filename: str) -> bytes:
     return hash_bytes.digest()
 
 
+def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
+    # first, ensure the appropriate github access token is set in the env
+    api_token = os.environ.get("GITHUB_TOKEN")
+    if not api_token:
+        logging.error("error: GITHUB_TOKEN env variable must be set")
+        return 1, ""
+    release_url = (
+        f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
+    )
+    # setup appropriate https headers
+    headers = {"accept": "application/vnd.github.v3+json", "Authorization": f"token {api_token}"}
+    # check this tag doesn't already exist
+    response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers)
+    if response.status_code == 200:
+        logging.error("tag already exists %s", args.github_tag)
+        return 1, ""
+    # create the release directory
+    current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
+    release_dir = args.out if args.out != "." else f"release-{current_time}"
+    # setup and generate release assets
+    return_code = setup_release(args, release_dir, api_token)
+    if return_code != 0:
+        return return_code, ""
+    # then publish to Github
+    return_code = publish_github(args.github_tag, args.body, headers, release_url, release_dir)
+    if return_code != 0:
+        return return_code, ""
+    logging.info("draft release (%s) created in repo (%s)", args.github_tag, release_url)
+    return 0, ""
+
+
+def clone_github(
+    owner: str, repo: str, branch: str, path: str, access_token: str
+) -> Tuple[int, str]:
+    repo_url = (
+        f"https://{access_token}@github.com/{owner}/{repo}"
+        if access_token
+        else f"https://github.com/{owner}/{repo}"
+    )
+    repo_dir = os.path.join(path, f"{repo}")
+    logging.info("Cloning %s branch of %s/%s", branch, owner, repo)
+    cmd = [
+        "git",
+        "clone",
+        "--branch",
+        branch,
+        "--depth",
+        "1",
+        "-c",
+        "advice.detachedHead=false",
+        repo_url,
+        repo_dir,
+    ]
+    result = subprocess.run(cmd, check=False, timeout=120)  # nosec
+    return result.returncode, ""
+
+
+def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int:
+    if not os.path.isdir(release_dir):
+        logging.info(
+            "Creating release directory: %s",
+            release_dir,
+        )
+        os.makedirs(release_dir)
+    # pull latest version of the github repo
+    return_code, _ = clone_github(
+        args.github_owner, args.github_repository, args.github_branch, release_dir, token
+    )
+    if return_code != 0:
+        return return_code
+    # generate zip based on latest version of repo
+    owd = os.getcwd()
+    # change dir to release directory
+    os.chdir(release_dir)
+    args.path = "."
+    # run generate assets from release directory
+    return_code, _ = generate_release_assets(args)
+    os.chdir(owd)
+    return return_code
+
+
+def publish_github(tag: str, body: str, headers: dict, release_url: str, release_dir: str) -> int:
+    payload = {"tag_name": tag, "draft": True}
+    if body:
+        payload["body"] = body
+    response = requests.post(release_url, data=json.dumps(payload), headers=headers)
+    if response.status_code != 201:
+        logging.error("error creating release (%s) in repo (%s)", tag, release_url)
+        logging.error(response.json())
+        return 1
+    upload_url = response.json().get("upload_url", "").replace("{?name,label}", "")
+    if not upload_url:
+        logging.error("no upload url in response - assets not uploaded")
+        logging.info("draft release (%s) created in repo (%s)", tag, release_url)
+        return 1
+    return upload_assets_github(upload_url, headers, release_dir)
+
+
+def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> int:
+    return_code = 0
+    # first, find the release assets
+    assets = [
+        filename
+        for filename in os.listdir(release_dir)
+        if os.path.isfile(release_dir + "/" + filename)
+    ]
+    # add release assets
+    for filename in assets:
+        headers["Content-Type"] = mimetypes.guess_type(filename)[0]
+        params = [("name", filename)]
+        data = open(release_dir + "/" + filename, "rb").read()
+        response = requests.post(upload_url, data=data, headers=headers, params=params)
+        if response.status_code != 201:
+            logging.error("error uploading release asset (%s)", filename)
+            logging.error(response.json())
+            return_code = 1
+            continue
+        logging.info("sucessfull upload of release asset (%s)", filename)
+    return return_code
+
+
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -810,6 +933,12 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     filter_name = "--filter"
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
+    kms_key_name = "--kms-key"
+    kms_key_arg: Dict[str, Any] = {
+        "type": str,
+        "help": "The key id to use to sign the release asset.",
+        "required": False,
+    }
     min_test_name = "--minimum-tests"
     min_test_arg: Dict[str, Any] = {
         "default": 0,
@@ -860,13 +989,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     release_parser.add_argument(aws_profile_name, **aws_profile_arg)
     release_parser.add_argument(filter_name, **filter_arg)
-    release_parser.add_argument(
-        "--kms-key",
-        default="arn:aws:kms:us-west-2:349240696275:key/57e3be93-237b-4de2-886f-d1e1aaa38b09",
-        type=str,
-        help="The key id to use to sign the release asset.",
-        required=False,
-    )
+    release_parser.add_argument(kms_key_name, **kms_key_arg)
     release_parser.add_argument(min_test_name, **min_test_arg)
     release_parser.add_argument(out_name, **out_arg)
     release_parser.add_argument(path_name, **path_arg)
@@ -882,26 +1005,49 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     test_parser.set_defaults(func=test_analysis)
 
-    zip_schemas_parser = subparsers.add_parser(
-        "zip-schemas", help="Create a release asset archive of managed schemas."
+    publish_parser = subparsers.add_parser(
+        "publish",
+        help="Publishes a new release, generates the release assets, and uploads them"
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig",
     )
-    zip_schemas_parser.add_argument(
-        "--release", type=str, help="The release tag this asset is for", required=True
+    publish_parser.add_argument(
+        "--body",
+        help="The text body for the release",
+        type=str,
+        default="",
     )
-    zip_schemas_parser.add_argument(out_name, **out_arg)
-    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
-
-    zip_parser = subparsers.add_parser(
-        "zip",
-        help="Create an archive of local policies and rules for uploading to Panther.",
+    publish_parser.add_argument(
+        "--github-branch",
+        help="The branch to base the release on",
+        type=str,
+        default="main",
     )
-    zip_parser.add_argument(filter_name, **filter_arg)
-    zip_parser.add_argument(min_test_name, **min_test_arg)
-    zip_parser.add_argument(out_name, **out_arg)
-    zip_parser.add_argument(path_name, **path_arg)
-    zip_parser.add_argument(skip_test_name, **skip_test_arg)
-    zip_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
-    zip_parser.set_defaults(func=zip_analysis)
+    publish_parser.add_argument(
+        "--github-owner",
+        help="The github owner of the repsitory",
+        type=str,
+        default="panther-labs",
+    )
+    publish_parser.add_argument(
+        "--github-repository",
+        help="The github repsitory name",
+        type=str,
+        default="panther-analysis",
+    )
+    publish_parser.add_argument(
+        "--github-tag",
+        help="The tag name for this release",
+        type=str,
+        required=True,
+    )
+    publish_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    publish_parser.add_argument(filter_name, **filter_arg)
+    publish_parser.add_argument(kms_key_name, **kms_key_arg)
+    publish_parser.add_argument(min_test_name, **min_test_arg)
+    publish_parser.add_argument(out_name, **out_arg)
+    publish_parser.add_argument(skip_test_name, **skip_test_arg)
+    publish_parser.set_defaults(func=publish_release)
 
     upload_parser = subparsers.add_parser(
         "upload", help="Upload specified policies and rules to a Panther deployment."
@@ -920,6 +1066,26 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     update_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
     update_schemas_parser.set_defaults(func=update_schemas)
+
+    zip_parser = subparsers.add_parser(
+        "zip", help="Create an archive of local policies and rules for uploading to Panther."
+    )
+    zip_parser.add_argument(filter_name, **filter_arg)
+    zip_parser.add_argument(min_test_name, **min_test_arg)
+    zip_parser.add_argument(out_name, **out_arg)
+    zip_parser.add_argument(path_name, **path_arg)
+    zip_parser.add_argument(skip_test_name, **skip_test_arg)
+    zip_parser.set_defaults(func=zip_analysis)
+
+    zip_schemas_parser = subparsers.add_parser(
+        "zip-schemas", help="Create a release asset archive of managed schemas."
+    )
+    zip_schemas_parser.add_argument(
+        "--release", type=str, help="The release tag this asset is for", required=True
+    )
+    zip_schemas_parser.add_argument(out_name, **out_arg)
+    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
+
     return parser
 
 
