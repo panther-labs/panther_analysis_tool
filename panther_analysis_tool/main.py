@@ -868,7 +868,7 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
         print("\tNo tests configured for {}".format(analysis_id))
         return failed_tests
 
-    for unit_test in analysis["Tests"]:
+    for unit_test in analysis["Tests"]:  # pylint: disable=too-many-nested-blocks
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
