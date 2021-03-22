@@ -908,6 +908,10 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
         # check expected result
         if result != unit_test["ExpectedResult"]:
             test_result["outcome"] = "FAIL"
+            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
+
+        # print results
+        print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
 
         # check custom function return non-None
         # Only applies to rules which match an incoming event
@@ -917,44 +921,30 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
                     try:
                         if mock_methods:
                             with patch.multiple(analysis_funcs["module"], **mock_methods):
-                                if not analysis_funcs[func](test_case):
+                                func_out = analysis_funcs[func](test_case)
+                                if not func_out:
                                     test_result[func] = "FAIL"
                                     test_result["outcome"] = "FAIL"
                         else:
-                            if not analysis_funcs[func](test_case):
+                            func_out = analysis_funcs[func](test_case)
+                            if not func_out:
                                 test_result[func] = "FAIL"
                                 test_result["outcome"] = "FAIL"
-                    except:  # pylint: disable=bare-except
+                    except Exception as err:  # pylint: disable=broad-except
+                        func_out = err
                         test_result[func] = "FAIL"
                         test_result["outcome"] = "FAIL"
-
-        if test_result["outcome"] == "FAIL":
-            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
-
-        # print results
-        print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
-        for func in CUSTOM_FUNCTIONS:
-            if analysis_funcs.get(func) and unit_test["ExpectedResult"]:
-                try:
-                    if mock_methods:
-                        with patch.multiple(analysis_funcs["module"], **mock_methods):
-                            func_out = analysis_funcs[func](test_case)
+                    func_out_valid_type = False
+                    if func == "destinations":
+                        if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
+                            func_out_valid_type = True
                     else:
-                        func_out = analysis_funcs[func](test_case)
-                except Exception as err:  # pylint: disable=broad-except
-                    func_out = err
-
-                func_out_valid_type = False
-                if func == "destinations":
-                    if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
-                        func_out_valid_type = True
-                else:
-                    func_out_valid_type = isinstance(func_out, str)
-                print(
-                    f"\t\t[{test_result[func]} |"
-                    f"{' VALID]' if func_out_valid_type else ' INVALID TYPE]'} "
-                    f"[{func}] {func_out}"
-                )
+                        func_out_valid_type = isinstance(func_out, str)
+                    print(
+                        f"\t\t[{test_result[func]} |"
+                        f"{' VALID]' if func_out_valid_type else ' INVALID TYPE]'} "
+                        f"[{func}] {func_out}"
+                    )
 
     if minimum_tests > 1 and not (
         [x for x in analysis["Tests"] if x["ExpectedResult"]]
