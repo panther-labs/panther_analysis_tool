@@ -36,7 +36,7 @@ from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import boto3
 import botocore
@@ -45,25 +45,14 @@ import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
-from schema import (
-    Optional,
-    Schema,
-    SchemaError,
-    SchemaForbiddenKeyError,
-    SchemaMissingKeyError,
-    SchemaUnexpectedTypeError,
-    SchemaWrongKeyError,
-)
+from schema import (Optional, Schema, SchemaError, SchemaForbiddenKeyError,
+                    SchemaMissingKeyError, SchemaUnexpectedTypeError,
+                    SchemaWrongKeyError)
 
-from panther_analysis_tool.schemas import (
-    DATA_MODEL_SCHEMA,
-    GLOBAL_SCHEMA,
-    PACK_SCHEMA,
-    POLICY_SCHEMA,
-    RULE_SCHEMA,
-    SCHEDULED_QUERY_SCHEMA,
-    TYPE_SCHEMA,
-)
+from panther_analysis_tool.schemas import (DATA_MODEL_SCHEMA, GLOBAL_SCHEMA,
+                                           PACK_SCHEMA, POLICY_SCHEMA,
+                                           RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA,
+                                           TYPE_SCHEMA)
 from panther_analysis_tool.test_case import DataModel, TestCase
 
 DATA_MODEL_LOCATION = "./data_models"
