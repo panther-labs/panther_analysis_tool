@@ -873,7 +873,7 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
             mocks = unit_test.get("Mocks")
-            mock_methods = {}
+            mock_methods: Dict[str, Any] = {}
             if mocks:
                 mock_methods = {
                     each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
@@ -914,7 +914,17 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
         if unit_test["ExpectedResult"]:
             for func in CUSTOM_FUNCTIONS:
                 if analysis_funcs.get(func):
-                    if not analysis_funcs[func](test_case):
+                    try:
+                        if mock_methods:
+                            with patch.multiple(analysis_funcs["module"], **mock_methods):
+                                if not analysis_funcs[func](test_case):
+                                    test_result[func] = "FAIL"
+                                    test_result["outcome"] = "FAIL"
+                        else:
+                            if not analysis_funcs[func](test_case):
+                                test_result[func] = "FAIL"
+                                test_result["outcome"] = "FAIL"
+                    except:  # pylint: disable=bare-except
                         test_result[func] = "FAIL"
                         test_result["outcome"] = "FAIL"
 
@@ -925,7 +935,15 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
         for func in CUSTOM_FUNCTIONS:
             if analysis_funcs.get(func) and unit_test["ExpectedResult"]:
-                func_out = analysis_funcs[func](test_case)
+                try:
+                    if mock_methods:
+                        with patch.multiple(analysis_funcs["module"], **mock_methods):
+                            func_out = analysis_funcs[func](test_case)
+                    else:
+                        func_out = analysis_funcs[func](test_case)
+                except Exception as err:  # pylint: disable=broad-except
+                    func_out = err
+
                 func_out_valid_type = False
                 if func == "destinations":
                     if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
