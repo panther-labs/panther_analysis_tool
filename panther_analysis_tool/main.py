@@ -36,6 +36,7 @@ from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
+from unittest.mock import patch, MagicMock
 
 import boto3
 import botocore
@@ -83,6 +84,10 @@ POLICY = "policy"
 QUERY = "scheduled_query"
 SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
+
+CUSTOM_FUNCTIONS = [
+    "dedup", "title", "description", "reference", "severity", "runbook", "destinations"
+]
 
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
@@ -678,7 +683,7 @@ def setup_run_tests(
             invalid_specs.append((analysis_spec_filename, load_err))
             continue
 
-        analysis_funcs = {}
+        analysis_funcs = {"module": module}
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
         elif analysis_type in [RULE, SCHEDULED_RULE]:
@@ -687,6 +692,16 @@ def setup_run_tests(
                 analysis_funcs["dedup"] = module.dedup
             if "title" in dir(module):
                 analysis_funcs["title"] = module.title
+            if "description" in dir(module):
+                analysis_funcs["description"] = module.description
+            if "reference" in dir(module):
+                analysis_funcs["reference"] = module.reference
+            if "severity" in dir(module):
+                analysis_funcs["severity"] = module.severity
+            if "runbook" in dir(module):
+                analysis_funcs["runbook"] = module.runbook
+            if "destinations" in dir(module):
+                analysis_funcs["destinations"] = module.destinations
 
         failed_tests = run_tests(
             analysis_spec,
@@ -868,9 +883,25 @@ def run_tests(
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
+            mocks = unit_test.get("Mocks")
+            mock_methods = {}
+            if mocks:
+                mock_methods = {
+                    each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
+                    for each_mock in mocks
+                    if "objectName" in each_mock and "returnValue" in each_mock
+                }
             # set up each test case, including any relevant data models
             test_case = TestCase(entry, analysis_data_models.get(log_type))
-            result = analysis_funcs["run"](test_case)
+            if mock_methods:
+                with patch.multiple(analysis_funcs["module"], **mock_methods):
+                    result = analysis_funcs["run"](test_case)
+            else:
+                result = analysis_funcs["run"](test_case)
+        except AttributeError as err:
+            logging.warning("AttributeError: {%s}", err)
+            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
+            continue
         except KeyError as err:
             logging.warning("KeyError: {%s}", err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
@@ -889,10 +920,10 @@ def run_tests(
         if result != unit_test["ExpectedResult"]:
             test_result["outcome"] = "FAIL"
 
-        # check dedup and title function return non-None
+        # check custom function return non-None
         # Only applies to rules which match an incoming event
         if unit_test["ExpectedResult"]:
-            for func in ["dedup", "title"]:
+            for func in CUSTOM_FUNCTIONS:
                 if analysis_funcs.get(func):
                     if not analysis_funcs[func](test_case):
                         test_result[func] = "FAIL"
@@ -903,12 +934,19 @@ def run_tests(
 
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
-        for func in ["dedup", "title"]:
+        for func in CUSTOM_FUNCTIONS:
             if analysis_funcs.get(func) and unit_test["ExpectedResult"]:
+                func_out = analysis_funcs[func](test_case)
+                func_out_valid_type = False
+                if func == "destinations":
+                    if isinstance(func_out, list) and all([isinstance(x, str) for x in func_out]):
+                        func_out_valid_type = True
+                else:
+                    func_out_valid_type = isinstance(func_out, str)
                 print(
-                    "\t\t[{}] [{}] {}".format(
-                        test_result[func], func, analysis_funcs[func](test_case)
-                    )
+                    f"\t\t[{test_result[func]} |"
+                    f"{' VALID]' if func_out_valid_type else ' INVALID TYPE]'} "
+                    f"[{func}] {func_out}"
                 )
 
     if minimum_tests > 1 and not (

@@ -98,6 +98,9 @@ POLICY_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Resource": object,
+                Optional(
+                    "Mocks"
+                ): object,
             }
         ],
     },
@@ -131,6 +134,9 @@ RULE_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Log": object,
+                Optional(
+                    "Mocks"
+                ): object,
             }
         ],
     },
