@@ -858,7 +858,7 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
         return exc
 
 
-def run_tests(
+def run_tests(  # pylint: disable=too-many-locals,too-many-statements
     analysis: Dict[str, Any],
     analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
@@ -939,7 +939,7 @@ def run_tests(
                 func_out = analysis_funcs[func](test_case)
                 func_out_valid_type = False
                 if func == "destinations":
-                    if isinstance(func_out, list) and all([isinstance(x, str) for x in func_out]):
+                    if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
                         func_out_valid_type = True
                 else:
                     func_out_valid_type = isinstance(func_out, str)
