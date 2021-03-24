@@ -78,6 +78,10 @@ CUSTOM_FUNCTIONS = [
     "dedup", "title", "description", "reference", "severity", "runbook", "destinations"
 ]
 
+VALID_SEVERITIES = [
+    "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"
+]
+
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
@@ -931,6 +935,17 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
                         test_result[func] = "FAIL"
                         test_result["outcome"] = "FAIL"
                     func_out_valid_type = False
+                    # severity value validation
+                    if func == "severity":
+                        if str(func_out).upper() not in VALID_SEVERITIES:
+                            func_out = AssertionError(
+                                f'Expected severity to be any of the following: '
+                                f'{str(VALID_SEVERITIES)}, got [{str(func_out)}] instead.'
+                            )
+                            test_result[func] = "FAIL"
+                            test_result["outcome"] = "FAIL"
+
+                    # type validation
                     if func == "destinations":
                         if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
                             func_out_valid_type = True
