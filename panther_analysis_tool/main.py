@@ -887,12 +887,8 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
                     result = analysis_funcs["run"](test_case)
             else:
                 result = analysis_funcs["run"](test_case)
-        except AttributeError as err:
+        except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
-            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
-            continue
-        except KeyError as err:
-            logging.warning("KeyError: {%s}", err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
             continue
         except Exception as err:  # pylint: disable=broad-except
