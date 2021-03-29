@@ -74,7 +74,7 @@ QUERY = "scheduled_query"
 SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
 
-CUSTOM_FUNCTIONS = [
+RESERVED_FUNCTIONS = [
     "dedup", "title", "description", "reference", "severity", "runbook", "destinations"
 ]
 
@@ -947,8 +947,8 @@ def _verify_test_run(
     mock_methods: Dict[str, MagicMock],
     analysis_funcs: Dict[str, Any],
 ) -> Dict[str, Any]:
-    test_run_result = dict.fromkeys(CUSTOM_FUNCTIONS)
-    for func in CUSTOM_FUNCTIONS:
+    test_run_result = dict.fromkeys(RESERVED_FUNCTIONS)
+    for func in RESERVED_FUNCTIONS:
         if analysis_funcs.get(func):
             try:
                 if mock_methods:
