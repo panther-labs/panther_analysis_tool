@@ -851,7 +851,7 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
         return exc
 
 
-def run_tests(  # pylint: disable=too-many-locals,too-many-statements
+def run_tests(
     analysis: Dict[str, Any],
     analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
@@ -872,7 +872,26 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
         print("\tNo tests configured for {}".format(analysis_id))
         return failed_tests
 
-    for unit_test in analysis["Tests"]:  # pylint: disable=too-many-nested-blocks
+    failed_tests = _run_tests(analysis, analysis_funcs, analysis_data_models, failed_tests)
+
+    if minimum_tests > 1 and not (
+        [x for x in analysis["Tests"] if x["ExpectedResult"]]
+        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
+    ):
+        failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
+            "Insufficient test coverage: expected at least one positive and one negative test"
+        )
+
+    return failed_tests
+
+
+def _run_tests(
+    analysis: Dict[str, Any],
+    analysis_funcs: Dict[str, Any],
+    analysis_data_models: Dict[str, DataModel],
+    failed_tests: DefaultDict[str, list],
+) -> DefaultDict[str, list]:
+    for unit_test in analysis["Tests"]:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
@@ -916,56 +935,56 @@ def run_tests(  # pylint: disable=too-many-locals,too-many-statements
         # check custom function return non-None
         # Only applies to rules which match an incoming event
         if unit_test["ExpectedResult"]:
-            for func in CUSTOM_FUNCTIONS:
-                if analysis_funcs.get(func):
-                    try:
-                        if mock_methods:
-                            with patch.multiple(analysis_funcs["module"], **mock_methods):
-                                func_out = analysis_funcs[func](test_case)
-                                if not func_out:
-                                    test_result[func] = "FAIL"
-                                    test_result["outcome"] = "FAIL"
-                        else:
-                            func_out = analysis_funcs[func](test_case)
-                            if not func_out:
-                                test_result[func] = "FAIL"
-                                test_result["outcome"] = "FAIL"
-                    except Exception as err:  # pylint: disable=broad-except
-                        func_out = err
-                        test_result[func] = "FAIL"
-                        test_result["outcome"] = "FAIL"
-                    func_out_valid_type = False
-                    # severity value validation
-                    if func == "severity":
-                        if str(func_out).upper() not in VALID_SEVERITIES:
-                            func_out = AssertionError(
-                                f'Expected severity to be any of the following: '
-                                f'{str(VALID_SEVERITIES)}, got [{str(func_out)}] instead.'
-                            )
-                            test_result[func] = "FAIL"
-                            test_result["outcome"] = "FAIL"
-
-                    # type validation
-                    if func == "destinations":
-                        if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
-                            func_out_valid_type = True
-                    else:
-                        func_out_valid_type = isinstance(func_out, str)
-                    print(
-                        f"\t\t[{test_result[func]} |"
-                        f"{' VALID]' if func_out_valid_type else ' INVALID TYPE]'} "
-                        f"[{func}] {func_out}"
-                    )
-
-    if minimum_tests > 1 and not (
-        [x for x in analysis["Tests"] if x["ExpectedResult"]]
-        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
-    ):
-        failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
-            "Insufficient test coverage: expected at least one positive and one negative test"
-        )
-
+            verify_result = _verify_test_run(test_case, mock_methods, analysis_funcs)
+            for function_name in verify_result:
+                if verify_result[function_name] is not None and not verify_result[function_name]:
+                    test_result[function_name] = test_result["outcome"] = "FAIL"
     return failed_tests
+
+
+def _verify_test_run(
+    test_case: TestCase,
+    mock_methods: Dict[str, MagicMock],
+    analysis_funcs: Dict[str, Any],
+) -> Dict[str, Any]:
+    test_run_result = dict.fromkeys(CUSTOM_FUNCTIONS)
+    for func in CUSTOM_FUNCTIONS:
+        if analysis_funcs.get(func):
+            try:
+                if mock_methods:
+                    with patch.multiple(analysis_funcs["module"], **mock_methods):
+                        func_out = analysis_funcs[func](test_case)
+                        if not func_out:
+                            test_run_result[func] = "FAIL"
+                else:
+                    func_out = analysis_funcs[func](test_case)
+                    if not func_out:
+                        test_run_result[func] = "FAIL"
+            except Exception as err:  # pylint: disable=broad-except
+                func_out = err
+                test_run_result[func] = "FAIL"
+
+            func_out_valid_type = False
+            # severity value validation
+            if func == "severity":
+                if str(func_out).upper() not in VALID_SEVERITIES:
+                    func_out = AssertionError(
+                        f'Expected severity to be any of the following: '
+                        f'{str(VALID_SEVERITIES)}, got [{str(func_out)}] instead.'
+                    )
+                    test_run_result[func] = "FAIL"
+            # type validation
+            if func == "destinations":
+                if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
+                    func_out_valid_type = True
+            else:
+                func_out_valid_type = isinstance(func_out, str)
+            print(
+                f"\t\t[{'PASS' if test_run_result else 'FAIL'} |"
+                f"{' VALID]' if func_out_valid_type else ' INVALID TYPE]'} "
+                f"[{func}] {func_out}"
+            )
+    return test_run_result
 
 
 def setup_parser() -> argparse.ArgumentParser:
