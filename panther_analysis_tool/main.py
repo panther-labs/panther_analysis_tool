@@ -571,7 +571,6 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    failed_tests: DefaultDict[str, list] = defaultdict(list)
     logging.info("Testing analysis packs in %s\n", args.path)
 
     # First classify each file, always include globals and data models location
@@ -819,7 +818,7 @@ def classify_analysis(
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
-    return (classified_specs, invalid_specs)
+    return classified_specs, invalid_specs
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
