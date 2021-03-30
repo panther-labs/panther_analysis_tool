@@ -1,17 +1,18 @@
 packages = panther_analysis_tool
 
-ci:
-	$(MAKE) lint unit integration
+ci: lint unit integration
 
 deps:
 	pip3 install -r requirements.txt
+	pip3 install -r dev-requirements.txt
 
 deps-update:
-	pip3 install -r requirements-top-level.txt --upgrade
-	pip3 freeze -r requirements-top-level.txt > requirements.txt
+	pipenv update
+	pipenv lock -r --dev-only > dev-requirements.txt
+	pipenv lock -r > requirements.txt
 
 lint:
-	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores || true # TODO(jack) Figure out why mypy is failing on 'has no attribute' error
+	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores
 	pipenv run bandit -r $(packages)
 	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912,too-many-lines --max-line-length=100
 
@@ -23,7 +24,7 @@ fmt:
 	pipenv run black --line-length=100 $(packages)
 
 install:
-	pip3 install --user --upgrade pip
+	pip3 install --upgrade pip
 	pip3 install pipenv --upgrade
 	pipenv install
 
