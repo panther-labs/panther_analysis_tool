@@ -931,13 +931,16 @@ def _run_tests(
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
 
-        # check custom function return non-None
+        # validate reserved function return types and values
         # Only applies to rules which match an incoming event
         if unit_test["ExpectedResult"]:
             verify_result = _verify_test_run(test_case, mock_methods, analysis_funcs)
             for function_name in verify_result:
                 if verify_result[function_name] != "PASS":
                     test_result[function_name] = test_result["outcome"] = "FAIL"
+                    failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
+                        f"{unit_test['Name']}:{function_name}"
+                    )
     return failed_tests
 
 
@@ -947,34 +950,34 @@ def _verify_test_run(
     analysis_funcs: Dict[str, Any],
 ) -> Dict[str, Any]:
     test_run_result: Dict[str, str] = defaultdict(lambda: "PASS")
-    for func in RESERVED_FUNCTIONS:
-        if analysis_funcs.get(func):
-            try:
-                if mock_methods:
-                    with patch.multiple(analysis_funcs["module"], **mock_methods):
-                        func_out = analysis_funcs[func](test_case)
-                        if not func_out:
-                            test_run_result[func] = "FAIL"
-                else:
-                    func_out = analysis_funcs[func](test_case)
+    for func_name, func in analysis_funcs.items():
+        if func_name not in RESERVED_FUNCTIONS:
+            continue
+        try:
+            if mock_methods:
+                with patch.multiple(analysis_funcs["module"], **mock_methods):
+                    func_out = func(test_case)
                     if not func_out:
-                        test_run_result[func] = "FAIL"
-            except Exception as err:  # pylint: disable=broad-except
-                func_out = err
-                test_run_result[func] = "FAIL"
+                        test_run_result[func_name] = "FAIL"
+            else:
+                func_out = func(test_case)
+                if not func_out:
+                    test_run_result[func_name] = "FAIL"
+        except Exception as err:  # pylint: disable=broad-except
+            func_out = err
+            test_run_result[func_name] = "FAIL"
 
-            func_out_valid_type = True
-            # severity value validation
-            valid_output, func_out = validate_outputs(func, func_out)
-            if not valid_output or isinstance(func_out, (AttributeError, AssertionError)):
-                func_out_valid_type = False
-                test_run_result[func] = "FAIL"
+        func_out_valid_type = True
+        valid_output, func_out = validate_outputs(func_name, func_out)
+        if not valid_output or isinstance(func_out, (AttributeError, AssertionError)):
+            func_out_valid_type = False
+            test_run_result[func_name] = "FAIL"
 
-            print(
-                f"\t\t[{test_run_result[func]}] "
-                f"{'' if func_out_valid_type else '[INVALID TYPE] '}"
-                f"[{func}] {func_out}"
-            )
+        print(
+            f"\t\t[{test_run_result[func_name]}] "
+            f"{'' if func_out_valid_type else '[INVALID TYPE] '}"
+            f"[{func_name}] {func_out}"
+        )
     return test_run_result
 
 

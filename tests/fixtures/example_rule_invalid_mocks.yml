@@ -25,7 +25,7 @@ Tests:
           "objectName": "date",
           "returnValue": ["example_date_return_value"]
         },
-        {
+        {  # This is an invalid mock as `badmock` is not an object present in the python module
           "objectName": "badmock",
           "returnValue": "badmockdata"
         }
