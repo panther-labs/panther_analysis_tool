@@ -936,7 +936,7 @@ def _run_tests(
         if unit_test["ExpectedResult"]:
             verify_result = _verify_test_run(test_case, mock_methods, analysis_funcs)
             for function_name in verify_result:
-                if verify_result[function_name] is not None and not verify_result[function_name]:
+                if verify_result[function_name] != "PASS":
                     test_result[function_name] = test_result["outcome"] = "FAIL"
     return failed_tests
 
@@ -946,7 +946,7 @@ def _verify_test_run(
     mock_methods: Dict[str, MagicMock],
     analysis_funcs: Dict[str, Any],
 ) -> Dict[str, Any]:
-    test_run_result: Dict[str, str] = defaultdict(lambda: "PASS").fromkeys(RESERVED_FUNCTIONS)
+    test_run_result: Dict[str, str] = defaultdict(lambda: "PASS")
     for func in RESERVED_FUNCTIONS:
         if analysis_funcs.get(func):
             try:
@@ -963,10 +963,11 @@ def _verify_test_run(
                 func_out = err
                 test_run_result[func] = "FAIL"
 
-            func_out_valid_type = False
+            func_out_valid_type = True
             # severity value validation
             valid_output, func_out = validate_outputs(func, func_out)
             if not valid_output or isinstance(func_out, (AttributeError, AssertionError)):
+                func_out_valid_type = False
                 test_run_result[func] = "FAIL"
 
             print(
