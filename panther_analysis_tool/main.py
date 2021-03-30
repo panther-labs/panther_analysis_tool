@@ -979,44 +979,54 @@ def _verify_test_run(
 
 
 def validate_outputs(function_name: str, function_output: Any) -> (bool, Any):
-    valid = True
-    out = function_output
+    # Defaults to valid and function output
+    # Invalidating criteria will overwrite these values
+    is_valid = True
+    output = function_output
     if function_name == "severity":
+        # Type checking for severity
         if not isinstance(function_output, str):
-            valid = False
+            is_valid = False
+        # Value Validation for severity
         if str(function_output).upper() not in VALID_SEVERITIES:
-            valid = False
-            out = AssertionError(
+            is_valid = False
+            output = AssertionError(
                 f'Expected [{function_name}] to be any of the following: '
                 f'{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead.'
             )
     elif function_name == "destinations":
+        # Type checking for destinations
         if isinstance(function_output, list):
+            # Type checking for elements in list
+            # Note: we cannot perform value validation unless we were to query the outputs-api
             if not all(isinstance(x, str) for x in function_output):
+                # List contains non-string element, so enumerate the types present for error msg
                 list_types = set()
                 for each_item in function_output:
                     list_types.add(type(each_item))
-                valid = False
-                out = AttributeError(
+                is_valid = False
+                output = AttributeError(
                     f'Expected [{function_name}] to return a list of strings, '
                     f'got types [{list_types}] instead'
                 )
         else:
-            valid = False
+            is_valid = False
+    # For reserved functions besides severity and destinations, we expect a string output
     else:
-        valid = isinstance(function_output, str)
+        is_valid = isinstance(function_output, str)
 
-    if not valid and out == function_output:
+    # Invalid Types, used to generate a corresponding error message
+    if not is_valid and output == function_output:
         if function_name == "destinations":
             expected_type = "list"
         else:
             expected_type = "string"
 
-        out = AttributeError(
+        output = AttributeError(
             f'Expected [{function_name}] to return a [{expected_type}], '
             f'got [{type(function_output)}] instead'
         )
-    return valid, out
+    return is_valid, output
 
 
 def setup_parser() -> argparse.ArgumentParser:
