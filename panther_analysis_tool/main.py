@@ -1007,10 +1007,11 @@ def validate_outputs(function_name: str, function_output: Any) -> (bool, Any):
         valid = isinstance(function_output, str)
 
     if not valid and out == function_output:
-        if function_name != "destinations":
-            expected_type = "string"
-        else:
+        if function_name == "destinations":
             expected_type = "list"
+        else:
+            expected_type = "string"
+
         out = AttributeError(
             f'Expected [{function_name}] to return a [{expected_type}], '
             f'got [{type(function_output)}] instead'
