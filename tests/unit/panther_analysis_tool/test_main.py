@@ -8,6 +8,7 @@ from nose.tools import (assert_equal, assert_false, assert_is_instance,
                         with_setup)
 
 from panther_analysis_tool import main as pat
+from panther_analysis_tool.main import validate_outputs
 
 
 class TestPantherAnalysisTool(TestCase):
@@ -167,6 +168,47 @@ class TestPantherAnalysisTool(TestCase):
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
+
+    def test_with_invalid_mocks(self):
+        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 4)
+
+    def test_validate_outputs(self):
+        example_valid_outputs = [
+            ("dedup", "example title"),
+            ("title", "example title"),
+            ("description", "example description"),
+            ("reference", "example reference"),
+            ("severity", "CRITICAL"),
+            ("runbook", "example runbook"),
+            ("destinations", ["example destination"]),
+            ("destinations", []),
+        ]
+        example_invalid_outputs = [
+            ("dedup", None),
+            ("title", None),
+            ("description", None),
+            ("reference", None),
+            ("severity", "CRITICAL-ISH"),
+            ("severity", None),
+            ("runbook", None),
+            ("destinations", ""),
+            ("destinations", ["", None]),
+        ]
+        invalid = False
+        for valid_invalid_outputs in [example_valid_outputs, example_invalid_outputs]:
+            for each_example in valid_invalid_outputs:
+                result = validate_outputs(each_example[0], each_example[1])
+                if invalid:
+                    assert_false(result[0])
+                    assert_false(result[1] == each_example[1])
+                else:
+                    assert_true(result[0])
+                    assert_equal(result[1], each_example[1])
+            invalid = True
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())

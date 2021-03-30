@@ -1,0 +1,32 @@
+AnalysisType: rule
+Filename: example_rule_invalid_mocks.py
+DisplayName: Example Rule Invalid Mock
+Severity: Critical
+RuleID: Example.Rule.Invalid.Mock
+Enabled: true
+LogTypes:
+  - Example.Mock
+Reference: https://www.link-to-info.io
+Tests:
+  -
+    Name: Example Mocking Test
+    ExpectedResult: true
+    Log:
+      {
+        "field1": "value1",
+      }
+    Mocks:
+      [
+        {
+          "objectName": "boto3",
+          "returnValue": "example_boto3_return_value"
+        },
+        {
+          "objectName": "date",
+          "returnValue": ["example_date_return_value"]
+        },
+        {
+          "objectName": "badmock",
+          "returnValue": "badmockdata"
+        }
+      ]

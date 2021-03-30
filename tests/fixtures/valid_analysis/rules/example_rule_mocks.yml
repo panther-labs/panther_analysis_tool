@@ -21,8 +21,8 @@ Runbook: >
 Reference: https://www.link-to-info.io
 Tests:
   -
-    Name: Root MFA not enabled fails compliance
-    ExpectedResult: false
+    Name: Example Mocking Test
+    ExpectedResult: true
     Log:
       Arn: arn:aws:iam::123456789012:user/root
       CreateDate: 2019-01-01T00:00:00Z
@@ -30,30 +30,14 @@ Tests:
         MfaActive: false
         PasswordEnabled: true
       UserName: root
-  -
-    Name: User MFA not enabled fails compliance
-    ExpectedResult: false
-    Log:
-      {
-        "Arn": "arn:aws:iam::123456789012:user/test",
-        "CreateDate": "2019-01-01T00:00:00",
-        "CredentialReport": {
-          "MfaActive": false,
-          "PasswordEnabled": true
+    Mocks:
+      [
+        {
+          "objectName": "boto3",
+          "returnValue": "example_boto3_return_value"
         },
-        "UserName": "test"
-      }
-  -
-    Name: User MFA enabled passes compliance.
-    ExpectedResult: true
-    Log:
-      {
-        "Arn": "arn:aws:iam::123456789012:user/test",
-        "CreateDate": "2019-01-01T00:00:00",
-        "CredentialReport": {
-          "MfaActive": true,
-          "PasswordEnabled": true
-        },
-        "UserName": "test"
-      }
-      
+        {
+          "objectName": "date",
+          "returnValue": ["example_date_return_value"]
+        }
+      ]

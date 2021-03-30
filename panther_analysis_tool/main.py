@@ -946,7 +946,7 @@ def _verify_test_run(
     mock_methods: Dict[str, MagicMock],
     analysis_funcs: Dict[str, Any],
 ) -> Dict[str, Any]:
-    test_run_result = dict.fromkeys(RESERVED_FUNCTIONS)
+    test_run_result: Dict[str, str] = defaultdict(lambda: "PASS").fromkeys(RESERVED_FUNCTIONS)
     for func in RESERVED_FUNCTIONS:
         if analysis_funcs.get(func):
             try:
@@ -965,25 +965,56 @@ def _verify_test_run(
 
             func_out_valid_type = False
             # severity value validation
-            if func == "severity":
-                if str(func_out).upper() not in VALID_SEVERITIES:
-                    func_out = AssertionError(
-                        f'Expected severity to be any of the following: '
-                        f'{str(VALID_SEVERITIES)}, got [{str(func_out)}] instead.'
-                    )
-                    test_run_result[func] = "FAIL"
-            # type validation
-            if func == "destinations":
-                if isinstance(func_out, list) and all(isinstance(x, str) for x in func_out):
-                    func_out_valid_type = True
-            else:
-                func_out_valid_type = isinstance(func_out, str)
+            valid_output, func_out = validate_outputs(func, func_out)
+            if not valid_output or isinstance(func_out, (AttributeError, AssertionError)):
+                test_run_result[func] = "FAIL"
+
             print(
-                f"\t\t[{'PASS' if test_run_result else 'FAIL'} |"
-                f"{' VALID]' if func_out_valid_type else ' INVALID TYPE]'} "
+                f"\t\t[{test_run_result[func]}] "
+                f"{'' if func_out_valid_type else '[INVALID TYPE] '}"
                 f"[{func}] {func_out}"
             )
     return test_run_result
+
+
+def validate_outputs(function_name: str, function_output: Any) -> (bool, Any):
+    valid = True
+    out = function_output
+    if function_name == "severity":
+        if not isinstance(function_output, str):
+            valid = False
+        if str(function_output).upper() not in VALID_SEVERITIES:
+            valid = False
+            out = AssertionError(
+                f'Expected [{function_name}] to be any of the following: '
+                f'{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead.'
+            )
+    elif function_name == "destinations":
+        if isinstance(function_output, list):
+            if not all(isinstance(x, str) for x in function_output):
+                list_types = set()
+                for each_item in function_output:
+                    list_types.add(type(each_item))
+                valid = False
+                out = AttributeError(
+                    f'Expected [{function_name}] to return a list of strings, '
+                    f'got types [{list_types}] instead'
+                )
+        else:
+            valid = False
+    else:
+        valid = isinstance(function_output, str)
+
+    if not valid and out == function_output:
+        if function_name != "destinations":
+            expected_type = "string"
+        else:
+            expected_type = "list"
+        out = AttributeError(
+            f'Expected [{function_name}] to return a [{expected_type}], '
+            f'got [{type(function_output)}] instead'
+        )
+    return valid, out
 
 
 def setup_parser() -> argparse.ArgumentParser:
