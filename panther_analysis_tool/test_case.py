@@ -35,12 +35,19 @@ class TestCase(Mapping):
         """
         self._data = data
         self.data_model = data_model
+        self._case_insensitive_key_map: Dict[str, str] = {}
+        # Support case-insensitive lookups for top-level fields only
+        for key in self._data:
+            self._case_insensitive_key_map.setdefault(key.lower(), key)
 
     def __getitem__(self, arg: str) -> Any:
-        return self._data.get(arg, None)
-
-    def __contains__(self, key: object) -> bool:
-        return key in self._data
+        try:
+            return self._data[arg]
+        except KeyError as key_error:
+            original_key = self._case_insensitive_key_map.get(arg.lower())
+            if original_key is None:
+                raise key_error
+            return self._data[original_key]
 
     def __iter__(self) -> Iterator:
         return iter(self._data)
@@ -48,8 +55,8 @@ class TestCase(Mapping):
     def __len__(self) -> int:
         return len(self._data)
 
-    def get(self, key: str, default: Optional[object] = None) -> Any:
-        return self._data.get(key, default)
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self._data})'
 
     def udm(self, key: str) -> Any:
         """Converts standard data model field to logtype field"""
