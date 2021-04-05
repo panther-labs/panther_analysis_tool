@@ -155,6 +155,7 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
                             RULES_PATH_PATTERN,
                             PACKS_PATH_PATTERN,
                             POLICIES_PATH_PATTERN,
+                            QUERIES_PATH_PATTERN,
                         )
                     )
                 ):
@@ -981,7 +982,7 @@ def _verify_test_run(
     return test_run_result
 
 
-def validate_outputs(function_name: str, function_output: Any) -> (bool, Any):
+def validate_outputs(function_name: str, function_output: Any) -> Tuple[bool, Any]:
     # Defaults to valid and function output
     # Invalidating criteria will overwrite these values
     is_valid = True
