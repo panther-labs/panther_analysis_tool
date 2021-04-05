@@ -36,6 +36,7 @@ from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
+from unittest.mock import MagicMock, patch
 
 import boto3
 import botocore
@@ -44,25 +45,14 @@ import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
-from schema import (
-    Optional,
-    Schema,
-    SchemaError,
-    SchemaForbiddenKeyError,
-    SchemaMissingKeyError,
-    SchemaUnexpectedTypeError,
-    SchemaWrongKeyError,
-)
+from schema import (Optional, Schema, SchemaError, SchemaForbiddenKeyError,
+                    SchemaMissingKeyError, SchemaUnexpectedTypeError,
+                    SchemaWrongKeyError)
 
-from panther_analysis_tool.schemas import (
-    DATA_MODEL_SCHEMA,
-    GLOBAL_SCHEMA,
-    PACK_SCHEMA,
-    POLICY_SCHEMA,
-    RULE_SCHEMA,
-    SCHEDULED_QUERY_SCHEMA,
-    TYPE_SCHEMA,
-)
+from panther_analysis_tool.schemas import (DATA_MODEL_SCHEMA, GLOBAL_SCHEMA,
+                                           PACK_SCHEMA, POLICY_SCHEMA,
+                                           RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA,
+                                           TYPE_SCHEMA)
 from panther_analysis_tool.test_case import DataModel, TestCase
 
 DATA_MODEL_LOCATION = "./data_models"
@@ -83,6 +73,14 @@ POLICY = "policy"
 QUERY = "scheduled_query"
 SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
+
+RESERVED_FUNCTIONS = [
+    "dedup", "title", "description", "reference", "severity", "runbook", "destinations"
+]
+
+VALID_SEVERITIES = [
+    "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"
+]
 
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
@@ -574,7 +572,6 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    failed_tests: DefaultDict[str, list] = defaultdict(list)
     logging.info("Testing analysis packs in %s\n", args.path)
 
     # First classify each file, always include globals and data models location
@@ -679,7 +676,7 @@ def setup_run_tests(
             invalid_specs.append((analysis_spec_filename, load_err))
             continue
 
-        analysis_funcs = {}
+        analysis_funcs = {"module": module}
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
         elif analysis_type in [RULE, SCHEDULED_RULE]:
@@ -688,6 +685,16 @@ def setup_run_tests(
                 analysis_funcs["dedup"] = module.dedup
             if "title" in dir(module):
                 analysis_funcs["title"] = module.title
+            if "description" in dir(module):
+                analysis_funcs["description"] = module.description
+            if "reference" in dir(module):
+                analysis_funcs["reference"] = module.reference
+            if "severity" in dir(module):
+                analysis_funcs["severity"] = module.severity
+            if "runbook" in dir(module):
+                analysis_funcs["runbook"] = module.runbook
+            if "destinations" in dir(module):
+                analysis_funcs["destinations"] = module.destinations
 
         failed_tests = run_tests(
             analysis_spec,
@@ -812,7 +819,7 @@ def classify_analysis(
             invalid_specs.append((analysis_spec_filename, err))
             continue
 
-    return (classified_specs, invalid_specs)
+    return classified_specs, invalid_specs
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
@@ -865,15 +872,46 @@ def run_tests(
         print("\tNo tests configured for {}".format(analysis_id))
         return failed_tests
 
+    failed_tests = _run_tests(analysis, analysis_funcs, analysis_data_models, failed_tests)
+
+    if minimum_tests > 1 and not (
+        [x for x in analysis["Tests"] if x["ExpectedResult"]]
+        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
+    ):
+        failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
+            "Insufficient test coverage: expected at least one positive and one negative test"
+        )
+
+    return failed_tests
+
+
+def _run_tests(
+    analysis: Dict[str, Any],
+    analysis_funcs: Dict[str, Any],
+    analysis_data_models: Dict[str, DataModel],
+    failed_tests: DefaultDict[str, list],
+) -> DefaultDict[str, list]:
     for unit_test in analysis["Tests"]:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
+            mocks = unit_test.get("Mocks")
+            mock_methods: Dict[str, Any] = {}
+            if mocks:
+                mock_methods = {
+                    each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
+                    for each_mock in mocks
+                    if "objectName" in each_mock and "returnValue" in each_mock
+                }
             # set up each test case, including any relevant data models
             test_case = TestCase(entry, analysis_data_models.get(log_type))
-            result = analysis_funcs["run"](test_case)
-        except KeyError as err:
-            logging.warning("KeyError: {%s}", err)
+            if mock_methods:
+                with patch.multiple(analysis_funcs["module"], **mock_methods):
+                    result = analysis_funcs["run"](test_case)
+            else:
+                result = analysis_funcs["run"](test_case)
+        except (AttributeError, KeyError) as err:
+            logging.warning("AttributeError: {%s}", err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
             continue
         except Exception as err:  # pylint: disable=broad-except
@@ -889,38 +927,110 @@ def run_tests(
         # check expected result
         if result != unit_test["ExpectedResult"]:
             test_result["outcome"] = "FAIL"
-
-        # check dedup and title function return non-None
-        # Only applies to rules which match an incoming event
-        if unit_test["ExpectedResult"]:
-            for func in ["dedup", "title"]:
-                if analysis_funcs.get(func):
-                    if not analysis_funcs[func](test_case):
-                        test_result[func] = "FAIL"
-                        test_result["outcome"] = "FAIL"
-
-        if test_result["outcome"] == "FAIL":
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
 
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
-        for func in ["dedup", "title"]:
-            if analysis_funcs.get(func) and unit_test["ExpectedResult"]:
-                print(
-                    "\t\t[{}] [{}] {}".format(
-                        test_result[func], func, analysis_funcs[func](test_case)
+
+        # validate reserved function return types and values
+        # Only applies to rules which match an incoming event
+        if unit_test["ExpectedResult"]:
+            verify_result = _verify_test_run(test_case, mock_methods, analysis_funcs)
+            for function_name in verify_result:
+                if verify_result[function_name] != "PASS":
+                    test_result[function_name] = test_result["outcome"] = "FAIL"
+                    failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
+                        f"{unit_test['Name']}:{function_name}"
                     )
-                )
-
-    if minimum_tests > 1 and not (
-        [x for x in analysis["Tests"] if x["ExpectedResult"]]
-        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
-    ):
-        failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
-            "Insufficient test coverage: expected at least one positive and one negative test"
-        )
-
     return failed_tests
+
+
+def _verify_test_run(
+    test_case: TestCase,
+    mock_methods: Dict[str, MagicMock],
+    analysis_funcs: Dict[str, Any],
+) -> Dict[str, Any]:
+    test_run_result: Dict[str, str] = defaultdict(lambda: "PASS")
+    for func_name, func in analysis_funcs.items():
+        if func_name not in RESERVED_FUNCTIONS:
+            continue
+        try:
+            if mock_methods:
+                with patch.multiple(analysis_funcs["module"], **mock_methods):
+                    func_out = func(test_case)
+                    if not func_out:
+                        test_run_result[func_name] = "FAIL"
+            else:
+                func_out = func(test_case)
+                if not func_out:
+                    test_run_result[func_name] = "FAIL"
+        except Exception as err:  # pylint: disable=broad-except
+            func_out = err
+            test_run_result[func_name] = "FAIL"
+
+        func_out_valid_type = True
+        valid_output, func_out = validate_outputs(func_name, func_out)
+        if not valid_output or isinstance(func_out, (AttributeError, AssertionError)):
+            func_out_valid_type = False
+            test_run_result[func_name] = "FAIL"
+
+        print(
+            f"\t\t[{test_run_result[func_name]}] "
+            f"{'' if func_out_valid_type else '[INVALID TYPE] '}"
+            f"[{func_name}] {func_out}"
+        )
+    return test_run_result
+
+
+def validate_outputs(function_name: str, function_output: Any) -> (bool, Any):
+    # Defaults to valid and function output
+    # Invalidating criteria will overwrite these values
+    is_valid = True
+    output = function_output
+    if function_name == "severity":
+        # Type checking for severity
+        if not isinstance(function_output, str):
+            is_valid = False
+        # Value Validation for severity
+        if str(function_output).upper() not in VALID_SEVERITIES:
+            is_valid = False
+            output = AssertionError(
+                f'Expected [{function_name}] to be any of the following: '
+                f'{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead.'
+            )
+    elif function_name == "destinations":
+        # Type checking for destinations
+        if isinstance(function_output, list):
+            # Type checking for elements in list
+            # Note: we cannot perform value validation unless we were to query the outputs-api
+            if not all(isinstance(x, str) for x in function_output):
+                # List contains non-string element, so enumerate the types present for error msg
+                list_types = set()
+                for each_item in function_output:
+                    list_types.add(type(each_item))
+                is_valid = False
+                output = AttributeError(
+                    f'Expected [{function_name}] to return a list of strings, '
+                    f'got types [{list_types}] instead'
+                )
+        else:
+            is_valid = False
+    # For reserved functions besides severity and destinations, we expect a string output
+    else:
+        is_valid = isinstance(function_output, str)
+
+    # Invalid Types, used to generate a corresponding error message
+    if not is_valid and output == function_output:
+        if function_name == "destinations":
+            expected_type = "list"
+        else:
+            expected_type = "string"
+
+        output = AttributeError(
+            f'Expected [{function_name}] to return a [{expected_type}], '
+            f'got [{type(function_output)}] instead'
+        )
+    return is_valid, output
 
 
 def setup_parser() -> argparse.ArgumentParser:
