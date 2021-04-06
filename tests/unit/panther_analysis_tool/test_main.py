@@ -2,37 +2,38 @@ from datetime import datetime
 import os
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
+
 from schema import SchemaWrongKeyError
-from nose.tools import (assert_equal, assert_false, assert_is_instance,
-                        assert_is_none, assert_true, raises, nottest,
-                        with_setup)
+from nose.tools import assert_equal, assert_is_instance, assert_true, assert_false
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.main import validate_outputs
 
+FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
+
+print('Using fixtures path:', FIXTURES_PATH)
+
 
 class TestPantherAnalysisTool(TestCase):
-    fixture_path = 'tests/fixtures/'
-
     def setUp(self):
         self.setUpPyfakefs()
-        self.fs.add_real_directory(self.fixture_path)
+        self.fs.add_real_directory(FIXTURES_PATH)
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(['tests/fixtures']):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([FIXTURES_PATH]):
             if spec_filename.endswith('example_policy.json'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_yaml_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(['tests/fixtures']):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([FIXTURES_PATH]):
             if spec_filename.endswith('example_policy.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_pack_spec(self):
         pack_loaded = False
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(['tests/fixtures']):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([FIXTURES_PATH]):
             if spec_filename.endswith('sample-pack.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
@@ -59,33 +60,33 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(str(err),  expected_output.format("UNKNOWN_KEY", sample_keys))
 
     def test_load_policy_specs_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures'.split())
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
-                     'tests/fixtures/example_malformed_policy.yml')
+                     f'{FIXTURES_PATH}/example_malformed_policy.yml')
         assert_equal(len(invalid_specs), 7)
 
     def test_policies_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/policies'.split())
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/policies'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_rules_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/rules'.split())
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/rules'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_queries_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/queries'.split())
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/queries'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_scheduled_rules_from_folder(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis/scheduled_rules'.split())
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/scheduled_rules'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -94,14 +95,16 @@ class TestPantherAnalysisTool(TestCase):
         # This is a work around to test running tool against current directory
         return_code = -1
         invalid_specs = None
-        valid_rule_path = self.fixture_path + 'valid_analysis/policies'
+        valid_rule_path = os.path.join(FIXTURES_PATH, 'valid_analysis/policies')
         # test default path, '.'
         with Pause(self.fs):
             original_path = os.getcwd()
-            os.chdir(valid_rule_path)
-            args = pat.setup_parser().parse_args('test'.split())
-            return_code, invalid_specs = pat.test_analysis(args)
-            os.chdir(original_path)
+            try:
+                os.chdir(valid_rule_path)
+                args = pat.setup_parser().parse_args('test'.split())
+                return_code, invalid_specs = pat.test_analysis(args)
+            finally:
+                os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -128,7 +131,8 @@ class TestPantherAnalysisTool(TestCase):
         assert_true('Critical' in args.filter['Severity'])
 
     def test_with_filters(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter AnalysisType=policy,global'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -136,41 +140,47 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_aws_profiles(self):
         aws_profile = 'AWS_PROFILE'
-        args = pat.setup_parser().parse_args('upload --path tests/fixtures/valid_analysis --aws-profile myprofile'.split())
+        args = pat.setup_parser().parse_args(
+            f'upload --path {FIXTURES_PATH}/valid_analysis --aws-profile myprofile'.split())
         pat.set_env(aws_profile, args.aws_profile)
         assert_equal('myprofile', args.aws_profile)
         assert_equal(args.aws_profile, os.environ.get(aws_profile))
 
     def test_invalid_rule_definition(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=AWS.CloudTrail.MFAEnabled'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_invalid_rule_test(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Invalid.Test'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_invalid_characters(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=High ResourceTypes=AWS.IAM.User'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter Severity=High ResourceTypes=AWS.IAM.User'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_unknown_exception(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter RuleID=Example.Rule.Unknown.Exception'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_with_invalid_mocks(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -211,27 +221,31 @@ class TestPantherAnalysisTool(TestCase):
             invalid = True
 
     def test_with_tag_filters(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter Tags=AWS,CIS'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_with_minimum_tests(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 1'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH}/valid_analysis --minimum-tests 1'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_with_minimum_tests_failing(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --minimum-tests 2'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH}/valid_analysis --minimum-tests 2'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 0)
 
     def test_with_minimum_tests_no_passing(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
@@ -246,7 +260,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            'zip --path tests/fixtures/valid_analysis --out tmp/'.split())
+            f'zip --path {FIXTURES_PATH}/valid_analysis --out tmp/'.split())
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
@@ -262,7 +276,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            'release --path tests/fixtures/valid_analysis --out tmp/release/'.split())
+            f'release --path {FIXTURES_PATH}/valid_analysis --out tmp/release/'.split())
         return_code, _ = pat.generate_release_assets(args)
         analysis_file = 'tmp/release/panther-analysis-all.zip'
         statinfo = os.stat(analysis_file)

@@ -31,9 +31,9 @@ $ pip3 install panther_analysis_tool
 If you'd prefer instead to run from source for development reasons, first setup your environment:
 
 ```bash
-$ make install
 $ make venv
 $ source venv/bin/activate
+$ make install
 $ pipenv run -- make deps
 $ pipenv run -- pip3 install -e .
 ```

@@ -162,7 +162,7 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
                     logging.debug("Skipping path %s", relative_path)
                     continue
             for filename in sorted(file_list):
-                spec_filename = os.path.join(relative_path, filename)
+                spec_filename = os.path.abspath(os.path.join(relative_path, filename))
                 # skip loading files that have already been imported
                 if spec_filename in loaded_specs:
                     continue
@@ -574,9 +574,18 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """
     logging.info("Testing analysis packs in %s\n", args.path)
 
+    search_directories = [args.path]
+
+    # Try the parent directory as well
+    for directory in (HELPERS_LOCATION, '.' + HELPERS_LOCATION,
+                DATA_MODEL_LOCATION, '.' + DATA_MODEL_LOCATION):
+        absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
+        if os.path.exists(absolute_dir_path):
+            search_directories.append(absolute_dir_path)
+
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION]))
+        list(load_analysis_specs(search_directories))
     )
 
     if all((len(specs[key]) == 0 for key in specs)):

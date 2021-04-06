@@ -1,4 +1,22 @@
 from distutils.core import setup
+
+install_requires = [
+    'boto3',
+    'jsonpath-ng',
+    'requests',
+    'ruamel.yaml',
+    'schema',
+    'semver',
+]
+
+with open('requirements.txt') as f:
+    dependencies_with_versions = []
+    for dependency in f.readlines():
+        dependency_with_version = dependency.strip()
+        package_name = dependency_with_version.split('==')[0]
+        if package_name in install_requires:
+            dependencies_with_versions.append(dependency_with_version)
+
 setup(
     name='panther_analysis_tool',
     packages=['panther_analysis_tool'],
@@ -12,14 +30,7 @@ setup(
     download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.5.2.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
-    install_requires=[
-        'boto3',
-        'jsonpath-ng',
-        'requests',
-        'ruamel.yaml',
-        'schema',
-        'semver',
-    ],
+    install_requires=install_requires,
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
