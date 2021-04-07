@@ -921,11 +921,13 @@ def _run_tests(
                 result = analysis_funcs["run"](test_case)
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
+            logging.debug(str(err), exc_info=err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions raised by user code
             logging.warning("Unexpected exception: {%s}", err)
+            logging.debug(str(err), exc_info=err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
             continue
 
