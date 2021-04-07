@@ -912,8 +912,12 @@ def _run_tests(
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            # set up each test case, including any relevant data models
-            test_case = TestCase(entry, analysis_data_models.get(log_type))
+            if analysis.get("PolicyID") is not None:
+                # Policies use plain dict objects as input
+                test_case = entry
+            else:
+                # Set up each test case, including any relevant data models
+                test_case = TestCase(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(analysis_funcs["module"], **mock_methods):
                     result = analysis_funcs["run"](test_case)
