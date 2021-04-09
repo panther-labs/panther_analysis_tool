@@ -912,8 +912,12 @@ def _run_tests(
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            # set up each test case, including any relevant data models
-            test_case = TestCase(entry, analysis_data_models.get(log_type))
+            if analysis.get("PolicyID") is not None:
+                # Policies use plain dict objects as input
+                test_case = entry
+            else:
+                # Set up each test case, including any relevant data models
+                test_case = TestCase(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(analysis_funcs["module"], **mock_methods):
                     result = analysis_funcs["run"](test_case)
@@ -921,11 +925,13 @@ def _run_tests(
                 result = analysis_funcs["run"](test_case)
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
+            logging.debug(str(err), exc_info=err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions raised by user code
             logging.warning("Unexpected exception: {%s}", err)
+            logging.debug(str(err), exc_info=err)
             failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
             continue
 
