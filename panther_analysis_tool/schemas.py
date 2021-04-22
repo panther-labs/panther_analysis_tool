@@ -26,7 +26,7 @@ RESOURCE_TYPE_REGEX = Regex(
     r"|EC2\.NetworkACL|EC2\.SecurityGroup|EC2\.Volume|EC2\.VPC|ECS\.Cluster|EKS\.Cluster|ELBV2"
     r"\.ApplicationLoadBalancer|GuardDuty\.Detector\.Meta|GuardDuty\.Detector|IAM\.Group|IAM"
     r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
-    r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$ "
+    r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
 )
 LOG_TYPE_REGEX = Regex(
     r"^(Apache\.AccessCombined|Apache\.AccessCommon|AWS\.ALB|AWS\.AuroraMySQLAudit|AWS"
@@ -47,7 +47,7 @@ LOG_TYPE_REGEX = Regex(
     r"|Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|Salesforce\.Login|Salesforce\.LoginAs"
     r"|Salesforce\.Logout|Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack"
     r"\.IntegrationLogs|Sophos\.Central|Suricata\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog"
-    r"\.RFC5424|Zeek\.DNS)$ "
+    r"\.RFC5424|Zeek\.DNS)$"
 )
 
 TYPE_SCHEMA = Schema(
