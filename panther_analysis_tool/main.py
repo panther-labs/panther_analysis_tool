@@ -112,7 +112,7 @@ class AnalysisIDConflictException(Exception):
 # exception for conflicting ids
 class AnalysisContainsDuplicatesException(Exception):
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = "Specification with duplicates AnalysisID: [{}] : [{}]" \
+        self.message = "Specification file for [{}] contains fields with duplicate values: [{}]" \
             .format(analysis_id, ', '.join(x for x in invalid_fields))
         super().__init__(self.message)
 
