@@ -92,11 +92,28 @@ SCHEMAS: Dict[str, Schema] = {
     SCHEDULED_RULE: RULE_SCHEMA,
 }
 
+SET_FIELDS = [
+    "LogTypes",
+    "PackIDs",
+    "OutputIds",
+    "SummaryAttributes",
+    "Suppressions",
+    "Tags",
+]
+
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
     def __init__(self, analysis_id: str):
         self.message = "Conflicting AnalysisID: [{}]".format(analysis_id)
+        super().__init__(self.message)
+
+
+# exception for conflicting ids
+class AnalysisContainsDuplicatesException(Exception):
+    def __init__(self, analysis_id: str, invalid_fields: List[str]):
+        self.message = "Specification file for [{}] contains fields with duplicate values: [{}]" \
+            .format(analysis_id, ', '.join(x for x in invalid_fields))
         super().__init__(self.message)
 
 
@@ -803,6 +820,10 @@ def classify_analysis(
             analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
             if analysis_id in analysis_ids:
                 raise AnalysisIDConflictException(analysis_id)
+            # check for duplicates where panther expects a unique set
+            invalid_fields = contains_invalid_field_set(analysis_spec)
+            if invalid_fields:
+                raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
             analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
@@ -846,6 +867,25 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     if analysis_type in [RULE, SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
+
+
+def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
+    """Checks if the fields that Panther expects as sets have duplicates, returns True if invalid.
+
+    :param analysis_spec: Loaded YAML specification file
+    :return: bool - whether or not the specifications file is valid where False denotes valid.
+    """
+    invalid_fields = []
+    for field in SET_FIELDS:
+        if field not in analysis_spec:
+            continue
+        # Handle special case where we need to test for lowercase tags
+        if field == "Tags":
+            if len(analysis_spec[field]) != len(set(x.lower() for x in analysis_spec[field])):
+                invalid_fields.append("LowerTags")
+        if len(analysis_spec[field]) != len(set(analysis_spec[field])):
+            invalid_fields.append(field)
+    return invalid_fields
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:

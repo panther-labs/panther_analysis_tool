@@ -1,0 +1,32 @@
+AnalysisType: rule
+Enabled: true
+Filename: example_set_duplicates.py
+RuleID: Example.Rule.Set.Duplicates
+LogTypes:
+  - AWS.CloudTrail
+  - AWS.CloudTrail
+Severity: Low
+DisplayName: Example Rule to Check the Format of the Spec
+Tags:
+  - Tags
+  - Tags
+  - tags
+Runbook: Find out who changed the spec format.
+Reference: https://www.link-to-info.io
+SummaryAttributes:
+  - example_dupe
+  - example_dupe
+OutputIds:
+  - 1234
+  - 1234
+Suppressions:
+  - asdf
+  - asdf
+Tests:
+  -
+    Name: Name to describe our first test.
+    ExpectedResult: true
+    Log:
+      {
+        "field1": "value1",
+      }
