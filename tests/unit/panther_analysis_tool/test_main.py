@@ -168,7 +168,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 4)
+        assert_equal(len(invalid_specs), 5)
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args(

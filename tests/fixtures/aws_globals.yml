@@ -3,7 +3,7 @@ Filename: aws_globals.py
 PolicyID: aws_globals
 Enabled: true
 ResourceTypes:
-  - AWS.Dummy.Type
+  - AWS.CloudTrail
 Tags:
   - AWS
 Severity: Info

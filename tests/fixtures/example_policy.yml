@@ -6,8 +6,8 @@ Severity: High
 PolicyID: IAM.MFAEnabled
 Enabled: true
 ResourceTypes:
-  - AWS.IAM.RootUser.Snapshot
-  - AWS.IAM.User.Snapshot
+  - AWS.IAM.RootUser
+  - AWS.IAM.User
 Tags:
   - AWS Managed Rules - Security, Identity & Compliance
   - AWS

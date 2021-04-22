@@ -3,7 +3,7 @@ Enabled: true
 Filename: example_unhandled_exception.py
 RuleID: Example.Rule.Unknown.Exception
 LogTypes:
-  - Log.Type.Here
+  - AWS.CloudTrail
 Severity: Low
 DisplayName: Example Rule to Check the Format of the Spec
 Tags:

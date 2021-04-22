@@ -5,7 +5,7 @@ Severity: Info
 PolicyID: AWS.Import
 Enabled: true
 ResourceTypes:
-  - AWS.Import.Test
+  - AWS.CloudTrail
 Tests:
   -
     Name: Always Returns True
