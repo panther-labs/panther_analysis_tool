@@ -776,7 +776,7 @@ def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]],
     ignore_logtypes_validation: bool = False,
     ignore_resourcetypes_validation: bool = False,
-) -> Tuple[Dict[str, List[Any]], List[Any]]:
+) -> Tuple[Dict[str, List[Any]], List[Any]]:  # pylint: disable=too-many-locals,too-many-statements
 
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -790,6 +790,7 @@ def classify_analysis(
     # add any duplicates to the invalid_specs
     analysis_ids: List[Any] = []
 
+    # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys: List[Any] = list()
         tmp_logtypes: Any = None
@@ -845,8 +846,15 @@ def classify_analysis(
                 )
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
+        except (
+            SchemaMissingKeyError,
+            SchemaForbiddenKeyError,
+            SchemaUnexpectedTypeError,
+        ) as err:
+            invalid_specs.append((analysis_spec_filename, err))
+            continue
         except SchemaError as err:
-            # Intercept the error to trim it down, otherwise the error message becomes confusing and unreadable
+            # Intercept the error, otherwise the error message becomes confusing and unreadable
             error = err
             err_str = str(err)
             first_half = err_str.split(':')[0]
@@ -856,13 +864,6 @@ def classify_analysis(
             elif "ResourceTypes" in str(err):
                 error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
-        except (
-            SchemaMissingKeyError,
-            SchemaForbiddenKeyError,
-            SchemaUnexpectedTypeError,
-        ) as err:
-            invalid_specs.append((analysis_spec_filename, err))
-            continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
@@ -1248,7 +1249,9 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(skip_test_name, **skip_test_arg)
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_logtypes_validation, **ignore_logtypes_validation_arg)
-    upload_parser.add_argument(ignore_resourcetypes_validation, **ignore_resourcetypes_validation_arg)
+    upload_parser.add_argument(
+        ignore_resourcetypes_validation, **ignore_resourcetypes_validation_arg
+    )
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
