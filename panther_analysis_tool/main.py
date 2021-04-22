@@ -1213,13 +1213,13 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     publish_parser.add_argument(
         "--github-owner",
-        help="The github owner of the repsitory",
+        help="The github owner of the repository",
         type=str,
         default="panther-labs",
     )
     publish_parser.add_argument(
         "--github-repository",
-        help="The github repsitory name",
+        help="The github repository name",
         type=str,
         default="panther-analysis",
     )
