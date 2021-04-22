@@ -585,7 +585,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories))
+        list(load_analysis_specs(search_directories)),
+        getattr(args, "ignore_logtypes_validation", False),
+        getattr(args, "ignore_resourcetypes_validation", False)
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -771,7 +773,9 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
 
 
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]]
+    specs: List[Tuple[str, str, Any, Any]],
+    ignore_logtypes_validation: bool = False,
+    ignore_resourcetypes_validation: bool = False,
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
 
     # First setup return dict containing different
@@ -788,6 +792,9 @@ def classify_analysis(
 
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys: List[Any] = list()
+        tmp_logtypes: Any = None
+        tmp_logtypes_key: Any = None
+        tmp_resourcetypes: Any = None
         try:
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
@@ -798,6 +805,29 @@ def classify_analysis(
             # validate the particular analysis type schema
             analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
+            # Temporarily set schema definition to ignore validation
+            if ignore_logtypes_validation:
+                if "LogTypes" in analysis_spec:
+                    # Workaround since this is stored as "Or('LogTypes', 'ScheduledQueries'): [str]"
+                    for each_key in analysis_schema.schema.keys():
+                        if str(each_key) == "Or('LogTypes', 'ScheduledQueries')":
+                            tmp_logtypes_key = each_key
+                            break
+                    tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
+                    analysis_schema.schema[tmp_logtypes_key] = [str]
+            if ignore_resourcetypes_validation:
+                if "ResourceTypes" in analysis_spec:
+                    tmp_resourcetypes = analysis_schema.schema["ResourceTypes"]
+                    analysis_schema.schema["ResourceTypes"] = [str]
+            # Special case for ScheduledQueries to only validate the types
+            if "ScheduledQueries" in analysis_spec:
+                for each_key in analysis_schema.schema.keys():
+                    if str(each_key) == "Or('LogTypes', 'ScheduledQueries')":
+                        tmp_logtypes_key = each_key
+                        break
+                if not tmp_logtypes:
+                    tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
+                analysis_schema.schema[tmp_logtypes_key] = [str]
             analysis_schema.validate(analysis_spec)
             # lookup the analysis type id and validate there aren't any conflicts
             analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
@@ -815,8 +845,18 @@ def classify_analysis(
                 )
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
+        except SchemaError as err:
+            # Intercept the error to trim it down, otherwise the error message becomes confusing and unreadable
+            error = err
+            err_str = str(err)
+            first_half = err_str.split(':')[0]
+            second_half = err_str.split(')')[-1]
+            if "LogTypes" in str(err):
+                error = SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
+            elif "ResourceTypes" in str(err):
+                error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
+            invalid_specs.append((analysis_spec_filename, error))
         except (
-            SchemaError,
             SchemaMissingKeyError,
             SchemaForbiddenKeyError,
             SchemaUnexpectedTypeError,
@@ -827,6 +867,12 @@ def classify_analysis(
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
             continue
+        finally:
+            # Restore original values
+            if tmp_logtypes and tmp_logtypes_key:
+                analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
+            if tmp_resourcetypes:
+                analysis_schema.schema["ResourceTypes"] = tmp_resourcetypes
 
     return classified_specs, invalid_specs
 
@@ -1097,6 +1143,20 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": strtobool,
         "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
     }
+    ignore_logtypes_validation = "--ignore-logtypes-validation"
+    ignore_logtypes_validation_arg: Dict[str, Any] = {
+        "required": False,
+        "default": False,
+        "type": strtobool,
+        "help": "Meant for advanced users; allows skipping of log types validation.",
+    }
+    ignore_resourcetypes_validation = "--ignore-resourcetypes-validation"
+    ignore_resourcetypes_validation_arg: Dict[str, Any] = {
+        "required": False,
+        "default": False,
+        "type": strtobool,
+        "help": "Meant for advanced users; allows skipping of resource types validation"
+    }
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
@@ -1129,6 +1189,8 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)
     test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
+    test_parser.add_argument(ignore_logtypes_validation, **ignore_logtypes_validation_arg)
+    test_parser.add_argument(ignore_resourcetypes_validation, **ignore_resourcetypes_validation_arg)
     test_parser.set_defaults(func=test_analysis)
 
     publish_parser = subparsers.add_parser(
@@ -1185,6 +1247,8 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(path_name, **path_arg)
     upload_parser.add_argument(skip_test_name, **skip_test_arg)
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
+    upload_parser.add_argument(ignore_logtypes_validation, **ignore_logtypes_validation_arg)
+    upload_parser.add_argument(ignore_resourcetypes_validation, **ignore_resourcetypes_validation_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
     update_schemas_parser = subparsers.add_parser(
