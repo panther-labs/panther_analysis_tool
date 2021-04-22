@@ -772,11 +772,12 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
     return filtered_analysis
 
 
+# pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]],
     ignore_logtypes_validation: bool = False,
     ignore_resourcetypes_validation: bool = False,
-) -> Tuple[Dict[str, List[Any]], List[Any]]:  # pylint: disable=too-many-locals,too-many-statements
+) -> Tuple[Dict[str, List[Any]], List[Any]]:
 
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
