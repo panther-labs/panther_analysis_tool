@@ -268,25 +268,6 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         self.equal = assert_equal(len(invalid_specs), 7)
 
-    def test_invalid_resource_type_ignore_validation(self):
-        args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter Tags=bad_resource_type --ignore-logtypes-validation=true '
-            f'--ignore-resourcetypes-validation=true'.split())
-        args.filter = pat.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
-
-    def test_invalid_log_type_ignore_validation(self):
-        self.args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter Tags=bad_log_type --ignore-logtypes-validation=true ' \
-            f'--ignore-resourcetypes-validation=true'.split())
-        args = self.args
-        args.filter = pat.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
-
     def test_zip_analysis(self):
         # Note: This is a workaround for CI
         try:
