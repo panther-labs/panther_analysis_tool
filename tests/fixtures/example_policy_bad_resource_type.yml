@@ -1,0 +1,18 @@
+AnalysisType: policy
+Filename: example_policy_bad_resource_type.py
+DisplayName: MFA Is Enabled For User
+Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
+Severity: High
+PolicyID: Example.Bad.Resource.Type
+Enabled: true
+ResourceTypes:
+  - AWS.IAM.RootUserz
+  - AWS.IAM.Userz
+Tags:
+  - bad_resource_type
+Runbook: >
+  Find out who disabled MFA on the account.
+Reference: https://www.link-to-info.io
+Suppressions:
+  - aws:resource:1
+  - aws:.*:other-resource

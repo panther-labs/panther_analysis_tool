@@ -65,7 +65,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      f'{FIXTURES_PATH}/example_malformed_policy.yml')
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 10)
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/policies'.split())
@@ -152,7 +152,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 5)
+        assert_equal(len(invalid_specs), 7)
 
     def test_invalid_rule_test(self):
         args = pat.setup_parser().parse_args(
@@ -160,7 +160,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 5)
+        assert_equal(len(invalid_specs), 7)
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args(
@@ -168,7 +168,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 5)
+        assert_equal(len(invalid_specs), 8)
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args(
@@ -176,7 +176,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 5)
+        assert_equal(len(invalid_specs), 7)
 
     def test_with_invalid_mocks(self):
         args = pat.setup_parser().parse_args(
@@ -184,7 +184,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 5)
+        assert_equal(len(invalid_specs), 7)
 
     def test_validate_outputs(self):
         example_valid_outputs = [
@@ -250,7 +250,23 @@ class TestPantherAnalysisTool(TestCase):
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 5)
+        assert_equal(len(invalid_specs), 7)
+
+    def test_invalid_resource_type(self):
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 7)
+
+    def test_invalid_log_type(self):
+        args = pat.setup_parser().parse_args(
+            f'test --path {FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type'.split())
+        args.filter = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        self.equal = assert_equal(len(invalid_specs), 7)
 
     def test_zip_analysis(self):
         # Note: This is a workaround for CI

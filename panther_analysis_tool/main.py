@@ -787,6 +787,7 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
     return filtered_analysis
 
 
+# pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]]
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
@@ -803,8 +804,11 @@ def classify_analysis(
     # add any duplicates to the invalid_specs
     analysis_ids: List[Any] = []
 
+    # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys: List[Any] = list()
+        tmp_logtypes: Any = None
+        tmp_logtypes_key: Any = None
         try:
             # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
             if error:
@@ -815,6 +819,15 @@ def classify_analysis(
             # validate the particular analysis type schema
             analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
+            # Special case for ScheduledQueries to only validate the types
+            if "ScheduledQueries" in analysis_spec:
+                for each_key in analysis_schema.schema.keys():
+                    if str(each_key) == "Or('LogTypes', 'ScheduledQueries')":
+                        tmp_logtypes_key = each_key
+                        break
+                if not tmp_logtypes:
+                    tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
+                analysis_schema.schema[tmp_logtypes_key] = [str]
             analysis_schema.validate(analysis_spec)
             # lookup the analysis type id and validate there aren't any conflicts
             analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
@@ -837,17 +850,31 @@ def classify_analysis(
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
-            SchemaError,
             SchemaMissingKeyError,
             SchemaForbiddenKeyError,
             SchemaUnexpectedTypeError,
         ) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
+        except SchemaError as err:
+            # Intercept the error, otherwise the error message becomes confusing and unreadable
+            error = err
+            err_str = str(err)
+            first_half = err_str.split(':')[0]
+            second_half = err_str.split(')')[-1]
+            if "LogTypes" in str(err):
+                error = SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
+            elif "ResourceTypes" in str(err):
+                error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
+            invalid_specs.append((analysis_spec_filename, error))
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
             continue
+        finally:
+            # Restore original values
+            if tmp_logtypes and tmp_logtypes_key:
+                analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
 
     return classified_specs, invalid_specs
 
@@ -1191,13 +1218,13 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     publish_parser.add_argument(
         "--github-owner",
-        help="The github owner of the repsitory",
+        help="The github owner of the repository",
         type=str,
         default="panther-labs",
     )
     publish_parser.add_argument(
         "--github-repository",
-        help="The github repsitory name",
+        help="The github repository name",
         type=str,
         default="panther-analysis",
     )

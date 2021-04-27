@@ -1,0 +1,19 @@
+AnalysisType: rule 
+Filename: example_rule_bad_log_type.py
+DisplayName: MFA Rule
+Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
+Severity: High
+Threshold: 5
+RuleID: Example.Bad.Log.Type
+Enabled: true
+SummaryAttributes:
+  - p_log_type
+  - p_any_ip_addresses
+LogTypes:
+  - AWS.CloudTrailz
+Tags:
+  - bad_log_type
+Runbook: >
+  Find out who disabled MFA on the account.
+Reference: https://www.link-to-info.io
+      

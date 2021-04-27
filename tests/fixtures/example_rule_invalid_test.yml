@@ -3,7 +3,7 @@ Enabled: true
 Filename: example_rule_invalid_test.py
 RuleID: Example.Rule.Invalid.Test
 LogTypes:
-  - Log.Type.Here
+  - AWS.CloudTrail
 Severity: Low
 DisplayName: Example Rule to Check the Format of the Spec
 Tags:

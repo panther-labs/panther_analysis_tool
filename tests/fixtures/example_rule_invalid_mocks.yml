@@ -5,7 +5,7 @@ Severity: Critical
 RuleID: Example.Rule.Invalid.Mock
 Enabled: true
 LogTypes:
-  - Example.Mock
+  - AWS.CloudTrail
 Reference: https://www.link-to-info.io
 Tests:
   -
