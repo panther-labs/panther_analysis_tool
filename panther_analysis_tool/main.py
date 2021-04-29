@@ -156,6 +156,9 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
     loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
+            # Skip hidden folders
+            if relative_path.split('/')[-1].startswith("."):
+                continue
             # setup yaml object
             yaml = YAML(typ="safe")
             # If the user runs with no path args, filter to make sure
@@ -179,6 +182,9 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
                     logging.debug("Skipping path %s", relative_path)
                     continue
             for filename in sorted(file_list):
+                # Skip hidden files
+                if filename.startswith("."):
+                    continue
                 spec_filename = os.path.abspath(os.path.join(relative_path, filename))
                 # skip loading files that have already been imported
                 if spec_filename in loaded_specs:
