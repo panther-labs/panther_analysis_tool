@@ -157,7 +157,7 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
             # Skip hidden folders
-            if relative_path.split('/')[-1].startswith("."):
+            if relative_path.split('/')[-1].startswith(".") and relative_path != "./":
                 continue
             # setup yaml object
             yaml = YAML(typ="safe")
