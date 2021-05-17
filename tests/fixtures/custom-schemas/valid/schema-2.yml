@@ -1,0 +1,14 @@
+schema: Custom.SampleSchema2
+description: "Sample Schema 2"
+referenceURL: "https://runpanther.io"
+version: 0
+fields:
+  - name: time
+    description: Event timestamp
+    required: true
+    type: timestamp
+    timeFormat: rfc3339
+    isEventTime: true
+  - name: ip
+    description: The IP address used for the request
+    type: string

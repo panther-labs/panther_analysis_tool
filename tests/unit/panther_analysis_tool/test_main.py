@@ -10,6 +10,7 @@ from panther_analysis_tool import main as pat
 from panther_analysis_tool.main import validate_outputs
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
+DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
 
 print('Using fixtures path:', FIXTURES_PATH)
 
@@ -20,20 +21,20 @@ class TestPantherAnalysisTool(TestCase):
         self.fs.add_real_directory(FIXTURES_PATH)
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([FIXTURES_PATH]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
             if spec_filename.endswith('example_policy.json'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_yaml_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([FIXTURES_PATH]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
             if spec_filename.endswith('example_policy.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_pack_spec(self):
         pack_loaded = False
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([FIXTURES_PATH]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
             if spec_filename.endswith('sample-pack.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
@@ -60,33 +61,33 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(str(err),  expected_output.format("UNKNOWN_KEY", sample_keys))
 
     def test_load_policy_specs_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
-                     f'{FIXTURES_PATH}/example_malformed_policy.yml')
+                     f'{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml')
         assert_equal(len(invalid_specs), 10)
 
     def test_policies_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/policies'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_rules_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/rules'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_queries_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/queries'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_scheduled_rules_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/valid_analysis/scheduled_rules'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -95,7 +96,7 @@ class TestPantherAnalysisTool(TestCase):
         # This is a work around to test running tool against current directory
         return_code = -1
         invalid_specs = None
-        valid_rule_path = os.path.join(FIXTURES_PATH, 'valid_analysis/policies')
+        valid_rule_path = os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/policies')
         # test default path, '.'
         with Pause(self.fs):
             original_path = os.getcwd()
@@ -122,7 +123,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(len(invalid_specs), 0)
 
     def test_parse_filters(self):
-        args = pat.setup_parser().parse_args('test --path tests/fixtures/valid_analysis --filter AnalysisType=policy,global Severity=Critical'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical'.split())
         args.filter = pat.parse_filter(args.filter)
         assert_true('AnalysisType' in args.filter.keys())
         assert_true('policy' in args.filter['AnalysisType'])
@@ -132,7 +133,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_filters(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -141,14 +142,14 @@ class TestPantherAnalysisTool(TestCase):
     def test_aws_profiles(self):
         aws_profile = 'AWS_PROFILE'
         args = pat.setup_parser().parse_args(
-            f'upload --path {FIXTURES_PATH}/valid_analysis --aws-profile myprofile'.split())
+            f'upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile'.split())
         pat.set_env(aws_profile, args.aws_profile)
         assert_equal('myprofile', args.aws_profile)
         assert_equal(args.aws_profile, os.environ.get(aws_profile))
 
     def test_invalid_rule_definition(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -156,7 +157,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_rule_test(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -164,7 +165,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter Severity=High ResourceTypes=AWS.IAM.User'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=High ResourceTypes=AWS.IAM.User'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -172,7 +173,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -180,7 +181,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_invalid_mocks(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -222,7 +223,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -230,14 +231,14 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH}/valid_analysis --minimum-tests 1'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_with_minimum_tests_failing(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH}/valid_analysis --minimum-tests 2'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 2'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
         assert_equal(return_code, 1)
@@ -245,7 +246,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests_no_passing(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
@@ -254,7 +255,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_resource_type(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -262,7 +263,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_invalid_log_type(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type'.split())
         args.filter = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -276,7 +277,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            f'zip --path {FIXTURES_PATH}/valid_analysis --out tmp/'.split())
+            f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
@@ -292,9 +293,101 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            f'release --path {FIXTURES_PATH}/valid_analysis --out tmp/release/'.split())
+            f'release --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/release/'.split())
         return_code, _ = pat.generate_release_assets(args)
         analysis_file = 'tmp/release/panther-analysis-all.zip'
         statinfo = os.stat(analysis_file)
         assert_true(statinfo.st_size > 0)
         assert_equal(return_code, 0)
+
+    def test_update_custom_schemas(self):
+        from panther_analysis_tool.log_schemas.user_defined import Client
+        from unittest import mock
+        import logging
+
+        # If path does not exist, exits with failure code
+        args = pat.setup_parser().parse_args(
+            f'update-custom-schemas --path _unknown_path_/'.split()
+        )
+        return_code, _ = pat.update_custom_schemas(args)
+        self.assertEqual(return_code, 1)
+
+        # If path exists and contains valid YAML files
+        schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/valid')
+        args = pat.setup_parser().parse_args(
+            f'update-custom-schemas --path {schema_path}'.split()
+        )
+
+        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader') as mock_uploader:
+            _, _ = pat.update_custom_schemas(args)
+            mock_uploader.assert_called_once_with(f'{FIXTURES_PATH}/custom-schemas/valid')
+
+        with open(os.path.join(schema_path, 'schema-1.yml')) as f:
+            schema1 = f.read()
+
+        with open(os.path.join(schema_path, 'schema-2.yml')) as f:
+            schema2 = f.read()
+
+        with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
+            with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \
+                    as mock_uploader_client:
+                mock_uploader_client.list_schemas = mock.MagicMock(
+                    return_value=(
+                        True,
+                        {
+                            'results': [
+                                {
+                                    'name': 'Custom.SampleSchema1',
+                                    'revision': 17,
+                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
+                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
+                                    'managed': False,
+                                    'disabled': True,
+                                    'description': 'A verbose description',
+                                    'referenceURL': 'https://example.com',
+                                    'spec': schema1,
+                                    'active': False,
+                                    'native': False
+                                },
+                                {
+                                    'name': 'Custom.SampleSchema2',
+                                    'revision': 17,
+                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
+                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
+                                    'managed': False,
+                                    'disabled': False,
+                                    'description': 'A verbose description',
+                                    'referenceURL': 'https://example.com',
+                                    'spec': schema2,
+                                    'active': False,
+                                    'native': False
+                                }
+                            ]
+                        }
+                    )
+                )
+                mock_uploader_client.put_schema = mock.MagicMock(return_value=(True, {'results': []}))
+                return_code, _ = pat.update_custom_schemas(args)
+                self.assertEqual(return_code, 0)
+                mocks['error'].assert_not_called()
+                self.assertEqual(mocks['info'].call_count, 2)
+
+        with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
+            with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \
+                    as mock_uploader_client:
+                mock_uploader_client.list_schemas = mock.MagicMock(
+                    return_value=(True, {'results': []})
+                )
+                mock_uploader_client.put_schema = mock.MagicMock(
+                    return_value=(True, {'results': []})
+                )
+                # If path exists and does not contain valid YAML files
+                schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/invalid')
+                args = pat.setup_parser().parse_args(
+                    f'update-custom-schemas --path {schema_path}'.split()
+                )
+                return_code, _ = pat.update_custom_schemas(args)
+                self.assertEqual(return_code, 1)
+                self.assertEqual(mocks['info'].call_count, 1)
+                self.assertEqual(mocks['error'].call_count, 1)
+

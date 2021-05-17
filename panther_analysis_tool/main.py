@@ -54,6 +54,7 @@ from panther_analysis_tool.schemas import (DATA_MODEL_SCHEMA, GLOBAL_SCHEMA,
                                            RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA,
                                            TYPE_SCHEMA)
 from panther_analysis_tool.test_case import DataModel, TestCase
+from panther_analysis_tool.log_schemas import user_defined
 
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
@@ -413,20 +414,29 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
-    from panther_analysis_tool.log_schemas.user_defined import Uploader, normalize_path, report_summary
+    """
+    Updates or creates custom schemas.
 
+    Returns 1 if any file failed to be updated.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and a placeholder string.
+    """
     if args.aws_profile is not None:
         logging.info("Using AWS profile: %s", args.aws_profile)
         set_env("AWS_PROFILE", args.aws_profile)
 
-    normalized_path = normalize_path(args.path)
+    normalized_path = user_defined.normalize_path(args.path)
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    uploader = Uploader(normalized_path)
+    uploader = user_defined.Uploader(normalized_path)
     results = uploader.process()
     has_errors = False
-    for failed, summary in report_summary(normalized_path, results):
+    for failed, summary in user_defined.report_summary(normalized_path, results):
         if failed:
             has_errors = True
             logging.error(summary)
@@ -1312,7 +1322,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas",
-        help="Update custom schemas on a Panther deployment."
+        help="Update or create custom schemas on a Panther deployment."
     )
     update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
     custom_schemas_path_arg = path_arg.copy()
