@@ -1,3 +1,5 @@
+# NOTE: this is a valid schema in order to test the behavior
+# when both valid and invalid schemas are present.
 schema: Custom.SampleSchema1
 description: "Sample Schema 1"
 referenceURL: "https://runpanther.io"

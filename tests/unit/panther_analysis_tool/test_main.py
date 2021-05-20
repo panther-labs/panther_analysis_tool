@@ -325,7 +325,7 @@ class TestPantherAnalysisTool(TestCase):
         with open(os.path.join(schema_path, 'schema-1.yml')) as f:
             schema1 = f.read()
 
-        with open(os.path.join(schema_path, 'schema-2.yml')) as f:
+        with open(os.path.join(schema_path, 'schema-2.yaml')) as f:
             schema2 = f.read()
 
         with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:

@@ -25,9 +25,9 @@ class TestUtilities(unittest.TestCase):
 
     def test_discover_files(self):
         path = os.path.join(FIXTURES_PATH, 'custom-schemas', 'valid')
-        files = user_defined.discover_files(path)
+        files = user_defined.discover_files(path, user_defined.Uploader._SCHEMA_FILE_GLOB_PATTERNS)
         self.assertListEqual(files, [os.path.join(path, 'schema-1.yml'),
-                                     os.path.join(path, 'schema-2.yml')])
+                                     os.path.join(path, 'schema-2.yaml')])
 
     def test_normalize_path(self):
         # If path does not exist
@@ -44,7 +44,7 @@ class TestUploader(unittest.TestCase):
         with open(os.path.join(self.valid_schema_path, 'schema-1.yml')) as f:
             self.valid_schema1 = f.read()
 
-        with open(os.path.join(self.valid_schema_path, 'schema-2.yml')) as f:
+        with open(os.path.join(self.valid_schema_path, 'schema-2.yaml')) as f:
             self.valid_schema2 = f.read()
 
         self.list_schemas_response = {
@@ -115,7 +115,7 @@ class TestUploader(unittest.TestCase):
         self.assertListEqual(
             uploader.files,
             [os.path.join(self.valid_schema_path, 'schema-1.yml'),
-             os.path.join(self.valid_schema_path, 'schema-2.yml')]
+             os.path.join(self.valid_schema_path, 'schema-2.yaml')]
         )
 
     def test_process(self):
