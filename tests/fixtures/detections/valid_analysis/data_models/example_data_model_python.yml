@@ -1,7 +1,7 @@
 AnalysisType: datamodel
 DataModelID: GSuite.Events.DataModel
 Enabled: true
-Filename: example_data_model_python.py
+Filename: GSuite.Events.DataModel.py
 LogTypes: 
   - GSuite.Reports
 Mappings:

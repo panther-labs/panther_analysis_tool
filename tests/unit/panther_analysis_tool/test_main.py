@@ -1,5 +1,25 @@
+"""
+Panther Analysis Tool is a command line interface for writing,
+testing, and packaging policies/rules.
+Copyright (C) 2020 Panther Labs Inc
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 from datetime import datetime
 import os
+import shutil
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 
@@ -7,6 +27,7 @@ from schema import SchemaWrongKeyError
 from nose.tools import assert_equal, assert_is_instance, assert_true, assert_false
 
 from panther_analysis_tool import main as pat
+from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
 from panther_analysis_tool.main import validate_outputs
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -17,8 +38,21 @@ print('Using fixtures path:', FIXTURES_PATH)
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
+        # Data Models write the source code to a file and import it as module.
+        # This will not work if we are simply writing on the in-memory, fake filesystem.
+        # We thus copy to a temporary space the Data Model Python modules.
+        self.data_model_modules = [os.path.join(DETECTIONS_FIXTURES_PATH,
+                                                'valid_analysis/data_models/GSuite.Events.DataModel.py')]
+        for data_model_module in self.data_model_modules:
+            shutil.copy(data_model_module, _DATAMODEL_FOLDER)
+
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
+
+    def tearDown(self) -> None:
+        with Pause(self.fs):
+            for data_model_module in self.data_model_modules:
+                os.remove(os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1]))
 
     def test_valid_json_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
