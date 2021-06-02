@@ -5,7 +5,7 @@
 #    pipenv lock --requirements
 #
 
--i https://pypi.org/simple
+-i https://pypi.org/simple/
 boto3==1.17.34
 botocore==1.20.40
 certifi==2020.12.5
@@ -24,4 +24,4 @@ s3transfer==0.3.6
 schema==0.7.4
 semver==2.13.0
 six==1.15.0
-urllib3==1.26.4
+urllib3==1.26.5
