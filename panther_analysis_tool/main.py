@@ -53,7 +53,10 @@ from panther_analysis_tool.schemas import (DATA_MODEL_SCHEMA, GLOBAL_SCHEMA,
                                            PACK_SCHEMA, POLICY_SCHEMA,
                                            RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA,
                                            TYPE_SCHEMA)
-from panther_analysis_tool.test_case import DataModel, TestCase
+
+
+from panther_analysis_tool.data_model import DataModel
+from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.log_schemas import user_defined
 
 DATA_MODEL_LOCATION = "./data_models"
@@ -220,6 +223,20 @@ def datetime_converted(obj: Any) -> Any:
     if isinstance(obj, datetime):
         return obj.__str__()
     return obj
+
+
+def _convert_keys_to_lowercase(mapping: Dict[str, Any]) -> Dict[str, Any]:
+    """A helper function for converting top-level dictionary keys to lowercase.
+    Converting keys to lowercase maintains compatibility with how the backend
+    behaves.
+
+    Args:
+        mapping: The dictionary.
+
+    Returns:
+        A new dictionary with each key converted with str.lower()
+    """
+    return {k.lower(): v for k, v in mapping.items()}
 
 
 def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
@@ -699,17 +716,29 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
     for analysis_spec_filename, dir_name, analysis_spec in data_models:
         analysis_id = analysis_spec["DataModelID"]
         if analysis_spec["Enabled"]:
-            # load optional python modules
-            module = None
+            body = None
             if "Filename" in analysis_spec:
-                module, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
+                _, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
                 # If the module could not be loaded, continue to the next
                 if load_err:
                     invalid_specs.append((analysis_spec_filename, load_err))
                     continue
-                sys.modules[analysis_id] = module
+                data_model_module_path = os.path.join(dir_name, analysis_spec["Filename"])
+                with open(data_model_module_path, 'r') as python_module_file:
+                    body = python_module_file.read()
+
             # setup the mapping lookups
-            data_model = DataModel(analysis_id, analysis_spec["Mappings"], module)
+            params = {
+                'id': analysis_id,
+                'mappings': [_convert_keys_to_lowercase(mapping)
+                             for mapping in analysis_spec["Mappings"]],
+                'versionId': '',
+            }
+
+            if body is not None:
+                params['body'] = body
+
+            data_model = DataModel(params)
             # check if the LogType already has an enabled data model
             for log_type in analysis_spec["LogTypes"]:
                 if log_type in log_type_to_data_model:
@@ -1025,7 +1054,7 @@ def _run_tests(
                 test_case = entry
             else:
                 # Set up each test case, including any relevant data models
-                test_case = TestCase(entry, analysis_data_models.get(log_type))
+                test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(analysis_funcs["module"], **mock_methods):
                     result = analysis_funcs["run"](test_case)
@@ -1069,7 +1098,7 @@ def _run_tests(
 
 
 def _verify_test_run(
-    test_case: TestCase,
+    event: PantherEvent,
     mock_methods: Dict[str, MagicMock],
     analysis_funcs: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -1080,11 +1109,11 @@ def _verify_test_run(
         try:
             if mock_methods:
                 with patch.multiple(analysis_funcs["module"], **mock_methods):
-                    func_out = func(test_case)
+                    func_out = func(event)
                     if not func_out:
                         test_run_result[func_name] = "FAIL"
             else:
-                func_out = func(test_case)
+                func_out = func(event)
                 if not func_out:
                     test_run_result[func_name] = "FAIL"
         except Exception as err:  # pylint: disable=broad-except
