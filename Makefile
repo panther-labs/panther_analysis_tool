@@ -32,7 +32,7 @@ unit:
 	pipenv run nosetests -v
 
 integration:
-	pipenv run panther_analysis_tool test --path tests/fixtures/valid_analysis/
+	pipenv run panther_analysis_tool test --path tests/fixtures/detections/valid_analysis
 
 test: unit
 

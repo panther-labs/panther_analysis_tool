@@ -54,6 +54,7 @@ from panther_analysis_tool.schemas import (DATA_MODEL_SCHEMA, GLOBAL_SCHEMA,
                                            RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA,
                                            TYPE_SCHEMA)
 from panther_analysis_tool.test_case import DataModel, TestCase
+from panther_analysis_tool.log_schemas import user_defined
 
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
@@ -410,6 +411,39 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         return 1, ""
     logging.info("Managed schemas updated successfully")
     return 0, ""
+
+
+def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """
+    Updates or creates custom schemas.
+
+    Returns 1 if any file failed to be updated.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and a placeholder string.
+    """
+    if args.aws_profile is not None:
+        logging.info("Using AWS profile: %s", args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
+
+    normalized_path = user_defined.normalize_path(args.path)
+    if not normalized_path:
+        return 1, f"path not found: {args.path}"
+
+    uploader = user_defined.Uploader(normalized_path)
+    results = uploader.process()
+    has_errors = False
+    for failed, summary in user_defined.report_summary(normalized_path, results):
+        if failed:
+            has_errors = True
+            logging.error(summary)
+        else:
+            logging.info(summary)
+
+    return int(has_errors), ""
 
 
 def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
@@ -1261,11 +1295,11 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
-    update_schemas_parser = subparsers.add_parser(
+    update_managed_schemas_parser = subparsers.add_parser(
         "update-schemas", help="Update managed schemas on a Panther deployment."
     )
-    update_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    update_schemas_parser.set_defaults(func=update_schemas)
+    update_managed_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    update_managed_schemas_parser.set_defaults(func=update_schemas)
 
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."
@@ -1285,6 +1319,16 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     zip_schemas_parser.add_argument(out_name, **out_arg)
     zip_schemas_parser.set_defaults(func=zip_managed_schemas)
+
+    update_custom_schemas_parser = subparsers.add_parser(
+        "update-custom-schemas",
+        help="Update or create custom schemas on a Panther deployment."
+    )
+    update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    custom_schemas_path_arg = path_arg.copy()
+    custom_schemas_path_arg['help'] = "The relative or absolute path to Panther custom schemas."
+    update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
+    update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
 
     return parser
 
@@ -1411,6 +1455,7 @@ def run() -> None:
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
+        logging.debug('Full error traceback:', exc_info=err)
         sys.exit(1)
 
     if return_code == 1:
