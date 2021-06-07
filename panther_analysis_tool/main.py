@@ -1462,7 +1462,7 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 # Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> (Dict[str, Any], Dict[str, Any]):
+def parse_filter(filters: List[str]) -> [Dict[str, Any], Dict[str, Any]]:
     parsed_filters = {}
     parsed_filters_inverted = {}
     for filt in filters:
