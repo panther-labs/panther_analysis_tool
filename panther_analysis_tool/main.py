@@ -279,7 +279,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
                 analysis.append((file_name, f_path, spec))
                 files.add(file_name)
                 files.add("./" + file_name)
-        analysis = filter_analysis(analysis, args.filter)
+        analysis = filter_analysis(analysis, args.filter, args.filter_inverted)
         for analysis_spec_filename, dir_name, analysis_spec in analysis:
             zip_out.write(analysis_spec_filename)
             # datamodels may not have python body
@@ -669,11 +669,13 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         return 1, ["Nothing to test in {}".format(args.path)]
 
     # Apply the filters as needed
+    if getattr(args, "filter_inverted", None) is None:
+        args.filter_inverted = {}
     for key in specs:
-        specs[key] = filter_analysis(specs[key], args.filter)
+        specs[key] = filter_analysis(specs[key], args.filter, args.filter_inverted)
 
     if all((len(specs[key]) == 0 for key in specs)):
-        return 1, ["No analysis in {} matched filters {}".format(args.path, args.filter)]
+        return 1, ["No analysis in {} matched filters {} - {}".format(args.path, args.filter, args.filter_inverted)]
 
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
@@ -829,7 +831,7 @@ def print_summary(
             print(err_message.format(spec_filename, spec_error))
 
 
-def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
+def filter_analysis(analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]) -> List[Any]:
     if filters is None:
         return analysis
 
@@ -848,6 +850,12 @@ def filter_analysis(analysis: List[Any], filters: Dict[str, List]) -> List[Any]:
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
             if not set(spec_value).intersection(values):
+                match = False
+                break
+        for key, values in filters_inverted.items():
+            spec_value = analysis_spec.get(key, "")
+            spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+            if set(spec_value).intersection(values):
                 match = False
                 break
 
@@ -1432,13 +1440,18 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 # Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> Dict[str, Any]:
+def parse_filter(filters: List[str]) -> (Dict[str, Any], Dict[str, Any]):
     parsed_filters = {}
+    parsed_filters_inverted = {}
     for filt in filters:
         split = filt.split("=")
         if len(split) != 2 or split[0] == "" or split[1] == "":
             logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
             continue
+        # Check for "!="
+        invert_filter = split[0].endswith("!")
+        if invert_filter:
+            split[0] = split[0][:-1]  # Remove the trailing "!"
         key = split[0]
         if not any(
             (
@@ -1453,8 +1466,11 @@ def parse_filter(filters: List[str]) -> Dict[str, Any]:
         ):
             logging.warning("Filter key %s is not a valid filter field, skipping", key)
             continue
-        parsed_filters[key] = split[1].split(",")
-    return parsed_filters
+        if invert_filter:
+            parsed_filters_inverted[key] = split[1].split(",")
+        else:
+            parsed_filters[key] = split[1].split(",")
+    return parsed_filters, parsed_filters_inverted
 
 
 def set_env(key: str, value: str) -> None:
@@ -1472,7 +1488,7 @@ def run() -> None:
     )
 
     if getattr(args, "filter", None) is not None:
-        args.filter = parse_filter(args.filter)
+        args.filter, args.filter_inverted = parse_filter(args.filter)
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
