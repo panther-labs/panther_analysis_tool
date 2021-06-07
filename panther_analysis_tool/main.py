@@ -836,7 +836,9 @@ def print_summary(
             print(err_message.format(spec_filename, spec_error))
 
 
-def filter_analysis(analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]) -> List[Any]:
+def filter_analysis(
+        analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
+) -> List[Any]:
     if filters is None:
         return analysis
 
