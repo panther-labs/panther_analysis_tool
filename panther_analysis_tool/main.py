@@ -675,7 +675,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         specs[key] = filter_analysis(specs[key], args.filter, args.filter_inverted)
 
     if all((len(specs[key]) == 0 for key in specs)):
-        return 1, ["No analysis in {} matched filters {} - {}".format(args.path, args.filter, args.filter_inverted)]
+        return 1, [
+            f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
+        ]
 
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
