@@ -1513,6 +1513,8 @@ def run() -> None:
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
+    if getattr(args, "filter_inverted", None) is None:
+        args.filter_inverted = {}
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):

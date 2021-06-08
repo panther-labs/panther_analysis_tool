@@ -96,6 +96,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
@@ -104,24 +105,28 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_rules_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_queries_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
     def test_scheduled_rules_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -137,6 +142,7 @@ class TestPantherAnalysisTool(TestCase):
             try:
                 os.chdir(valid_rule_path)
                 args = pat.setup_parser().parse_args('test'.split())
+                args.filter_inverted = {}
                 return_code, invalid_specs = pat.test_analysis(args)
             finally:
                 os.chdir(original_path)
@@ -150,6 +156,7 @@ class TestPantherAnalysisTool(TestCase):
             original_path = os.getcwd()
             os.chdir(valid_rule_path)
             args = pat.setup_parser().parse_args('test --path ./'.split())
+            args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
             os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
@@ -276,6 +283,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args(
             f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -283,6 +291,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_with_minimum_tests_failing(self):
         args = pat.setup_parser().parse_args(
             f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 2'.split())
+        args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
         assert_equal(return_code, 1)
