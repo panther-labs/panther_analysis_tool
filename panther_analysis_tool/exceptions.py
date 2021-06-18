@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from typing import TypeVar
 
-AnyExceptionType = TypeVar('AnyExceptionType', bound='Exception')
+AnyExceptionType = TypeVar("AnyExceptionType", bound="Exception")
 
 
 class PantherError(Exception):

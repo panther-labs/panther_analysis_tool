@@ -38,9 +38,9 @@ LOG_TYPE_REGEX = Regex(
     r"\.NetworkConnect|Crowdstrike\.NetworkListen|Crowdstrike\.NotManagedAssets|Crowdstrike"
     r"\.ProcessRollup2|Crowdstrike\.UserIdentity|Crowdstrike\.UserInfo|Duo\.Administrator|Duo"
     r"\.Authentication|Duo\.OfflineEnrollment|Duo\.Telephony|Fastly\.Access|Fluentd\.Syslog3164"
-    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitHub\.Audit|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions|GitLab\.Git"
-    r"|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\.Reports"
-    r"|Juniper\.Access|Juniper\.Audit|Juniper\.Firewall|Juniper\.MWS|Juniper\.Postgres|Juniper"
+    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitHub\.Audit|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions"
+    r"|GitLab\.Git|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\.Rep"
+    r"orts|Juniper\.Access|Juniper\.Audit|Juniper\.Firewall|Juniper\.MWS|Juniper\.Postgres|Juniper"
     r"\.Security|Lacework\.Events|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit"
     r"\.Exchange|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP"
     r"\.All|Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential"
@@ -127,9 +127,7 @@ POLICY_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Resource": object,
-                Optional(
-                    "Mocks"
-                ): object,
+                Optional("Mocks"): object,
             }
         ],
     },
@@ -163,9 +161,7 @@ RULE_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Log": object,
-                Optional(
-                    "Mocks"
-                ): object,
+                Optional("Mocks"): object,
             }
         ],
     },
