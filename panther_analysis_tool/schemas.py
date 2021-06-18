@@ -38,7 +38,7 @@ LOG_TYPE_REGEX = Regex(
     r"\.NetworkConnect|Crowdstrike\.NetworkListen|Crowdstrike\.NotManagedAssets|Crowdstrike"
     r"\.ProcessRollup2|Crowdstrike\.UserIdentity|Crowdstrike\.UserInfo|Duo\.Administrator|Duo"
     r"\.Authentication|Duo\.OfflineEnrollment|Duo\.Telephony|Fastly\.Access|Fluentd\.Syslog3164"
-    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions|GitLab\.Git"
+    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitHub\.Audit|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions|GitLab\.Git"
     r"|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\.Reports"
     r"|Juniper\.Access|Juniper\.Audit|Juniper\.Firewall|Juniper\.MWS|Juniper\.Postgres|Juniper"
     r"\.Security|Lacework\.Events|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit"
@@ -47,7 +47,7 @@ LOG_TYPE_REGEX = Regex(
     r"|Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|Salesforce\.Login|Salesforce\.LoginAs"
     r"|Salesforce\.Logout|Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack"
     r"\.IntegrationLogs|Sophos\.Central|Suricata\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog"
-    r"\.RFC5424|Zeek\.DNS|Custom\.[A-Za-z0-9-]+)$"
+    r"\.RFC5424|Zeek\.DNS|Zendesk\.AuditLog|Custom\.[A-Za-z0-9-]+)$"
 )
 
 TYPE_SCHEMA = Schema(
