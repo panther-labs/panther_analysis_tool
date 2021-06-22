@@ -17,27 +17,26 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from dataclasses import dataclass
 import fnmatch
 import json
 import logging
 import os
-from typing import List, Dict, Tuple, Optional, Any, cast
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import boto3
 from botocore import client
 from ruamel.yaml import YAML
-from ruamel.yaml.scanner import ScannerError
 from ruamel.yaml.parser import ParserError
-
+from ruamel.yaml.scanner import ScannerError
 
 logger = logging.getLogger(__file__)
 
 
 class Client:
-    _LAMBDA_NAME = 'panther-logtypes-api'
-    _LIST_SCHEMAS_ENDPOINT = 'ListSchemas'
-    _PUT_SCHEMA_ENDPOINT = 'PutUserSchema'
+    _LAMBDA_NAME = "panther-logtypes-api"
+    _LIST_SCHEMAS_ENDPOINT = "ListSchemas"
+    _PUT_SCHEMA_ENDPOINT = "PutUserSchema"
 
     def __init__(self) -> None:
         self._lambda_client = None
@@ -58,15 +57,18 @@ class Client:
         """
         return self._invoke(
             self._create_lambda_request(
-                endpoint=self._LIST_SCHEMAS_ENDPOINT,
-                payload={
-                    'isManaged': False
-                }
+                endpoint=self._LIST_SCHEMAS_ENDPOINT, payload={"isManaged": False}
             )
         )
 
-    def put_schema(self, name: str, definition: str, revision: int,  # pylint: disable=too-many-arguments
-                   description: str, reference_url: str) -> Tuple[bool, dict]:
+    def put_schema(  # pylint: disable=too-many-arguments
+        self,
+        name: str,
+        definition: str,
+        revision: int,
+        description: str,
+        reference_url: str,
+    ) -> Tuple[bool, dict]:
         """
         Update a custom schema.
 
@@ -91,7 +93,7 @@ class Client:
                     description=description,
                     spec=definition,
                     revision=revision,
-                )
+                ),
             )
         )
 
@@ -107,7 +109,7 @@ class Client:
         return dict(
             FunctionName=self._LAMBDA_NAME,
             InvocationType="RequestResponse",
-            Payload=json.dumps({endpoint: payload})
+            Payload=json.dumps({endpoint: payload}),
         )
 
 
@@ -132,14 +134,14 @@ class ProcessedFile:
     # Any error message produced during YAML parsing
     error: Optional[str] = None
     # The raw file contents
-    raw: str = ''
+    raw: str = ""
     # The deserialized schema
     yaml: Optional[Dict[str, Any]] = None
 
 
 class Uploader:
-    _SCHEMA_NAME_PREFIX = 'Custom.'
-    _SCHEMA_FILE_GLOB_PATTERNS = ('*.yml', '*.yaml')
+    _SCHEMA_NAME_PREFIX = "Custom."
+    _SCHEMA_FILE_GLOB_PATTERNS = ("*.yml", "*.yaml")
 
     def __init__(self, path: str):
         self._path = path
@@ -176,8 +178,8 @@ class Uploader:
         if self._existing_schemas is None:
             success, response = self.api_client.list_schemas()
             if not success:
-                raise RuntimeError('unable to retrieve custom schemas')
-            self._existing_schemas = response['results']
+                raise RuntimeError("unable to retrieve custom schemas")
+            self._existing_schemas = response["results"]
         return self._existing_schemas
 
     def find_schema(self, name: str) -> Optional[Dict[str, Any]]:
@@ -188,7 +190,7 @@ class Uploader:
              The decoded YAML schema or None if no matching name is found.
         """
         for schema in self.existing_schemas:
-            if schema['name'] == name:
+            if schema["name"] == name:
                 return schema
         return None
 
@@ -239,10 +241,12 @@ class Uploader:
                 existed, success, response = self._update_or_create_schema(name, processed_file)
                 result.existed = existed
                 if not success:
-                    api_error = response.get('error')
+                    api_error = response.get("error")
                     if api_error is not None:
-                        result.error = f'failure to update schema {name}: ' \
-                                       f'code={api_error["code"]}, message={api_error["message"]}'
+                        result.error = (
+                            f"failure to update schema {name}: "
+                            f'code={api_error["code"]}, message={api_error["message"]}'
+                        )
                 result.api_response = response
             results.append(result)
         return results
@@ -253,7 +257,7 @@ class Uploader:
 
         processed_files = {}
         for filename in files:
-            logger.info('Loading schema from file %s', filename)
+            logger.info("Loading schema from file %s", filename)
             processed_file = ProcessedFile()
             processed_files[filename] = processed_file
             try:
@@ -265,49 +269,49 @@ class Uploader:
         return processed_files
 
     def _extract_schema_name(
-            self,
-            definition: Optional[Dict[str, Any]]
+        self, definition: Optional[Dict[str, Any]]
     ) -> Tuple[str, Optional[str]]:
         if definition is None:
-            raise ValueError('definition cannot be None')
+            raise ValueError("definition cannot be None")
 
-        name = definition.get('schema')
+        name = definition.get("schema")
 
         if name is None:
             return "", "key 'schema' not found"
 
         if not name.startswith(self._SCHEMA_NAME_PREFIX):
-            return "", f"'schema' field: value must start" \
-                       f" with the prefix '{self._SCHEMA_NAME_PREFIX}'"
+            return (
+                "",
+                f"'schema' field: value must start"
+                f" with the prefix '{self._SCHEMA_NAME_PREFIX}'",
+            )
 
         return name, None
 
     def _update_or_create_schema(
-            self,
-            name: str,
-            processed_file: ProcessedFile
+        self, name: str, processed_file: ProcessedFile
     ) -> Tuple[bool, bool, Dict[str, Any]]:
         existing_schema = self.find_schema(name)
-        current_reference_url = ''
-        current_description = ''
+        current_reference_url = ""
+        current_description = ""
         current_revision = 0
         definition = cast(Dict[str, Any], processed_file.yaml)
         existed = False
         if existing_schema is not None:
             existing_schema = cast(Dict[str, Any], existing_schema)
             existed = True
-            current_reference_url = existing_schema.get('referenceURL', '')
-            current_description = existing_schema.get('description', '')
-            current_revision = existing_schema['revision']
-        reference_url = definition.get('referenceURL', current_reference_url)
-        description = definition.get('description', current_description)
-        logger.debug('updating schema %s at revision %d, using '
-                     'referenceURL=%s, '
-                     'description=%s',
-                     name,
-                     current_revision,
-                     reference_url,
-                     description)
+            current_reference_url = existing_schema.get("referenceURL", "")
+            current_description = existing_schema.get("description", "")
+            current_revision = existing_schema["revision"]
+        reference_url = definition.get("referenceURL", current_reference_url)
+        description = definition.get("description", current_description)
+        logger.debug(
+            "updating schema %s at revision %d, using " "referenceURL=%s, " "description=%s",
+            name,
+            current_revision,
+            reference_url,
+            description,
+        )
         success, response = self.api_client.put_schema(
             name=name,
             definition=processed_file.raw,
@@ -362,13 +366,23 @@ def report_summary(base_path: str, results: List[UploaderResult]) -> List[Tuple[
     for result in sorted(results, key=lambda r: r.filename):
         filename = result.filename.split(base_path)[-1].strip(os.path.sep)
         if result.error:
-            summary.append((True, f"Failed to update schema from definition"
-                                  f" in file '{filename}': {result.error}"))
+            summary.append(
+                (
+                    True,
+                    f"Failed to update schema from definition"
+                    f" in file '{filename}': {result.error}",
+                )
+            )
         else:
             if result.existed:
-                operation = 'updated'
+                operation = "updated"
             else:
-                operation = 'created'
-            summary.append((False, f"Successfully {operation} schema '{result.name}' "
-                                   f"from definition in file '{filename}'"))
+                operation = "created"
+            summary.append(
+                (
+                    False,
+                    f"Successfully {operation} schema '{result.name}' "
+                    f"from definition in file '{filename}'",
+                )
+            )
     return summary

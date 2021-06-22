@@ -17,8 +17,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os
 import logging
+import os
 import tempfile
 from typing import Any, Callable, Dict, List
 
@@ -27,14 +27,14 @@ from jsonpath_ng.ext import parse
 
 from .util import id_to_path, import_file_as_module, store_modules
 
-_DATAMODEL_FOLDER = os.path.join(tempfile.gettempdir(), 'datamodels')
+_DATAMODEL_FOLDER = os.path.join(tempfile.gettempdir(), "datamodels")
 
 E_NO_DATA_MODEL_FOUND = "a data model hasn't been specified for log type"
 
 # constants used to extract data from data model
-NAME = 'name'
-PATH = 'path'
-METHOD = 'method'
+NAME = "name"
+PATH = "path"
+METHOD = "method"
 
 
 # Temporary alias for compatibility
@@ -56,38 +56,37 @@ class DataModel:  # pylint: disable=too-few-public-methods
         """
         self.logger = get_logger()
         # data models contains logtype to schema definitions
-        if not isinstance(config.get('id'), str):
+        if not isinstance(config.get("id"), str):
             raise AssertionError('Field "id" of type str is required field')
-        self.data_model_id = config['id']
+        self.data_model_id = config["id"]
 
         # mappings are required
-        if not isinstance(config.get('mappings'), list):
+        if not isinstance(config.get("mappings"), list):
             raise AssertionError('Field "mappings" of type list')
         self.paths: Dict[str, Fields] = dict()  # setup paths mappings
         self.methods: Dict[str, Callable] = dict()  # setup method mappings
 
         # body is optional in a data model
-        self.body = ''
+        self.body = ""
         self._module = None
-        if 'body' in config:
-            if not isinstance(config.get('body'), str):
+        if "body" in config:
+            if not isinstance(config.get("body"), str):
                 raise AssertionError('Field "body" of type str')
-            self.body = config['body']
+            self.body = config["body"]
             self._store_data_models()
             self._module = self._import_data_model_as_module()
 
-        if not isinstance(config.get('versionId'), str):
+        if not isinstance(config.get("versionId"), str):
             raise AssertionError('Field "versionId" of type str is required field')
-        self.version = config['versionId']
-        self._extract_mappings(config['mappings'])
+        self.version = config["versionId"]
+        self._extract_mappings(config["mappings"])
 
     def _extract_mappings(self, source_mappings: List[Dict[str, str]]) -> None:
         for mapping in source_mappings:
             if NAME not in mapping:
                 raise AssertionError(
-                    'DataModel [{}] is missing required field: [{}]'.format(
-                        self.data_model_id,
-                        NAME
+                    "DataModel [{}] is missing required field: [{}]".format(
+                        self.data_model_id, NAME
                     )
                 )
             if mapping.get(PATH):
@@ -97,14 +96,13 @@ class DataModel:  # pylint: disable=too-few-public-methods
                 # we are dealing with a method
                 if not self._module or not hasattr(self._module, mapping[METHOD]):
                     raise AssertionError(
-                        'DataModel is missing method named [{}]'.format(mapping[METHOD])
+                        "DataModel is missing method named [{}]".format(mapping[METHOD])
                     )
                 self.methods[mapping[NAME]] = getattr(self._module, mapping[METHOD])
             else:
                 raise AssertionError(
-                    'DataModel [{}] is missing a field or method for [{}]'.format(
-                        self.data_model_id,
-                        mapping[NAME]
+                    "DataModel [{}] is missing a field or method for [{}]".format(
+                        self.data_model_id, mapping[NAME]
                     )
                 )
 
@@ -115,11 +113,11 @@ class DataModel:  # pylint: disable=too-few-public-methods
         """
         path = id_to_path(_DATAMODEL_FOLDER, self.data_model_id)
         mod = import_file_as_module(path, self.data_model_id)
-        self.logger.debug('imported module %s from path %s', self.data_model_id, path)
+        self.logger.debug("imported module %s from path %s", self.data_model_id, path)
         return mod
 
     def _store_data_models(self) -> None:
         """Stores data models to disk."""
         path = id_to_path(_DATAMODEL_FOLDER, self.data_model_id)
-        self.logger.debug('storing data model in path %s', path)
+        self.logger.debug("storing data model in path %s", path)
         store_modules(path, self.body)

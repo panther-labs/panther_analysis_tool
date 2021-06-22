@@ -45,19 +45,28 @@ import semver
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
-from schema import (Optional, Schema, SchemaError, SchemaForbiddenKeyError,
-                    SchemaMissingKeyError, SchemaUnexpectedTypeError,
-                    SchemaWrongKeyError)
-
-from panther_analysis_tool.schemas import (DATA_MODEL_SCHEMA, GLOBAL_SCHEMA,
-                                           PACK_SCHEMA, POLICY_SCHEMA,
-                                           RULE_SCHEMA, SCHEDULED_QUERY_SCHEMA,
-                                           TYPE_SCHEMA)
-
+from schema import (
+    Optional,
+    Schema,
+    SchemaError,
+    SchemaForbiddenKeyError,
+    SchemaMissingKeyError,
+    SchemaUnexpectedTypeError,
+    SchemaWrongKeyError,
+)
 
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.schemas import (
+    DATA_MODEL_SCHEMA,
+    GLOBAL_SCHEMA,
+    PACK_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
+    SCHEDULED_QUERY_SCHEMA,
+    TYPE_SCHEMA,
+)
 
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
@@ -79,12 +88,16 @@ SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
 
 RESERVED_FUNCTIONS = [
-    "dedup", "title", "description", "reference", "severity", "runbook", "destinations"
+    "dedup",
+    "title",
+    "description",
+    "reference",
+    "severity",
+    "runbook",
+    "destinations",
 ]
 
-VALID_SEVERITIES = [
-    "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"
-]
+VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
@@ -116,8 +129,11 @@ class AnalysisIDConflictException(Exception):
 # exception for conflicting ids
 class AnalysisContainsDuplicatesException(Exception):
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = "Specification file for [{}] contains fields with duplicate values: [{}]" \
-            .format(analysis_id, ', '.join(x for x in invalid_fields))
+        self.message = (
+            "Specification file for [{}] contains fields with duplicate values: [{}]".format(
+                analysis_id, ", ".join(x for x in invalid_fields)
+            )
+        )
         super().__init__(self.message)
 
 
@@ -161,8 +177,11 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
             # Skip hidden folders
-            if relative_path.split('/')[-1].startswith(".") and \
-                relative_path != "./" and relative_path != ".":
+            if (
+                relative_path.split("/")[-1].startswith(".")
+                and relative_path != "./"
+                and relative_path != "."
+            ):
                 continue
             # setup yaml object
             yaml = YAML(typ="safe")
@@ -652,16 +671,18 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     search_directories = [args.path]
 
     # Try the parent directory as well
-    for directory in (HELPERS_LOCATION, '.' + HELPERS_LOCATION,
-                DATA_MODEL_LOCATION, '.' + DATA_MODEL_LOCATION):
+    for directory in (
+        HELPERS_LOCATION,
+        "." + HELPERS_LOCATION,
+        DATA_MODEL_LOCATION,
+        "." + DATA_MODEL_LOCATION,
+    ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         if os.path.exists(absolute_dir_path):
             search_directories.append(absolute_dir_path)
 
     # First classify each file, always include globals and data models location
-    specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories))
-    )
+    specs, invalid_specs = classify_analysis(list(load_analysis_specs(search_directories)))
 
     if all((len(specs[key]) == 0 for key in specs)):
         if invalid_specs:
@@ -728,19 +749,20 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
                     invalid_specs.append((analysis_spec_filename, load_err))
                     continue
                 data_model_module_path = os.path.join(dir_name, analysis_spec["Filename"])
-                with open(data_model_module_path, 'r') as python_module_file:
+                with open(data_model_module_path, "r") as python_module_file:
                     body = python_module_file.read()
 
             # setup the mapping lookups
             params = {
-                'id': analysis_id,
-                'mappings': [_convert_keys_to_lowercase(mapping)
-                             for mapping in analysis_spec["Mappings"]],
-                'versionId': '',
+                "id": analysis_id,
+                "mappings": [
+                    _convert_keys_to_lowercase(mapping) for mapping in analysis_spec["Mappings"]
+                ],
+                "versionId": "",
             }
 
             if body is not None:
-                params['body'] = body
+                params["body"] = body
 
             data_model = DataModel(params)
             # check if the LogType already has an enabled data model
@@ -761,8 +783,10 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
 
 
 def setup_run_tests(
-    log_type_to_data_model: Dict[str, DataModel], analysis: List[Any], minimum_tests: int,
-        skip_disabled_tests: bool
+    log_type_to_data_model: Dict[str, DataModel],
+    analysis: List[Any],
+    minimum_tests: int,
+    skip_disabled_tests: bool,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -837,7 +861,7 @@ def print_summary(
 
 
 def filter_analysis(
-        analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
+    analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
 ) -> List[Any]:
     if filters is None:
         return analysis
@@ -945,8 +969,8 @@ def classify_analysis(
             # Intercept the error, otherwise the error message becomes confusing and unreadable
             error = err
             err_str = str(err)
-            first_half = err_str.split(':')[0]
-            second_half = err_str.split(')')[-1]
+            first_half = err_str.split(":")[0]
+            second_half = err_str.split(")")[-1]
             if "LogTypes" in str(err):
                 error = SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
             elif "ResourceTypes" in str(err):
@@ -1162,8 +1186,8 @@ def validate_outputs(function_name: str, function_output: Any) -> Tuple[bool, An
         if str(function_output).upper() not in VALID_SEVERITIES:
             is_valid = False
             output = AssertionError(
-                f'Expected [{function_name}] to be any of the following: '
-                f'{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead.'
+                f"Expected [{function_name}] to be any of the following: "
+                f"{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead."
             )
     elif function_name == "destinations":
         # Type checking for destinations
@@ -1177,8 +1201,8 @@ def validate_outputs(function_name: str, function_output: Any) -> Tuple[bool, An
                     list_types.add(type(each_item))
                 is_valid = False
                 output = AttributeError(
-                    f'Expected [{function_name}] to return a list of strings, '
-                    f'got types [{list_types}] instead'
+                    f"Expected [{function_name}] to return a list of strings, "
+                    f"got types [{list_types}] instead"
                 )
         else:
             is_valid = False
@@ -1194,8 +1218,8 @@ def validate_outputs(function_name: str, function_output: Any) -> Tuple[bool, An
             expected_type = "string"
 
         output = AttributeError(
-            f'Expected [{function_name}] to return a [{expected_type}], '
-            f'got [{type(function_output)}] instead'
+            f"Expected [{function_name}] to return a [{expected_type}], "
+            f"got [{type(function_output)}] instead"
         )
     return is_valid, output
 
@@ -1382,12 +1406,11 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_schemas_parser.set_defaults(func=zip_managed_schemas)
 
     update_custom_schemas_parser = subparsers.add_parser(
-        "update-custom-schemas",
-        help="Update or create custom schemas on a Panther deployment."
+        "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
     update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
     custom_schemas_path_arg = path_arg.copy()
-    custom_schemas_path_arg['help'] = "The relative or absolute path to Panther custom schemas."
+    custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
 
@@ -1526,7 +1549,7 @@ def run() -> None:
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
-        logging.debug('Full error traceback:', exc_info=err)
+        logging.debug("Full error traceback:", exc_info=err)
         sys.exit(1)
 
     if return_code == 1:
