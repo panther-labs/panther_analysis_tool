@@ -25,13 +25,13 @@ from typing import Any
 
 def allowed_char(char: str) -> bool:
     """Return true if the character is part of a valid ID."""
-    return char.isalnum() or char in {' ', '-', '.'}
+    return char.isalnum() or char in {" ", "-", "."}
 
 
 def id_to_path(directory: str, object_id: str) -> str:
     """Method returns the file path where the module will be stored"""
-    safe_id = ''.join(x if allowed_char(x) else '_' for x in object_id)
-    path = os.path.join(directory, safe_id + '.py')
+    safe_id = "".join(x if allowed_char(x) else "_" for x in object_id)
+    path = os.path.join(directory, safe_id + ".py")
     return path
 
 
@@ -51,5 +51,5 @@ def store_modules(path: str, body: str) -> None:
     """Stores modules to disk."""
     # Create dir if it doesn't exist
     Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
-    with open(path, 'w') as py_file:
+    with open(path, "w") as py_file:
         py_file.write(body)

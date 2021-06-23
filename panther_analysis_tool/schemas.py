@@ -38,16 +38,16 @@ LOG_TYPE_REGEX = Regex(
     r"\.NetworkConnect|Crowdstrike\.NetworkListen|Crowdstrike\.NotManagedAssets|Crowdstrike"
     r"\.ProcessRollup2|Crowdstrike\.UserIdentity|Crowdstrike\.UserInfo|Duo\.Administrator|Duo"
     r"\.Authentication|Duo\.OfflineEnrollment|Duo\.Telephony|Fastly\.Access|Fluentd\.Syslog3164"
-    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions|GitLab\.Git"
-    r"|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\.Reports"
-    r"|Juniper\.Access|Juniper\.Audit|Juniper\.Firewall|Juniper\.MWS|Juniper\.Postgres|Juniper"
-    r"\.Security|Lacework\.Events|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit"
-    r"\.Exchange|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP"
-    r"\.All|Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential"
-    r"|Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|Salesforce\.Login|Salesforce\.LoginAs"
-    r"|Salesforce\.Logout|Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack"
-    r"\.IntegrationLogs|Sophos\.Central|Suricata\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog"
-    r"\.RFC5424|Zeek\.DNS|Custom\.[A-Za-z0-9-]+)$"
+    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitHub\.Audit|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions"
+    r"|GitLab\.Git|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\."
+    r"ActivityEvent|GSuite\.Reports|Juniper\.Access|Juniper\.Audit|Juniper\.Firewall|Juniper\.MWS"
+    r"|Juniper\.Postgres|Juniper\.Security|Lacework\.Events|Microsoft365\.Audit\.AzureActive"
+    r"Directory|Microsoft365\.Audit\.Exchange|Microsoft365\.Audit\.General|Microsoft365\.Audit\."
+    r"SharePoint|Microsoft365\.DLP\.All|Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\."
+    r"Batch|Osquery\.Differential|Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|Salesforce\."
+    r"Login|Salesforce\.LoginAs|Salesforce\.Logout|Salesforce\.URI|Slack\.AccessLogs|Slack\."
+    r"AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata\.Anomaly|Suricata\.DNS|Syslog\."
+    r"RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.AuditLog|Custom\.[A-Za-z0-9-]+)$"
 )
 
 TYPE_SCHEMA = Schema(
@@ -127,9 +127,7 @@ POLICY_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Resource": object,
-                Optional(
-                    "Mocks"
-                ): object,
+                Optional("Mocks"): object,
             }
         ],
     },
@@ -163,9 +161,7 @@ RULE_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Log": object,
-                Optional(
-                    "Mocks"
-                ): object,
+                Optional("Mocks"): object,
             }
         ],
     },

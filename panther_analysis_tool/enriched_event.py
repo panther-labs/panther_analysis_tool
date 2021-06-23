@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from collections.abc import Mapping
 from typing import Any, Optional
 
-from .data_model import DataModel, E_NO_DATA_MODEL_FOUND
+from .data_model import E_NO_DATA_MODEL_FOUND, DataModel
 from .exceptions import PantherError
 from .immutable import ImmutableCaseInsensitiveDict, json_encoder
 
@@ -41,7 +41,7 @@ class PantherEvent(ImmutableCaseInsensitiveDict):  # pylint: disable=R0901
     def udm(self, key: str) -> Any:
         """Converts standard data model field to logtype field"""
         if not self.data_model:
-            raise PantherError(E_NO_DATA_MODEL_FOUND, self._container.get('p_log_type'))
+            raise PantherError(E_NO_DATA_MODEL_FOUND, self._container.get("p_log_type"))
         # access values via standardized fields
         if key in self.data_model.paths:
             # we are dealing with a jsonpath
@@ -52,9 +52,8 @@ class PantherEvent(ImmutableCaseInsensitiveDict):  # pylint: disable=R0901
                     return self._ensure_immutable(matches[0].value)
                 if len(matches) > 1:
                     raise Exception(
-                        'JSONPath [{}] in DataModel [{}], matched multiple fields.'.format(
-                            json_path,
-                            self.data_model.data_model_id
+                        "JSONPath [{}] in DataModel [{}], matched multiple fields.".format(
+                            json_path, self.data_model.data_model_id
                         )
                     )
         if key in self.data_model.methods:

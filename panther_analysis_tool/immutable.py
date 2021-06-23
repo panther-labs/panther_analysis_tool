@@ -20,8 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any, Dict, Iterator, Type, \
-    Collection, Union, no_type_check
+from typing import Any, Collection, Dict, Iterator, Type, Union, no_type_check
 
 
 class ImmutableContainerMixin(ABC):
@@ -67,7 +66,7 @@ class ImmutableContainerMixin(ABC):
         return value
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self._container})'
+        return f"{self.__class__.__name__}({self._container})"
 
     def __len__(self) -> int:
         return self._container.__len__()
@@ -177,8 +176,7 @@ class ImmutableList(ImmutableContainerMixin, Sequence):  # pylint: disable=R0901
 
         if isinstance(other, (tuple, list)):
             # Allow comparison with lists and tuples
-            return len(self._container) == len(other) and \
-                   self._container == tuple(other)
+            return len(self._container) == len(other) and self._container == tuple(other)
 
         return False
 
