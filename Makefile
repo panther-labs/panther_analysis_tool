@@ -33,6 +33,11 @@ unit:
 
 integration:
 	pipenv run panther_analysis_tool test --path tests/fixtures/detections/valid_analysis
+	rm -rf panther-analysis
+	git clone https://github.com/panther-labs/panther-analysis.git
+	cd panther-analysis && cat requirements.txt | grep -v 'panther-analysis-tool==' > requirements.ci.txt
+	cd panther-analysis && pip install -r requirements.ci.txt
+	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
 
 test: unit
 
