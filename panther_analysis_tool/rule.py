@@ -23,8 +23,11 @@ import os
 import re
 import tempfile
 import traceback
+from abc import abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
+from types import ModuleType
 from typing import Any, Callable, List, Optional
 
 from panther_analysis_tool.enriched_event import PantherEvent
@@ -171,6 +174,50 @@ class RuleResult:
         return bool(self.rule_exception or self.setup_exception)
 
 
+class BaseImporter:
+    """Base class for Python module importers"""
+
+    @staticmethod
+    def from_file(identifier: str, path: str) -> ModuleType:
+        """Import a file as a Python module"""
+        return import_file_as_module(path, identifier)
+
+    def from_string(self, identifier: str, body: str, tmp_dir: str) -> ModuleType:
+        """Write source code to a temporary file and import as Python module"""
+        path = id_to_path(tmp_dir, identifier)
+        store_modules(path, body)
+        return self.from_file(identifier, path)
+
+    @abstractmethod
+    def get_module(self, identifier: str, resource: str) -> ModuleType:
+        pass
+
+
+class FilesystemImporter(BaseImporter):
+    """Import a Python module from the filesystem"""
+
+    def get_module(  # pylint: disable=arguments-differ
+        self, identifier: str, path: str
+    ) -> ModuleType:
+        module_path = Path(path)
+        if not module_path.exists():
+            raise FileNotFoundError(path)
+        return super().from_file(identifier, module_path.absolute().as_posix())
+
+
+class RawStringImporter(BaseImporter):
+    """Import a Python module from raw source code"""
+
+    def __init__(self, tmp_dir: str):
+        super().__init__()
+        self._tmp_dir = tmp_dir
+
+    def get_module(  # pylint: disable=arguments-differ
+        self, identifier: str, body: str
+    ) -> ModuleType:
+        return super().from_string(identifier, body, self._tmp_dir)
+
+
 # pylint: disable=too-many-instance-attributes
 class Rule:
     """Panther rule metadata and imported module."""
@@ -184,16 +231,23 @@ class Rule:
                 analysisType: either RULE or SCHEDULED_RULE
                 id: Unique rule identifier
                 body: The rule body
-                (Optional) version: The version of the rule
+                versionId: The version of the rule
+                (Optional) path: The rule module path
                 (Optional) dedupPeriodMinutes: The period during which
-                    the events will be deduplicated
+                the events will be deduplicated
         """
         self.logger = get_logger()
 
         # Check for required string fields
-        for each_field in ["id", "body", "versionId"]:
+        for each_field in ["id", "versionId"]:
             if not (each_field in config) or not isinstance(config[each_field], str):
                 raise AssertionError('Field "%s" of type str is required field' % each_field)
+
+        if not (config.get("body") or config.get("path")):
+            raise ValueError('one of "body", "path" must be defined')
+
+        if config.get("body") and config.get("path"):
+            raise ValueError('only one of "body", "path" must be defined')
 
         if (
             not "analysisType" in config
@@ -201,8 +255,8 @@ class Rule:
             self.rule_type = TYPE_RULE
         else:
             self.rule_type = config["analysisType"]
+
         self.rule_id = config["id"]
-        self.rule_body = config["body"]
         self.rule_version = config["versionId"]
 
         # TODO: severity and other rule metadata is not passed through when we run rule tests.
@@ -234,11 +288,9 @@ class Rule:
                 values.sort()
             self.rule_reports = config["reports"]
 
-        self._store_rule()
-
         self._setup_exception = None
         try:
-            self._module = self._import_rule_as_module()
+            self._module = self._load_rule(self.rule_id, config)
             if not hasattr(self._module, "rule"):
                 raise AssertionError("rule needs to have a method named 'rule'")
         except Exception as err:  # pylint: disable=broad-except
@@ -246,6 +298,23 @@ class Rule:
             return
 
         self._default_dedup_string = "defaultDedupString:{}".format(self.rule_id)
+
+    @staticmethod
+    def _load_rule(identifier: str, config: Mapping) -> ModuleType:
+        """Load the rule code as Python module.
+        Code can be provided as raw string or a path in the local filesystem.
+        """
+        has_raw_code = bool(config.get("body"))
+
+        importer: Optional[BaseImporter] = None
+        if has_raw_code:
+            resource = config["body"]
+            importer = RawStringImporter(tmp_dir=_RULE_FOLDER)
+        else:
+            resource = config["path"]
+            importer = FilesystemImporter()
+
+        return importer.get_module(identifier, resource)
 
     @property
     def module(self) -> Any:
@@ -517,8 +586,8 @@ class Rule:
         if len(standardized_destinations) > MAX_DESTINATIONS_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                "maximum len of destinations [%d] for rule "
-                "with ID [%s] is [%d] fields. Truncating.",
+                "maximum len of destinations [%d] for rule with ID "
+                "[%s] is [%d] fields. Truncating.",
                 MAX_DESTINATIONS_SIZE,
                 self.rule_id,
                 len(standardized_destinations),
@@ -653,22 +722,6 @@ class Rule:
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return title
-
-    def _store_rule(self) -> None:
-        """Stores rule to disk."""
-        path = id_to_path(_RULE_FOLDER, self.rule_id)
-        self.logger.debug("storing rule in path %s", path)
-        store_modules(path, self.rule_body)
-
-    def _import_rule_as_module(self) -> Any:
-        """Dynamically import a Python module from a file.
-
-        See also: https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-        """
-        path = id_to_path(_RULE_FOLDER, self.rule_id)
-        mod = import_file_as_module(path, self.rule_id)
-        self.logger.debug("imported module %s from path %s", self.rule_id, path)
-        return mod
 
     def _run_command(self, function: Callable, event: PantherEvent, expected_type: Any) -> Any:
         result = function(event)

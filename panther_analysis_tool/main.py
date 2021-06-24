@@ -19,12 +19,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
+import functools
 import hashlib
 import importlib.util
 import json
 import logging
 import mimetypes
 import os
+import pathlib
 import re
 import subprocess  # nosec
 import sys
@@ -37,6 +39,7 @@ from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import boto3
 import botocore
@@ -56,8 +59,10 @@ from schema import (
 )
 
 from panther_analysis_tool.data_model import DataModel
+from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.rule import Rule, RuleResult
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -118,6 +123,13 @@ SET_FIELDS = [
     "Suppressions",
     "Tags",
 ]
+
+AVAILABLE_DESTINATION_NAMES = ("ExampleDestinationName",)
+
+OUTPUT_DISPLAY_NAMES = {
+    name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
+    for name in AVAILABLE_DESTINATION_NAMES
+}
 
 
 # exception for conflicting ids
@@ -787,6 +799,7 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
     return log_type_to_data_model, invalid_specs
 
 
+# pylint: disable=too-many-locals
 def setup_run_tests(
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[Any],
@@ -802,7 +815,8 @@ def setup_run_tests(
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
         print(analysis_id)
 
-        module, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
+        module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
+        module, load_err = load_module(module_code_path)
         # If the module could not be loaded, continue to the next
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
@@ -812,23 +826,18 @@ def setup_run_tests(
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
         elif analysis_type in [RULE, SCHEDULED_RULE]:
-            analysis_funcs["run"] = module.rule
-            if "alert_context" in dir(module):
-                analysis_funcs["alert_context"] = module.alert_context
-            if "dedup" in dir(module):
-                analysis_funcs["dedup"] = module.dedup
-            if "title" in dir(module):
-                analysis_funcs["title"] = module.title
-            if "description" in dir(module):
-                analysis_funcs["description"] = module.description
-            if "reference" in dir(module):
-                analysis_funcs["reference"] = module.reference
-            if "severity" in dir(module):
-                analysis_funcs["severity"] = module.severity
-            if "runbook" in dir(module):
-                analysis_funcs["runbook"] = module.runbook
-            if "destinations" in dir(module):
-                analysis_funcs["destinations"] = module.destinations
+            rule = Rule(
+                dict(
+                    id=analysis_id,
+                    analysisType=analysis_type,
+                    path=pathlib.Path(module_code_path),
+                    versionId="0000-0000-0000",
+                )
+            )
+            analysis_funcs["run"] = functools.partial(
+                rule.run, outputs={}, outputs_names=OUTPUT_DISPLAY_NAMES, batch_mode=False
+            )
+            analysis_funcs["module"] = rule.module
 
         failed_tests = run_tests(
             analysis_spec,
@@ -1083,6 +1092,8 @@ def _run_tests(
     analysis_data_models: Dict[str, DataModel],
     failed_tests: DefaultDict[str, list],
 ) -> DefaultDict[str, list]:
+    is_policy = analysis.get("PolicyID") is not None
+    analysis_id = analysis.get("PolicyID") or analysis["RuleID"]
     for unit_test in analysis["Tests"]:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
@@ -1095,7 +1106,7 @@ def _run_tests(
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            if analysis.get("PolicyID") is not None:
+            if is_policy:
                 # Policies use plain dict objects as input
                 test_case = entry
             else:
@@ -1122,24 +1133,28 @@ def _run_tests(
         # assume the test passes (default "PASS")
         # until failure condition is found (set to "FAIL")
         test_result: Dict[Any, str] = defaultdict(lambda: "PASS")
+
         # check expected result
-        if result != unit_test["ExpectedResult"]:
-            test_result["outcome"] = "FAIL"
-            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
+        if is_policy:
+            if result != unit_test["ExpectedResult"]:
+                test_result["outcome"] = "FAIL"
+                failed_tests[analysis_id].append(unit_test["Name"])
+        else:
+            rule_result: RuleResult = result
+            if rule_result.matched is not unit_test["ExpectedResult"]:
+                test_result["outcome"] = "FAIL"
+                failed_tests[analysis_id].append(unit_test["Name"])
 
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
 
         # validate reserved function return types and values
         # Only applies to rules which match an incoming event
-        if unit_test["ExpectedResult"]:
-            verify_result = _verify_test_run(test_case, mock_methods, analysis_funcs)
-            for function_name in verify_result:
-                if verify_result[function_name] != "PASS":
+        if unit_test["ExpectedResult"] and not is_policy:
+            for function_name in RESERVED_FUNCTIONS:
+                if getattr(rule_result, f"{function_name}_exception") is not None:
                     test_result[function_name] = test_result["outcome"] = "FAIL"
-                    failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
-                        f"{unit_test['Name']}:{function_name}"
-                    )
+                    failed_tests[analysis_id].append(f"{unit_test['Name']}:{function_name}")
     return failed_tests
 
 

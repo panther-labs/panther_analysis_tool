@@ -19,12 +19,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import dataclasses
 import json
+import inspect
+import os
+import pathlib
+import shutil
 from typing import Tuple, Optional, Any
 from unittest import TestCase
+import tempfile
+from types import ModuleType
 
+from panther_analysis_tool.rule import MAX_DEDUP_STRING_SIZE, MAX_GENERATED_FIELD_SIZE, \
+    Rule, RuleResult, TRUNCATED_STRING_SUFFIX, FilesystemImporter, RawStringImporter
 from panther_analysis_tool.enriched_event import PantherEvent
-
-from panther_analysis_tool.rule import MAX_DEDUP_STRING_SIZE, MAX_GENERATED_FIELD_SIZE, Rule, RuleResult, TRUNCATED_STRING_SUFFIX
 
 
 class TestRule(TestCase):  # pylint: disable=too-many-public-methods
@@ -65,6 +71,17 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             exception = True
 
         self.assertTrue(exception)
+
+    def test_create_rule_missing_body_and_path(self) -> None:
+        with self.assertRaises(ValueError):
+            Rule({'id': 'test_create_rule_missing_body', 'versionId': 'version'})
+
+    def test_create_rule_defined_body_and_path(self) -> None:
+        with self.assertRaises(ValueError):
+            Rule({'id': 'test_create_rule_missing_body',
+                  'versionId': 'version',
+                  'body': 'def rule(event): pass',
+                  'path': pathlib.Path()})
 
     def test_create_rule_missing_version(self) -> None:
         exception = False
@@ -127,7 +144,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule = Rule({'id': 'test_rule_matches', 'body': rule_body, 'dedupPeriodMinutes': 100, 'versionId': 'test', 'severity': 'INFO'})
 
         self.assertEqual('test_rule_matches', rule.rule_id)
-        self.assertEqual(rule_body, rule.rule_body)
+        self.assertEqual(rule_body, inspect.getsource(rule.module).strip())
         self.assertEqual('test', rule.rule_version)
         self.assertEqual(100, rule.rule_dedup_period_mins)
 
@@ -638,3 +655,62 @@ class TestRuleResult(TestCase):
         self.assertTrue(RuleResult(rule_id='failed.rule', rule_severity='INFO', rule_exception=TypeError()).rule_evaluation_failed)
         self.assertTrue(RuleResult(rule_id='failed.rule', rule_severity='INFO', setup_exception=TypeError()).rule_evaluation_failed)
         self.assertFalse(RuleResult(rule_id='failed.rule', rule_severity='INFO', title_exception=TypeError()).rule_evaluation_failed)
+
+
+class TestRawStringImporter(TestCase):
+    def setUp(self) -> None:
+        fixtures_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
+        self.detections_fixtures_path = os.path.join(fixtures_path, 'detections')
+        self.tmp_dir = tempfile.mkdtemp(prefix=self.__class__.__name__ + '_')
+
+    def tearDown(self) -> None:
+        if self.tmp_dir.startswith(tempfile.gettempdir()):
+            shutil.rmtree(self.tmp_dir)
+
+    def test_load_valid_module(self) -> None:
+        valid_module_path = os.path.join(self.detections_fixtures_path,
+                                         'valid_analysis/rules/example_rule_generated_functions.py')
+        with open(valid_module_path, 'r') as f:
+            code = f.read()
+
+        module = RawStringImporter(self.tmp_dir).get_module(
+            "TestRawStringImporter_identifier_test_load_valid_module",
+            code
+        )
+        self.assertIsInstance(module, ModuleType)
+        self.assertTrue(hasattr(module, 'rule'))
+        self.assertEqual(inspect.getsource(module), code)
+
+    def test_load_module_with_error(self) -> None:
+        invalid_module_path = os.path.join(self.detections_fixtures_path,
+                                           'example_unhandled_exception_on_import.py')
+        with open(invalid_module_path, 'r') as f:
+            code = f.read()
+
+        with self.assertRaisesRegex(ModuleNotFoundError, "No module named 'unknown_module'"):
+            _ = RawStringImporter(self.tmp_dir).get_module("identifier1", code)
+
+
+class TestFilesystemImporter(TestCase):
+    def setUp(self) -> None:
+        fixtures_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
+        self.detections_fixtures_path = os.path.join(fixtures_path, 'detections')
+
+    def test_load_valid_module(self) -> None:
+        valid_module_path = os.path.join(self.detections_fixtures_path,
+                                         'valid_analysis/rules/example_rule_generated_functions.py')
+        module = FilesystemImporter().get_module(
+            "TestFilesystemImporter_test_load_valid_module",
+            valid_module_path
+        )
+        self.assertIsInstance(module, ModuleType)
+        self.assertTrue(hasattr(module, 'rule'))
+        with open(valid_module_path, 'r') as f:
+            self.assertEqual(inspect.getsource(module), f.read())
+
+    def test_load_module_with_error(self) -> None:
+        invalid_module_path = os.path.join(self.detections_fixtures_path,
+                                           'example_unhandled_exception_on_import.py')
+        with self.assertRaisesRegex(ModuleNotFoundError, "No module named 'unknown_module'"):
+            _ = FilesystemImporter().get_module("identifier1", invalid_module_path)
+

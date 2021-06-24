@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from datetime import datetime
+import logging
 import os
 import shutil
 
@@ -34,6 +35,9 @@ FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
 
 print('Using fixtures path:', FIXTURES_PATH)
+
+if os.environ.get('PANTHER_ANALYSIS_TOOL_DEBUG'):
+    logging.getLogger().setLevel(logging.DEBUG)
 
 
 class TestPantherAnalysisTool(TestCase):
