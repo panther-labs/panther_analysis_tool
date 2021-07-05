@@ -88,6 +88,7 @@ SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
 
 RESERVED_FUNCTIONS = [
+    "alert_context",
     "dedup",
     "title",
     "description",
@@ -808,6 +809,8 @@ def setup_run_tests(
             analysis_funcs["run"] = module.policy
         elif analysis_type in [RULE, SCHEDULED_RULE]:
             analysis_funcs["run"] = module.rule
+            if "alert_context" in dir(module):
+                analysis_funcs["alert_context"] = module.alert_context
             if "dedup" in dir(module):
                 analysis_funcs["dedup"] = module.dedup
             if "title" in dir(module):
@@ -1189,6 +1192,8 @@ def validate_outputs(function_name: str, function_output: Any) -> Tuple[bool, An
                 f"Expected [{function_name}] to be any of the following: "
                 f"{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead."
             )
+    elif function_name == "alert_context":
+        is_valid = isinstance(function_output, dict)
     elif function_name == "destinations":
         # Type checking for destinations
         if isinstance(function_output, list):

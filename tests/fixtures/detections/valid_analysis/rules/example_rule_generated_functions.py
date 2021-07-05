@@ -8,6 +8,8 @@ def rule(event):
 def title(event):
     return 'THIS IS AN EXAMPLE TITLE'
 
+def alert_context(event):
+    return {'ip': '1.1.1.1'}
 
 def description(event):
     return 'THIS IS AN EXAMPLE DESCRIPTION.'

@@ -230,6 +230,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_validate_outputs(self):
         example_valid_outputs = [
+            ("alert_context", {"hello": "goodbye"}),
             ("dedup", "example title"),
             ("title", "example title"),
             ("description", "example description"),
@@ -240,6 +241,7 @@ class TestPantherAnalysisTool(TestCase):
             ("destinations", []),
         ]
         example_invalid_outputs = [
+            ("alert_context", ["hello", "goodbye"]),
             ("dedup", None),
             ("title", None),
             ("description", None),
