@@ -36,9 +36,6 @@ DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
 
 print('Using fixtures path:', FIXTURES_PATH)
 
-if os.environ.get('PANTHER_ANALYSIS_TOOL_DEBUG'):
-    logging.getLogger().setLevel(logging.DEBUG)
-
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):

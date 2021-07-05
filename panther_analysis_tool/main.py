@@ -124,8 +124,12 @@ SET_FIELDS = [
     "Tags",
 ]
 
+# Available destination names for use by rules in tests
 AVAILABLE_DESTINATION_NAMES = ("ExampleDestinationName",)
 
+# The rule executor needs to map any destination names returned by the `destination` function
+# to actual destination objects. We are using a fake Destination dataclass, since we
+# just need the name and identifier fields.
 OUTPUT_DISPLAY_NAMES = {
     name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
     for name in AVAILABLE_DESTINATION_NAMES
