@@ -679,7 +679,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
-        
+
         if os.path.exists(absolute_dir_path):
             search_directories.append(absolute_dir_path)
         if os.path.exists(absolute_helper_path):
