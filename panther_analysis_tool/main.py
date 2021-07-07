@@ -731,8 +731,11 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
-        log_type_to_data_model, specs[DETECTION], args.minimum_tests, args.skip_disabled_tests,
-        destinations_by_name=destinations_by_name
+        log_type_to_data_model,
+        specs[DETECTION],
+        args.minimum_tests,
+        args.skip_disabled_tests,
+        destinations_by_name=destinations_by_name,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -808,7 +811,7 @@ def setup_run_tests(
     analysis: List[Any],
     minimum_tests: int,
     skip_disabled_tests: bool,
-    destinations_by_name: Dict[str, FakeDestination]
+    destinations_by_name: Dict[str, FakeDestination],
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -849,7 +852,7 @@ def setup_run_tests(
             log_type_to_data_model,
             failed_tests,
             minimum_tests,
-            bool(destinations_by_name)
+            bool(destinations_by_name),
         )
         print("")
     return failed_tests, invalid_specs
@@ -1057,7 +1060,7 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
         return exc
 
 
-def run_tests(
+def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
     analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
@@ -1079,11 +1082,9 @@ def run_tests(
         print("\tNo tests configured for {}".format(analysis_id))
         return failed_tests
 
-    failed_tests = _run_tests(analysis,
-                              analysis_funcs,
-                              analysis_data_models,
-                              failed_tests,
-                              destination_names_strict_check)
+    failed_tests = _run_tests(
+        analysis, analysis_funcs, analysis_data_models, failed_tests, destination_names_strict_check
+    )
 
     if minimum_tests > 1 and not (
         [x for x in analysis["Tests"] if x["ExpectedResult"]]
@@ -1101,7 +1102,7 @@ def _run_tests(
     analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
     failed_tests: DefaultDict[str, list],
-    destination_names_strict_check: bool
+    destination_names_strict_check: bool,
 ) -> DefaultDict[str, list]:
     is_policy = analysis.get("PolicyID") is not None
     analysis_id = analysis.get("PolicyID") or analysis["RuleID"]
@@ -1160,19 +1161,10 @@ def _run_tests(
             # Only applies to rules which match an incoming event
             if unit_test["ExpectedResult"]:
                 for function_name in RESERVED_FUNCTIONS:
-                    function_error = getattr(rule_result, f"{function_name}_exception")
-                    # For backwards compatibility we can accept invalid destination names,
-                    # as long as a string is returned
-                    if function_name == "destinations" and function_error is not None:
-                        # Strict check is enabled when users pass destination names
-                        # through command-line parameters
-                        if not destination_names_strict_check:
-                            if isinstance(function_error, ValueError):
-                                message = function_error.args[0]
-                                if re.match(r"Invalid Destinations: \['.+'\]", message):
-                                    function_error = None
-
-                    if function_error is not None:
+                    strict_check = (
+                        function_name == "destinations" and destination_names_strict_check
+                    )
+                    if _check_auxiliary_function_error(function_name, rule_result, strict_check):
                         test_result[function_name] = test_result["outcome"] = "FAIL"
                         failed_tests[analysis_id].append(f"{unit_test['Name']}:{function_name}")
 
@@ -1180,6 +1172,30 @@ def _run_tests(
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
 
     return failed_tests
+
+
+def _check_auxiliary_function_error(
+    function_name: str, rule_result: RuleResult, strict_check: bool
+) -> bool:
+    """Determine whether an auxiliary function for a rule raised an error"""
+    function_error = getattr(rule_result, f"{function_name}_exception")
+    # For backwards compatibility we can accept invalid destination names,
+    # as long as a string is returned
+    if function_name == "destinations" and function_error is not None:
+        # Strict check is enabled when users pass destination names
+        # through command-line parameters
+        if strict_check:
+            return True
+
+        # Otherwise we fall back to a best-effort check of the exception message
+        # that includes the returned destinations
+        if isinstance(function_error, ValueError):
+            message = function_error.args[0]
+            return not bool(re.match(r"Invalid Destinations: \['.+'\]", message))
+
+        return True
+
+    return bool(function_error)
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -1243,14 +1259,14 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": strtobool,
         "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
     }
-    available_destination_name = '--available-destination'
+    available_destination_name = "--available-destination"
     available_destination_arg: Dict[str, Any] = {
         "required": False,
         "default": None,
         "type": str,
         "action": "append",
         "help": "A destination name that may be returned by the destination() function. "
-                "Repeat the argument to define more than one name.",
+        "Repeat the argument to define more than one name.",
     }
 
     parser = argparse.ArgumentParser(
