@@ -678,8 +678,12 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         "." + DATA_MODEL_LOCATION,
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
+        absolute_helper_path = os.path.abspath(directory)
+
         if os.path.exists(absolute_dir_path):
             search_directories.append(absolute_dir_path)
+        if os.path.exists(absolute_helper_path):
+            search_directories.append(absolute_helper_path)
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(list(load_analysis_specs(search_directories)))
