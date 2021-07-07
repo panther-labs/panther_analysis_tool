@@ -18,18 +18,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from datetime import datetime
-import logging
 import os
 import shutil
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 
 from schema import SchemaWrongKeyError
-from nose.tools import assert_equal, assert_is_instance, assert_true, assert_false
+from nose.tools import assert_equal, assert_is_instance, assert_true
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
-from panther_analysis_tool.main import validate_outputs
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
@@ -229,42 +227,6 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 7)
 
-    def test_validate_outputs(self):
-        example_valid_outputs = [
-            ("alert_context", {"hello": "goodbye"}),
-            ("dedup", "example title"),
-            ("title", "example title"),
-            ("description", "example description"),
-            ("reference", "example reference"),
-            ("severity", "CRITICAL"),
-            ("runbook", "example runbook"),
-            ("destinations", ["example destination"]),
-            ("destinations", []),
-        ]
-        example_invalid_outputs = [
-            ("alert_context", ["hello", "goodbye"]),
-            ("dedup", None),
-            ("title", None),
-            ("description", None),
-            ("reference", None),
-            ("severity", "CRITICAL-ISH"),
-            ("severity", None),
-            ("runbook", None),
-            ("destinations", ""),
-            ("destinations", ["", None]),
-        ]
-        invalid = False
-        for valid_invalid_outputs in [example_valid_outputs, example_invalid_outputs]:
-            for each_example in valid_invalid_outputs:
-                result = validate_outputs(each_example[0], each_example[1])
-                if invalid:
-                    assert_false(result[0])
-                    assert_false(result[1] == each_example[1])
-                else:
-                    assert_true(result[0])
-                    assert_equal(result[1], each_example[1])
-            invalid = True
-
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args(
             f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS'.split())
@@ -366,7 +328,7 @@ class TestPantherAnalysisTool(TestCase):
             f'update-custom-schemas --path _unknown_path_/'.split()
         )
         return_code, _ = pat.update_custom_schemas(args)
-        self.assertEqual(return_code, 1)
+        assert_equal(return_code, 1)
 
         # If path exists and contains valid YAML files
         schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/valid')
@@ -424,9 +386,9 @@ class TestPantherAnalysisTool(TestCase):
                 )
                 mock_uploader_client.put_schema = mock.MagicMock(return_value=(True, {'results': []}))
                 return_code, _ = pat.update_custom_schemas(args)
-                self.assertEqual(return_code, 0)
+                assert_equal(return_code, 0)
                 mocks['error'].assert_not_called()
-                self.assertEqual(mocks['info'].call_count, 2)
+                assert_equal(mocks['info'].call_count, 2)
 
         with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
             with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \
@@ -443,7 +405,25 @@ class TestPantherAnalysisTool(TestCase):
                     f'update-custom-schemas --path {schema_path}'.split()
                 )
                 return_code, _ = pat.update_custom_schemas(args)
-                self.assertEqual(return_code, 1)
-                self.assertEqual(mocks['info'].call_count, 1)
-                self.assertEqual(mocks['error'].call_count, 1)
+                assert_equal(return_code, 1)
+                assert_equal(mocks['info'].call_count, 1)
+                assert_equal(mocks['error'].call_count, 1)
+
+    def test_available_destination_names_invalid_name_returned(self):
+        """When an available destination is given but does not match the returned names"""
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis '
+                                             '--available-destination Pagerduty'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+
+    def test_available_destination_names_valid_name_returned(self):
+        """When an available destination is given but matches the returned name"""
+        args = pat.setup_parser().parse_args(f'test '
+                                             f'--path '
+                                             f' {DETECTIONS_FIXTURES_PATH}/destinations '
+                                             '--available-destination Pagerduty'.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+
+
 
