@@ -17,7 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from typing import TypeVar
+from typing import Any, TypeVar
 
 AnyExceptionType = TypeVar("AnyExceptionType", bound="Exception")
 
@@ -38,3 +38,12 @@ class PantherError(Exception):
         if len(self.args) > 1:
             return f'{self.args[0]}: {", ".join(map(str, self.args[1:]))}'
         return self.args[0]
+
+
+class FunctionReturnTypeError(PantherError):
+    pass
+
+
+class UnknownDestinationError(PantherError):
+    def result(self) -> Any:
+        return self.args[1]

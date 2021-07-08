@@ -31,6 +31,7 @@ from types import ModuleType
 from typing import Any, Callable, List, Optional
 
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.exceptions import FunctionReturnTypeError, UnknownDestinationError
 from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
 # Temporary alias for compatibility
@@ -67,6 +68,15 @@ DEFAULT_RULE_DEDUP_PERIOD_MINS = 60
 # Used to check dynamic severity output
 SEVERITY_TYPES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
+TITLE_FUNCTION = "title"
+REFERENCE_FUNCTION = "reference"
+ALERT_CONTEXT_FUNCTION = "alert_context"
+DEDUP_FUNCTION = "dedup"
+DESCRIPTION_FUNCTION = "description"
+SEVERITY_FUNCTION = "severity"
+RUNBOOK_FUNCTION = "runbook"
+DESTINATIONS_FUNCTION = "destinations"
+
 
 # pylint: disable=too-many-instance-attributes,unsubscriptable-object
 @dataclass
@@ -82,27 +92,35 @@ class RuleResult:
 
     dedup_output: Optional[str] = None
     dedup_exception: Optional[Exception] = None
+    dedup_defined: bool = False
 
     title_output: Optional[str] = None
     title_exception: Optional[Exception] = None
+    title_defined: bool = False
 
     description_output: Optional[str] = None
     description_exception: Optional[Exception] = None
+    description_defined: bool = False
 
     reference_output: Optional[str] = None
     reference_exception: Optional[Exception] = None
+    reference_defined: bool = False
 
     severity_output: Optional[str] = None
     severity_exception: Optional[Exception] = None
+    severity_defined: bool = False
 
     runbook_output: Optional[str] = None
     runbook_exception: Optional[Exception] = None
+    runbook_defined: bool = False
 
     destinations_output: Optional[List[str]] = None
     destinations_exception: Optional[Exception] = None
+    destinations_defined: bool = False
 
-    alert_context: Optional[str] = None
+    alert_context_output: Optional[str] = None
     alert_context_exception: Optional[Exception] = None
+    alert_context_defined: bool = False
 
     input_exception: Optional[Exception] = None
 
@@ -358,55 +376,79 @@ class Rule:
             return rule_result
 
         try:
-            rule_result.title_output = self._get_title(event, use_default_on_exception=batch_mode)
+            rule_result.title_defined = self._is_function_defined("title")
+            rule_result.title_output = self._get_title(event,
+                                                       function_defined=rule_result.title_defined,
+                                                       use_default_on_exception=batch_mode)
         except Exception as err:  # pylint: disable=broad-except
             rule_result.title_exception = err
 
         try:
+            rule_result.description_defined = self._is_function_defined(DESCRIPTION_FUNCTION)
             rule_result.description_output = self._get_description(
-                event, use_default_on_exception=batch_mode
+                event,
+                function_defined=rule_result.description_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.description_exception = err
 
         try:
+            rule_result.reference_defined = self._is_function_defined(REFERENCE_FUNCTION)
             rule_result.reference_output = self._get_reference(
-                event, use_default_on_exception=batch_mode
+                event,
+                function_defined=rule_result.reference_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.reference_exception = err
 
         try:
+            rule_result.severity_defined = self._is_function_defined(SEVERITY_FUNCTION)
             rule_result.severity_output = self._get_severity(
-                event, use_default_on_exception=batch_mode
+                event,
+                function_defined=rule_result.severity_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.severity_exception = err
 
         try:
+            rule_result.runbook_defined = self._is_function_defined(RUNBOOK_FUNCTION)
             rule_result.runbook_output = self._get_runbook(
-                event, use_default_on_exception=batch_mode
+                event,
+                function_defined=rule_result.runbook_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.runbook_exception = err
 
         try:
+            rule_result.destinations_defined = self._is_function_defined(DESTINATIONS_FUNCTION)
             rule_result.destinations_output = self._get_destinations(
-                event, outputs, outputs_names, use_default_on_exception=batch_mode
+                event, outputs, outputs_names,
+                function_defined=rule_result.destinations_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.destinations_exception = err
 
         try:
+            rule_result.dedup_defined = self._is_function_defined(DEDUP_FUNCTION)
             rule_result.dedup_output = self._get_dedup(
-                event, rule_result.title_output, use_default_on_exception=batch_mode
+                event, rule_result.title_output,
+                function_defined=rule_result.dedup_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.dedup_exception = err
 
         try:
-            rule_result.alert_context = self._get_alert_context(
-                event, use_default_on_exception=batch_mode
+            rule_result.alert_context_defined = self._is_function_defined(ALERT_CONTEXT_FUNCTION)
+            rule_result.alert_context_output = self._get_alert_context(
+                event,
+                function_defined=rule_result.alert_context_defined,
+                use_default_on_exception=batch_mode
             )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.alert_context_exception = err
@@ -421,13 +463,13 @@ class Rule:
         return self._run_command(self._module.rule, event, bool)
 
     def _get_alert_context(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: PantherEvent, function_defined: bool, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "alert_context"):
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "alert_context")
+            command = getattr(self._module, ALERT_CONTEXT_FUNCTION)
             alert_context = self._run_command(command, event, Mapping)
             serialized_alert_context = json.dumps(alert_context, default=PantherEvent.json_encoder)
         except Exception as err:  # pylint: disable=broad-except
@@ -451,9 +493,9 @@ class Rule:
     # If the rule match had a custom title, use the title as a deduplication string
     # If no title and no dedup function is defined, return the default dedup string.
     def _get_dedup(
-        self, event: PantherEvent, title: Optional[str], use_default_on_exception: bool = True
+        self, event: PantherEvent, title: Optional[str], function_defined: bool, use_default_on_exception: bool = True,
     ) -> str:
-        if not hasattr(self._module, "dedup"):
+        if not function_defined:
             if title:
                 # If no dedup function is defined but the rule
                 # had a title, use the title as dedup string
@@ -462,7 +504,7 @@ class Rule:
             return self._default_dedup_string
 
         try:
-            command = getattr(self._module, "dedup")
+            command = getattr(self._module, DEDUP_FUNCTION)
             dedup_string = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -494,13 +536,13 @@ class Rule:
         return dedup_string
 
     def _get_description(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: PantherEvent, function_defined: bool, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "description"):
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "description")
+            command = getattr(self._module, DESCRIPTION_FUNCTION)
             description = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -532,13 +574,14 @@ class Rule:
         event: PantherEvent,
         outputs: dict,
         outputs_display_names: dict,
+        function_defined: bool,
         use_default_on_exception: bool = True,
     ) -> Optional[List[str]]:
-        if not hasattr(self._module, "destinations"):
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "destinations")
+            command = getattr(self._module, DESTINATIONS_FUNCTION)
             destinations = self._run_command(command, event, list())
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -581,7 +624,10 @@ class Rule:
                     str(invalid_destinations),
                 )
                 return None
-            raise ValueError("Invalid Destinations: {}".format(str(invalid_destinations)))
+            raise UnknownDestinationError(
+                "Invalid Destinations",
+                invalid_destinations,
+            )
 
         if len(standardized_destinations) > MAX_DESTINATIONS_SIZE:
             # If generated field exceeds max size, truncate it
@@ -596,13 +642,13 @@ class Rule:
         return standardized_destinations
 
     def _get_reference(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: PantherEvent, function_defined: bool, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "reference"):
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "reference")
+            command = getattr(self._module, REFERENCE_FUNCTION)
             reference = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -629,13 +675,13 @@ class Rule:
         return reference
 
     def _get_runbook(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: PantherEvent, function_defined: bool, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "runbook"):
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "runbook")
+            command = getattr(self._module, RUNBOOK_FUNCTION)
             runbook = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -661,13 +707,13 @@ class Rule:
         return runbook
 
     def _get_severity(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: PantherEvent, function_defined: bool, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "severity"):
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "severity")
+            command = getattr(self._module, SEVERITY_FUNCTION)
             severity = self._run_command(command, event, str).upper()
             if severity not in SEVERITY_TYPES:
                 self.logger.info(
@@ -693,12 +739,12 @@ class Rule:
             raise
         return severity
 
-    def _get_title(self, event: PantherEvent, use_default_on_exception: bool) -> Optional[str]:
-        if not hasattr(self._module, "title"):
+    def _get_title(self, event: PantherEvent, function_defined: bool, use_default_on_exception: bool) -> Optional[str]:
+        if not function_defined:
             return None
 
         try:
-            command = getattr(self._module, "title")
+            command = getattr(self._module, TITLE_FUNCTION)
             title = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -728,7 +774,7 @@ class Rule:
         # Branch in case of list
         if not isinstance(expected_type, list):
             if not isinstance(result, expected_type):
-                raise Exception(
+                raise FunctionReturnTypeError(
                     "rule [{}] function [{}] returned [{}], expected [{}]".format(
                         self.rule_id,
                         function.__name__,
@@ -740,9 +786,12 @@ class Rule:
             if result is None:
                 return result
             if not isinstance(result, list) or not all(isinstance(x, (str, bool)) for x in result):
-                raise Exception(
+                raise FunctionReturnTypeError(
                     "rule [{}] function [{}] returned [{}], expected a list".format(
                         self.rule_id, function.__name__, type(result).__name__
                     )
                 )
         return result
+
+    def _is_function_defined(self, name: str) -> bool:
+        return hasattr(self._module, name)
