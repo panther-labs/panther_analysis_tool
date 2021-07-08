@@ -61,6 +61,10 @@ from schema import (
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.exceptions import (
+    FunctionReturnTypeError,
+    UnknownDestinationError,
+)
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.rule import Rule, RuleResult
 from panther_analysis_tool.schemas import (
@@ -92,16 +96,16 @@ QUERY = "scheduled_query"
 SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
 
-RESERVED_FUNCTIONS = [
+RESERVED_FUNCTIONS = (
     "alert_context",
     "dedup",
-    "title",
     "description",
-    "reference",
-    "severity",
-    "runbook",
     "destinations",
-]
+    "reference",
+    "runbook",
+    "severity",
+    "title",
+)
 
 VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
@@ -1147,6 +1151,7 @@ def _run_tests(
         test_result: Dict[Any, str] = defaultdict(lambda: "PASS")
 
         # check expected result
+        auxiliary_functions_result_message = ""
         if is_policy:
             if result != unit_test["ExpectedResult"]:
                 test_result["outcome"] = "FAIL"
@@ -1164,38 +1169,74 @@ def _run_tests(
                     strict_check = (
                         function_name == "destinations" and destination_names_strict_check
                     )
-                    if _check_auxiliary_function_error(function_name, rule_result, strict_check):
+                    assertion = _check_auxiliary_function_result(
+                        function_name, rule_result, strict_check
+                    )
+
+                    # The function has not been executed, nothing to display
+                    if assertion['display'] is None:
+                        continue
+
+                    if assertion["failed"]:
+                        # Mark the test as failed if an auxiliary function fails
                         test_result[function_name] = test_result["outcome"] = "FAIL"
                         failed_tests[analysis_id].append(f"{unit_test['Name']}:{function_name}")
 
+                    auxiliary_functions_result_message += f"\t\t[{test_result[function_name]}] "
+                    if assertion["has_invalid_type"]:
+                        auxiliary_functions_result_message += "[INVALID TYPE] "
+                    auxiliary_functions_result_message += f"[{function_name}] {assertion['display']}\n"
+
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
+        if auxiliary_functions_result_message:
+            print(auxiliary_functions_result_message)
 
     return failed_tests
 
 
-def _check_auxiliary_function_error(
+def _check_auxiliary_function_result(
     function_name: str, rule_result: RuleResult, strict_check: bool
-) -> bool:
+) -> Dict[str, Any]:
     """Determine whether an auxiliary function for a rule raised an error"""
     function_error = getattr(rule_result, f"{function_name}_exception")
+    output = getattr(rule_result, f"{function_name}_output")
+    is_defined = getattr(rule_result, f"{function_name}_defined")
+    failed = function_error is not None
+
     # For backwards compatibility we can accept invalid destination names,
-    # as long as a string is returned
-    if function_name == "destinations" and function_error is not None:
-        # Strict check is enabled when users pass destination names
-        # through command-line parameters
-        if strict_check:
-            return True
+    # as long as a string is returned. Strict check is enabled when users
+    # pass destination names explicitly through command-line parameters.
+    if function_name == "destinations" and failed and not strict_check:
+        # Otherwise we fall back to a best-effort check of the return type only
+        if isinstance(function_error, UnknownDestinationError):
+            exc: UnknownDestinationError = function_error
+            failed = not _check_destinations_type(exc.result())
 
-        # Otherwise we fall back to a best-effort check of the exception message
-        # that includes the returned destinations
-        if isinstance(function_error, ValueError):
-            message = function_error.args[0]
-            return not bool(re.match(r"Invalid Destinations: \['.+'\]", message))
+    # The function has not been executed
+    if not is_defined:
+        display = None
+    else:
+        display = function_error if failed else output
 
+    return {
+        "error": function_error,
+        "output": output,
+        "failed": failed,
+        "has_invalid_type": isinstance(function_error, FunctionReturnTypeError),
+        "display": display,
+    }
+
+
+def _check_destinations_type(obj: Any) -> bool:
+    """Checks that the return value of the `destinations` function is a list of strings"""
+    if obj is None:
         return True
 
-    return bool(function_error)
+    if not isinstance(obj, list):
+        return False
+
+    return all(isinstance(destination_name, str) for destination_name in obj)
 
 
 def setup_parser() -> argparse.ArgumentParser:
