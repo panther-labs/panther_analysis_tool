@@ -64,17 +64,8 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         self.assertTrue(exception)
 
-    def test_create_rule_missing_body(self) -> None:
-        exception = False
-        try:
-            Rule({'id': 'test_create_rule_missing_body', 'versionId': 'version'})
-        except AssertionError:
-            exception = True
-
-        self.assertTrue(exception)
-
     def test_create_rule_missing_body_and_path(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, r'one of "body", "path" must be defined'):
             Rule({'id': 'test_create_rule_missing_body', 'versionId': 'version'})
 
     def test_create_rule_defined_body_and_path(self) -> None:

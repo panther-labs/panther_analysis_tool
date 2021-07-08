@@ -1174,7 +1174,7 @@ def _run_tests(
                     )
 
                     # The function has not been executed, nothing to display
-                    if assertion['display'] is None:
+                    if assertion["display"] is None:
                         continue
 
                     if assertion["failed"]:
@@ -1185,7 +1185,9 @@ def _run_tests(
                     auxiliary_functions_result_message += f"\t\t[{test_result[function_name]}] "
                     if assertion["has_invalid_type"]:
                         auxiliary_functions_result_message += "[INVALID TYPE] "
-                    auxiliary_functions_result_message += f"[{function_name}] {assertion['display']}\n"
+                    auxiliary_functions_result_message += (
+                        f"[{function_name}] {assertion['display']}\n"
+                    )
 
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
