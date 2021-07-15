@@ -26,7 +26,6 @@ import json
 import logging
 import mimetypes
 import os
-import pathlib
 import re
 import subprocess  # nosec
 import sys
@@ -1309,7 +1308,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": None,
         "type": str,
         "action": "append",
-        "help": "A destination name that may be returned by the destination() function. "
+        "help": "A destination name that may be returned by the destinations function. "
         "Repeat the argument to define more than one name.",
     }
 

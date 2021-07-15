@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Dict
 
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
@@ -353,7 +353,7 @@ class Rule:
 
         return importer.get_module(identifier, resource)
 
-    def _check_defined_functions(self):
+    def _check_defined_functions(self) -> Dict[str, bool]:
         function_definitions = {}
         for name in AUXILIARY_FUNCTIONS:
             function_definitions[name] = self._is_function_defined(name)
@@ -565,7 +565,7 @@ class Rule:
 
         return dedup_string
 
-    def _get_dedup_fallback(self, title):
+    def _get_dedup_fallback(self, title: Optional[str]) -> str:
         if title:
             # If no dedup function is defined but the rule
             # had a title, use the title as dedup string
