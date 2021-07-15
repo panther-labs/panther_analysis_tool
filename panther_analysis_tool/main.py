@@ -841,7 +841,7 @@ def setup_run_tests(
                 dict(
                     id=analysis_id,
                     analysisType=analysis_type,
-                    path=pathlib.Path(module_code_path),
+                    path=module_code_path,
                     versionId="0000-0000-0000",
                 )
             )
@@ -1169,25 +1169,26 @@ def _run_tests(
                     strict_check = (
                         function_name == "destinations" and destination_names_strict_check
                     )
-                    assertion = _check_auxiliary_function_result(
+                    aux_function_result = _evaluate_auxiliary_function_result(
                         function_name, rule_result, strict_check
                     )
 
                     # The function has not been executed, nothing to display
-                    if assertion["display"] is None:
+                    if aux_function_result["display"] is None:
                         continue
 
-                    if assertion["failed"]:
+                    if aux_function_result["failed"]:
                         # Mark the test as failed if an auxiliary function fails
                         test_result[function_name] = test_result["outcome"] = "FAIL"
                         failed_tests[analysis_id].append(f"{unit_test['Name']}:{function_name}")
 
                     auxiliary_functions_result_message += f"\t\t[{test_result[function_name]}] "
-                    if assertion["has_invalid_type"]:
+                    if aux_function_result["has_invalid_type"]:
                         auxiliary_functions_result_message += "[INVALID TYPE] "
                     auxiliary_functions_result_message += (
-                        f"[{function_name}] {assertion['display']}\n"
+                        f"[{function_name}] {aux_function_result['display']}\n"
                     )
+                auxiliary_functions_result_message = auxiliary_functions_result_message.rstrip()
 
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
@@ -1197,7 +1198,7 @@ def _run_tests(
     return failed_tests
 
 
-def _check_auxiliary_function_result(
+def _evaluate_auxiliary_function_result(
     function_name: str, rule_result: RuleResult, strict_check: bool
 ) -> Dict[str, Any]:
     """Determine whether an auxiliary function for a rule raised an error"""

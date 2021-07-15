@@ -68,12 +68,34 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         with self.assertRaisesRegex(ValueError, r'one of "body", "path" must be defined'):
             Rule({'id': 'test_create_rule_missing_body', 'versionId': 'version'})
 
-    def test_create_rule_defined_body_and_path(self) -> None:
+    def test_create_rule_defined_both_body_and_path(self) -> None:
         with self.assertRaises(ValueError):
             Rule({'id': 'test_create_rule_missing_body',
                   'versionId': 'version',
                   'body': 'def rule(event): pass',
-                  'path': pathlib.Path()})
+                  'path': '/rules/myrule.py'})
+
+    def test_create_rule_wrong_body_type(self) -> None:
+        with self.assertRaises(ValueError):
+            Rule({'id': 'test_create_rule_missing_body',
+                  'versionId': 'version',
+                  'body': None})
+
+        with self.assertRaises(TypeError):
+            Rule({'id': 'test_create_rule_missing_body',
+                  'versionId': 'version',
+                  'body': ['def rule(event): pass']})
+
+    def test_create_rule_wrong_path_type(self) -> None:
+        with self.assertRaises(ValueError):
+            Rule({'id': 'test_create_rule_missing_body',
+                  'versionId': 'version',
+                  'path': None})
+
+        with self.assertRaises(TypeError):
+            Rule({'id': 'test_create_rule_missing_body',
+                  'versionId': 'version',
+                  'path': ['/rules/myrule.py']})
 
     def test_create_rule_missing_version(self) -> None:
         exception = False
