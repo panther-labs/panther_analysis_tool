@@ -23,11 +23,18 @@ import os
 import re
 import tempfile
 import traceback
+from abc import abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional
+from pathlib import Path
+from types import ModuleType
+from typing import Any, Callable, List, Optional, Dict
 
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.exceptions import (
+    FunctionReturnTypeError,
+    UnknownDestinationError,
+)
 from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
 # Temporary alias for compatibility
@@ -64,6 +71,27 @@ DEFAULT_RULE_DEDUP_PERIOD_MINS = 60
 # Used to check dynamic severity output
 SEVERITY_TYPES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
+ALERT_CONTEXT_FUNCTION = "alert_context"
+DEDUP_FUNCTION = "dedup"
+DESCRIPTION_FUNCTION = "description"
+DESTINATIONS_FUNCTION = "destinations"
+REFERENCE_FUNCTION = "reference"
+RUNBOOK_FUNCTION = "runbook"
+SEVERITY_FUNCTION = "severity"
+TITLE_FUNCTION = "title"
+
+# Auxiliary functions are optional
+AUXILIARY_FUNCTIONS = (
+    ALERT_CONTEXT_FUNCTION,
+    DEDUP_FUNCTION,
+    DESCRIPTION_FUNCTION,
+    DESTINATIONS_FUNCTION,
+    REFERENCE_FUNCTION,
+    RUNBOOK_FUNCTION,
+    SEVERITY_FUNCTION,
+    TITLE_FUNCTION,
+)
+
 
 # pylint: disable=too-many-instance-attributes,unsubscriptable-object
 @dataclass
@@ -79,27 +107,35 @@ class RuleResult:
 
     dedup_output: Optional[str] = None
     dedup_exception: Optional[Exception] = None
+    dedup_defined: bool = False
 
     title_output: Optional[str] = None
     title_exception: Optional[Exception] = None
+    title_defined: bool = False
 
     description_output: Optional[str] = None
     description_exception: Optional[Exception] = None
+    description_defined: bool = False
 
     reference_output: Optional[str] = None
     reference_exception: Optional[Exception] = None
+    reference_defined: bool = False
 
     severity_output: Optional[str] = None
     severity_exception: Optional[Exception] = None
+    severity_defined: bool = False
 
     runbook_output: Optional[str] = None
     runbook_exception: Optional[Exception] = None
+    runbook_defined: bool = False
 
     destinations_output: Optional[List[str]] = None
     destinations_exception: Optional[Exception] = None
+    destinations_defined: bool = False
 
-    alert_context: Optional[str] = None
+    alert_context_output: Optional[str] = None
     alert_context_exception: Optional[Exception] = None
+    alert_context_defined: bool = False
 
     input_exception: Optional[Exception] = None
 
@@ -171,6 +207,50 @@ class RuleResult:
         return bool(self.rule_exception or self.setup_exception)
 
 
+class BaseImporter:
+    """Base class for Python module importers"""
+
+    @staticmethod
+    def from_file(identifier: str, path: str) -> ModuleType:
+        """Import a file as a Python module"""
+        return import_file_as_module(path, identifier)
+
+    def from_string(self, identifier: str, body: str, tmp_dir: str) -> ModuleType:
+        """Write source code to a temporary file and import as Python module"""
+        path = id_to_path(tmp_dir, identifier)
+        store_modules(path, body)
+        return self.from_file(identifier, path)
+
+    @abstractmethod
+    def get_module(self, identifier: str, resource: str) -> ModuleType:
+        pass
+
+
+class FilesystemImporter(BaseImporter):
+    """Import a Python module from the filesystem"""
+
+    def get_module(  # pylint: disable=arguments-differ
+        self, identifier: str, path: str
+    ) -> ModuleType:
+        module_path = Path(path)
+        if not module_path.exists():
+            raise FileNotFoundError(path)
+        return super().from_file(identifier, module_path.absolute().as_posix())
+
+
+class RawStringImporter(BaseImporter):
+    """Import a Python module from raw source code"""
+
+    def __init__(self, tmp_dir: str):
+        super().__init__()
+        self._tmp_dir = tmp_dir
+
+    def get_module(  # pylint: disable=arguments-differ
+        self, identifier: str, body: str
+    ) -> ModuleType:
+        return super().from_string(identifier, body, self._tmp_dir)
+
+
 # pylint: disable=too-many-instance-attributes
 class Rule:
     """Panther rule metadata and imported module."""
@@ -184,16 +264,26 @@ class Rule:
                 analysisType: either RULE or SCHEDULED_RULE
                 id: Unique rule identifier
                 body: The rule body
-                (Optional) version: The version of the rule
+                versionId: The version of the rule
+                (Optional) path: The rule module path
                 (Optional) dedupPeriodMinutes: The period during which
-                    the events will be deduplicated
+                the events will be deduplicated
         """
         self.logger = get_logger()
 
         # Check for required string fields
-        for each_field in ["id", "body", "versionId"]:
+        for each_field in ["id", "versionId"]:
             if not (each_field in config) or not isinstance(config[each_field], str):
                 raise AssertionError('Field "%s" of type str is required field' % each_field)
+
+        if not (config.get("body") or config.get("path")):
+            raise ValueError('one of "body", "path" must be defined')
+
+        if config.get("body") and config.get("path"):
+            raise ValueError('only one of "body", "path" must be defined')
+
+        if not any((isinstance(config.get("body"), str), isinstance(config.get("path"), str))):
+            raise TypeError('"body", "path" parameters must be of string type')
 
         if (
             not "analysisType" in config
@@ -201,8 +291,8 @@ class Rule:
             self.rule_type = TYPE_RULE
         else:
             self.rule_type = config["analysisType"]
+
         self.rule_id = config["id"]
-        self.rule_body = config["body"]
         self.rule_version = config["versionId"]
 
         # TODO: severity and other rule metadata is not passed through when we run rule tests.
@@ -234,11 +324,9 @@ class Rule:
                 values.sort()
             self.rule_reports = config["reports"]
 
-        self._store_rule()
-
         self._setup_exception = None
         try:
-            self._module = self._import_rule_as_module()
+            self._module = self._load_rule(self.rule_id, config)
             if not hasattr(self._module, "rule"):
                 raise AssertionError("rule needs to have a method named 'rule'")
         except Exception as err:  # pylint: disable=broad-except
@@ -246,6 +334,30 @@ class Rule:
             return
 
         self._default_dedup_string = "defaultDedupString:{}".format(self.rule_id)
+        self._auxiliary_function_definitions = self._check_defined_functions()
+
+    @staticmethod
+    def _load_rule(identifier: str, config: Mapping) -> ModuleType:
+        """Load the rule code as Python module.
+        Code can be provided as raw string or a path in the local filesystem.
+        """
+        has_raw_code = bool(config.get("body"))
+
+        importer: Optional[BaseImporter] = None
+        if has_raw_code:
+            resource = config["body"]
+            importer = RawStringImporter(tmp_dir=_RULE_FOLDER)
+        else:
+            resource = config["path"]
+            importer = FilesystemImporter()
+
+        return importer.get_module(identifier, resource)
+
+    def _check_defined_functions(self) -> Dict[str, bool]:
+        function_definitions = {}
+        for name in AUXILIARY_FUNCTIONS:
+            function_definitions[name] = self._is_function_defined(name)
+        return function_definitions
 
     @property
     def module(self) -> Any:
@@ -289,56 +401,92 @@ class Rule:
             return rule_result
 
         try:
-            rule_result.title_output = self._get_title(event, use_default_on_exception=batch_mode)
+            rule_result.title_defined = self._auxiliary_function_definitions[TITLE_FUNCTION]
+            if rule_result.title_defined:
+                rule_result.title_output = self._get_title(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.title_exception = err
 
         try:
-            rule_result.description_output = self._get_description(
-                event, use_default_on_exception=batch_mode
-            )
+            rule_result.description_defined = self._auxiliary_function_definitions[
+                DESCRIPTION_FUNCTION
+            ]
+            if rule_result.description_defined:
+                rule_result.description_output = self._get_description(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.description_exception = err
 
         try:
-            rule_result.reference_output = self._get_reference(
-                event, use_default_on_exception=batch_mode
-            )
+            rule_result.reference_defined = self._auxiliary_function_definitions[REFERENCE_FUNCTION]
+            if rule_result.reference_defined:
+                rule_result.reference_output = self._get_reference(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.reference_exception = err
 
         try:
-            rule_result.severity_output = self._get_severity(
-                event, use_default_on_exception=batch_mode
-            )
+            rule_result.severity_defined = self._auxiliary_function_definitions[SEVERITY_FUNCTION]
+            if rule_result.severity_defined:
+                rule_result.severity_output = self._get_severity(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.severity_exception = err
 
         try:
-            rule_result.runbook_output = self._get_runbook(
-                event, use_default_on_exception=batch_mode
-            )
+            rule_result.runbook_defined = self._auxiliary_function_definitions[RUNBOOK_FUNCTION]
+            if rule_result.runbook_defined:
+                rule_result.runbook_output = self._get_runbook(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.runbook_exception = err
 
         try:
-            rule_result.destinations_output = self._get_destinations(
-                event, outputs, outputs_names, use_default_on_exception=batch_mode
-            )
+            rule_result.destinations_defined = self._auxiliary_function_definitions[
+                DESTINATIONS_FUNCTION
+            ]
+            if rule_result.destinations_defined:
+                rule_result.destinations_output = self._get_destinations(
+                    event,
+                    outputs,
+                    outputs_names,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.destinations_exception = err
 
         try:
-            rule_result.dedup_output = self._get_dedup(
-                event, rule_result.title_output, use_default_on_exception=batch_mode
-            )
+            rule_result.dedup_defined = self._auxiliary_function_definitions[DEDUP_FUNCTION]
+            if not rule_result.dedup_defined:
+                rule_result.dedup_output = self._get_dedup_fallback(rule_result.title_output)
+            else:
+                rule_result.dedup_output = self._get_dedup(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.dedup_exception = err
 
         try:
-            rule_result.alert_context = self._get_alert_context(
-                event, use_default_on_exception=batch_mode
-            )
+            rule_result.alert_context_defined = self._auxiliary_function_definitions[
+                ALERT_CONTEXT_FUNCTION
+            ]
+            if rule_result.alert_context_defined:
+                rule_result.alert_context_output = self._get_alert_context(
+                    event,
+                    use_default_on_exception=batch_mode,
+                )
         except Exception as err:  # pylint: disable=broad-except
             rule_result.alert_context_exception = err
 
@@ -349,16 +497,14 @@ class Rule:
         # defaults to True and will pass the events thru
         if self.rule_type == TYPE_SCHEDULED_RULE and not hasattr(self._module, "rule"):
             return True
-        return self._run_command(self._module.rule, event, bool)
+        return self._run_command(self._module.rule, event, bool)  # type: ignore[attr-defined]
 
     def _get_alert_context(
         self, event: PantherEvent, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "alert_context"):
-            return None
 
         try:
-            command = getattr(self._module, "alert_context")
+            command = getattr(self._module, ALERT_CONTEXT_FUNCTION)
             alert_context = self._run_command(command, event, Mapping)
             serialized_alert_context = json.dumps(alert_context, default=PantherEvent.json_encoder)
         except Exception as err:  # pylint: disable=broad-except
@@ -382,18 +528,13 @@ class Rule:
     # If the rule match had a custom title, use the title as a deduplication string
     # If no title and no dedup function is defined, return the default dedup string.
     def _get_dedup(
-        self, event: PantherEvent, title: Optional[str], use_default_on_exception: bool = True
+        self,
+        event: PantherEvent,
+        use_default_on_exception: bool = True,
     ) -> str:
-        if not hasattr(self._module, "dedup"):
-            if title:
-                # If no dedup function is defined but the rule
-                # had a title, use the title as dedup string
-                return title
-            # If no dedup function defined, return default dedup string
-            return self._default_dedup_string
 
         try:
-            command = getattr(self._module, "dedup")
+            command = getattr(self._module, DEDUP_FUNCTION)
             dedup_string = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -424,14 +565,20 @@ class Rule:
 
         return dedup_string
 
+    def _get_dedup_fallback(self, title: Optional[str]) -> str:
+        if title:
+            # If no dedup function is defined but the rule
+            # had a title, use the title as dedup string
+            return title
+            # If no dedup function defined, return default dedup string
+        return self._default_dedup_string
+
     def _get_description(
         self, event: PantherEvent, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "description"):
-            return None
 
         try:
-            command = getattr(self._module, "description")
+            command = getattr(self._module, DESCRIPTION_FUNCTION)
             description = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -457,19 +604,15 @@ class Rule:
             return description[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return description
 
-    # pylint: disable=too-many-return-statements
-    def _get_destinations(
+    def _get_destinations(  # pylint: disable=too-many-return-statements,too-many-arguments
         self,
         event: PantherEvent,
         outputs: dict,
         outputs_display_names: dict,
         use_default_on_exception: bool = True,
     ) -> Optional[List[str]]:
-        if not hasattr(self._module, "destinations"):
-            return None
-
         try:
-            command = getattr(self._module, "destinations")
+            command = getattr(self._module, DESTINATIONS_FUNCTION)
             destinations = self._run_command(command, event, list())
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -512,13 +655,16 @@ class Rule:
                     str(invalid_destinations),
                 )
                 return None
-            raise ValueError("Invalid Destinations: {}".format(str(invalid_destinations)))
+            raise UnknownDestinationError(
+                "Invalid Destinations",
+                invalid_destinations,
+            )
 
         if len(standardized_destinations) > MAX_DESTINATIONS_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                "maximum len of destinations [%d] for rule "
-                "with ID [%s] is [%d] fields. Truncating.",
+                "maximum len of destinations [%d] for rule with ID "
+                "[%s] is [%d] fields. Truncating.",
                 MAX_DESTINATIONS_SIZE,
                 self.rule_id,
                 len(standardized_destinations),
@@ -529,11 +675,9 @@ class Rule:
     def _get_reference(
         self, event: PantherEvent, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "reference"):
-            return None
 
         try:
-            command = getattr(self._module, "reference")
+            command = getattr(self._module, REFERENCE_FUNCTION)
             reference = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -562,11 +706,9 @@ class Rule:
     def _get_runbook(
         self, event: PantherEvent, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "runbook"):
-            return None
 
         try:
-            command = getattr(self._module, "runbook")
+            command = getattr(self._module, RUNBOOK_FUNCTION)
             runbook = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -594,11 +736,9 @@ class Rule:
     def _get_severity(
         self, event: PantherEvent, use_default_on_exception: bool = True
     ) -> Optional[str]:
-        if not hasattr(self._module, "severity"):
-            return None
 
         try:
-            command = getattr(self._module, "severity")
+            command = getattr(self._module, SEVERITY_FUNCTION)
             severity = self._run_command(command, event, str).upper()
             if severity not in SEVERITY_TYPES:
                 self.logger.info(
@@ -625,11 +765,9 @@ class Rule:
         return severity
 
     def _get_title(self, event: PantherEvent, use_default_on_exception: bool) -> Optional[str]:
-        if not hasattr(self._module, "title"):
-            return None
 
         try:
-            command = getattr(self._module, "title")
+            command = getattr(self._module, TITLE_FUNCTION)
             title = self._run_command(command, event, str)
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
@@ -654,28 +792,12 @@ class Rule:
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return title
 
-    def _store_rule(self) -> None:
-        """Stores rule to disk."""
-        path = id_to_path(_RULE_FOLDER, self.rule_id)
-        self.logger.debug("storing rule in path %s", path)
-        store_modules(path, self.rule_body)
-
-    def _import_rule_as_module(self) -> Any:
-        """Dynamically import a Python module from a file.
-
-        See also: https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-        """
-        path = id_to_path(_RULE_FOLDER, self.rule_id)
-        mod = import_file_as_module(path, self.rule_id)
-        self.logger.debug("imported module %s from path %s", self.rule_id, path)
-        return mod
-
     def _run_command(self, function: Callable, event: PantherEvent, expected_type: Any) -> Any:
         result = function(event)
         # Branch in case of list
         if not isinstance(expected_type, list):
             if not isinstance(result, expected_type):
-                raise Exception(
+                raise FunctionReturnTypeError(
                     "rule [{}] function [{}] returned [{}], expected [{}]".format(
                         self.rule_id,
                         function.__name__,
@@ -687,9 +809,12 @@ class Rule:
             if result is None:
                 return result
             if not isinstance(result, list) or not all(isinstance(x, (str, bool)) for x in result):
-                raise Exception(
+                raise FunctionReturnTypeError(
                     "rule [{}] function [{}] returned [{}], expected a list".format(
                         self.rule_id, function.__name__, type(result).__name__
                     )
                 )
         return result
+
+    def _is_function_defined(self, name: str) -> bool:
+        return hasattr(self._module, name)

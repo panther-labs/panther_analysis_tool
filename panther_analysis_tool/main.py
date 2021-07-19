@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
+import functools
 import hashlib
 import importlib.util
 import json
@@ -37,6 +38,7 @@ from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import boto3
 import botocore
@@ -56,8 +58,14 @@ from schema import (
 )
 
 from panther_analysis_tool.data_model import DataModel
+from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.exceptions import (
+    FunctionReturnTypeError,
+    UnknownDestinationError,
+)
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.rule import Rule, RuleResult
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -87,16 +95,16 @@ QUERY = "scheduled_query"
 SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
 
-RESERVED_FUNCTIONS = [
+RESERVED_FUNCTIONS = (
     "alert_context",
     "dedup",
-    "title",
     "description",
-    "reference",
-    "severity",
-    "runbook",
     "destinations",
-]
+    "reference",
+    "runbook",
+    "severity",
+    "title",
+)
 
 VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
@@ -705,6 +713,15 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
+    available_destinations = []
+    if args.available_destination:
+        available_destinations.extend(args.available_destination)
+
+    destinations_by_name = {
+        name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
+        for name in available_destinations
+    }
+
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
@@ -717,7 +734,11 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
-        log_type_to_data_model, specs[DETECTION], args.minimum_tests, args.skip_disabled_tests
+        log_type_to_data_model,
+        specs[DETECTION],
+        args.minimum_tests,
+        args.skip_disabled_tests,
+        destinations_by_name=destinations_by_name,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -787,11 +808,13 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
     return log_type_to_data_model, invalid_specs
 
 
+# pylint: disable=too-many-locals
 def setup_run_tests(
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[Any],
     minimum_tests: int,
     skip_disabled_tests: bool,
+    destinations_by_name: Dict[str, FakeDestination],
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -802,7 +825,8 @@ def setup_run_tests(
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
         print(analysis_id)
 
-        module, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
+        module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
+        module, load_err = load_module(module_code_path)
         # If the module could not be loaded, continue to the next
         if load_err:
             invalid_specs.append((analysis_spec_filename, load_err))
@@ -812,23 +836,18 @@ def setup_run_tests(
         if analysis_type == POLICY:
             analysis_funcs["run"] = module.policy
         elif analysis_type in [RULE, SCHEDULED_RULE]:
-            analysis_funcs["run"] = module.rule
-            if "alert_context" in dir(module):
-                analysis_funcs["alert_context"] = module.alert_context
-            if "dedup" in dir(module):
-                analysis_funcs["dedup"] = module.dedup
-            if "title" in dir(module):
-                analysis_funcs["title"] = module.title
-            if "description" in dir(module):
-                analysis_funcs["description"] = module.description
-            if "reference" in dir(module):
-                analysis_funcs["reference"] = module.reference
-            if "severity" in dir(module):
-                analysis_funcs["severity"] = module.severity
-            if "runbook" in dir(module):
-                analysis_funcs["runbook"] = module.runbook
-            if "destinations" in dir(module):
-                analysis_funcs["destinations"] = module.destinations
+            rule = Rule(
+                dict(
+                    id=analysis_id,
+                    analysisType=analysis_type,
+                    path=module_code_path,
+                    versionId="0000-0000-0000",
+                )
+            )
+            analysis_funcs["run"] = functools.partial(
+                rule.run, outputs={}, outputs_names=destinations_by_name, batch_mode=False
+            )
+            analysis_funcs["module"] = rule.module
 
         failed_tests = run_tests(
             analysis_spec,
@@ -836,6 +855,7 @@ def setup_run_tests(
             log_type_to_data_model,
             failed_tests,
             minimum_tests,
+            bool(destinations_by_name),
         )
         print("")
     return failed_tests, invalid_specs
@@ -1043,12 +1063,13 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
         return exc
 
 
-def run_tests(
+def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
     analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
     failed_tests: DefaultDict[str, list],
     minimum_tests: int,
+    destination_names_strict_check: bool,
 ) -> DefaultDict[str, list]:
 
     if len(analysis.get("Tests", [])) < minimum_tests:
@@ -1064,7 +1085,9 @@ def run_tests(
         print("\tNo tests configured for {}".format(analysis_id))
         return failed_tests
 
-    failed_tests = _run_tests(analysis, analysis_funcs, analysis_data_models, failed_tests)
+    failed_tests = _run_tests(
+        analysis, analysis_funcs, analysis_data_models, failed_tests, destination_names_strict_check
+    )
 
     if minimum_tests > 1 and not (
         [x for x in analysis["Tests"] if x["ExpectedResult"]]
@@ -1082,7 +1105,10 @@ def _run_tests(
     analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
     failed_tests: DefaultDict[str, list],
+    destination_names_strict_check: bool,
 ) -> DefaultDict[str, list]:
+    is_policy = analysis.get("PolicyID") is not None
+    analysis_id = analysis.get("PolicyID") or analysis["RuleID"]
     for unit_test in analysis["Tests"]:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
@@ -1095,7 +1121,7 @@ def _run_tests(
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            if analysis.get("PolicyID") is not None:
+            if is_policy:
                 # Policies use plain dict objects as input
                 test_case = entry
             else:
@@ -1122,115 +1148,97 @@ def _run_tests(
         # assume the test passes (default "PASS")
         # until failure condition is found (set to "FAIL")
         test_result: Dict[Any, str] = defaultdict(lambda: "PASS")
+
         # check expected result
-        if result != unit_test["ExpectedResult"]:
-            test_result["outcome"] = "FAIL"
-            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
+        auxiliary_functions_result_message = ""
+        if is_policy:
+            if result != unit_test["ExpectedResult"]:
+                test_result["outcome"] = "FAIL"
+                failed_tests[analysis_id].append(unit_test["Name"])
+        else:
+            rule_result: RuleResult = result
+            if rule_result.matched is not unit_test["ExpectedResult"]:
+                test_result["outcome"] = "FAIL"
+                failed_tests[analysis_id].append(unit_test["Name"])
+
+            # validate reserved function return types and values
+            # Only applies to rules which match an incoming event
+            if unit_test["ExpectedResult"]:
+                for function_name in RESERVED_FUNCTIONS:
+                    strict_check = (
+                        function_name == "destinations" and destination_names_strict_check
+                    )
+                    aux_function_result = _evaluate_auxiliary_function_result(
+                        function_name, rule_result, strict_check
+                    )
+
+                    # The function has not been executed, nothing to display
+                    if aux_function_result["display"] is None:
+                        continue
+
+                    if aux_function_result["failed"]:
+                        # Mark the test as failed if an auxiliary function fails
+                        test_result[function_name] = test_result["outcome"] = "FAIL"
+                        failed_tests[analysis_id].append(f"{unit_test['Name']}:{function_name}")
+
+                    auxiliary_functions_result_message += f"\t\t[{test_result[function_name]}] "
+                    if aux_function_result["has_invalid_type"]:
+                        auxiliary_functions_result_message += "[INVALID TYPE] "
+                    auxiliary_functions_result_message += (
+                        f"[{function_name}] {aux_function_result['display']}\n"
+                    )
+                auxiliary_functions_result_message = auxiliary_functions_result_message.rstrip()
 
         # print results
         print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
+        if auxiliary_functions_result_message:
+            print(auxiliary_functions_result_message)
 
-        # validate reserved function return types and values
-        # Only applies to rules which match an incoming event
-        if unit_test["ExpectedResult"]:
-            verify_result = _verify_test_run(test_case, mock_methods, analysis_funcs)
-            for function_name in verify_result:
-                if verify_result[function_name] != "PASS":
-                    test_result[function_name] = test_result["outcome"] = "FAIL"
-                    failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
-                        f"{unit_test['Name']}:{function_name}"
-                    )
     return failed_tests
 
 
-def _verify_test_run(
-    event: PantherEvent,
-    mock_methods: Dict[str, MagicMock],
-    analysis_funcs: Dict[str, Any],
+def _evaluate_auxiliary_function_result(
+    function_name: str, rule_result: RuleResult, strict_check: bool
 ) -> Dict[str, Any]:
-    test_run_result: Dict[str, str] = defaultdict(lambda: "PASS")
-    for func_name, func in analysis_funcs.items():
-        if func_name not in RESERVED_FUNCTIONS:
-            continue
-        try:
-            if mock_methods:
-                with patch.multiple(analysis_funcs["module"], **mock_methods):
-                    func_out = func(event)
-                    if not func_out:
-                        test_run_result[func_name] = "FAIL"
-            else:
-                func_out = func(event)
-                if not func_out:
-                    test_run_result[func_name] = "FAIL"
-        except Exception as err:  # pylint: disable=broad-except
-            func_out = err
-            test_run_result[func_name] = "FAIL"
+    """Determine whether an auxiliary function for a rule raised an error"""
+    function_error = getattr(rule_result, f"{function_name}_exception")
+    output = getattr(rule_result, f"{function_name}_output")
+    is_defined = getattr(rule_result, f"{function_name}_defined")
+    failed = function_error is not None
 
-        func_out_valid_type = True
-        valid_output, func_out = validate_outputs(func_name, func_out)
-        if not valid_output or isinstance(func_out, (AttributeError, AssertionError)):
-            func_out_valid_type = False
-            test_run_result[func_name] = "FAIL"
+    # For backwards compatibility we can accept invalid destination names,
+    # as long as a string is returned. Strict check is enabled when users
+    # pass destination names explicitly through command-line parameters.
+    if function_name == "destinations" and failed and not strict_check:
+        # Otherwise we fall back to a best-effort check of the return type only
+        if isinstance(function_error, UnknownDestinationError):
+            exc: UnknownDestinationError = function_error
+            failed = not _check_destinations_type(exc.result())
 
-        print(
-            f"\t\t[{test_run_result[func_name]}] "
-            f"{'' if func_out_valid_type else '[INVALID TYPE] '}"
-            f"[{func_name}] {func_out}"
-        )
-    return test_run_result
-
-
-def validate_outputs(function_name: str, function_output: Any) -> Tuple[bool, Any]:
-    # Defaults to valid and function output
-    # Invalidating criteria will overwrite these values
-    is_valid = True
-    output = function_output
-    if function_name == "severity":
-        # Type checking for severity
-        if not isinstance(function_output, str):
-            is_valid = False
-        # Value Validation for severity
-        if str(function_output).upper() not in VALID_SEVERITIES:
-            is_valid = False
-            output = AssertionError(
-                f"Expected [{function_name}] to be any of the following: "
-                f"{str(VALID_SEVERITIES)}, got [{str(function_output)}] instead."
-            )
-    elif function_name == "alert_context":
-        is_valid = isinstance(function_output, dict)
-    elif function_name == "destinations":
-        # Type checking for destinations
-        if isinstance(function_output, list):
-            # Type checking for elements in list
-            # Note: we cannot perform value validation unless we were to query the outputs-api
-            if not all(isinstance(x, str) for x in function_output):
-                # List contains non-string element, so enumerate the types present for error msg
-                list_types = set()
-                for each_item in function_output:
-                    list_types.add(type(each_item))
-                is_valid = False
-                output = AttributeError(
-                    f"Expected [{function_name}] to return a list of strings, "
-                    f"got types [{list_types}] instead"
-                )
-        else:
-            is_valid = False
-    # For reserved functions besides severity and destinations, we expect a string output
+    # The function has not been executed
+    if not is_defined:
+        display = None
     else:
-        is_valid = isinstance(function_output, str)
+        display = function_error if failed else output
 
-    # Invalid Types, used to generate a corresponding error message
-    if not is_valid and output == function_output:
-        if function_name == "destinations":
-            expected_type = "list"
-        else:
-            expected_type = "string"
+    return {
+        "error": function_error,
+        "output": output,
+        "failed": failed,
+        "has_invalid_type": isinstance(function_error, FunctionReturnTypeError),
+        "display": display,
+    }
 
-        output = AttributeError(
-            f"Expected [{function_name}] to return a [{expected_type}], "
-            f"got [{type(function_output)}] instead"
-        )
-    return is_valid, output
+
+def _check_destinations_type(obj: Any) -> bool:
+    """Checks that the return value of the `destinations` function is a list of strings"""
+    if obj is None:
+        return True
+
+    if not isinstance(obj, list):
+        return False
+
+    return all(isinstance(destination_name, str) for destination_name in obj)
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -1294,6 +1302,15 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": strtobool,
         "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
     }
+    available_destination_name = "--available-destination"
+    available_destination_arg: Dict[str, Any] = {
+        "required": False,
+        "default": None,
+        "type": str,
+        "action": "append",
+        "help": "A destination name that may be returned by the destinations function. "
+        "Repeat the argument to define more than one name.",
+    }
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
@@ -1318,6 +1335,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(path_name, **path_arg)
     release_parser.add_argument(skip_test_name, **skip_test_arg)
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    release_parser.add_argument(available_destination_name, **available_destination_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     test_parser = subparsers.add_parser(
@@ -1328,6 +1346,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(path_name, **path_arg)
     test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.set_defaults(func=test_analysis)
 
     publish_parser = subparsers.add_parser(
@@ -1373,6 +1392,7 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument(out_name, **out_arg)
     publish_parser.add_argument(skip_test_name, **skip_test_arg)
     publish_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    publish_parser.add_argument(available_destination_name, **available_destination_arg)
     publish_parser.set_defaults(func=publish_release)
 
     upload_parser = subparsers.add_parser(
@@ -1386,6 +1406,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(skip_test_name, **skip_test_arg)
     upload_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
+    upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
     update_managed_schemas_parser = subparsers.add_parser(
@@ -1403,6 +1424,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(path_name, **path_arg)
     zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     zip_schemas_parser = subparsers.add_parser(

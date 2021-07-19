@@ -1,0 +1,20 @@
+AnalysisType: rule
+Enabled: true
+Filename: example_available_destination_name.py
+RuleID: Example.Rule.Available.Destination
+LogTypes:
+  - AWS.CloudTrail
+Severity: Low
+DisplayName: Example Rule to Check the Format of the Spec
+Tags:
+  - Tag1
+Runbook: Find out who changed the spec format.
+Reference: https://www.link-to-info.io
+Tests:
+  -
+    Name: Name to describe our first test
+    ExpectedResult: true
+    Log:
+      {
+        "field1": "value1",
+      }
