@@ -22,6 +22,7 @@ import os
 import shutil
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
+from unittest import mock
 
 from schema import SchemaWrongKeyError
 from nose.tools import assert_equal, assert_is_instance, assert_true
@@ -294,8 +295,10 @@ class TestPantherAnalysisTool(TestCase):
         except OSError:
             pass
 
-        args = pat.setup_parser().parse_args(
-            f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
+        with mock.patch.dict(os.environ, {pat.ENV_VAR_INCLUDE_INTERNAL_SUBCOMMANDS: 'true'}):
+            args = pat.setup_parser().parse_args(
+                f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
+
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
