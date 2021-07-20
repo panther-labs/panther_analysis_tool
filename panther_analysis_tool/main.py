@@ -127,6 +127,10 @@ SET_FIELDS = [
     "Tags",
 ]
 
+# Environment Variables
+# -- Activates sub-commands that are meant for internal use --
+ENV_VAR_INCLUDE_INTERNAL_SUBCOMMANDS = "PANTHER_PAT_INCLUDE_INTERNAL_SUBCOMMANDS"
+
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
@@ -1409,33 +1413,6 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
-    update_managed_schemas_parser = subparsers.add_parser(
-        "update-schemas", help="Update managed schemas on a Panther deployment."
-    )
-    update_managed_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    update_managed_schemas_parser.set_defaults(func=update_schemas)
-
-    zip_parser = subparsers.add_parser(
-        "zip", help="Create an archive of local policies and rules for uploading to Panther."
-    )
-    zip_parser.add_argument(filter_name, **filter_arg)
-    zip_parser.add_argument(min_test_name, **min_test_arg)
-    zip_parser.add_argument(out_name, **out_arg)
-    zip_parser.add_argument(path_name, **path_arg)
-    zip_parser.add_argument(skip_test_name, **skip_test_arg)
-    zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    zip_parser.add_argument(available_destination_name, **available_destination_arg)
-    zip_parser.set_defaults(func=zip_analysis)
-
-    zip_schemas_parser = subparsers.add_parser(
-        "zip-schemas", help="Create a release asset archive of managed schemas."
-    )
-    zip_schemas_parser.add_argument(
-        "--release", type=str, help="The release tag this asset is for", required=True
-    )
-    zip_schemas_parser.add_argument(out_name, **out_arg)
-    zip_schemas_parser.set_defaults(func=zip_managed_schemas)
-
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
@@ -1444,6 +1421,34 @@ def setup_parser() -> argparse.ArgumentParser:
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
+
+    if os.environ.get(ENV_VAR_INCLUDE_INTERNAL_SUBCOMMANDS):
+        update_managed_schemas_parser = subparsers.add_parser(
+            "update-schemas", help="Update managed schemas on a Panther deployment."
+        )
+        update_managed_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
+        update_managed_schemas_parser.set_defaults(func=update_schemas)
+
+        zip_parser = subparsers.add_parser(
+            "zip", help="Create an archive of local policies and rules for uploading to Panther."
+        )
+        zip_parser.add_argument(filter_name, **filter_arg)
+        zip_parser.add_argument(min_test_name, **min_test_arg)
+        zip_parser.add_argument(out_name, **out_arg)
+        zip_parser.add_argument(path_name, **path_arg)
+        zip_parser.add_argument(skip_test_name, **skip_test_arg)
+        zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+        zip_parser.add_argument(available_destination_name, **available_destination_arg)
+        zip_parser.set_defaults(func=zip_analysis)
+
+        zip_schemas_parser = subparsers.add_parser(
+            "zip-schemas", help="Create a release asset archive of managed schemas."
+        )
+        zip_schemas_parser.add_argument(
+            "--release", type=str, help="The release tag this asset is for", required=True
+        )
+        zip_schemas_parser.add_argument(out_name, **out_arg)
+        zip_schemas_parser.set_defaults(func=zip_managed_schemas)
 
     return parser
 
