@@ -903,7 +903,7 @@ def filter_analysis(
             logging.debug("auto-adding helpers file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
-        if fnmatch(dir_name, DATA_MODEL_LOCATION):
+        if fnmatch(dir_name, DATA_MODEL_PATH_PATTERN):
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
