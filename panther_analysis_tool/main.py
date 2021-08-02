@@ -393,14 +393,14 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
 
+    client = boto3.client("lambda")
     # optionally set env variable for profile passed as argument
     # this must be called prior to setting up the client
     if args.aws_profile is not None:
         logging.info("Using AWS profile: %s", args.aws_profile)
         session = boto3.Session(profile_name=args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
+        client = session.client("lambda")
 
-    client = boto3.client("lambda")
     logging.info("Fetching updates")
     response = client.invoke(
         FunctionName="panther-logtypes-api",
