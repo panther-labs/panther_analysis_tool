@@ -397,6 +397,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     # this must be called prior to setting up the client
     if args.aws_profile is not None:
         logging.info("Using AWS profile: %s", args.aws_profile)
+        session = boto3.Session(profile_name=args.aws_profile)
         set_env("AWS_PROFILE", args.aws_profile)
 
     client = boto3.client("lambda")
