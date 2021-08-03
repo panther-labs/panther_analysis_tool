@@ -335,13 +335,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code == 1:
         return return_code, ""
 
-    client = boto3.client("lambda")
-    # optionally set env variable for profile passed as argument
-    # this must be called prior to setting up the client
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        session = boto3.Session(profile_name=args.aws_profile)
-        client = session.client("lambda")
+    client = get_client(args, "lambda")
 
     with open(archive, "rb") as analysis_zip:
         zip_bytes = analysis_zip.read()
@@ -393,13 +387,8 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
 
-    # optionally set env variable for profile passed as argument
-    # this must be called prior to setting up the client
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
+    client = get_client(args, "lambda")
 
-    client = boto3.client("lambda")
     logging.info("Fetching updates")
     response = client.invoke(
         FunctionName="panther-logtypes-api",
@@ -515,7 +504,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
             logging.info("Using AWS profile: %s", args.aws_profile)
             set_env("AWS_PROFILE", args.aws_profile)
 
-        client = boto3.client("kms")
+        client = get_client(args, "kms")
         try:
             response = client.sign(
                 KeyId=args.kms_key,
@@ -1554,6 +1543,17 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         else:
             parsed_filters[key] = split[1].split(",")
     return parsed_filters, parsed_filters_inverted
+
+
+def get_client(args: argparse.Namespace, service: str) -> boto3.client:
+    client = boto3.client(service)
+    # optionally set env variable for profile passed as argument
+    if args.aws_profile is not None:
+        logging.info("Using AWS profile: %s", args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
+        session = boto3.Session(profile_name=args.aws_profile)
+        client = session.client(service)
+    return client
 
 
 def set_env(key: str, value: str) -> None:
