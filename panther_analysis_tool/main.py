@@ -1550,6 +1550,7 @@ def get_client(args: argparse.Namespace, service: str) -> boto3.client:
     # optionally set env variable for profile passed as argument
     if args.aws_profile is not None:
         logging.info("Using AWS profile: %s", args.aws_profile)
+        set_env("AWS_PROFILE", args.aws_profile)
         session = boto3.Session(profile_name=args.aws_profile)
         client = session.client(service)
     return client
