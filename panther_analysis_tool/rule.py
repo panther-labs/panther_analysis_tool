@@ -370,6 +370,11 @@ class Rule:
         """Used to expose the setup exception to the engine"""
         return self._setup_exception
 
+    @setup_exception.setter
+    def setup_exception(self, val: Any) -> Any:
+        """Used by the engine to set _setup_exception"""
+        self._setup_exception = val
+
     def run(
         self, event: PantherEvent, outputs: dict, outputs_names: dict, batch_mode: bool = True
     ) -> RuleResult:
