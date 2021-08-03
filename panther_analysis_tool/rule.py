@@ -372,7 +372,7 @@ class Rule:
 
     @setup_exception.setter
     def setup_exception(self, val: Any) -> Any:
-        """Used to set the setup_exception to the engine"""
+        """Used by the engine to set _setup_exception"""
         self._setup_exception = val
 
     def run(
