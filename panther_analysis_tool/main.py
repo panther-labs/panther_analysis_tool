@@ -75,6 +75,7 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
+from panther_analysis_tool.util import get_client
 
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
@@ -463,15 +464,11 @@ def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     Returns:
         A tuple of return code and a placeholder string.
     """
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
-
     normalized_path = user_defined.normalize_path(args.path)
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    uploader = user_defined.Uploader(normalized_path)
+    uploader = user_defined.Uploader(normalized_path, args)
     results = uploader.process()
     has_errors = False
     for failed, summary in user_defined.report_summary(normalized_path, results):
@@ -498,11 +495,6 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
     if args.kms_key:
         # Then generate the sha512 sum of the zip file
         archive_hash = generate_hash(release_file)
-        # optionally set env variable for profile passed as argument
-        # this must be called prior to setting up the client
-        if args.aws_profile is not None:
-            logging.info("Using AWS profile: %s", args.aws_profile)
-            set_env("AWS_PROFILE", args.aws_profile)
 
         client = get_client(args, "kms")
         try:
@@ -1543,21 +1535,6 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         else:
             parsed_filters[key] = split[1].split(",")
     return parsed_filters, parsed_filters_inverted
-
-
-def get_client(args: argparse.Namespace, service: str) -> boto3.client:
-    client = boto3.client(service)
-    # optionally set env variable for profile passed as argument
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
-        session = boto3.Session(profile_name=args.aws_profile)
-        client = session.client(service)
-    return client
-
-
-def set_env(key: str, value: str) -> None:
-    os.environ[key] = value
 
 
 def run() -> None:

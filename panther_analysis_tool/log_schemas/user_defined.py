@@ -17,6 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import argparse
 import fnmatch
 import json
 import logging
@@ -30,6 +31,8 @@ from ruamel.yaml import YAML
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
 
+from panther_analysis_tool.util import get_client
+
 logger = logging.getLogger(__file__)
 
 
@@ -38,13 +41,14 @@ class Client:
     _LIST_SCHEMAS_ENDPOINT = "ListSchemas"
     _PUT_SCHEMA_ENDPOINT = "PutUserSchema"
 
-    def __init__(self) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         self._lambda_client = None
+        self._args = args
 
     @property
     def lambda_client(self) -> client.BaseClient:
         if self._lambda_client is None:
-            self._lambda_client = boto3.client("lambda")
+            self._lambda_client = get_client(self._args, "lambda")
         return self._lambda_client
 
     def list_schemas(self) -> Tuple[bool, dict]:
@@ -143,16 +147,17 @@ class Uploader:
     _SCHEMA_NAME_PREFIX = "Custom."
     _SCHEMA_FILE_GLOB_PATTERNS = ("*.yml", "*.yaml")
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, args: argparse.Namespace):
         self._path = path
         self._files: Optional[List[str]] = None
         self._api_client: Optional[Client] = None
         self._existing_schemas: Optional[List[Dict[str, Any]]] = None
+        self._args = args
 
     @property
     def api_client(self) -> Client:
         if self._api_client is None:
-            self._api_client = Client()
+            self._api_client = Client(self._args)
         return self._api_client
 
     @property
