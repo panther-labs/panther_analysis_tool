@@ -25,7 +25,6 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-import boto3
 from botocore import client
 from ruamel.yaml import YAML
 from ruamel.yaml.parser import ParserError

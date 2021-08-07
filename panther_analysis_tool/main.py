@@ -698,7 +698,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
-    available_destinations = []
+    available_destinations: List[str] = []
     if args.available_destination:
         available_destinations.extend(args.available_destination)
 

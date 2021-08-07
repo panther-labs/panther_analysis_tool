@@ -18,13 +18,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import argparse
-import boto3
 import logging
 import os
 from importlib import util as import_util
 from pathlib import Path
 from typing import Any
 
+import boto3
 
 def allowed_char(char: str) -> bool:
     """Return true if the character is part of a valid ID."""
