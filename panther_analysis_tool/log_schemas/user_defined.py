@@ -24,11 +24,12 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-import boto3
 from botocore import client
 from ruamel.yaml import YAML
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
+
+from panther_analysis_tool.util import get_client
 
 logger = logging.getLogger(__file__)
 
@@ -38,13 +39,14 @@ class Client:
     _LIST_SCHEMAS_ENDPOINT = "ListSchemas"
     _PUT_SCHEMA_ENDPOINT = "PutUserSchema"
 
-    def __init__(self) -> None:
+    def __init__(self, aws_profile: str) -> None:
         self._lambda_client = None
+        self._aws_profile = aws_profile
 
     @property
     def lambda_client(self) -> client.BaseClient:
         if self._lambda_client is None:
-            self._lambda_client = boto3.client("lambda")
+            self._lambda_client = get_client(self._aws_profile, "lambda")
         return self._lambda_client
 
     def list_schemas(self) -> Tuple[bool, dict]:
@@ -143,16 +145,17 @@ class Uploader:
     _SCHEMA_NAME_PREFIX = "Custom."
     _SCHEMA_FILE_GLOB_PATTERNS = ("*.yml", "*.yaml")
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, aws_profile: str):
         self._path = path
         self._files: Optional[List[str]] = None
         self._api_client: Optional[Client] = None
         self._existing_schemas: Optional[List[Dict[str, Any]]] = None
+        self._aws_profile = aws_profile
 
     @property
     def api_client(self) -> Client:
         if self._api_client is None:
-            self._api_client = Client()
+            self._api_client = Client(self._aws_profile)
         return self._api_client
 
     @property

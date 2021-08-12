@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, List, Optional, Dict
+from typing import Any, Callable, Dict, List, Optional
 
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
@@ -310,13 +310,13 @@ class Rule:
             self.rule_dedup_period_mins = config["dedupPeriodMinutes"]
 
         if not ("tags" in config) or not isinstance(config["tags"], list):
-            self.rule_tags = list()
+            self.rule_tags: List[str] = list()
         else:
             config["tags"].sort()
             self.rule_tags = config["tags"]
 
         if "reports" not in config:
-            self.rule_reports = dict()
+            self.rule_reports: Dict[str, List[str]] = dict()
         else:
             # Reports are Dict[str, List[str]]
             # Sorting the List before setting it
@@ -634,7 +634,7 @@ class Rule:
 
         # Check for (in)valid destinations
         invalid_destinations = []
-        standardized_destinations = []
+        standardized_destinations: List[str] = []
 
         # Standardize the destinations
         for each_destination in destinations:

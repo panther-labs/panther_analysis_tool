@@ -40,7 +40,6 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import boto3
 import botocore
 import requests
 import semver
@@ -75,6 +74,7 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
+from panther_analysis_tool.util import get_client
 
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
@@ -335,7 +335,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code == 1:
         return return_code, ""
 
-    client = get_client(args, "lambda")
+    client = get_client(args.aws_profile, "lambda")
 
     with open(archive, "rb") as analysis_zip:
         zip_bytes = analysis_zip.read()
@@ -387,7 +387,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
 
-    client = get_client(args, "lambda")
+    client = get_client(args.aws_profile, "lambda")
 
     logging.info("Fetching updates")
     response = client.invoke(
@@ -463,15 +463,11 @@ def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     Returns:
         A tuple of return code and a placeholder string.
     """
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
-
     normalized_path = user_defined.normalize_path(args.path)
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    uploader = user_defined.Uploader(normalized_path)
+    uploader = user_defined.Uploader(normalized_path, args.aws_profile)
     results = uploader.process()
     has_errors = False
     for failed, summary in user_defined.report_summary(normalized_path, results):
@@ -498,13 +494,8 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
     if args.kms_key:
         # Then generate the sha512 sum of the zip file
         archive_hash = generate_hash(release_file)
-        # optionally set env variable for profile passed as argument
-        # this must be called prior to setting up the client
-        if args.aws_profile is not None:
-            logging.info("Using AWS profile: %s", args.aws_profile)
-            set_env("AWS_PROFILE", args.aws_profile)
 
-        client = get_client(args, "kms")
+        client = get_client(args.aws_profile, "kms")
         try:
             response = client.sign(
                 KeyId=args.kms_key,
@@ -706,7 +697,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
-    available_destinations = []
+    available_destinations: List[str] = []
     if args.available_destination:
         available_destinations.extend(args.available_destination)
 
@@ -1310,7 +1301,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.8.1")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.8.2")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
@@ -1543,21 +1534,6 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         else:
             parsed_filters[key] = split[1].split(",")
     return parsed_filters, parsed_filters_inverted
-
-
-def get_client(args: argparse.Namespace, service: str) -> boto3.client:
-    client = boto3.client(service)
-    # optionally set env variable for profile passed as argument
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
-        session = boto3.Session(profile_name=args.aws_profile)
-        client = session.client(service)
-    return client
-
-
-def set_env(key: str, value: str) -> None:
-    os.environ[key] = value
 
 
 def run() -> None:
