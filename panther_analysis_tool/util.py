@@ -26,6 +26,7 @@ from typing import Any
 
 import boto3
 
+
 def allowed_char(char: str) -> bool:
     """Return true if the character is part of a valid ID."""
     return char.isalnum() or char in {" ", "-", "."}
@@ -58,12 +59,12 @@ def store_modules(path: str, body: str) -> None:
         py_file.write(body)
 
 
-def get_client(args: argparse.Namespace, service: str) -> boto3.client:
+def get_client(aws_profile: str, service: str) -> boto3.client:
     # optionally set env variable for profile passed as argument
-    if args.aws_profile is not None:
-        logging.info("Using AWS profile: %s", args.aws_profile)
-        set_env("AWS_PROFILE", args.aws_profile)
-        sess = boto3.Session(profile_name=args.aws_profile)
+    if aws_profile is not None:
+        logging.info("Using AWS profile: %s", aws_profile)
+        set_env("AWS_PROFILE", aws_profile)
+        sess = boto3.Session(profile_name=aws_profile)
         client = sess.client(service)
     else:
         client = boto3.client(service)

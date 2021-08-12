@@ -98,20 +98,20 @@ class TestUploader(unittest.TestCase):
             mock_uploader_client.list_schemas = mock.MagicMock(
                 return_value=(True, self.list_schemas_response)
             )
-            uploader = user_defined.Uploader(self.valid_schema_path)
+            uploader = user_defined.Uploader(self.valid_schema_path, None)
             self.assertListEqual(uploader.existing_schemas, self.list_schemas_response['results'])
             mock_uploader_client.list_schemas.assert_called_once()
 
     def test_find_schema(self):
         with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.existing_schemas',
                         self.list_schemas_response['results']):
-            uploader = user_defined.Uploader(self.valid_schema_path)
+            uploader = user_defined.Uploader(self.valid_schema_path, None)
             self.assertDictEqual(uploader.find_schema('Custom.SampleSchema2'),
                                  self.list_schemas_response['results'][1])
             self.assertIsNone(uploader.find_schema('unknown-schema'))
 
     def test_files(self):
-        uploader = user_defined.Uploader(self.valid_schema_path)
+        uploader = user_defined.Uploader(self.valid_schema_path, None)
         self.assertListEqual(
             uploader.files,
             [os.path.join(self.valid_schema_path, 'schema-1.yml'),
@@ -138,7 +138,7 @@ class TestUploader(unittest.TestCase):
             mock_uploader_client.put_schema = mock.MagicMock(
                 side_effect=put_schema_responses
             )
-            uploader = user_defined.Uploader(self.valid_schema_path)
+            uploader = user_defined.Uploader(self.valid_schema_path, None)
             results = uploader.process()
             self.assertEqual(len(results), 2)
             self.assertListEqual([r.name for r in results],

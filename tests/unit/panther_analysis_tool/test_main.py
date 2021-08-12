@@ -28,6 +28,7 @@ from schema import SchemaWrongKeyError
 from nose.tools import assert_equal, assert_is_instance, assert_true
 
 from panther_analysis_tool import main as pat
+from panther_analysis_tool import util
 from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -184,7 +185,7 @@ class TestPantherAnalysisTool(TestCase):
         aws_profile = 'AWS_PROFILE'
         args = pat.setup_parser().parse_args(
             f'upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile'.split())
-        pat.set_env(aws_profile, args.aws_profile)
+        util.set_env(aws_profile, args.aws_profile)
         assert_equal('myprofile', args.aws_profile)
         assert_equal(args.aws_profile, os.environ.get(aws_profile))
 
@@ -341,7 +342,7 @@ class TestPantherAnalysisTool(TestCase):
 
         with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader') as mock_uploader:
             _, _ = pat.update_custom_schemas(args)
-            mock_uploader.assert_called_once_with(f'{FIXTURES_PATH}/custom-schemas/valid')
+            mock_uploader.assert_called_once_with(f'{FIXTURES_PATH}/custom-schemas/valid', None)
 
         with open(os.path.join(schema_path, 'schema-1.yml')) as f:
             schema1 = f.read()

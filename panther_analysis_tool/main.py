@@ -40,7 +40,6 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import boto3
 import botocore
 import requests
 import semver
@@ -336,7 +335,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code == 1:
         return return_code, ""
 
-    client = get_client(args, "lambda")
+    client = get_client(args.aws_profile, "lambda")
 
     with open(archive, "rb") as analysis_zip:
         zip_bytes = analysis_zip.read()
@@ -388,7 +387,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
 
-    client = get_client(args, "lambda")
+    client = get_client(args.aws_profile, "lambda")
 
     logging.info("Fetching updates")
     response = client.invoke(
@@ -468,7 +467,7 @@ def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    uploader = user_defined.Uploader(normalized_path, args)
+    uploader = user_defined.Uploader(normalized_path, args.aws_profile)
     results = uploader.process()
     has_errors = False
     for failed, summary in user_defined.report_summary(normalized_path, results):
@@ -496,7 +495,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
         # Then generate the sha512 sum of the zip file
         archive_hash = generate_hash(release_file)
 
-        client = get_client(args, "kms")
+        client = get_client(args.aws_profile, "kms")
         try:
             response = client.sign(
                 KeyId=args.kms_key,
