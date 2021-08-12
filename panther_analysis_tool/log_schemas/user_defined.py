@@ -182,7 +182,6 @@ class Uploader:
             success, response = self.api_client.list_schemas()
             if not success:
                 raise RuntimeError("unable to retrieve custom schemas")
-            print(response)
             self._existing_schemas = response["results"]
         return self._existing_schemas
 
