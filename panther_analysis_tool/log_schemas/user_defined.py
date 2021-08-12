@@ -17,7 +17,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import argparse
 import fnmatch
 import json
 import logging
@@ -183,6 +182,7 @@ class Uploader:
             success, response = self.api_client.list_schemas()
             if not success:
                 raise RuntimeError("unable to retrieve custom schemas")
+            print(response)
             self._existing_schemas = response["results"]
         return self._existing_schemas
 
