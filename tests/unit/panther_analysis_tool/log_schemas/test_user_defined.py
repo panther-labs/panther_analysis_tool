@@ -102,6 +102,16 @@ class TestUploader(unittest.TestCase):
             self.assertListEqual(uploader.existing_schemas, self.list_schemas_response['results'])
             mock_uploader_client.list_schemas.assert_called_once()
 
+    def test_existing_schemas_empty_results_from_backend(self):
+        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client',
+                        autospec=user_defined.Client) as mock_uploader_client:
+            mock_uploader_client.list_schemas = mock.MagicMock(
+                return_value=(True, {})
+            )
+            uploader = user_defined.Uploader(self.valid_schema_path, None)
+            self.assertListEqual(uploader.existing_schemas, [])
+            mock_uploader_client.list_schemas.assert_called_once()
+
     def test_find_schema(self):
         with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.existing_schemas',
                         self.list_schemas_response['results']):
