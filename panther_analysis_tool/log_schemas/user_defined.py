@@ -182,7 +182,10 @@ class Uploader:
             success, response = self.api_client.list_schemas()
             if not success:
                 raise RuntimeError("unable to retrieve custom schemas")
-            self._existing_schemas = response["results"]
+            if 'results' in response:
+                self._existing_schemas = response['results']
+            else:
+                self._existing_schemas = []
         return self._existing_schemas
 
     def find_schema(self, name: str) -> Optional[Dict[str, Any]]:
