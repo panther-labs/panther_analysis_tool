@@ -27,7 +27,17 @@ class TestUtilities(unittest.TestCase):
         path = os.path.join(FIXTURES_PATH, 'custom-schemas', 'valid')
         files = user_defined.discover_files(path, user_defined.Uploader._SCHEMA_FILE_GLOB_PATTERNS)
         self.assertListEqual(files, [os.path.join(path, 'schema-1.yml'),
-                                     os.path.join(path, 'schema-2.yaml')])
+                                     os.path.join(path, 'schema-2.yaml'),
+                                     os.path.join(path, 'schema_1_tests.yml')])
+
+    def test_ignore_schema_test_files(self):
+        base_path = os.path.join(FIXTURES_PATH, 'custom-schemas', 'valid')
+        schema_files = ['schema-1.yml', 'schema-2.yml']
+        schema_test_files = ['schema_1_tests.yml']
+
+        all_files = [os.path.join(base_path, filename) for filename in schema_files + schema_test_files]
+        self.assertListEqual(user_defined.ignore_schema_test_files(all_files),
+                             all_files[:len(schema_files)])
 
     def test_normalize_path(self):
         # If path does not exist
