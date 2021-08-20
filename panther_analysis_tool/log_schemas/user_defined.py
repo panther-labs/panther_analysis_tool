@@ -22,12 +22,14 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from itertools import filterfalse
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from botocore import client
 from ruamel.yaml import YAML
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
+from ruamel.yaml.composer import ComposerError
 
 from panther_analysis_tool.util import get_client
 
@@ -166,7 +168,8 @@ class Uploader:
             A list of absolute paths to the schema files.
         """
         if self._files is None:
-            self._files = discover_files(self._path, self._SCHEMA_FILE_GLOB_PATTERNS)
+            matching_filenames = discover_files(self._path, self._SCHEMA_FILE_GLOB_PATTERNS)
+            self._files = ignore_schema_test_files(matching_filenames)
         return self._files
 
     @property
@@ -270,7 +273,7 @@ class Uploader:
                 with open(filename, "r") as schema_file:
                     processed_file.raw = schema_file.read()
                 processed_file.yaml = yaml_parser.load(processed_file.raw)
-            except (ParserError, ScannerError) as exc:
+            except (ParserError, ScannerError, ComposerError) as exc:
                 processed_file.error = f"invalid YAML: {exc}"
         return processed_files
 
@@ -346,6 +349,57 @@ def discover_files(base_path: str, patterns: Tuple[str, ...]) -> List[str]:
                 if fnmatch.fnmatch(filename, pattern):
                     files.append(os.path.join(directory, filename))
     return sorted(files)
+
+
+def ignore_schema_test_files(paths: List[str]) -> List[str]:
+    """
+    Detect and ignore files that contain schema tests.
+
+    Args:
+        paths: the list of file paths from which schema test files will be excluded
+
+    Returns:
+        The list of absolute paths of files that possibly contain custom schema definitions.
+    """
+    return list(filterfalse(_contains_schema_tests, paths))
+
+
+def _contains_schema_tests(filename: str) -> bool:
+    """
+    Check if a file contains YAML document(s) that describe test cases for custom schemas.
+    Note that a test case file may contain multiple YAML documents.
+
+    Args:
+        filename: the full path for the file to be checked
+
+    Returns:
+        True if the fields match the test case definition structure
+        and the filename suffix & extension match the constraints imposed by pantherlog.
+    """
+    # pantherlog requires that files containing test cases have a specific suffix and extension:
+    # https://github.com/panther-labs/panther-enterprise/blob/75dd7ac2be67d3388edabb914b87f514ea9bd2cf/internal/log_analysis/log_processor/logtypes/logtesting/logtesting.go#L302
+    if not filename.endswith('_tests.yml'):
+        return False
+
+    yaml_parser = YAML(typ="safe")
+
+    with open(filename, 'r') as stream:
+        try:
+            yaml_documents: List[Dict[str, Any]] = yaml_parser.load_all(stream)
+        except (ParserError, ScannerError, ComposerError):
+            return False
+
+        documents = list(yaml_documents)
+
+    if not documents:
+        return False
+
+    fields = set(map(str.lower, documents[0].keys()))
+
+    # - "input" and "logtype" are expected to be always present
+    # - at least one of "result", "results" fields is required
+    return {'input', 'logtype', 'result'}.issubset(fields) or \
+           {'input', 'logtype', 'results'}.issubset(fields)
 
 
 def normalize_path(path: str) -> Optional[str]:

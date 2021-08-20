@@ -1,0 +1,31 @@
+name: test1
+logType: Custom.Schema1
+input: |
+  {
+    "ip": "10.0.0.1",
+    "timestamp":"2021-03-26T21:40:41Z"
+  }
+result: |
+  {
+    "ip": "10.0.0.1",
+    "timestamp":"2021-03-26T21:40:41Z",
+    "p_log_type":"Custom.Schema1",
+    "p_event_time":"2021-03-26T21:40:41Z",
+    "p_any_ip_addresses":["10.0.0.1"]
+  }
+---
+name: test2
+logType: Custom.Schema1
+input: |
+  {
+    "ip": "10.0.0.2",
+    "timestamp":"2021-03-26T21:40:41Z"
+  }
+result: |
+  {
+    "ip": "10.0.0.2",
+    "timestamp":"2021-03-26T21:40:41Z",
+    "p_log_type":"Custom.Schema1",
+    "p_event_time":"2021-03-26T21:40:41Z",
+    "p_any_ip_addresses":["10.0.0.1"]
+  }
