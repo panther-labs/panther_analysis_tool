@@ -58,13 +58,14 @@ from schema import (
 
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
+from panther_analysis_tool.detection import DetectionResult
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
     FunctionReturnTypeError,
     UnknownDestinationError,
 )
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.rule import Rule, RuleResult
+from panther_analysis_tool.rule import Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -1140,7 +1141,7 @@ def _run_tests(
                 test_result["outcome"] = "FAIL"
                 failed_tests[analysis_id].append(unit_test["Name"])
         else:
-            rule_result: RuleResult = result
+            rule_result: DetectionResult = result
             if rule_result.matched is not unit_test["ExpectedResult"]:
                 test_result["outcome"] = "FAIL"
                 failed_tests[analysis_id].append(unit_test["Name"])
@@ -1182,12 +1183,12 @@ def _run_tests(
 
 
 def _evaluate_auxiliary_function_result(
-    function_name: str, rule_result: RuleResult, strict_check: bool
+    function_name: str, detection_result: DetectionResult, strict_check: bool
 ) -> Dict[str, Any]:
     """Determine whether an auxiliary function for a rule raised an error"""
-    function_error = getattr(rule_result, f"{function_name}_exception")
-    output = getattr(rule_result, f"{function_name}_output")
-    is_defined = getattr(rule_result, f"{function_name}_defined")
+    function_error = getattr(detection_result, f"{function_name}_exception")
+    output = getattr(detection_result, f"{function_name}_output")
+    is_defined = getattr(detection_result, f"{function_name}_defined")
     failed = function_error is not None
 
     # For backwards compatibility we can accept invalid destination names,
