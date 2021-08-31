@@ -702,13 +702,13 @@ class TestDetectionResult(TestCase):
         result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
         self.assertFalse(result.errored)
 
-    def test_rule_evaluation_failed(self) -> None:
+    def test_detection_evaluation_failed(self) -> None:
         result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
         self.assertFalse(result.errored)
 
-        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_exception=TypeError()).rule_evaluation_failed)
-        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', setup_exception=TypeError()).rule_evaluation_failed)
-        self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', title_exception=TypeError()).rule_evaluation_failed)
+        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_exception=TypeError()).detection_evaluation_failed)
+        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', setup_exception=TypeError()).detection_evaluation_failed)
+        self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', title_exception=TypeError()).detection_evaluation_failed)
 
 
 class TestRawStringImporter(TestCase):

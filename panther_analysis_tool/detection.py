@@ -35,14 +35,14 @@ get_logger = logging.getLogger
 # pylint: disable=too-many-instance-attributes,unsubscriptable-object
 @dataclass
 class DetectionResult:
-    """Class containing the result of running a rule"""
+    """Class containing the result of running a detection"""
 
     detection_id: str
     detection_severity: str
     detection_type: Optional[str] = None
     setup_exception: Optional[Exception] = None
 
-    matched: Optional[bool] = None  # rule output
+    matched: Optional[bool] = None  # detection output
     detection_exception: Optional[Exception] = None
 
     dedup_output: Optional[str] = None
@@ -117,16 +117,16 @@ class DetectionResult:
 
         trace = traceback.format_tb(exception.__traceback__)
         # we only take last element of trace which will show the
-        # rule file name and line of the error, for example:
-        #    division by zero: AlwaysFail.py, line 4, in rule 1/0
+        # detection file name and line of the error, for example:
+        #    division by zero: AlwaysFail.py, line 4, in detection 1/0
         file_trace = trace[len(trace) - 1].strip().replace("\n", "")
-        # this looks like: File "/tmp/rules/AlwaysFail.py", line 4, in rule 1/0 BUT
+        # this looks like: File "/tmp/rules/AlwaysFail.py", line 4, in detection 1/0 BUT
         # we want just the file name
         return str(exception) + ": " + re.sub(r'File.*/(.*[.]py)"', r"\1", file_trace)
 
     @property
     def errored(self) -> bool:
-        """Returns whether any of the rule functions raised an error"""
+        """Returns whether any of the detection functions raised an error"""
         return bool(
             self.detection_exception
             or self.title_exception
@@ -142,9 +142,10 @@ class DetectionResult:
         )
 
     @property
-    def rule_evaluation_failed(self) -> bool:
-        """Returns whether the rule function raises an error or an import error occurred"""
+    def detection_evaluation_failed(self) -> bool:
+        """Returns whether the detection function raises an error or an import error occurred"""
         return bool(self.detection_exception or self.setup_exception)
+
 
 class BaseImporter:
     """Base class for Python module importers"""

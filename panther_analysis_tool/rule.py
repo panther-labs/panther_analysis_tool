@@ -30,12 +30,17 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional
 
+from panther_analysis_tool.detection import (
+    BaseImporter,
+    DetectionResult,
+    FilesystemImporter,
+    RawStringImporter,
+)
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
     FunctionReturnTypeError,
     UnknownDestinationError,
 )
-from panther_analysis_tool.detection import DetectionResult, BaseImporter, FilesystemImporter, RawStringImporter
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
@@ -230,7 +235,9 @@ class Rule:
         are not checked if the rule won't trigger an alert and also title()/dedup()
         won't raise exceptions, so that an alert won't be missed.
         """
-        rule_result = DetectionResult(detection_id=self.rule_id, detection_severity=self.rule_severity)
+        rule_result = DetectionResult(
+            detection_id=self.rule_id, detection_severity=self.rule_severity
+        )
         # If there was an error setting up the rule
         # return early
         if self._setup_exception:
