@@ -128,7 +128,7 @@ class Detection:
             raise TypeError('"body", "path" parameters must be of string type')
 
         # backwards compatible for data from before we returned this
-        self.detection_type = config.get("analysisType")
+        self.detection_type = config.get("analysisType", self.default_detection_type)
 
         self.detection_id = config["id"]
         self.detection_version = config["versionId"]
@@ -165,9 +165,9 @@ class Detection:
         self._setup_exception = None
         try:
             self._module = self._load_detection(self.detection_id, config)
-            if not self._is_function_defined(self.matcher_function_name()):
+            if not self._is_function_defined(self.matcher_function_name):
                 raise AssertionError(
-                    f"detection needs to have a method named '{self.matcher_function_name()}'"
+                    f"detection needs to have a method named '{self.matcher_function_name}'"
                 )
         except Exception as err:  # pylint: disable=broad-except
             self._setup_exception = err
@@ -199,14 +199,21 @@ class Detection:
             function_definitions[name] = self._is_function_defined(name)
         return function_definitions
 
+    @property
+    @abstractmethod
+    def default_detection_type(self) -> str:
+        pass
+
     @abstractmethod
     def matcher_function(self, event: PantherEvent) -> bool:
         pass
 
+    @property
     @abstractmethod
     def matcher_function_name(self) -> str:
         pass
 
+    @property
     @abstractmethod
     def matcher_alert_value(self) -> bool:
         pass
@@ -254,7 +261,7 @@ class Detection:
         except Exception as err:  # pylint: disable=broad-except
             detection_result.detection_exception = err
 
-        if batch_mode and detection_result.matched is not self.matcher_alert_value():
+        if batch_mode and detection_result.matched is not self.matcher_alert_value:
             # In batch mode (log analysis), there is no need to run the title/dedup functions
             # if the detection isn't going to trigger an alert
             return detection_result
@@ -584,10 +591,8 @@ class Detection:
         if len(runbook) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                (
-                    "maximum field [runbook] length is [%d]. [%d] for detection with ID [%s]."
-                    + " Truncating."
-                ),
+                "maximum field [runbook] length is [%d]. [%d] for detection with ID [%s]. "
+                "Truncating.",
                 MAX_GENERATED_FIELD_SIZE,
                 len(runbook),
                 self.detection_id,
@@ -687,19 +692,21 @@ class Detection:
 class Rule(Detection):
     """Panther rule metadata and imported module."""
 
+    # default detection types for rules
+    default_detection_type = "rule"
+
+    # rules have a rule method
+    matcher_function_name = "rule"
+
+    # a rule should trigger an alert on True return value
+    matcher_alert_value = True
+
     def matcher_function(self, event: PantherEvent) -> bool:
         # for scheduled rules the rule function is optional,
         # defaults to True and will pass the events thru
         if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(
-            self._module, self.matcher_function_name()
+            self._module, self.matcher_function_name
         ):
             return True
-        command = getattr(self._module, self.matcher_function_name())
+        command = getattr(self._module, self.matcher_function_name)
         return self._run_command(command, event, bool)
-
-    def matcher_function_name(self) -> str:
-        return "rule"
-
-    def matcher_alert_value(self) -> bool:
-        # a rule should trigger an alert on True return value
-        return True
