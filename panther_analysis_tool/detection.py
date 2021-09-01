@@ -517,7 +517,9 @@ class Detection:
     def _run_detection(self, event: PantherEvent) -> bool:
         # for scheduled rules the rule function is optional,
         # defaults to True and will pass the events thru
-        if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(self._module, self.matcher_function):
+        if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(
+            self._module, self.matcher_function
+        ):
             return True
         command = getattr(self._module, self.matcher_function)
         return self._run_command(command, event, bool)
