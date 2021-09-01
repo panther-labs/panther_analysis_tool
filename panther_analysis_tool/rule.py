@@ -20,8 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 from collections.abc import Mapping
 
-from panther_analysis_tool.detection import TYPE_RULE, Detection, DetectionResult
-from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.detection import TYPE_RULE, Detection
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
@@ -46,3 +45,5 @@ class Rule(Detection):
         """
         # initialize core parameters
         super().__init__(config, TYPE_RULE)
+        # rule specific fields
+        self.rule_id = self.detection_id
