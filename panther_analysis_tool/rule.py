@@ -584,7 +584,10 @@ class Detection:
         if len(runbook) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                "maximum field [runbook] length is [%d]. [%d] for detection with ID [%s] . Truncating.",
+                (
+                    "maximum field [runbook] length is [%d]. [%d] for detection with ID [%s]."
+                    + " Truncating."
+                ),
                 MAX_GENERATED_FIELD_SIZE,
                 len(runbook),
                 self.detection_id,
