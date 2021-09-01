@@ -17,12 +17,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-
 import logging
 import re
 import traceback
+from abc import abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
+from types import ModuleType
 from typing import List, Optional
+
+from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
@@ -140,3 +144,47 @@ class DetectionResult:
     def detection_evaluation_failed(self) -> bool:
         """Returns whether the detection function raises an error or an import error occurred"""
         return bool(self.detection_exception or self.setup_exception)
+
+
+class BaseImporter:
+    """Base class for Python module importers"""
+
+    @staticmethod
+    def from_file(identifier: str, path: str) -> ModuleType:
+        """Import a file as a Python module"""
+        return import_file_as_module(path, identifier)
+
+    def from_string(self, identifier: str, body: str, tmp_dir: str) -> ModuleType:
+        """Write source code to a temporary file and import as Python module"""
+        path = id_to_path(tmp_dir, identifier)
+        store_modules(path, body)
+        return self.from_file(identifier, path)
+
+    @abstractmethod
+    def get_module(self, identifier: str, resource: str) -> ModuleType:
+        pass
+
+
+class FilesystemImporter(BaseImporter):
+    """Import a Python module from the filesystem"""
+
+    def get_module(  # pylint: disable=arguments-differ
+        self, identifier: str, path: str
+    ) -> ModuleType:
+        module_path = Path(path)
+        if not module_path.exists():
+            raise FileNotFoundError(path)
+        return super().from_file(identifier, module_path.absolute().as_posix())
+
+
+class RawStringImporter(BaseImporter):
+    """Import a Python module from raw source code"""
+
+    def __init__(self, tmp_dir: str):
+        super().__init__()
+        self._tmp_dir = tmp_dir
+
+    def get_module(  # pylint: disable=arguments-differ
+        self, identifier: str, body: str
+    ) -> ModuleType:
+        return super().from_string(identifier, body, self._tmp_dir)
