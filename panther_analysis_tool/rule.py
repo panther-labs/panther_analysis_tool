@@ -20,16 +20,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 from collections.abc import Mapping
 
-from panther_analysis_tool.detection import (
-    Detection,
-    DetectionResult,
-    TYPE_RULE,
-)
+from panther_analysis_tool.detection import TYPE_RULE, Detection, DetectionResult
 from panther_analysis_tool.enriched_event import PantherEvent
-
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
+
 
 class Rule(Detection):
     """Panther rule metadata and imported module."""
@@ -50,7 +46,6 @@ class Rule(Detection):
         """
         # initialize core parameters
         super().__init__(config, TYPE_RULE)
-
 
     def run(
         self, event: PantherEvent, outputs: dict, outputs_names: dict, batch_mode: bool = True

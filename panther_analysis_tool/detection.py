@@ -17,25 +17,25 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-import re
-import traceback
-import tempfile
 import json
+import logging
 import os
-from collections.abc import Mapping
+import re
+import tempfile
+import traceback
 from abc import abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional
 
-from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
     FunctionReturnTypeError,
     UnknownDestinationError,
 )
+from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
@@ -251,7 +251,6 @@ class RawStringImporter(BaseImporter):
         return super().from_string(identifier, body, self._tmp_dir)
 
 
-
 # pylint: disable=too-many-instance-attributes
 class Detection:
     """Panther detection metadata and imported module."""
@@ -323,7 +322,9 @@ class Detection:
         try:
             self._module = self._load_detection(self.detection_id, config)
             if not hasattr(self._module, self.matcher_function):
-                raise AssertionError("detection needs to have a method named '%s'", self.matcher_function)
+                raise AssertionError(
+                    "detection needs to have a method named '%s'", self.matcher_function
+                )
         except Exception as err:  # pylint: disable=broad-except
             self._setup_exception = err
             return
@@ -353,13 +354,12 @@ class Detection:
         for name in AUXILIARY_FUNCTIONS:
             function_definitions[name] = self._is_function_defined(name)
         return function_definitions
-    
 
     @property
     def matcher_function(self) -> str:
         # the matcher function will differ depending on detection type
         return "rule"
-    
+
     @property
     def trigger_alert(self) -> bool:
         # the returned value from the detection will trigger an alert
@@ -395,7 +395,9 @@ class Detection:
         are not checked if the rule won't trigger an alert and also title()/dedup()
         won't raise exceptions, so that an alert won't be missed.
         """
-        detection_result = DetectionResult(detection_id=self.detection_id, detection_severity=self.detection_severity)
+        detection_result = DetectionResult(
+            detection_id=self.detection_id, detection_severity=self.detection_severity
+        )
         # If there was an error setting up the rule
         # return early
         if self._setup_exception:
@@ -435,7 +437,9 @@ class Detection:
             detection_result.description_exception = err
 
         try:
-            detection_result.reference_defined = self._auxiliary_function_definitions[REFERENCE_FUNCTION]
+            detection_result.reference_defined = self._auxiliary_function_definitions[
+                REFERENCE_FUNCTION
+            ]
             if detection_result.reference_defined:
                 detection_result.reference_output = self._get_reference(
                     event,
@@ -445,7 +449,9 @@ class Detection:
             detection_result.reference_exception = err
 
         try:
-            detection_result.severity_defined = self._auxiliary_function_definitions[SEVERITY_FUNCTION]
+            detection_result.severity_defined = self._auxiliary_function_definitions[
+                SEVERITY_FUNCTION
+            ]
             if detection_result.severity_defined:
                 detection_result.severity_output = self._get_severity(
                     event,
@@ -455,7 +461,9 @@ class Detection:
             detection_result.severity_exception = err
 
         try:
-            detection_result.runbook_defined = self._auxiliary_function_definitions[RUNBOOK_FUNCTION]
+            detection_result.runbook_defined = self._auxiliary_function_definitions[
+                RUNBOOK_FUNCTION
+            ]
             if detection_result.runbook_defined:
                 detection_result.runbook_output = self._get_runbook(
                     event,
@@ -481,7 +489,9 @@ class Detection:
         try:
             detection_result.dedup_defined = self._auxiliary_function_definitions[DEDUP_FUNCTION]
             if not detection_result.dedup_defined:
-                detection_result.dedup_output = self._get_dedup_fallback(detection_result.title_output)
+                detection_result.dedup_output = self._get_dedup_fallback(
+                    detection_result.title_output
+                )
             else:
                 detection_result.dedup_output = self._get_dedup(
                     event,
