@@ -520,7 +520,7 @@ class Detection:
         if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(self._module, "rule"):
             return True
         command = getattr(self._module, self.matcher_function)
-        return self._run_command(command, event, bool)  # type: ignore[attr-defined]
+        return self._run_command(command, event, bool)
 
     def _get_alert_context(
         self, event: PantherEvent, use_default_on_exception: bool = True
