@@ -21,16 +21,15 @@ import dataclasses
 import json
 import inspect
 import os
-import pathlib
 import shutil
 from typing import Tuple, Optional, Any
 from unittest import TestCase
 import tempfile
 from types import ModuleType
 
-from panther_analysis_tool.detection import DetectionResult, FilesystemImporter, RawStringImporter, \
+from panther_analysis_tool.detection import DetectionResult
+from panther_analysis_tool.rule import Rule, FilesystemImporter, RawStringImporter, \
     MAX_DEDUP_STRING_SIZE, MAX_GENERATED_FIELD_SIZE, TRUNCATED_STRING_SUFFIX
-from panther_analysis_tool.rule import Rule
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import FunctionReturnTypeError
 
@@ -260,7 +259,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         self.assertIsNone(rule_result.dedup_output)
         self.assertTrue(rule_result.errored)
 
-        expected_short_msg = "FunctionReturnTypeError('rule [test_rule_invalid_rule_return] function [rule] returned [str], expected [bool]')"
+        expected_short_msg = "FunctionReturnTypeError('detection [test_rule_invalid_rule_return] function [rule] returned [str], expected [bool]')"
         self.assertEqual(expected_short_msg, rule_result.short_error_message)
         self.assertEqual(rule_result.error_type, 'FunctionReturnTypeError')
 
@@ -387,7 +386,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_alert_context = json.dumps(
             {
                 '_error':
-                    'FunctionReturnTypeError(\'rule [test_alert_context_invalid_return_value] function [alert_context] returned [str], expected [Mapping]\')'  # pylint: disable=C0301
+                    'FunctionReturnTypeError(\'detection [test_alert_context_invalid_return_value] function [alert_context] returned [str], expected [Mapping]\')'  # pylint: disable=C0301
             }
         )
         expected_result = DetectionResult(
@@ -572,7 +571,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             severity_output="CRITICAL",
             destinations_output=None,
             destinations_exception=FunctionReturnTypeError(
-                'rule [{}] function [{}] returned [{}], expected a list'.format(rule.detection_id, 'destinations', 'str')
+                'detection [{}] function [{}] returned [{}], expected a list'.format(rule.detection_id, 'destinations', 'str')
             ),
             detection_severity='INFO',
             alert_context_defined=True,
