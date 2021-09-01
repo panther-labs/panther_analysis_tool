@@ -289,7 +289,7 @@ class Detection:
         self.detection_id = config["id"]
         self.detection_version = config["versionId"]
 
-        # TODO: severity and other detection metadata is not passed through when we run detection tests.
+        # TODO: severity and other detection metadata is not passed through when we run tests.
         #       https://app.asana.com/0/1200360676535738/1200403272293475
         if "severity" in config:
             self.detection_severity = config["severity"]
@@ -323,7 +323,7 @@ class Detection:
             self._module = self._load_detection(self.detection_id, config)
             if not hasattr(self._module, self.matcher_function):
                 raise AssertionError(
-                    "detection needs to have a method named '%s'", self.matcher_function
+                    f"detection needs to have a method named '{self.matcher_function}'"
                 )
         except Exception as err:  # pylint: disable=broad-except
             self._setup_exception = err
@@ -517,7 +517,7 @@ class Detection:
     def _run_detection(self, event: PantherEvent) -> bool:
         # for scheduled rules the rule function is optional,
         # defaults to True and will pass the events thru
-        if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(self._module, "rule"):
+        if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(self._module, self.matcher_function):
             return True
         command = getattr(self._module, self.matcher_function)
         return self._run_command(command, event, bool)

@@ -46,8 +46,3 @@ class Rule(Detection):
         """
         # initialize core parameters
         super().__init__(config, TYPE_RULE)
-
-    def run(
-        self, event: PantherEvent, outputs: dict, outputs_names: dict, batch_mode: bool = True
-    ) -> DetectionResult:
-        return super().run(event, outputs, outputs_names, batch_mode)
