@@ -21,7 +21,7 @@ import json
 import logging
 import os
 import tempfile
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from collections.abc import Mapping
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional
@@ -95,7 +95,7 @@ AUXILIARY_FUNCTIONS = (
 
 
 # pylint: disable=too-many-instance-attributes
-class Detection:
+class Detection(ABC):
     """Panther detection metadata and imported module."""
 
     # pylint: disable=too-many-branches,too-many-statements
