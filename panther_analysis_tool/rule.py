@@ -21,7 +21,7 @@ import json
 import logging
 import os
 import tempfile
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional

@@ -27,9 +27,9 @@ from unittest import TestCase
 import tempfile
 from types import ModuleType
 
-from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.rule import Rule, FilesystemImporter, RawStringImporter, \
-    MAX_DEDUP_STRING_SIZE, MAX_GENERATED_FIELD_SIZE, TRUNCATED_STRING_SUFFIX
+from panther_analysis_tool.detection import DetectionResult, FilesystemImporter, RawStringImporter
+from panther_analysis_tool.rule import Rule, MAX_DEDUP_STRING_SIZE, \
+    MAX_GENERATED_FIELD_SIZE, TRUNCATED_STRING_SUFFIX
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import FunctionReturnTypeError
 
