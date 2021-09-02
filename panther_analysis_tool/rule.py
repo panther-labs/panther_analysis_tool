@@ -20,22 +20,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 import logging
 import os
-import re
 import tempfile
-import traceback
-from abc import abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass
-from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional
 
+from panther_analysis_tool.detection import (
+    BaseImporter,
+    DetectionResult,
+    FilesystemImporter,
+    RawStringImporter,
+)
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
     FunctionReturnTypeError,
     UnknownDestinationError,
 )
-from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
@@ -91,164 +91,6 @@ AUXILIARY_FUNCTIONS = (
     SEVERITY_FUNCTION,
     TITLE_FUNCTION,
 )
-
-
-# pylint: disable=too-many-instance-attributes,unsubscriptable-object
-@dataclass
-class RuleResult:
-    """Class containing the result of running a rule"""
-
-    rule_id: str
-    rule_severity: str
-    setup_exception: Optional[Exception] = None
-
-    matched: Optional[bool] = None  # rule output
-    rule_exception: Optional[Exception] = None
-
-    dedup_output: Optional[str] = None
-    dedup_exception: Optional[Exception] = None
-    dedup_defined: bool = False
-
-    title_output: Optional[str] = None
-    title_exception: Optional[Exception] = None
-    title_defined: bool = False
-
-    description_output: Optional[str] = None
-    description_exception: Optional[Exception] = None
-    description_defined: bool = False
-
-    reference_output: Optional[str] = None
-    reference_exception: Optional[Exception] = None
-    reference_defined: bool = False
-
-    severity_output: Optional[str] = None
-    severity_exception: Optional[Exception] = None
-    severity_defined: bool = False
-
-    runbook_output: Optional[str] = None
-    runbook_exception: Optional[Exception] = None
-    runbook_defined: bool = False
-
-    destinations_output: Optional[List[str]] = None
-    destinations_exception: Optional[Exception] = None
-    destinations_defined: bool = False
-
-    alert_context_output: Optional[str] = None
-    alert_context_exception: Optional[Exception] = None
-    alert_context_defined: bool = False
-
-    input_exception: Optional[Exception] = None
-
-    @property
-    def fatal_error(self) -> Optional[Exception]:
-        """Provide any error that would stop evaluation
-        or None, if no blocking error is found"""
-        exception = None
-        if self.setup_exception:
-            exception = self.setup_exception
-        elif self.rule_exception:
-            exception = self.rule_exception
-        elif self.input_exception:
-            exception = self.input_exception
-        return exception
-
-    @property
-    def error_type(self) -> Optional[str]:
-        """Returns the type of the exception, None if there was no error"""
-        fatal_error = self.fatal_error
-        if fatal_error is None:
-            return None
-        return type(fatal_error).__name__
-
-    @property
-    def short_error_message(self) -> Optional[str]:
-        """Returns short error message, None if there was no error"""
-        fatal_error = self.fatal_error
-        if fatal_error is None:
-            return None
-        return repr(fatal_error)
-
-    @property
-    def error_message(self) -> Optional[str]:
-        """Returns formatted error message with traceback"""
-        exception = self.fatal_error
-        if exception is None:
-            return None
-
-        trace = traceback.format_tb(exception.__traceback__)
-        # we only take last element of trace which will show the
-        # rule file name and line of the error, for example:
-        #    division by zero: AlwaysFail.py, line 4, in rule 1/0
-        file_trace = trace[len(trace) - 1].strip().replace("\n", "")
-        # this looks like: File "/tmp/rules/AlwaysFail.py", line 4, in rule 1/0 BUT
-        # we want just the file name
-        return str(exception) + ": " + re.sub(r'File.*/(.*[.]py)"', r"\1", file_trace)
-
-    @property
-    def errored(self) -> bool:
-        """Returns whether any of the rule functions raised an error"""
-        return bool(
-            self.rule_exception
-            or self.title_exception
-            or self.dedup_exception
-            or self.alert_context_exception
-            or self.description_exception
-            or self.reference_exception
-            or self.severity_exception
-            or self.runbook_exception
-            or self.destinations_exception
-            or self.setup_exception
-            or self.input_exception
-        )
-
-    @property
-    def rule_evaluation_failed(self) -> bool:
-        """Returns whether the rule function raises an error or an import error occurred"""
-        return bool(self.rule_exception or self.setup_exception)
-
-
-class BaseImporter:
-    """Base class for Python module importers"""
-
-    @staticmethod
-    def from_file(identifier: str, path: str) -> ModuleType:
-        """Import a file as a Python module"""
-        return import_file_as_module(path, identifier)
-
-    def from_string(self, identifier: str, body: str, tmp_dir: str) -> ModuleType:
-        """Write source code to a temporary file and import as Python module"""
-        path = id_to_path(tmp_dir, identifier)
-        store_modules(path, body)
-        return self.from_file(identifier, path)
-
-    @abstractmethod
-    def get_module(self, identifier: str, resource: str) -> ModuleType:
-        pass
-
-
-class FilesystemImporter(BaseImporter):
-    """Import a Python module from the filesystem"""
-
-    def get_module(  # pylint: disable=arguments-differ
-        self, identifier: str, path: str
-    ) -> ModuleType:
-        module_path = Path(path)
-        if not module_path.exists():
-            raise FileNotFoundError(path)
-        return super().from_file(identifier, module_path.absolute().as_posix())
-
-
-class RawStringImporter(BaseImporter):
-    """Import a Python module from raw source code"""
-
-    def __init__(self, tmp_dir: str):
-        super().__init__()
-        self._tmp_dir = tmp_dir
-
-    def get_module(  # pylint: disable=arguments-differ
-        self, identifier: str, body: str
-    ) -> ModuleType:
-        return super().from_string(identifier, body, self._tmp_dir)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -377,7 +219,7 @@ class Rule:
 
     def run(
         self, event: PantherEvent, outputs: dict, outputs_names: dict, batch_mode: bool = True
-    ) -> RuleResult:
+    ) -> DetectionResult:
         """
         Analyze a log line with this rule and return True, False, or an error.
         :param event: The event to run the rule against
@@ -388,7 +230,9 @@ class Rule:
         are not checked if the rule won't trigger an alert and also title()/dedup()
         won't raise exceptions, so that an alert won't be missed.
         """
-        rule_result = RuleResult(rule_id=self.rule_id, rule_severity=self.rule_severity)
+        rule_result = DetectionResult(
+            detection_id=self.rule_id, detection_severity=self.rule_severity
+        )
         # If there was an error setting up the rule
         # return early
         if self._setup_exception:
@@ -398,7 +242,7 @@ class Rule:
         try:
             rule_result.matched = self._run_rule(event)
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.rule_exception = err
+            rule_result.detection_exception = err
 
         if batch_mode and not rule_result.matched:
             # In batch mode (log analysis), there is no need to run the title/dedup functions
