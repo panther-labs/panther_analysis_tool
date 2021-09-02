@@ -693,7 +693,7 @@ class Rule(Detection):
     """Panther rule metadata and imported module."""
 
     # default detection types for rules
-    default_detection_type = "rule"
+    default_detection_type = TYPE_RULE
 
     # rules have a rule method
     matcher_function_name = "rule"
