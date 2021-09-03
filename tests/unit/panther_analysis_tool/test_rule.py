@@ -21,7 +21,6 @@ import dataclasses
 import json
 import inspect
 import os
-import pathlib
 import shutil
 from typing import Tuple, Optional, Any
 from unittest import TestCase
@@ -29,8 +28,8 @@ import tempfile
 from types import ModuleType
 
 from panther_analysis_tool.detection import DetectionResult, FilesystemImporter, RawStringImporter
-from panther_analysis_tool.rule import MAX_DEDUP_STRING_SIZE, MAX_GENERATED_FIELD_SIZE, \
-    Rule, TRUNCATED_STRING_SUFFIX
+from panther_analysis_tool.rule import Rule, MAX_DEDUP_STRING_SIZE, \
+    MAX_GENERATED_FIELD_SIZE, TRUNCATED_STRING_SUFFIX
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import FunctionReturnTypeError
 
@@ -111,7 +110,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule_body = 'def rule(event):\n\treturn True'
         rule = Rule({'id': 'test_rule_default_dedup_time', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
 
-        self.assertEqual(60, rule.rule_dedup_period_mins)
+        self.assertEqual(60, rule.detection_dedup_period_mins)
 
     def test_rule_tags(self) -> None:
         rule_body = 'def rule(event):\n\treturn True'
@@ -125,7 +124,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             }
         )
 
-        self.assertEqual(['tag1', 'tag2'], rule.rule_tags)
+        self.assertEqual(['tag1', 'tag2'], rule.detection_tags)
 
     def test_rule_reports(self) -> None:
         rule_body = 'def rule(event):\n\treturn True'
@@ -142,7 +141,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             }
         )
 
-        self.assertEqual({'key1': ['value1', 'value2'], 'key2': ['value1']}, rule.rule_reports)
+        self.assertEqual({'key1': ['value1', 'value2'], 'key2': ['value1']}, rule.detection_reports)
 
     def test_create_rule_missing_method(self) -> None:
         exception = False
@@ -158,10 +157,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule_body = 'def rule(event):\n\treturn True'
         rule = Rule({'id': 'test_rule_matches', 'body': rule_body, 'dedupPeriodMinutes': 100, 'versionId': 'test', 'severity': 'INFO'})
 
-        self.assertEqual('test_rule_matches', rule.rule_id)
+        self.assertEqual('test_rule_matches', rule.detection_id)
         self.assertEqual(rule_body, inspect.getsource(rule.module).strip())
-        self.assertEqual('test', rule.rule_version)
-        self.assertEqual(100, rule.rule_dedup_period_mins)
+        self.assertEqual('test', rule.detection_version)
+        self.assertEqual(100, rule.detection_dedup_period_mins)
 
         expected_rule = DetectionResult(
             detection_id='test_rule_matches',
@@ -260,7 +259,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         self.assertIsNone(rule_result.dedup_output)
         self.assertTrue(rule_result.errored)
 
-        expected_short_msg = "FunctionReturnTypeError('rule [test_rule_invalid_rule_return] function [rule] returned [str], expected [bool]')"
+        expected_short_msg = "FunctionReturnTypeError('detection [test_rule_invalid_rule_return] function [rule] returned [str], expected [bool]')"
         self.assertEqual(expected_short_msg, rule_result.short_error_message)
         self.assertEqual(rule_result.error_type, 'FunctionReturnTypeError')
 
@@ -387,7 +386,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_alert_context = json.dumps(
             {
                 '_error':
-                    'FunctionReturnTypeError(\'rule [test_alert_context_invalid_return_value] function [alert_context] returned [str], expected [Mapping]\')'  # pylint: disable=C0301
+                    'FunctionReturnTypeError(\'detection [test_alert_context_invalid_return_value] function [alert_context] returned [str], expected [Mapping]\')'  # pylint: disable=C0301
             }
         )
         expected_result = DetectionResult(
@@ -572,7 +571,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             severity_output="CRITICAL",
             destinations_output=None,
             destinations_exception=FunctionReturnTypeError(
-                'rule [{}] function [{}] returned [{}], expected a list'.format(rule.rule_id, 'destinations', 'str')
+                'detection [{}] function [{}] returned [{}], expected a list'.format(rule.detection_id, 'destinations', 'str')
             ),
             detection_severity='INFO',
             alert_context_defined=True,

@@ -31,7 +31,6 @@ from panther_analysis_tool.util import id_to_path, import_file_as_module, store_
 # Temporary alias for compatibility
 get_logger = logging.getLogger
 
-
 # pylint: disable=too-many-instance-attributes,unsubscriptable-object
 @dataclass
 class DetectionResult:
