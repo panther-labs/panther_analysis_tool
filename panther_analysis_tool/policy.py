@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from typing import List
 
-from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.rule import Detection
 
 TYPE_POLICY = "POLICY"
