@@ -247,10 +247,17 @@ class Detection(ABC):
         are not checked if the detection won't trigger an alert and also title()/dedup()
         won't raise exceptions, so that an alert won't be missed.
         """
+<<<<<<< HEAD
         detection_result = DetectionResult(
             detection_id=self.detection_id, detection_severity=self.detection_severity
         )
         # If there was an error setting up the detection
+=======
+        rule_result = DetectionResult(
+            detection_id=self.rule_id, detection_severity=self.rule_severity
+        )
+        # If there was an error setting up the rule
+>>>>>>> master
         # return early
         if self._setup_exception:
             detection_result.setup_exception = self._setup_exception
@@ -259,7 +266,11 @@ class Detection(ABC):
         try:
             detection_result.matched = self.matcher_function(event)
         except Exception as err:  # pylint: disable=broad-except
+<<<<<<< HEAD
             detection_result.detection_exception = err
+=======
+            rule_result.detection_exception = err
+>>>>>>> master
 
         if batch_mode and detection_result.matched is not self.matcher_alert_value:
             # In batch mode (log analysis), there is no need to run the title/dedup functions
