@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from typing import List
 
+from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.rule import Detection
 
 TYPE_POLICY = "POLICY"
@@ -39,6 +40,6 @@ class Policy(Detection):
     # suppressions for the policy
     suppressions: List[str] = []
 
-    def matcher_function(self, event: dict) -> bool:
+    def matcher_function(self, event: PantherEvent) -> bool:
         command = getattr(self._module, self.matcher_function_name)
         return self._run_command(command, event, bool)
