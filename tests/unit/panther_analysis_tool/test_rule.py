@@ -664,7 +664,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 class TestDetectionResult(TestCase):
 
     def test_fatal_error(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertIsNone(result.fatal_error)
         fields = ('detection_exception', 'setup_exception', 'input_exception')
         exc = TypeError('something went wrong')
@@ -674,21 +674,23 @@ class TestDetectionResult(TestCase):
                 field: exc,
                 'detection_id': 'failed.rule',
                 'detection_severity': 'INFO',
+                'detection_type': 'RULE',
             }
             result = DetectionResult(**params)  # type: ignore
             self.assertIs(result.fatal_error, exc)
 
     def test_error_type(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertIsNone(result.error_type)
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_exception=TypeError('something went wrong'))
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError('something went wrong'))
         self.assertEqual(result.error_type, 'TypeError')
 
     def test_short_error_message(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertIsNone(result.short_error_message)
         result = DetectionResult(
             detection_severity='INFO',
+            detection_type=TYPE_RULE,
             detection_id='failed.rule',
             detection_exception=TypeError('something went wrong'),
         )
@@ -701,7 +703,7 @@ class TestDetectionResult(TestCase):
         except TypeError as exception:
             exc = exception
 
-        result = DetectionResult(detection_exception=exc, detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_exception=exc, detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertRegex(  # type: ignore
             # error_message return value is Optional[str]
             # but here we know that it is a string
@@ -710,25 +712,25 @@ class TestDetectionResult(TestCase):
             r"in test_error_message\s+raise TypeError\('rule failed'\)"
         )
 
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertIsNone(result.error_message)
 
     def test_errored(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_exception=TypeError())
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError())
         self.assertTrue(result.errored)
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', title_exception=TypeError())
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError())
         self.assertTrue(result.errored)
 
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertFalse(result.errored)
 
     def test_detection_evaluation_failed(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO')
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
         self.assertFalse(result.errored)
 
-        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_exception=TypeError()).detection_evaluation_failed)
-        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', setup_exception=TypeError()).detection_evaluation_failed)
-        self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', title_exception=TypeError()).detection_evaluation_failed)
+        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError()).detection_evaluation_failed)
+        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, setup_exception=TypeError()).detection_evaluation_failed)
+        self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError()).detection_evaluation_failed)
 
 
 class TestRawStringImporter(TestCase):

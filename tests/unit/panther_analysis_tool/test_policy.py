@@ -22,7 +22,7 @@ import unittest
 
 from panther_analysis_tool.exceptions import FunctionReturnTypeError
 from panther_analysis_tool.rule import DetectionResult
-from panther_analysis_tool.policy import Policy
+from panther_analysis_tool.policy import Policy, TYPE_POLICY
 
 
 class TestPolicy(unittest.TestCase):
@@ -127,6 +127,7 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertIsNone(result.fatal_error)
         fields = ('detection_exception', 'setup_exception', 'input_exception')
@@ -137,6 +138,7 @@ class TestDetectionResult(unittest.TestCase):
                 field: exc,
                 'detection_id': 'failed.policy',
                 'detection_severity': 'INFO',
+                'detection_type': 'POLICY',
                 'dedup_output': 'failed.policy'
             }
             result = DetectionResult(**params)
@@ -147,12 +149,14 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertIsNone(result.error_type)
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
             detection_exception=TypeError('something went wrong'),
         )
         self.assertEqual(result.error_type, 'TypeError')
@@ -162,11 +166,13 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertIsNone(result.short_error_message)
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
             detection_id='failed.policy',
             detection_exception=TypeError('something went wrong'),
         )
@@ -184,6 +190,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_exception=exc,
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertRegex(
             # error_message return value is Optional[str]
@@ -197,6 +204,7 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertIsNone(result.error_message)
 
@@ -205,6 +213,7 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
             detection_exception=TypeError(),
         )
         self.assertTrue(result.errored)
@@ -213,6 +222,7 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertFalse(result.errored)
 
@@ -221,6 +231,7 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_id='failed.policy',
             detection_severity='INFO',
+            detection_type=TYPE_POLICY,
         )
         self.assertFalse(result.errored)
 
@@ -229,6 +240,7 @@ class TestDetectionResult(unittest.TestCase):
                 dedup_output='failed.policy',
                 detection_id='failed.policy',
                 detection_severity='INFO',
+                detection_type=TYPE_POLICY,
                 detection_exception=TypeError(),
             ).detection_evaluation_failed
         )
@@ -237,6 +249,7 @@ class TestDetectionResult(unittest.TestCase):
                 dedup_output='failed.policy',
                 detection_id='failed.policy',
                 detection_severity='INFO',
+                detection_type=TYPE_POLICY,
                 setup_exception=TypeError(),
             ).detection_evaluation_failed
         )
