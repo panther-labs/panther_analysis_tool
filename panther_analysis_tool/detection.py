@@ -38,7 +38,7 @@ class DetectionResult:
 
     detection_id: str
     detection_severity: str
-    detection_type: Optional[str] = None
+    detection_type: str
     setup_exception: Optional[Exception] = None
 
     matched: Optional[bool] = None  # detection output

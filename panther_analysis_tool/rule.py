@@ -248,7 +248,9 @@ class Detection(ABC):
         won't raise exceptions, so that an alert won't be missed.
         """
         detection_result = DetectionResult(
-            detection_id=self.detection_id, detection_severity=self.detection_severity
+            detection_id=self.detection_id,
+            detection_severity=self.detection_severity,
+            detection_type=self.detection_type,
         )
         # If there was an error setting up the detection
         # return early
