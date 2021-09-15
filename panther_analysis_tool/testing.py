@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from dataclasses import dataclass
 import json
-from typing import List, Dict, Any, Union, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from panther_analysis_tool.detection import DetectionResult
 from panther_analysis_tool.policy import TYPE_POLICY
@@ -29,6 +29,7 @@ from panther_analysis_tool.policy import TYPE_POLICY
 @dataclass
 class TestError:
     """Represents an error caused by any of the functions or a generic one"""
+
     message: Optional[str] = None
 
 
@@ -43,9 +44,11 @@ class FunctionTestResult:
     error: Optional[TestError]
 
     @classmethod
-    def new(cls,
-            output: Optional[Union[bool, str, List[str]]],
-            raw_exception: Optional[Exception] = None) -> Optional['FunctionTestResult']:
+    def new(
+        cls,
+        output: Optional[Union[bool, str, List[str]]],
+        raw_exception: Optional[Exception] = None,
+    ) -> Optional["FunctionTestResult"]:
         """Create a new instance while applying
         the necessary transformations to the parameters"""
         if output is None and raw_exception is None:
@@ -62,11 +65,11 @@ class FunctionTestResult:
         if exc is None:
             return None
         if title is not None:
-            prefix = f'{title}: '
+            prefix = f"{title}: "
         else:
-            prefix = ''
+            prefix = ""
 
-        return f'{prefix}{type(exc).__name__}: {exc}'
+        return f"{prefix}{type(exc).__name__}: {exc}"
 
     @staticmethod
     def to_test_error(exc: Optional[Exception], title: Optional[str] = None) -> Optional[TestError]:
@@ -89,13 +92,14 @@ class FunctionTestResult:
         if string is None:
             return None
         if len(string) > length:
-            return string[:length] + '...'
+            return string[:length] + "..."
         return string
 
 
 @dataclass  # pylint: disable=R0902
 class TestResultsPerFunction:
     """Container for the results of each function"""
+
     detectionFunction: Optional[FunctionTestResult]  # pylint: disable=C0103
     titleFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
     dedupFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
@@ -110,6 +114,7 @@ class TestResultsPerFunction:
 @dataclass  # pylint: disable=R0902
 class TestResult:
     """The structure of the results for a test case evaluation"""
+
     id: Optional[str]  # pylint: disable=C0103
     name: str
     # The following two fields do not conform to Python's naming
@@ -129,6 +134,7 @@ class TestResult:
 @dataclass
 class TestExpectations:
     """Contains the expected values for performing assertions"""
+
     detection: bool
     # TODO: include assertions for remaining functions, e.g title and alert context
 
@@ -136,6 +142,7 @@ class TestExpectations:
 @dataclass
 class TestSpecification:
     """The structure of a test case"""
+
     id: str  # pylint: disable=C0103
     name: str
     data: Dict[str, Any]
@@ -168,16 +175,18 @@ class TestCaseEvaluator:
 
         # Only detection/setup exceptions and event compatibility (JSON-decodable and JSON object)
         # should be a factor in marking the test as failing
-        return self._detection_result.input_exception is None and \
-               not matched and \
-               not self._detection_result.detection_evaluation_failed
+        return (
+            self._detection_result.input_exception is None
+            and not matched
+            and not self._detection_result.detection_evaluation_failed
+        )
 
     def _get_generic_error_details(self) -> Tuple[Optional[Exception], Optional[str]]:
         generic_error = None
         generic_error_title = None
         if self._detection_result.input_exception is not None:
             generic_error = self._detection_result.input_exception
-            generic_error_title = 'Invalid event'
+            generic_error_title = "Invalid event"
         elif self._detection_result.setup_exception is not None:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
@@ -188,7 +197,9 @@ class TestCaseEvaluator:
         the test specification expectations"""
 
         function_results = dict(
-            detectionFunction=FunctionTestResult.new(self._detection_result.matched, self._detection_result.detection_exception)
+            detectionFunction=FunctionTestResult.new(
+                self._detection_result.matched, self._detection_result.detection_exception
+            )
         )
 
         # We don't include output from other functions
@@ -196,29 +207,44 @@ class TestCaseEvaluator:
         # Even if the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
         if (
-            (self._spec.expectations.detection and self._detection_result.detection_type != TYPE_POLICY) or
-            (not self._spec.expectations.detection and self._detection_result.detection_type == TYPE_POLICY)
+            self._spec.expectations.detection
+            and self._detection_result.detection_type != TYPE_POLICY
+        ) or (
+            not self._spec.expectations.detection
+            and self._detection_result.detection_type == TYPE_POLICY
         ):
             function_results.update(
                 dict(
-                    titleFunction=FunctionTestResult.new(self._detection_result.title_output, self._detection_result.title_exception),
+                    titleFunction=FunctionTestResult.new(
+                        self._detection_result.title_output, self._detection_result.title_exception
+                    ),
                     descriptionFunction=FunctionTestResult.new(
-                        self._detection_result.description_output, self._detection_result.description_exception
+                        self._detection_result.description_output,
+                        self._detection_result.description_exception,
                     ),
                     referenceFunction=FunctionTestResult.new(
-                        self._detection_result.reference_output, self._detection_result.reference_exception
+                        self._detection_result.reference_output,
+                        self._detection_result.reference_exception,
                     ),
                     severityFunction=FunctionTestResult.new(
-                        self._detection_result.severity_output, self._detection_result.severity_exception
+                        self._detection_result.severity_output,
+                        self._detection_result.severity_exception,
                     ),
-                    runbookFunction=FunctionTestResult.new(self._detection_result.runbook_output, self._detection_result.runbook_exception),
+                    runbookFunction=FunctionTestResult.new(
+                        self._detection_result.runbook_output,
+                        self._detection_result.runbook_exception,
+                    ),
                     destinationsFunction=FunctionTestResult.new(
-                        self._detection_result.destinations_output, self._detection_result.destinations_exception
+                        self._detection_result.destinations_output,
+                        self._detection_result.destinations_exception,
                     ),
-                    dedupFunction=FunctionTestResult.new(self._detection_result.dedup_output, self._detection_result.dedup_exception),
+                    dedupFunction=FunctionTestResult.new(
+                        self._detection_result.dedup_output, self._detection_result.dedup_exception
+                    ),
                     alertContextFunction=FunctionTestResult.new(
-                        self._detection_result.alert_context_output, self._detection_result.alert_context_exception
-                    )
+                        self._detection_result.alert_context_output,
+                        self._detection_result.alert_context_exception,
+                    ),
                 )
             )
 
@@ -228,12 +254,14 @@ class TestCaseEvaluator:
             id=self._spec.id,
             name=self._spec.name,
             detectionId=self._detection_result.detection_id,
-            genericError=FunctionTestResult.format_exception(generic_error, title=generic_error_title),
+            genericError=FunctionTestResult.format_exception(
+                generic_error, title=generic_error_title
+            ),
             errored=self._detection_result.errored,
             # TODO: coordinate with FE for deprecation, currently defined for compatibility with the Go API
             error=FunctionTestResult.to_test_error(generic_error, title=generic_error_title),
             # Passing or failing test?
             passed=self._get_result_status(),
             matched=self._detection_result.matched,
-            functions=TestResultsPerFunction(**function_results)
+            functions=TestResultsPerFunction(**function_results),
         )
