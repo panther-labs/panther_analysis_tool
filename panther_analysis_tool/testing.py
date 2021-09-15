@@ -150,7 +150,7 @@ class TestSpecification:
     expectations: TestExpectations
 
 
-class TestCaseEvaluator:
+class TestCaseEvaluator: # pyline: disable=R0903
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
@@ -258,7 +258,6 @@ class TestCaseEvaluator:
                 generic_error, title=generic_error_title
             ),
             errored=self._detection_result.errored,
-            # TODO: coordinate with FE for deprecation, currently defined for compatibility with the Go API
             error=FunctionTestResult.to_test_error(generic_error, title=generic_error_title),
             # Passing or failing test?
             passed=self._get_result_status(),
