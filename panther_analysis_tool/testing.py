@@ -149,12 +149,15 @@ class TestSpecification:
     mocks: List[Dict[str, Any]]
     expectations: TestExpectations
 
+
 # pylint: disable=too-few-public-methods
 class TestCaseEvaluator:
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
-    def __init__(self, spec: TestSpecification, detection: Detection, detection_result: DetectionResult):
+    def __init__(
+        self, spec: TestSpecification, detection: Detection, detection_result: DetectionResult
+    ):
         self._spec = spec
         self._detection = detection
         self._detection_result = detection_result
