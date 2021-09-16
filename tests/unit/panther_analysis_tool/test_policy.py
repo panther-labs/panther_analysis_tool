@@ -126,6 +126,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False, 
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -137,6 +138,7 @@ class TestDetectionResult(unittest.TestCase):
             params = {
                 field: exc,
                 'detection_id': 'failed.policy',
+                'detection_match_alert_value': False,
                 'detection_severity': 'INFO',
                 'detection_type': 'POLICY',
                 'dedup_output': 'failed.policy'
@@ -148,6 +150,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -155,6 +158,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
             detection_exception=TypeError('something went wrong'),
@@ -165,6 +169,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -174,6 +179,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_exception=TypeError('something went wrong'),
         )
         self.assertEqual(result.short_error_message, "TypeError('something went wrong')")
@@ -189,6 +195,7 @@ class TestDetectionResult(unittest.TestCase):
             dedup_output='failed.policy',
             detection_exception=exc,
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -203,6 +210,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -212,6 +220,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
             detection_exception=TypeError(),
@@ -221,6 +230,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -230,6 +240,7 @@ class TestDetectionResult(unittest.TestCase):
         result = DetectionResult(
             dedup_output='failed.policy',
             detection_id='failed.policy',
+            detection_match_alert_value=False,
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
         )
@@ -239,6 +250,7 @@ class TestDetectionResult(unittest.TestCase):
             DetectionResult(
                 dedup_output='failed.policy',
                 detection_id='failed.policy',
+                detection_match_alert_value=False,
                 detection_severity='INFO',
                 detection_type=TYPE_POLICY,
                 detection_exception=TypeError(),
@@ -248,6 +260,7 @@ class TestDetectionResult(unittest.TestCase):
             DetectionResult(
                 dedup_output='failed.policy',
                 detection_id='failed.policy',
+                detection_match_alert_value=False,
                 detection_severity='INFO',
                 detection_type=TYPE_POLICY,
                 setup_exception=TypeError(),

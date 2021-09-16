@@ -156,10 +156,9 @@ class TestCaseEvaluator:
     by performing assertions and determining the status"""
 
     def __init__(
-        self, spec: TestSpecification, detection: Detection, detection_result: DetectionResult
+        self, spec: TestSpecification, detection_result: DetectionResult
     ):
         self._spec = spec
-        self._detection = detection
         self._detection_result = detection_result
 
     def _get_result_status(self) -> bool:
@@ -167,13 +166,13 @@ class TestCaseEvaluator:
 
         # matched attribute can also be None,
         # coerce to boolean for consistent return values
-        matched = bool(self._detection_result.matched) == self._detection.matcher_alert_value
+        matched = bool(self._detection_result.matched) == self._detection_result.detection_match_alert_value
 
         # Title/dedup functions are executed unconditionally
         # (regardless if the detection matched or not) during testing.
         # Only if the detection is expected to trigger an alert,
         # we want to include errors from other functions in the status.
-        if self._spec.expectations.detection == self._detection.matcher_alert_value:
+        if self._spec.expectations.detection == self._detection_result.detection_match_alert_value:
             # Any error should mark the test as failing
             return matched and not self._detection_result.errored
 
@@ -210,7 +209,7 @@ class TestCaseEvaluator:
         # unless the test was expected to match and trigger an alert.
         # Even if the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._detection_result.matched == self._detection.matcher_alert_value:
+        if self._detection_result.matched == self._detection_result.detection_match_alert_value:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(

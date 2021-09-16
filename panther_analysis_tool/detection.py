@@ -37,8 +37,10 @@ class DetectionResult:
     """Class containing the result of running a detection"""
 
     detection_id: str
+    detection_match_alert_value: bool
     detection_severity: str
     detection_type: str
+
     setup_exception: Optional[Exception] = None
 
     matched: Optional[bool] = None  # detection output

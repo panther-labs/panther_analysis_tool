@@ -249,6 +249,7 @@ class Detection(ABC):
         """
         detection_result = DetectionResult(
             detection_id=self.detection_id,
+            detection_match_alert_value=self.matcher_alert_value,
             detection_severity=self.detection_severity,
             detection_type=self.detection_type,
         )
