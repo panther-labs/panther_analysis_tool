@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.rule import Detection
 
 
 @dataclass
@@ -155,9 +154,7 @@ class TestCaseEvaluator:
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
-    def __init__(
-        self, spec: TestSpecification, detection_result: DetectionResult
-    ):
+    def __init__(self, spec: TestSpecification, detection_result: DetectionResult):
         self._spec = spec
         self._detection_result = detection_result
 
@@ -166,7 +163,10 @@ class TestCaseEvaluator:
 
         # matched attribute can also be None,
         # coerce to boolean for consistent return values
-        matched = bool(self._detection_result.matched) == self._detection_result.detection_match_alert_value
+        matched = (
+            bool(self._detection_result.matched)
+            == self._detection_result.detection_match_alert_value
+        )
 
         # Title/dedup functions are executed unconditionally
         # (regardless if the detection matched or not) during testing.
