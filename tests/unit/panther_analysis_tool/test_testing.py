@@ -24,7 +24,7 @@ from panther_analysis_tool.detection import DetectionResult
 from panther_analysis_tool.rule import TYPE_RULE
 
 from panther_analysis_tool.testing import FunctionTestResult, TestError, TestSpecification, \
-    TestExpectations, TestCaseEvaluator, TestResult, TestResultsPerFunction
+    TestExpectations, TestRuleEvaluator, TestResult, TestResultsPerFunction
 
 
 class TestFunctionTestResult(unittest.TestCase):
@@ -70,7 +70,7 @@ class TestFunctionTestResult(unittest.TestCase):
         self.assertEqual(FunctionTestResult.truncate('123456789', 3), '123...')
 
 
-class TestTestCaseEvaluator(unittest.TestCase):
+class TestTestRuleEvaluator(unittest.TestCase):
 
     def test_interpret_passing_test_not_expected_to_match(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
@@ -96,7 +96,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
     def test_interpret_passing_test_expected_to_match(self) -> None:
@@ -123,7 +123,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(actual, expected)
 
     def test_interpret_failing_test_expected_to_match(self) -> None:
@@ -156,7 +156,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
     def test_interpret_failing_test_not_expected_to_match(self) -> None:
@@ -189,7 +189,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
     def test_interpret_failing_test_input_error(self) -> None:
@@ -222,7 +222,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
     def test_interpret_generic_error(self) -> None:
@@ -255,7 +255,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
         # Event compatibility exception
@@ -288,5 +288,5 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 destinationsFunction=None
             )
         )
-        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        actual = TestRuleEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)

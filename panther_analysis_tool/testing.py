@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 import json
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -149,9 +150,8 @@ class TestSpecification:
     mocks: List[Dict[str, Any]]
     expectations: TestExpectations
 
-
 # pylint: disable=too-few-public-methods
-class TestCaseEvaluator:
+class TestCaseEvaluator(ABC):
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
@@ -159,29 +159,20 @@ class TestCaseEvaluator:
         self._spec = spec
         self._detection_result = detection_result
 
-    def _get_should_alert(self) -> bool:
-        return (
-            self._spec.expectations.detection
-            and self._detection_result.detection_type.upper() != TYPE_POLICY.upper()
-        ) or (
-            not self._spec.expectations.detection
-            and self._detection_result.detection_type.upper() == TYPE_POLICY.upper()
-        )
-
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
 
         # matched attribute can also be None,
         # coerce to boolean for consistent return values
-        matched = bool(self._detection_result.matched)
+        matched = bool(self._detection_result.matched) == self.matcher_alert_value
 
         # Title/dedup functions are executed unconditionally
         # (regardless if the detection matched or not) during testing.
         # Only if the detection is expected to trigger an alert,
         # we want to include errors from other functions in the status.
-        if self._get_should_alert():
+        if self._spec.expectations.detection == self.matcher_alert_value:
             # Any error should mark the test as failing
-            return not self._detection_result.errored
+            return matched and not self._detection_result.errored
 
         # Only detection/setup exceptions and event compatibility (JSON-decodable and JSON object)
         # should be a factor in marking the test as failing
@@ -201,6 +192,11 @@ class TestCaseEvaluator:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
+    @property
+    @abstractmethod
+    def matcher_alert_value(self) -> bool:
+        pass
+
     def interpret(self) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
@@ -216,7 +212,7 @@ class TestCaseEvaluator:
         # unless the test was expected to match and trigger an alert.
         # Even if the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._get_should_alert():
+        if self._detection_result.matched == self.matcher_alert_value:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
@@ -268,3 +264,10 @@ class TestCaseEvaluator:
             matched=self._detection_result.matched,
             functions=TestResultsPerFunction(**function_results),
         )
+
+class TestRuleEvaluator(TestCaseEvaluator):
+    matcher_alert_value = True
+
+
+class TestPolicyEvaluator(TestCaseEvaluator):
+    matcher_alert_value = False
