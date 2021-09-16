@@ -209,7 +209,7 @@ class TestCaseEvaluator:
         # unless the test was expected to match and trigger an alert.
         # Even if the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._detection_result.matched == self._detection_result.detection_match_alert_value:
+        if bool(self._detection_result.matched) == self._detection_result.detection_match_alert_value:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
