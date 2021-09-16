@@ -19,12 +19,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 import json
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.policy import TYPE_POLICY
+from panther_analysis_tool.rule import Detection
 
 
 @dataclass
@@ -151,12 +150,13 @@ class TestSpecification:
     expectations: TestExpectations
 
 # pylint: disable=too-few-public-methods
-class TestCaseEvaluator(ABC):
+class TestCaseEvaluator:
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
-    def __init__(self, spec: TestSpecification, detection_result: DetectionResult):
+    def __init__(self, spec: TestSpecification, detection: Detection, detection_result: DetectionResult):
         self._spec = spec
+        self._detection = detection
         self._detection_result = detection_result
 
     def _get_result_status(self) -> bool:
@@ -164,13 +164,13 @@ class TestCaseEvaluator(ABC):
 
         # matched attribute can also be None,
         # coerce to boolean for consistent return values
-        matched = bool(self._detection_result.matched) == self.matcher_alert_value
+        matched = bool(self._detection_result.matched) == self._detection.matcher_alert_value
 
         # Title/dedup functions are executed unconditionally
         # (regardless if the detection matched or not) during testing.
         # Only if the detection is expected to trigger an alert,
         # we want to include errors from other functions in the status.
-        if self._spec.expectations.detection == self.matcher_alert_value:
+        if self._spec.expectations.detection == self._detection.matcher_alert_value:
             # Any error should mark the test as failing
             return matched and not self._detection_result.errored
 
@@ -192,11 +192,6 @@ class TestCaseEvaluator(ABC):
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
-    @property
-    @abstractmethod
-    def matcher_alert_value(self) -> bool:
-        pass
-
     def interpret(self) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
@@ -212,7 +207,7 @@ class TestCaseEvaluator(ABC):
         # unless the test was expected to match and trigger an alert.
         # Even if the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._detection_result.matched == self.matcher_alert_value:
+        if self._detection_result.matched == self._detection.matcher_alert_value:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
@@ -264,10 +259,3 @@ class TestCaseEvaluator(ABC):
             matched=self._detection_result.matched,
             functions=TestResultsPerFunction(**function_results),
         )
-
-class TestRuleEvaluator(TestCaseEvaluator):
-    matcher_alert_value = True
-
-
-class TestPolicyEvaluator(TestCaseEvaluator):
-    matcher_alert_value = False
