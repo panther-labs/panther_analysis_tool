@@ -150,13 +150,22 @@ class TestSpecification:
     expectations: TestExpectations
 
 
-class TestCaseEvaluator: # pylint: disable=too-few-public-methods
+class TestCaseEvaluator:  # pylint: disable=too-few-public-methods
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
     def __init__(self, spec: TestSpecification, detection_result: DetectionResult):
         self._spec = spec
         self._detection_result = detection_result
+
+    def _get_should_alert(self) -> bool:
+        return (
+            self._spec.expectations.detection
+            and self._detection_result.detection_type.upper() != TYPE_POLICY.upper()
+        ) or (
+            not self._spec.expectations.detection
+            and self._detection_result.detection_type.upper() == TYPE_POLICY.upper()
+        )
 
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
@@ -169,15 +178,9 @@ class TestCaseEvaluator: # pylint: disable=too-few-public-methods
         # (regardless if the detection matched or not) during testing.
         # Only if the detection is expected to trigger an alert,
         # we want to include errors from other functions in the status.
-        if (
-            self._spec.expectations.detection
-            and self._detection_result.detection_type != TYPE_POLICY
-        ) or (
-            not self._spec.expectations.detection
-            and self._detection_result.detection_type == TYPE_POLICY
-        ):
+        if self._get_should_alert():
             # Any error should mark the test as failing
-            return matched and not self._detection_result.errored
+            return not self._detection_result.errored
 
         # Only detection/setup exceptions and event compatibility (JSON-decodable and JSON object)
         # should be a factor in marking the test as failing
@@ -212,13 +215,7 @@ class TestCaseEvaluator: # pylint: disable=too-few-public-methods
         # unless the test was expected to match and trigger an alert.
         # Even if the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if (
-            self._spec.expectations.detection
-            and self._detection_result.detection_type != TYPE_POLICY
-        ) or (
-            not self._spec.expectations.detection
-            and self._detection_result.detection_type == TYPE_POLICY
-        ):
+        if self._get_should_alert():
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
