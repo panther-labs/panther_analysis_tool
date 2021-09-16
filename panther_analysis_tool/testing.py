@@ -150,7 +150,8 @@ class TestSpecification:
     expectations: TestExpectations
 
 
-class TestCaseEvaluator:  # pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods
+class TestCaseEvaluator:
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
