@@ -150,7 +150,7 @@ class TestSpecification:
     expectations: TestExpectations
 
 
-class TestCaseEvaluator: # pyline: disable=R0903
+class TestCaseEvaluator:
     """Translates detection execution results to test case results,
     by performing assertions and determining the status"""
 
@@ -169,7 +169,13 @@ class TestCaseEvaluator: # pyline: disable=R0903
         # (regardless if the detection matched or not) during testing.
         # Only if the detection is expected to trigger an alert,
         # we want to include errors from other functions in the status.
-        if self._spec.expectations.detection:
+        if (
+            self._spec.expectations.detection
+            and self._detection_result.detection_type != TYPE_POLICY
+        ) or (
+            not self._spec.expectations.detection
+            and self._detection_result.detection_type == TYPE_POLICY
+        ):
             # Any error should mark the test as failing
             return matched and not self._detection_result.errored
 

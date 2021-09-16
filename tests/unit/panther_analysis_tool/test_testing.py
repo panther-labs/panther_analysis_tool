@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 
 from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.policy import TYPE_POLICY
+from panther_analysis_tool.rule import TYPE_RULE
 
 from panther_analysis_tool.testing import FunctionTestResult, TestError, TestSpecification, \
     TestExpectations, TestCaseEvaluator, TestResult, TestResultsPerFunction
@@ -74,7 +74,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
 
     def test_interpret_passing_test_not_expected_to_match(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
-        detection_result = DetectionResult(detection_id=spec.id, matched=False, detection_severity='INFO', detection_type=TYPE_POLICY)
+        detection_result = DetectionResult(detection_id=spec.id, matched=False, detection_severity='INFO', detection_type=TYPE_RULE)
         expected = TestResult(
             id='test-id',
             name='test-name',
@@ -101,7 +101,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
 
     def test_interpret_passing_test_expected_to_match(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
-        detection_result = DetectionResult(detection_id=spec.id, matched=True, detection_severity='INFO', detection_type=TYPE_POLICY)
+        detection_result = DetectionResult(detection_id=spec.id, matched=True, detection_severity='INFO', detection_type=TYPE_RULE)
         expected = TestResult(
             id='test-id',
             name='test-name',
@@ -133,7 +133,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             matched=None,
             detection_exception=TypeError('wrong type'),
             detection_severity='INFO',
-            detection_type=TYPE_POLICY
+            detection_type=TYPE_RULE
         )
         expected = TestResult(
             id='test-id',
@@ -166,7 +166,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             matched=None,
             detection_exception=TypeError('wrong type'),
             detection_severity='INFO',
-            detection_type=TYPE_POLICY
+            detection_type=TYPE_RULE
         )
         expected = TestResult(
             id='test-id',
@@ -199,7 +199,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             matched=None,
             input_exception=TypeError('wrong type'),
             detection_severity='INFO',
-            detection_type=TYPE_POLICY
+            detection_type=TYPE_RULE
         )
         expected = TestResult(
             id='test-id',
@@ -232,7 +232,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             matched=None,
             setup_exception=TypeError('wrong type'),
             detection_severity='INFO',
-            detection_type=TYPE_POLICY
+            detection_type=TYPE_RULE
         )
         expected = TestResult(
             id='test-id',
@@ -265,7 +265,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             matched=None,
             input_exception=TypeError('wrong type'),
             detection_severity='INFO',
-            detection_type=TYPE_POLICY
+            detection_type=TYPE_RULE
         )
         expected = TestResult(
             id='test-id',
