@@ -163,7 +163,7 @@ class TestCaseEvaluator:
 
         # matched attribute can also be None,
         # coerce to boolean for consistent return values
-        matched = (
+        should_alert = (
             bool(self._detection_result.matched)
             == self._detection_result.detection_match_alert_value
         )
@@ -174,13 +174,13 @@ class TestCaseEvaluator:
         # we want to include errors from other functions in the status.
         if self._spec.expectations.detection == self._detection_result.detection_match_alert_value:
             # Any error should mark the test as failing
-            return matched and not self._detection_result.errored
+            return should_alert and not self._detection_result.errored
 
         # Only detection/setup exceptions and event compatibility (JSON-decodable and JSON object)
         # should be a factor in marking the test as failing
         return (
             self._detection_result.input_exception is None
-            and not matched
+            and not should_alert
             and not self._detection_result.detection_evaluation_failed
         )
 

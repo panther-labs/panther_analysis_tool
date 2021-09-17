@@ -1123,6 +1123,7 @@ def _run_tests(
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
             continue
+
         # print results
         spec = TestSpecification(
             id=unit_test["Name"],
@@ -1133,10 +1134,8 @@ def _run_tests(
         )
         test_result = TestCaseEvaluator(spec, result).interpret()
         test_result = _check_destinations(test_result, destination_by_name)
-        _print_test_result(test_result)
-        # add failed tests as necessary
-        if not test_result.passed:
-            failed_tests[detection.detection_id].append(unit_test["Name"])
+
+        _print_test_result(detection, test_result, failed_tests)
 
     return failed_tests
 
@@ -1166,7 +1165,7 @@ def _check_destinations(test_result: TestResult, destination_by_name: Dict[str, 
     return test_result
 
 
-def _print_test_result(test_result: TestResult) -> None:
+def _print_test_result(detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]) -> None:
     status_pass = "PASS"  # nosec
     status_fail = "FAIL"
     if test_result.passed:
@@ -1178,13 +1177,15 @@ def _print_test_result(test_result: TestResult) -> None:
 
     # print aux function status as necessary
     for function_name in vars(test_result.functions):
-        if function_name == "detectionFunction":
-            # we are already printing the overall status for the detection
-            continue
         printable_name = function_name.replace("Function", "")
+        if printable_name == "detection":
+            # extract this detections matcher function name
+            printable_name = detection.matcher_function_name
         function_result = vars(test_result.functions)[function_name]
         if function_result:
             if function_result.error:
+                # add this as output to the failed test spec as well
+                failed_tests[test_result.detectionId].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
                         status_fail, printable_name, function_result.error.message
