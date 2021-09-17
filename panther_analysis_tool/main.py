@@ -1187,7 +1187,7 @@ def _print_test_result(
         if function_result:
             if function_result.error:
                 # add this as output to the failed test spec as well
-                failed_tests[test_result.detectionId].append(f"{test_result.name}:{printable_name}")
+                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
                         status_fail, printable_name, function_result.error.message
