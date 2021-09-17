@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
-import functools
 import hashlib
 import importlib.util
 import json
@@ -36,7 +35,7 @@ from datetime import datetime
 from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -58,12 +57,7 @@ from schema import (
 
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
-from panther_analysis_tool.detection import DetectionResult
 from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.exceptions import (
-    FunctionReturnTypeError,
-    UnknownDestinationError,
-)
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.policy import Policy
 from panther_analysis_tool.rule import Detection, Rule
@@ -816,7 +810,14 @@ def setup_run_tests(
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
         module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
-        detection = None
+        detection: Detection = Rule(
+            dict(
+                id=analysis_id,
+                analysisType=analysis_type,
+                path=module_code_path,
+                versionId="0000-0000-0000",
+            )
+        )
         if analysis_type == POLICY:
             detection = Policy(
                 dict(
@@ -826,17 +827,8 @@ def setup_run_tests(
                     versionId="0000-0000-0000",
                 )
             )
-        elif analysis_type in [RULE, SCHEDULED_RULE]:
-            detection = Rule(
-                dict(
-                    id=analysis_id,
-                    analysisType=analysis_type,
-                    path=module_code_path,
-                    versionId="0000-0000-0000",
-                )
-            )
 
-        # if there is a setup exception, no need to run tets
+        # if there is a setup exception, no need to run tests
         if detection.setup_exception:
             invalid_specs.append((analysis_spec_filename, detection.setup_exception))
             print("\n")
