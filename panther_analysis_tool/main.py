@@ -1165,7 +1165,9 @@ def _check_destinations(test_result: TestResult, destination_by_name: Dict[str, 
     return test_result
 
 
-def _print_test_result(detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]) -> None:
+def _print_test_result(
+    detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
+) -> None:
     status_pass = "PASS"  # nosec
     status_fail = "FAIL"
     if test_result.passed:
