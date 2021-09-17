@@ -1145,19 +1145,24 @@ def _check_destinations(test_result: TestResult, destination_by_name: Dict[str, 
     # For backwards compatibility we can accept invalid destination names,
     # as long as a string is returned. Strict check is enabled when users
     # pass destination names explicitly through command-line parameters.
-    if test_result.functions.destinationsFunction:
-        if test_result.functions.destinationsFunction.error and not bool(destination_by_name):
-            error_message = test_result.functions.destinationsFunction.error.message or ""
-            if "UnknownDestinationError" in error_message:
-                test_result.functions.destinationsFunction.output = error_message.split(" ")[-1]
-                test_result.functions.destinationsFunction.error = None
-                test_result.passed = True
-                # reset test_result as necessary
-                for function_name in vars(test_result.functions):
-                    function_result = vars(test_result.functions)[function_name]
-                    if function_result:
-                        if function_result.error:
-                            test_result.passed = False
+    if (
+        test_result.functions.destinationsFunction
+        and test_result.functions.destinationsFunction.error
+        and not bool(destination_by_name)
+    ):
+
+        error_message = test_result.functions.destinationsFunction.error.message or ""
+        if "UnknownDestinationError" in error_message:
+            # reset the output and error
+            test_result.functions.destinationsFunction.output = error_message.split(" ")[-1]
+            test_result.functions.destinationsFunction.error = None
+            test_result.passed = True
+            # reset test_result as necessary
+            for function_name in vars(test_result.functions):
+                function_result = vars(test_result.functions)[function_name]
+                if function_result:
+                    if function_result.error:
+                        test_result.passed = False
     return test_result
 
 
