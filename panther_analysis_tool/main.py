@@ -1177,7 +1177,7 @@ def _print_test_result(
     # print overall status for this test
     print("\t[{}] {}".format(outcome, test_result.name))
 
-    # print aux function status as necessary
+    # print function output and status as necessary
     for function_name in vars(test_result.functions):
         printable_name = function_name.replace("Function", "")
         if printable_name == "detection":
