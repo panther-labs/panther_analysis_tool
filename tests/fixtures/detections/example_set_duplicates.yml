@@ -17,8 +17,8 @@ SummaryAttributes:
   - example_dupe
   - example_dupe
 OutputIds:
-  - 1234
-  - 1234
+  - "1234"
+  - "1234"
 Suppressions:
   - asdf
   - asdf
