@@ -41,12 +41,15 @@ class FunctionTestResult:
     # error contains a TestError instance with the error message or
     # None if no error was raised
     error: Optional[TestError]
+    # return value matched expectations
+    matched: Optional[bool]
 
     @classmethod
     def new(
         cls,
         output: Optional[Union[bool, str, List[str]]],
         raw_exception: Optional[Exception] = None,
+        matched: Optional[bool] = True,
     ) -> Optional["FunctionTestResult"]:
         """Create a new instance while applying
         the necessary transformations to the parameters"""
@@ -56,7 +59,7 @@ class FunctionTestResult:
         if output is not None and not isinstance(output, str):
             output = json.dumps(output)
 
-        return cls(output=output, error=cls.to_test_error(raw_exception))
+        return cls(output=output, error=cls.to_test_error(raw_exception), matched=matched)
 
     @staticmethod
     def format_exception(exc: Optional[Exception], title: Optional[str] = None) -> Optional[str]:
@@ -201,7 +204,9 @@ class TestCaseEvaluator:
 
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
-                self._detection_result.matched, self._detection_result.detection_exception
+                self._detection_result.matched,
+                self._detection_result.detection_exception,
+                self._spec.expectations.detection==self._detection_result.matched,
             )
         )
 
@@ -213,7 +218,8 @@ class TestCaseEvaluator:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
-                        self._detection_result.title_output, self._detection_result.title_exception
+                        self._detection_result.title_output,
+                        self._detection_result.title_exception,
                     ),
                     descriptionFunction=FunctionTestResult.new(
                         self._detection_result.description_output,
@@ -236,7 +242,8 @@ class TestCaseEvaluator:
                         self._detection_result.destinations_exception,
                     ),
                     dedupFunction=FunctionTestResult.new(
-                        self._detection_result.dedup_output, self._detection_result.dedup_exception
+                        self._detection_result.dedup_output,
+                        self._detection_result.dedup_exception,
                     ),
                     alertContextFunction=FunctionTestResult.new(
                         self._detection_result.alert_context_output,

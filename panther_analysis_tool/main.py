@@ -1193,6 +1193,12 @@ def _print_test_result(
                         status_fail, printable_name, function_result.error.message
                     )
                 )
+            # if it didn't error, we simiply need to check if the output was as expected
+            elif not function_result.matched:
+                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
+                print(
+                    "\t\t[{}] [{}] {}".format(status_fail, printable_name, function_result.output)
+                )
             else:
                 print(
                     "\t\t[{}] [{}] {}".format(status_pass, printable_name, function_result.output)
