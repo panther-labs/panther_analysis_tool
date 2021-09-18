@@ -206,7 +206,7 @@ class TestCaseEvaluator:
             detectionFunction=FunctionTestResult.new(
                 self._detection_result.matched,
                 self._detection_result.detection_exception,
-                self._spec.expectations.detection==self._detection_result.matched,
+                self._spec.expectations.detection == self._detection_result.matched,
             )
         )
 
