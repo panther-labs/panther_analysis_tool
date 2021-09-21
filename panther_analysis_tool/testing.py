@@ -41,12 +41,15 @@ class FunctionTestResult:
     # error contains a TestError instance with the error message or
     # None if no error was raised
     error: Optional[TestError]
+    # return value matched expectations
+    matches_expectations: Optional[bool]
 
     @classmethod
     def new(
         cls,
         output: Optional[Union[bool, str, List[str]]],
         raw_exception: Optional[Exception] = None,
+        matches_expectations: Optional[bool] = True,
     ) -> Optional["FunctionTestResult"]:
         """Create a new instance while applying
         the necessary transformations to the parameters"""
@@ -56,7 +59,11 @@ class FunctionTestResult:
         if output is not None and not isinstance(output, str):
             output = json.dumps(output)
 
-        return cls(output=output, error=cls.to_test_error(raw_exception))
+        return cls(
+            output=output,
+            error=cls.to_test_error(raw_exception),
+            matches_expectations=matches_expectations,
+        )
 
     @staticmethod
     def format_exception(exc: Optional[Exception], title: Optional[str] = None) -> Optional[str]:
@@ -161,28 +168,13 @@ class TestCaseEvaluator:
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
 
-        # matched attribute can also be None,
-        # coerce to boolean for consistent return values
-        matched = (
-            bool(self._detection_result.matched)
-            == self._detection_result.detection_match_alert_value
-        )
-
         # Title/dedup functions are executed unconditionally
         # (regardless if the detection matched or not) during testing.
-        # Only if the detection is expected to trigger an alert,
-        # we want to include errors from other functions in the status.
-        if self._spec.expectations.detection == self._detection_result.detection_match_alert_value:
+        if self._spec.expectations.detection == self._detection_result.detection_output:
             # Any error should mark the test as failing
-            return matched and not self._detection_result.errored
-
-        # Only detection/setup exceptions and event compatibility (JSON-decodable and JSON object)
-        # should be a factor in marking the test as failing
-        return (
-            self._detection_result.input_exception is None
-            and not matched
-            and not self._detection_result.detection_evaluation_failed
-        )
+            return not self._detection_result.errored
+        # expectations didn't match for the detection output
+        return False
 
     def _get_generic_error_details(self) -> Tuple[Optional[Exception], Optional[str]]:
         generic_error = None
@@ -198,18 +190,22 @@ class TestCaseEvaluator:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""
-
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
-                self._detection_result.matched, self._detection_result.detection_exception
+                self._detection_result.matched,
+                self._detection_result.detection_exception,
+                self._spec.expectations.detection is self._detection_result.detection_output,
             )
         )
 
         # We don't include output from other functions
         # unless the test was expected to match and trigger an alert.
-        # Even if the test fails, providing all the output provides a faster feedback loop,
+        # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._spec.expectations.detection == self._detection_result.detection_match_alert_value:
+        if (
+            self._spec.expectations.detection is self._detection_result.detection_output
+        ) or self._detection_result.matched:
+
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
