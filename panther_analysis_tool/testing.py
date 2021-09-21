@@ -41,15 +41,12 @@ class FunctionTestResult:
     # error contains a TestError instance with the error message or
     # None if no error was raised
     error: Optional[TestError]
-    # return value matched expectations
-    matches_expectations: Optional[bool]
 
     @classmethod
     def new(
         cls,
         output: Optional[Union[bool, str, List[str]]],
         raw_exception: Optional[Exception] = None,
-        matches_expectations: Optional[bool] = True,
     ) -> Optional["FunctionTestResult"]:
         """Create a new instance while applying
         the necessary transformations to the parameters"""
@@ -62,7 +59,6 @@ class FunctionTestResult:
         return cls(
             output=output,
             error=cls.to_test_error(raw_exception),
-            matches_expectations=matches_expectations,
         )
 
     @staticmethod
@@ -194,7 +190,6 @@ class TestCaseEvaluator:
             detectionFunction=FunctionTestResult.new(
                 self._detection_result.matched,
                 self._detection_result.detection_exception,
-                self._spec.expectations.detection is self._detection_result.detection_output,
             )
         )
 
