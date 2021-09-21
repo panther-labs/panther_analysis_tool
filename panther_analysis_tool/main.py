@@ -1162,6 +1162,7 @@ def _check_destinations(test_result: TestResult, destination_by_name: Dict[str, 
                 if function_result:
                     if function_result.error:
                         test_result.passed = False
+                        break
     return test_result
 
 

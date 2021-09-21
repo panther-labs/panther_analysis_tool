@@ -164,28 +164,13 @@ class TestCaseEvaluator:
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
 
-        # matched attribute can also be None,
-        # coerce to boolean for consistent return values
-        should_alert = (
-            bool(self._detection_result.matched)
-            == self._detection_result.detection_match_alert_value
-        )
-
         # Title/dedup functions are executed unconditionally
         # (regardless if the detection matched or not) during testing.
-        # Only if the detection is expected to trigger an alert,
-        # we want to include errors from other functions in the status.
-        if self._spec.expectations.detection == self._detection_result.detection_match_alert_value:
+        if self._spec.expectations.detection == self._detection_result.detection_output:
             # Any error should mark the test as failing
-            return should_alert and not self._detection_result.errored
-
-        # Only detection/setup exceptions and event compatibility (JSON-decodable and JSON object)
-        # should be a factor in marking the test as failing
-        return (
-            self._detection_result.input_exception is None
-            and not should_alert
-            and not self._detection_result.detection_evaluation_failed
-        )
+            return not self._detection_result.errored
+        # expectations didn't match for the detection output
+        return False
 
     def _get_generic_error_details(self) -> Tuple[Optional[Exception], Optional[str]]:
         generic_error = None
@@ -201,20 +186,22 @@ class TestCaseEvaluator:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""
-
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
                 self._detection_result.matched,
                 self._detection_result.detection_exception,
-                self._spec.expectations.detection == self._detection_result.matched,
+                self._spec.expectations.detection == self._detection_result.detection_output,
             )
         )
 
         # We don't include output from other functions
         # unless the test was expected to match and trigger an alert.
-        # Even if the test fails, providing all the output provides a faster feedback loop,
+        # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._spec.expectations.detection == self._detection_result.detection_match_alert_value:
+        if self._detection_result.matched or (
+            self._spec.expectations.detection is not self._detection_result.detection_output
+        ):
+
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
