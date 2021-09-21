@@ -197,9 +197,9 @@ class TestCaseEvaluator:
         # unless the test was expected to match and trigger an alert.
         # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if (
-            self._spec.expectations.detection is self._detection_result.detection_output
-        ) or self._detection_result.matched:
+        if self._detection_result.matched or (
+            self._spec.expectations.detection is not self._detection_result.detection_output
+        ):
 
             function_results.update(
                 dict(
