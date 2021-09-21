@@ -188,7 +188,7 @@ class TestCaseEvaluator:
         the test specification expectations"""
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
-                self._detection_result.matched,
+                self._detection_result.detection_output,
                 self._detection_result.detection_exception,
             )
         )
