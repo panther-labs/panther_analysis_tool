@@ -148,7 +148,6 @@ class TestCaseEvaluator:
 
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
-        
         # Any error should mark the test as failing
         if self._detection_result.errored:
             return False
