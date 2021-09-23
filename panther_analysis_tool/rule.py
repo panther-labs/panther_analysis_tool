@@ -20,22 +20,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 import logging
 import os
-import re
 import tempfile
-import traceback
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass
-from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional
 
+from panther_analysis_tool.detection import (
+    BaseImporter,
+    DetectionResult,
+    FilesystemImporter,
+    RawStringImporter,
+)
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import (
     FunctionReturnTypeError,
     UnknownDestinationError,
 )
-from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
 # Temporary alias for compatibility
 get_logger = logging.getLogger
@@ -46,7 +47,7 @@ TYPE_SCHEDULED_RULE = "SCHEDULED_RULE"
 ERROR_TYPE_RULE = "RULE_ERROR"
 ERROR_TYPE_SCHEDULED_RULE = "SCHEDULED_RULE_ERROR"
 
-_RULE_FOLDER = os.path.join(tempfile.gettempdir(), "rules")
+_DETECTION_FOLDER = os.path.join(tempfile.gettempdir(), "detections")
 
 # Maximum size for a dedup string
 MAX_DEDUP_STRING_SIZE = 1000
@@ -66,7 +67,7 @@ ALERT_CONTEXT_ERROR_KEY = "_error"
 
 TRUNCATED_STRING_SUFFIX = "... (truncated)"
 
-DEFAULT_RULE_DEDUP_PERIOD_MINS = 60
+DEFAULT_DETECTION_DEDUP_PERIOD_MINS = 60
 
 # Used to check dynamic severity output
 SEVERITY_TYPES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
@@ -93,179 +94,20 @@ AUXILIARY_FUNCTIONS = (
 )
 
 
-# pylint: disable=too-many-instance-attributes,unsubscriptable-object
-@dataclass
-class RuleResult:
-    """Class containing the result of running a rule"""
-
-    rule_id: str
-    rule_severity: str
-    setup_exception: Optional[Exception] = None
-
-    matched: Optional[bool] = None  # rule output
-    rule_exception: Optional[Exception] = None
-
-    dedup_output: Optional[str] = None
-    dedup_exception: Optional[Exception] = None
-    dedup_defined: bool = False
-
-    title_output: Optional[str] = None
-    title_exception: Optional[Exception] = None
-    title_defined: bool = False
-
-    description_output: Optional[str] = None
-    description_exception: Optional[Exception] = None
-    description_defined: bool = False
-
-    reference_output: Optional[str] = None
-    reference_exception: Optional[Exception] = None
-    reference_defined: bool = False
-
-    severity_output: Optional[str] = None
-    severity_exception: Optional[Exception] = None
-    severity_defined: bool = False
-
-    runbook_output: Optional[str] = None
-    runbook_exception: Optional[Exception] = None
-    runbook_defined: bool = False
-
-    destinations_output: Optional[List[str]] = None
-    destinations_exception: Optional[Exception] = None
-    destinations_defined: bool = False
-
-    alert_context_output: Optional[str] = None
-    alert_context_exception: Optional[Exception] = None
-    alert_context_defined: bool = False
-
-    input_exception: Optional[Exception] = None
-
-    @property
-    def fatal_error(self) -> Optional[Exception]:
-        """Provide any error that would stop evaluation
-        or None, if no blocking error is found"""
-        exception = None
-        if self.setup_exception:
-            exception = self.setup_exception
-        elif self.rule_exception:
-            exception = self.rule_exception
-        elif self.input_exception:
-            exception = self.input_exception
-        return exception
-
-    @property
-    def error_type(self) -> Optional[str]:
-        """Returns the type of the exception, None if there was no error"""
-        fatal_error = self.fatal_error
-        if fatal_error is None:
-            return None
-        return type(fatal_error).__name__
-
-    @property
-    def short_error_message(self) -> Optional[str]:
-        """Returns short error message, None if there was no error"""
-        fatal_error = self.fatal_error
-        if fatal_error is None:
-            return None
-        return repr(fatal_error)
-
-    @property
-    def error_message(self) -> Optional[str]:
-        """Returns formatted error message with traceback"""
-        exception = self.fatal_error
-        if exception is None:
-            return None
-
-        trace = traceback.format_tb(exception.__traceback__)
-        # we only take last element of trace which will show the
-        # rule file name and line of the error, for example:
-        #    division by zero: AlwaysFail.py, line 4, in rule 1/0
-        file_trace = trace[len(trace) - 1].strip().replace("\n", "")
-        # this looks like: File "/tmp/rules/AlwaysFail.py", line 4, in rule 1/0 BUT
-        # we want just the file name
-        return str(exception) + ": " + re.sub(r'File.*/(.*[.]py)"', r"\1", file_trace)
-
-    @property
-    def errored(self) -> bool:
-        """Returns whether any of the rule functions raised an error"""
-        return bool(
-            self.rule_exception
-            or self.title_exception
-            or self.dedup_exception
-            or self.alert_context_exception
-            or self.description_exception
-            or self.reference_exception
-            or self.severity_exception
-            or self.runbook_exception
-            or self.destinations_exception
-            or self.setup_exception
-            or self.input_exception
-        )
-
-    @property
-    def rule_evaluation_failed(self) -> bool:
-        """Returns whether the rule function raises an error or an import error occurred"""
-        return bool(self.rule_exception or self.setup_exception)
-
-
-class BaseImporter:
-    """Base class for Python module importers"""
-
-    @staticmethod
-    def from_file(identifier: str, path: str) -> ModuleType:
-        """Import a file as a Python module"""
-        return import_file_as_module(path, identifier)
-
-    def from_string(self, identifier: str, body: str, tmp_dir: str) -> ModuleType:
-        """Write source code to a temporary file and import as Python module"""
-        path = id_to_path(tmp_dir, identifier)
-        store_modules(path, body)
-        return self.from_file(identifier, path)
-
-    @abstractmethod
-    def get_module(self, identifier: str, resource: str) -> ModuleType:
-        pass
-
-
-class FilesystemImporter(BaseImporter):
-    """Import a Python module from the filesystem"""
-
-    def get_module(  # pylint: disable=arguments-differ
-        self, identifier: str, path: str
-    ) -> ModuleType:
-        module_path = Path(path)
-        if not module_path.exists():
-            raise FileNotFoundError(path)
-        return super().from_file(identifier, module_path.absolute().as_posix())
-
-
-class RawStringImporter(BaseImporter):
-    """Import a Python module from raw source code"""
-
-    def __init__(self, tmp_dir: str):
-        super().__init__()
-        self._tmp_dir = tmp_dir
-
-    def get_module(  # pylint: disable=arguments-differ
-        self, identifier: str, body: str
-    ) -> ModuleType:
-        return super().from_string(identifier, body, self._tmp_dir)
-
-
 # pylint: disable=too-many-instance-attributes
-class Rule:
-    """Panther rule metadata and imported module."""
+class Detection(ABC):
+    """Panther detection metadata and imported module."""
 
     # pylint: disable=too-many-branches,too-many-statements
     def __init__(self, config: Mapping):
-        """Create new rule from a dict.
-
+        """Create new detection from a dict.
         Args:
             config: Dictionary that we expect to have the following keys:
-                analysisType: either RULE or SCHEDULED_RULE
-                id: Unique rule identifier
-                body: The rule body
-                versionId: The version of the rule
-                (Optional) path: The rule module path
+                analysisType: either RULE, SCHEDULED_RULE, or POLICY
+                id: Unique detection identifier
+                body: The detection body
+                versionId: The version of the detection
+                (Optional) path: The detection module path
                 (Optional) dedupPeriodMinutes: The period during which
                 the events will be deduplicated
         """
@@ -285,60 +127,58 @@ class Rule:
         if not any((isinstance(config.get("body"), str), isinstance(config.get("path"), str))):
             raise TypeError('"body", "path" parameters must be of string type')
 
-        if (
-            not "analysisType" in config
-        ):  # backwards compatible check for data from before we returned this
-            self.rule_type = TYPE_RULE
-        else:
-            self.rule_type = config["analysisType"]
+        # backwards compatible for data from before we returned this
+        self.detection_type = config.get("analysisType", self.default_detection_type)
 
-        self.rule_id = config["id"]
-        self.rule_version = config["versionId"]
+        self.detection_id = config["id"]
+        self.detection_version = config["versionId"]
 
-        # TODO: severity and other rule metadata is not passed through when we run rule tests.
+        # TODO: severity and other detection metadata is not passed through when we run tests.
         #       https://app.asana.com/0/1200360676535738/1200403272293475
         if "severity" in config:
-            self.rule_severity = config["severity"]
+            self.detection_severity = config["severity"]
         else:
-            self.rule_severity = None
+            self.detection_severity = None
 
         if not ("dedupPeriodMinutes" in config) or not isinstance(
             config["dedupPeriodMinutes"], int
         ):
-            self.rule_dedup_period_mins = DEFAULT_RULE_DEDUP_PERIOD_MINS
+            self.detection_dedup_period_mins = DEFAULT_DETECTION_DEDUP_PERIOD_MINS
         else:
-            self.rule_dedup_period_mins = config["dedupPeriodMinutes"]
+            self.detection_dedup_period_mins = config["dedupPeriodMinutes"]
 
         if not ("tags" in config) or not isinstance(config["tags"], list):
-            self.rule_tags: List[str] = list()
+            self.detection_tags: List[str] = list()
         else:
             config["tags"].sort()
-            self.rule_tags = config["tags"]
+            self.detection_tags = config["tags"]
 
         if "reports" not in config:
-            self.rule_reports: Dict[str, List[str]] = dict()
+            self.detection_reports: Dict[str, List[str]] = dict()
         else:
             # Reports are Dict[str, List[str]]
             # Sorting the List before setting it
             for values in config["reports"].values():
                 values.sort()
-            self.rule_reports = config["reports"]
+            self.detection_reports = config["reports"]
 
         self._setup_exception = None
         try:
-            self._module = self._load_rule(self.rule_id, config)
-            if not hasattr(self._module, "rule"):
-                raise AssertionError("rule needs to have a method named 'rule'")
+            self._module = self._load_detection(self.detection_id, config)
+            if not self._is_function_defined(self.matcher_function_name):
+                raise AssertionError(
+                    f"detection needs to have a method named '{self.matcher_function_name}'"
+                )
         except Exception as err:  # pylint: disable=broad-except
             self._setup_exception = err
             return
 
-        self._default_dedup_string = "defaultDedupString:{}".format(self.rule_id)
+        self._default_dedup_string = "defaultDedupString:{}".format(self.detection_id)
         self._auxiliary_function_definitions = self._check_defined_functions()
 
     @staticmethod
-    def _load_rule(identifier: str, config: Mapping) -> ModuleType:
-        """Load the rule code as Python module.
+    def _load_detection(identifier: str, config: Mapping) -> ModuleType:
+        """Load the detection code as Python module.
         Code can be provided as raw string or a path in the local filesystem.
         """
         has_raw_code = bool(config.get("body"))
@@ -346,7 +186,7 @@ class Rule:
         importer: Optional[BaseImporter] = None
         if has_raw_code:
             resource = config["body"]
-            importer = RawStringImporter(tmp_dir=_RULE_FOLDER)
+            importer = RawStringImporter(tmp_dir=_DETECTION_FOLDER)
         else:
             resource = config["path"]
             importer = FilesystemImporter()
@@ -358,6 +198,25 @@ class Rule:
         for name in AUXILIARY_FUNCTIONS:
             function_definitions[name] = self._is_function_defined(name)
         return function_definitions
+
+    @property
+    @abstractmethod
+    def default_detection_type(self) -> str:
+        pass
+
+    @abstractmethod
+    def matcher_function(self, event: PantherEvent) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def matcher_function_name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def matcher_alert_value(self) -> bool:
+        pass
 
     @property
     def module(self) -> Any:
@@ -377,132 +236,137 @@ class Rule:
 
     def run(
         self, event: PantherEvent, outputs: dict, outputs_names: dict, batch_mode: bool = True
-    ) -> RuleResult:
+    ) -> DetectionResult:
         """
-        Analyze a log line with this rule and return True, False, or an error.
-        :param event: The event to run the rule against
+        Analyze a log line with this detection and return True, False, or an error.
+        :param event: The event to run the detection against
         :param outputs: Destinations loaded from the panther-outputs-api
         :param outputs_names: Destinations mapped by their display name
-        :param batch_mode: Whether the rule runs as part of the log analysis
-        or as part of a simple rule test. In batch mode, title/dedup functions
-        are not checked if the rule won't trigger an alert and also title()/dedup()
+        :param batch_mode: Whether the detection runs as part of the log analysis
+        or as part of a simple detection test. In batch mode, title/dedup functions
+        are not checked if the detection won't trigger an alert and also title()/dedup()
         won't raise exceptions, so that an alert won't be missed.
         """
-        rule_result = RuleResult(rule_id=self.rule_id, rule_severity=self.rule_severity)
-        # If there was an error setting up the rule
+        detection_result = DetectionResult(
+            detection_id=self.detection_id,
+            detection_severity=self.detection_severity,
+            detection_type=self.detection_type,
+        )
+        # If there was an error setting up the detection
         # return early
         if self._setup_exception:
-            rule_result.setup_exception = self._setup_exception
-            return rule_result
+            detection_result.setup_exception = self._setup_exception
+            return detection_result
 
         try:
-            rule_result.matched = self._run_rule(event)
+            detection_result.matched = self.matcher_function(event)
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.rule_exception = err
+            detection_result.detection_exception = err
 
-        if batch_mode and not rule_result.matched:
+        if batch_mode and detection_result.matched is not self.matcher_alert_value:
             # In batch mode (log analysis), there is no need to run the title/dedup functions
-            # if the rule isn't going to trigger an alert
-            return rule_result
+            # if the detection isn't going to trigger an alert
+            return detection_result
 
         try:
-            rule_result.title_defined = self._auxiliary_function_definitions[TITLE_FUNCTION]
-            if rule_result.title_defined:
-                rule_result.title_output = self._get_title(
+            detection_result.title_defined = self._auxiliary_function_definitions[TITLE_FUNCTION]
+            if detection_result.title_defined:
+                detection_result.title_output = self._get_title(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.title_exception = err
+            detection_result.title_exception = err
 
         try:
-            rule_result.description_defined = self._auxiliary_function_definitions[
+            detection_result.description_defined = self._auxiliary_function_definitions[
                 DESCRIPTION_FUNCTION
             ]
-            if rule_result.description_defined:
-                rule_result.description_output = self._get_description(
+            if detection_result.description_defined:
+                detection_result.description_output = self._get_description(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.description_exception = err
+            detection_result.description_exception = err
 
         try:
-            rule_result.reference_defined = self._auxiliary_function_definitions[REFERENCE_FUNCTION]
-            if rule_result.reference_defined:
-                rule_result.reference_output = self._get_reference(
+            detection_result.reference_defined = self._auxiliary_function_definitions[
+                REFERENCE_FUNCTION
+            ]
+            if detection_result.reference_defined:
+                detection_result.reference_output = self._get_reference(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.reference_exception = err
+            detection_result.reference_exception = err
 
         try:
-            rule_result.severity_defined = self._auxiliary_function_definitions[SEVERITY_FUNCTION]
-            if rule_result.severity_defined:
-                rule_result.severity_output = self._get_severity(
+            detection_result.severity_defined = self._auxiliary_function_definitions[
+                SEVERITY_FUNCTION
+            ]
+            if detection_result.severity_defined:
+                detection_result.severity_output = self._get_severity(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.severity_exception = err
+            detection_result.severity_exception = err
 
         try:
-            rule_result.runbook_defined = self._auxiliary_function_definitions[RUNBOOK_FUNCTION]
-            if rule_result.runbook_defined:
-                rule_result.runbook_output = self._get_runbook(
+            detection_result.runbook_defined = self._auxiliary_function_definitions[
+                RUNBOOK_FUNCTION
+            ]
+            if detection_result.runbook_defined:
+                detection_result.runbook_output = self._get_runbook(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.runbook_exception = err
+            detection_result.runbook_exception = err
 
         try:
-            rule_result.destinations_defined = self._auxiliary_function_definitions[
+            detection_result.destinations_defined = self._auxiliary_function_definitions[
                 DESTINATIONS_FUNCTION
             ]
-            if rule_result.destinations_defined:
-                rule_result.destinations_output = self._get_destinations(
+            if detection_result.destinations_defined:
+                detection_result.destinations_output = self._get_destinations(
                     event,
                     outputs,
                     outputs_names,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.destinations_exception = err
+            detection_result.destinations_exception = err
 
         try:
-            rule_result.dedup_defined = self._auxiliary_function_definitions[DEDUP_FUNCTION]
-            if not rule_result.dedup_defined:
-                rule_result.dedup_output = self._get_dedup_fallback(rule_result.title_output)
+            detection_result.dedup_defined = self._auxiliary_function_definitions[DEDUP_FUNCTION]
+            if not detection_result.dedup_defined:
+                detection_result.dedup_output = self._get_dedup_fallback(
+                    detection_result.title_output
+                )
             else:
-                rule_result.dedup_output = self._get_dedup(
+                detection_result.dedup_output = self._get_dedup(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.dedup_exception = err
+            detection_result.dedup_exception = err
 
         try:
-            rule_result.alert_context_defined = self._auxiliary_function_definitions[
+            detection_result.alert_context_defined = self._auxiliary_function_definitions[
                 ALERT_CONTEXT_FUNCTION
             ]
-            if rule_result.alert_context_defined:
-                rule_result.alert_context_output = self._get_alert_context(
+            if detection_result.alert_context_defined:
+                detection_result.alert_context_output = self._get_alert_context(
                     event,
                     use_default_on_exception=batch_mode,
                 )
         except Exception as err:  # pylint: disable=broad-except
-            rule_result.alert_context_exception = err
+            detection_result.alert_context_exception = err
 
-        return rule_result
-
-    def _run_rule(self, event: PantherEvent) -> bool:
-        # for scheduled rules the rule function is optional,
-        # defaults to True and will pass the events thru
-        if self.rule_type == TYPE_SCHEDULED_RULE and not hasattr(self._module, "rule"):
-            return True
-        return self._run_command(self._module.rule, event, bool)  # type: ignore[attr-defined]
+        return detection_result
 
     def _get_alert_context(
         self, event: PantherEvent, use_default_on_exception: bool = True
@@ -529,8 +393,8 @@ class Rule:
 
         return serialized_alert_context
 
-    # Returns the dedup string for this rule match
-    # If the rule match had a custom title, use the title as a deduplication string
+    # Returns the dedup string for this detection match
+    # If the detection match had a custom title, use the title as a deduplication string
     # If no title and no dedup function is defined, return the default dedup string.
     def _get_dedup(
         self,
@@ -546,7 +410,7 @@ class Rule:
                 self.logger.info(
                     "dedup method raised exception. "
                     'Defaulting dedup string to "%s". Exception: %s',
-                    self.rule_id,
+                    self.detection_id,
                     err,
                 )
                 return self._default_dedup_string
@@ -560,9 +424,9 @@ class Rule:
             # If dedup_string exceeds max size, truncate it
             self.logger.info(
                 "maximum dedup string size is [%d] characters. "
-                "Dedup string for rule with ID [%s] is [%d] characters. Truncating.",
+                "Dedup string for detection with ID [%s] is [%d] characters. Truncating.",
                 MAX_DEDUP_STRING_SIZE,
-                self.rule_id,
+                self.detection_id,
                 len(dedup_string),
             )
             num_characters_to_keep = MAX_DEDUP_STRING_SIZE - len(TRUNCATED_STRING_SUFFIX)
@@ -572,7 +436,7 @@ class Rule:
 
     def _get_dedup_fallback(self, title: Optional[str]) -> str:
         if title:
-            # If no dedup function is defined but the rule
+            # If no dedup function is defined but the detection
             # had a title, use the title as dedup string
             return title
             # If no dedup function defined, return default dedup string
@@ -588,9 +452,9 @@ class Rule:
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info(
-                    "description method for rule with id [%s] raised exception. "
+                    "description method for detection with id [%s] raised exception. "
                     "Using default Exception: %s",
-                    self.rule_id,
+                    self.detection_id,
                     err,
                 )
                 return ""
@@ -600,10 +464,10 @@ class Rule:
             # If generated field exceeds max size, truncate it
             self.logger.info(
                 "maximum field [description] length is [%d]. "
-                "[%d] for rule with ID [%s] . Truncating.",
+                "[%d] for detection with ID [%s] . Truncating.",
                 MAX_GENERATED_FIELD_SIZE,
                 len(description),
-                self.rule_id,
+                self.detection_id,
             )
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return description[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
@@ -668,10 +532,10 @@ class Rule:
         if len(standardized_destinations) > MAX_DESTINATIONS_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                "maximum len of destinations [%d] for rule with ID "
+                "maximum len of destinations [%d] for detection with ID "
                 "[%s] is [%d] fields. Truncating.",
                 MAX_DESTINATIONS_SIZE,
-                self.rule_id,
+                self.detection_id,
                 len(standardized_destinations),
             )
             return standardized_destinations[:MAX_DESTINATIONS_SIZE]
@@ -687,9 +551,9 @@ class Rule:
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info(
-                    "reference method for rule with id [%s] raised exception. "
+                    "reference method for detection with id [%s] raised exception. "
                     "Using default. Exception: %s",
-                    self.rule_id,
+                    self.detection_id,
                     err,
                 )
                 return ""
@@ -699,10 +563,10 @@ class Rule:
             # If generated field exceeds max size, truncate it
             self.logger.info(
                 "maximum field [reference] length is [%d]. "
-                "[%d] for rule with ID [%s] . Truncating.",
+                "[%d] for detection with ID [%s] . Truncating.",
                 MAX_GENERATED_FIELD_SIZE,
                 len(reference),
-                self.rule_id,
+                self.detection_id,
             )
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return reference[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
@@ -718,9 +582,9 @@ class Rule:
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info(
-                    "runbook method for rule with id [%s] raised exception. "
+                    "runbook method for detection with id [%s] raised exception. "
                     "Using default. Exception: %s",
-                    self.rule_id,
+                    self.detection_id,
                     err,
                 )
                 return ""
@@ -729,10 +593,11 @@ class Rule:
         if len(runbook) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                "maximum field [runbook] length is [%d]. [%d] for rule with ID [%s] . Truncating.",
+                "maximum field [runbook] length is [%d]. [%d] for detection with ID [%s]. "
+                "Truncating.",
                 MAX_GENERATED_FIELD_SIZE,
                 len(runbook),
-                self.rule_id,
+                self.detection_id,
             )
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return runbook[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
@@ -747,8 +612,8 @@ class Rule:
             severity = self._run_command(command, event, str).upper()
             if severity not in SEVERITY_TYPES:
                 self.logger.info(
-                    "severity method for rule with id [%s] yielded [%s], expected [%s]",
-                    self.rule_id,
+                    "severity method for detection with id [%s] yielded [%s], expected [%s]",
+                    self.detection_id,
                     severity,
                     str(SEVERITY_TYPES),
                 )
@@ -759,13 +624,13 @@ class Rule:
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info(
-                    "severity method for rule with id [%s] raised exception. "
+                    "severity method for detection with id [%s] raised exception. "
                     "Using default (%s). Exception: %s",
-                    self.rule_id,
-                    self.rule_severity,
+                    self.detection_id,
+                    self.detection_severity,
                     err,
                 )
-                return self.rule_severity
+                return self.detection_severity
             raise
         return severity
 
@@ -777,21 +642,22 @@ class Rule:
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info(
-                    "title method for rule with id [%s] raised exception. "
+                    "title method for detection with id [%s] raised exception. "
                     "Using default. Exception: %s",
-                    self.rule_id,
+                    self.detection_id,
                     err,
                 )
-                return self.rule_id
+                return self.detection_id
             raise
 
         if len(title) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
             self.logger.info(
-                "maximum field [title] length is [%d]. " "[%d] for rule with ID [%s] . Truncating.",
+                "maximum field [title] length is [%d]. "
+                "[%d] for detection with ID [%s] . Truncating.",
                 MAX_GENERATED_FIELD_SIZE,
                 len(title),
-                self.rule_id,
+                self.detection_id,
             )
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
@@ -803,8 +669,8 @@ class Rule:
         if not isinstance(expected_type, list):
             if not isinstance(result, expected_type):
                 raise FunctionReturnTypeError(
-                    "rule [{}] function [{}] returned [{}], expected [{}]".format(
-                        self.rule_id,
+                    "detection [{}] function [{}] returned [{}], expected [{}]".format(
+                        self.detection_id,
                         function.__name__,
                         type(result).__name__,
                         expected_type.__name__,
@@ -815,11 +681,34 @@ class Rule:
                 return result
             if not isinstance(result, list) or not all(isinstance(x, (str, bool)) for x in result):
                 raise FunctionReturnTypeError(
-                    "rule [{}] function [{}] returned [{}], expected a list".format(
-                        self.rule_id, function.__name__, type(result).__name__
+                    "detection [{}] function [{}] returned [{}], expected a list".format(
+                        self.detection_id, function.__name__, type(result).__name__
                     )
                 )
         return result
 
     def _is_function_defined(self, name: str) -> bool:
         return hasattr(self._module, name)
+
+
+class Rule(Detection):
+    """Panther rule metadata and imported module."""
+
+    # default detection types for rules
+    default_detection_type = TYPE_RULE
+
+    # rules have a rule method
+    matcher_function_name = "rule"
+
+    # a rule should trigger an alert on True return value
+    matcher_alert_value = True
+
+    def matcher_function(self, event: PantherEvent) -> bool:
+        # for scheduled rules the rule function is optional,
+        # defaults to True and will pass the events thru
+        if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(
+            self._module, self.matcher_function_name
+        ):
+            return True
+        command = getattr(self._module, self.matcher_function_name)
+        return self._run_command(command, event, bool)

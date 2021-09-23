@@ -27,9 +27,9 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 
 from botocore import client
 from ruamel.yaml import YAML
+from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
-from ruamel.yaml.composer import ComposerError
 
 from panther_analysis_tool.util import get_client
 
@@ -185,8 +185,8 @@ class Uploader:
             success, response = self.api_client.list_schemas()
             if not success:
                 raise RuntimeError("unable to retrieve custom schemas")
-            if 'results' in response:
-                self._existing_schemas = response['results']
+            if "results" in response:
+                self._existing_schemas = response["results"]
             else:
                 self._existing_schemas = []
         return self._existing_schemas
@@ -378,12 +378,12 @@ def _contains_schema_tests(filename: str) -> bool:
     """
     # pantherlog requires that files containing test cases have a specific suffix and extension:
     # https://github.com/panther-labs/panther-enterprise/blob/75dd7ac2be67d3388edabb914b87f514ea9bd2cf/internal/log_analysis/log_processor/logtypes/logtesting/logtesting.go#L302
-    if not filename.endswith('_tests.yml'):
+    if not filename.endswith("_tests.yml"):
         return False
 
     yaml_parser = YAML(typ="safe")
 
-    with open(filename, 'r') as stream:
+    with open(filename, "r") as stream:
         try:
             yaml_documents: List[Dict[str, Any]] = yaml_parser.load_all(stream)
         except (ParserError, ScannerError, ComposerError):
@@ -398,8 +398,11 @@ def _contains_schema_tests(filename: str) -> bool:
 
     # - "input" and "logtype" are expected to be always present
     # - at least one of "result", "results" fields is required
-    return {'input', 'logtype', 'result'}.issubset(fields) or \
-           {'input', 'logtype', 'results'}.issubset(fields)
+    return {"input", "logtype", "result"}.issubset(fields) or {
+        "input",
+        "logtype",
+        "results",
+    }.issubset(fields)
 
 
 def normalize_path(path: str) -> Optional[str]:
