@@ -83,7 +83,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
     def test_interpret_passing_test_not_expected_to_match(self) -> None:
         detection = Rule(TEST_RULE)
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
-        detection_result = DetectionResult(detection_id=spec.id, matched=False, detection_output=False, detection_severity='INFO', detection_type=TYPE_RULE)
+        detection_result = DetectionResult(detection_id=spec.id, trigger_alert=False, detection_output=False, detection_severity='INFO', detection_type=TYPE_RULE)
         expected = TestResult(
             id='test-id',
             name='test-name',
@@ -92,7 +92,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=None,
             errored=False,
             passed=True,
-            matched=False,
+            trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output='false', error=None, matched=True),
                 titleFunction=None,
@@ -112,7 +112,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
     def test_interpret_passing_test_expected_to_match(self) -> None:
         detection = Rule(TEST_RULE)
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
-        detection_result = DetectionResult(detection_id=spec.id, matched=True, detection_output=True, detection_severity='INFO', detection_type=TYPE_RULE)
+        detection_result = DetectionResult(detection_id=spec.id, trigger_alert=True, detection_output=True, detection_severity='INFO', detection_type=TYPE_RULE)
         expected = TestResult(
             id='test-id',
             name='test-name',
@@ -121,7 +121,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=None,
             errored=False,
             passed=True,
-            matched=True,
+            trigger_alert=True,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output='true', error=None, matched=True),
                 titleFunction=None,
@@ -143,7 +143,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            matched=None,
+            trigger_alert=None,
             detection_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -156,7 +156,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=None,
             errored=True,
             passed=False,
-            matched=None,
+            trigger_alert=None,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
                 titleFunction=None,
@@ -177,7 +177,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            matched=None,
+            trigger_alert=None,
             detection_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -190,7 +190,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=None,
             errored=True,
             passed=False,
-            matched=None,
+            trigger_alert=None,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
                 titleFunction=None,
@@ -211,7 +211,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            matched=None,
+            trigger_alert=None,
             input_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -224,7 +224,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=TestError(message='Invalid event: TypeError: wrong type'),
             errored=True,
             passed=False,
-            matched=None,
+            trigger_alert=None,
             functions=TestResultsPerFunction(
                 detectionFunction=None,
                 titleFunction=None,
@@ -245,7 +245,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            matched=None,
+            trigger_alert=None,
             setup_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -258,7 +258,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=TestError(message='TypeError: wrong type'),
             errored=True,
             passed=False,
-            matched=None,
+            trigger_alert=None,
             functions=TestResultsPerFunction(
                 detectionFunction=None,
                 titleFunction=None,
@@ -278,7 +278,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            matched=None,
+            trigger_alert=None,
             input_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -291,7 +291,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=TestError(message='Invalid event: TypeError: wrong type'),
             errored=True,
             passed=False,
-            matched=None,
+            trigger_alert=None,
             functions=TestResultsPerFunction(
                 detectionFunction=None,
                 titleFunction=None,

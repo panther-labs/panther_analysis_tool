@@ -252,7 +252,7 @@ class Detection(ABC):
             detection_severity=self.detection_severity,
             detection_type=self.detection_type,
             # set default to not alert
-            matched=False,
+            trigger_alert=False,
         )
         # If there was an error setting up the detection
         # return early
@@ -266,9 +266,11 @@ class Detection(ABC):
             detection_result.detection_exception = err
 
         if detection_result.detection_output is not None:
-            detection_result.matched = detection_result.detection_output is self.matcher_alert_value
+            detection_result.trigger_alert = (
+                detection_result.detection_output is self.matcher_alert_value
+            )
 
-        if batch_mode and not detection_result.matched:
+        if batch_mode and not detection_result.trigger_alert:
             # In batch mode (log analysis), there is no need to run the title/dedup functions
             # if the detection isn't going to trigger an alert
             return detection_result

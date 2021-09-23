@@ -129,7 +129,7 @@ class TestResult:
     error: Optional[TestError]
     errored: bool
     passed: bool
-    matched: Optional[bool]
+    trigger_alert: Optional[bool]
     functions: TestResultsPerFunction
 
 
@@ -165,7 +165,7 @@ class TestCaseEvaluator:
         """Get the test status - passing/failing"""
 
         # Title/dedup functions are executed unconditionally
-        # (regardless if the detection matched or not) during testing.
+        # (regardless if the detection trigger_alert or not) during testing.
         if self._spec.expectations.detection == self._detection_result.detection_output:
             # Any error should mark the test as failing
             return not self._detection_result.errored
@@ -198,7 +198,7 @@ class TestCaseEvaluator:
         # unless the test was expected to match and trigger an alert.
         # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._detection_result.matched or (
+        if self._detection_result.trigger_alert or (
             self._spec.expectations.detection is not self._detection_result.detection_output
         ):
 
@@ -252,6 +252,6 @@ class TestCaseEvaluator:
             error=FunctionTestResult.to_test_error(generic_error, title=generic_error_title),
             # Passing or failing test?
             passed=self._get_result_status(),
-            matched=self._detection_result.matched,
+            trigger_alert=self._detection_result.trigger_alert,
             functions=TestResultsPerFunction(**function_results),
         )
