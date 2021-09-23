@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from panther_analysis_tool.detection import DetectionResult
 
@@ -182,7 +182,9 @@ class TestCaseEvaluator:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
-    def _check_exception_types(self, ignore_exception_types:Optional[List[Exception]] = None) -> None:
+    def _check_exception_types(
+        self, ignore_exception_types: Optional[List[Type[Exception]]] = None
+    ) -> None:
         for exception_type in ignore_exception_types or []:
             if isinstance(self._detection_result.detection_exception, exception_type):
                 self._detection_result.detection_exception = None
@@ -204,7 +206,9 @@ class TestCaseEvaluator:
                 self._detection_result.alert_context_exception = None
         return
 
-    def interpret(self, ignore_exception_types: Optional[List[Exception]] = None) -> TestResult:
+    def interpret(
+        self, ignore_exception_types: Optional[List[Type[Exception]]] = None
+    ) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""
