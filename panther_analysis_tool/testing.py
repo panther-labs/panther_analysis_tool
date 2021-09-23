@@ -189,7 +189,7 @@ class TestCaseEvaluator:
                 self._detection_result.alert_context_exception = None
 
     def _get_detection_alert_value(self) -> bool:
-        if self._detection_result.detection_type == TYPE_POLICY:
+        if self._detection_result.detection_type.upper() == TYPE_POLICY.upper():
             return Policy.matcher_alert_value
         return Rule.matcher_alert_value
 
