@@ -182,7 +182,6 @@ class TestCaseEvaluator:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
-
     def _check_exception_types(self, ignore_exception_types=None) -> None:
         if ignore_exception_types:
             for exception_type in ignore_exception_types:
@@ -206,7 +205,7 @@ class TestCaseEvaluator:
                     self._detection_result.alert_context_exception = None
         return
 
-    def interpret(self, ignore_exception_types: Optional[List[Exception]]=None) -> TestResult:
+    def interpret(self, ignore_exception_types: Optional[List[Exception]] = None) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""

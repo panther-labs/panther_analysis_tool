@@ -1137,11 +1137,14 @@ def _run_tests(
         ignore_exception_types = []
         if not bool(destinations_by_name):
             ignore_exception_types.append(UnknownDestinationError)
-        test_result = TestCaseEvaluator(spec, result).interpret(ignore_exception_types=ignore_exception_types)
+        test_result = TestCaseEvaluator(spec, result).interpret(
+            ignore_exception_types=ignore_exception_types
+        )
 
         _print_test_result(detection, test_result, failed_tests)
 
     return failed_tests
+
 
 def _print_test_result(
     detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
