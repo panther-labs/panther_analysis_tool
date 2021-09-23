@@ -59,6 +59,7 @@ from schema import (
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.policy import Policy
 from panther_analysis_tool.rule import Detection, Rule
@@ -1092,7 +1093,7 @@ def _run_tests(
     detection: Detection,
     tests: List[Dict[str, Any]],
     failed_tests: DefaultDict[str, list],
-    destination_by_name: Dict[str, FakeDestination],
+    destinations_by_name: Dict[str, FakeDestination],
 ) -> DefaultDict[str, list]:
 
     for unit_test in tests:
@@ -1110,9 +1111,9 @@ def _run_tests(
             test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(detection.module, **mock_methods):
-                    result = detection.run(test_case, {}, destination_by_name, batch_mode=False)
+                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
             else:
-                result = detection.run(test_case, {}, destination_by_name, batch_mode=False)
+                result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
             logging.debug(str(err), exc_info=err)
@@ -1133,39 +1134,14 @@ def _run_tests(
             mocks=unit_test.get("Mocks", {}),
             expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
         )
-        test_result = TestCaseEvaluator(spec, result).interpret()
-        test_result = _check_destinations(test_result, destination_by_name)
+        ignore_exception_types = []
+        if not bool(destinations_by_name):
+            ignore_exception_types.append(UnknownDestinationError)
+        test_result = TestCaseEvaluator(spec, result).interpret(ignore_exception_types=ignore_exception_types)
 
         _print_test_result(detection, test_result, failed_tests)
 
     return failed_tests
-
-
-def _check_destinations(test_result: TestResult, destination_by_name: Dict[str, Any]) -> TestResult:
-    # For backwards compatibility we can accept invalid destination names,
-    # as long as a string is returned. Strict check is enabled when users
-    # pass destination names explicitly through command-line parameters.
-    if (
-        test_result.functions.destinationsFunction
-        and test_result.functions.destinationsFunction.error
-        and not bool(destination_by_name)
-    ):
-
-        error_message = test_result.functions.destinationsFunction.error.message or ""
-        if "UnknownDestinationError" in error_message:
-            # reset the output and error
-            test_result.functions.destinationsFunction.output = error_message.split(" ")[-1]
-            test_result.functions.destinationsFunction.error = None
-            test_result.passed = True
-            # reset test_result as necessary
-            functions = asdict(test_result.functions)
-            for function_name, function_result in functions.items():
-                if function_result:
-                    if function_result.get('error'):
-                        test_result.passed = False
-                        break
-    return test_result
-
 
 def _print_test_result(
     detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
@@ -1187,23 +1163,27 @@ def _print_test_result(
             # extract this detections matcher function name
             printable_name = detection.matcher_function_name
         if function_result:
-            if function_result.get('error'):
+            if function_result.get("error"):
                 # add this as output to the failed test spec as well
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
-                        status_fail, printable_name, function_result.get('error',{}).get('message')
+                        status_fail, printable_name, function_result.get("error", {}).get("message")
                     )
                 )
             # if it didn't error, we simiply need to check if the output was as expected
-            elif not function_result.get('matched', True):
+            elif not function_result.get("matched", True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
-                    "\t\t[{}] [{}] {}".format(status_fail, printable_name, function_result.get('output'))
+                    "\t\t[{}] [{}] {}".format(
+                        status_fail, printable_name, function_result.get("output")
+                    )
                 )
             else:
                 print(
-                    "\t\t[{}] [{}] {}".format(status_pass, printable_name, function_result.get('output'))
+                    "\t\t[{}] [{}] {}".format(
+                        status_pass, printable_name, function_result.get("output")
+                    )
                 )
 
 
