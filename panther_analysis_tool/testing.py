@@ -182,27 +182,26 @@ class TestCaseEvaluator:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
-    def _check_exception_types(self, ignore_exception_types=None) -> None:
-        if ignore_exception_types:
-            for exception_type in ignore_exception_types:
-                if isinstance(self._detection_result.detection_exception, exception_type):
-                    self._detection_result.detection_exception = None
-                if isinstance(self._detection_result.title_exception, exception_type):
-                    self._detection_result.title_exception = None
-                if isinstance(self._detection_result.description_exception, exception_type):
-                    self._detection_result.description_exception = None
-                if isinstance(self._detection_result.reference_exception, exception_type):
-                    self._detection_result.reference_exception = None
-                if isinstance(self._detection_result.severity_exception, exception_type):
-                    self._detection_result.severity_exception = None
-                if isinstance(self._detection_result.runbook_exception, exception_type):
-                    self._detection_result.runbook_exception = None
-                if isinstance(self._detection_result.destinations_exception, exception_type):
-                    self._detection_result.destinations_exception = None
-                if isinstance(self._detection_result.dedup_exception, exception_type):
-                    self._detection_result.dedup_exception = None
-                if isinstance(self._detection_result.alert_context_exception, exception_type):
-                    self._detection_result.alert_context_exception = None
+    def _check_exception_types(self, ignore_exception_types:Optional[List[Exception]] = None) -> None:
+        for exception_type in ignore_exception_types or []:
+            if isinstance(self._detection_result.detection_exception, exception_type):
+                self._detection_result.detection_exception = None
+            if isinstance(self._detection_result.title_exception, exception_type):
+                self._detection_result.title_exception = None
+            if isinstance(self._detection_result.description_exception, exception_type):
+                self._detection_result.description_exception = None
+            if isinstance(self._detection_result.reference_exception, exception_type):
+                self._detection_result.reference_exception = None
+            if isinstance(self._detection_result.severity_exception, exception_type):
+                self._detection_result.severity_exception = None
+            if isinstance(self._detection_result.runbook_exception, exception_type):
+                self._detection_result.runbook_exception = None
+            if isinstance(self._detection_result.destinations_exception, exception_type):
+                self._detection_result.destinations_exception = None
+            if isinstance(self._detection_result.dedup_exception, exception_type):
+                self._detection_result.dedup_exception = None
+            if isinstance(self._detection_result.alert_context_exception, exception_type):
+                self._detection_result.alert_context_exception = None
         return
 
     def interpret(self, ignore_exception_types: Optional[List[Exception]] = None) -> TestResult:

@@ -1134,7 +1134,7 @@ def _run_tests(
             mocks=unit_test.get("Mocks", {}),
             expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
         )
-        ignore_exception_types = []
+        ignore_exception_types: List[Exception] = []
         if not bool(destinations_by_name):
             ignore_exception_types.append(UnknownDestinationError)
         test_result = TestCaseEvaluator(spec, result).interpret(
