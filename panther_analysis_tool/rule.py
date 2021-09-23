@@ -266,7 +266,9 @@ class Detection(ABC):
             detection_result.detection_exception = err
 
         if detection_result.detection_output is not None:
-            detection_result.trigger_alert = detection_result.detection_output is self.matcher_alert_value
+            detection_result.trigger_alert = (
+                detection_result.detection_output is self.matcher_alert_value
+            )
 
         if batch_mode and not detection_result.trigger_alert:
             # In batch mode (log analysis), there is no need to run the title/dedup functions
