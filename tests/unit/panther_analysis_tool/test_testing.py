@@ -72,10 +72,6 @@ class TestFunctionTestResult(unittest.TestCase):
             TestError(message='invalid type: TypeError: wrong type')
         )
 
-    def test_truncate(self) -> None:
-        self.assertIsNone(FunctionTestResult.truncate(None, 1))
-        self.assertEqual(FunctionTestResult.truncate('123456789', 3), '123...')
-
 
 class TestTestCaseEvaluator(unittest.TestCase):
 
