@@ -23,8 +23,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.Rule import Rule
-from panther_analysis_tool.Policy import Policy, TYPE_POLICY
+from panther_analysis_tool.rule import Rule
+from panther_analysis_tool.policy import Policy, TYPE_POLICY
 
 @dataclass
 class TestError:
