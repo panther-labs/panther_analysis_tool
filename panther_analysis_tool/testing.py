@@ -165,7 +165,7 @@ class TestCaseEvaluator:
         """Get the test status - passing/failing"""
 
         # Title/dedup functions are executed unconditionally
-        # (regardless if the detection trigger_alert or not) during testing.
+        # (regardless if the detection matched or not) during testing.
         if self._spec.expectations.detection == self._detection_result.detection_output:
             # Any error should mark the test as failing
             return not self._detection_result.errored

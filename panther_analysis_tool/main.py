@@ -31,6 +31,7 @@ import sys
 import tempfile
 import zipfile
 from collections import defaultdict
+from dataclasses import asdict
 from datetime import datetime
 from distutils.util import strtobool
 from fnmatch import fnmatch
@@ -828,13 +829,13 @@ def setup_run_tests(
                 )
             )
 
+        print(detection.detection_id)
+
         # if there is a setup exception, no need to run tests
         if detection.setup_exception:
             invalid_specs.append((analysis_spec_filename, detection.setup_exception))
             print("\n")
             continue
-
-        print(detection.detection_id)
 
         failed_tests = run_tests(
             analysis_spec,
@@ -1157,10 +1158,10 @@ def _check_destinations(test_result: TestResult, destination_by_name: Dict[str, 
             test_result.functions.destinationsFunction.error = None
             test_result.passed = True
             # reset test_result as necessary
-            for function_name in vars(test_result.functions):
-                function_result = vars(test_result.functions)[function_name]
+            functions = asdict(test_result.functions)
+            for function_name, function_result in functions.items():
                 if function_result:
-                    if function_result.error:
+                    if function_result.get('error'):
                         test_result.passed = False
                         break
     return test_result
@@ -1179,30 +1180,30 @@ def _print_test_result(
     print("\t[{}] {}".format(outcome, test_result.name))
 
     # print function output and status as necessary
-    for function_name in vars(test_result.functions):
+    functions = asdict(test_result.functions)
+    for function_name, function_result in functions.items():
         printable_name = function_name.replace("Function", "")
         if printable_name == "detection":
             # extract this detections matcher function name
             printable_name = detection.matcher_function_name
-        function_result = vars(test_result.functions)[function_name]
         if function_result:
-            if function_result.error:
+            if function_result.get('error'):
                 # add this as output to the failed test spec as well
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
-                        status_fail, printable_name, function_result.error.message
+                        status_fail, printable_name, function_result.get('error',{}).get('message')
                     )
                 )
             # if it didn't error, we simiply need to check if the output was as expected
-            elif not function_result.matched:
+            elif not function_result.get('matched', True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
-                    "\t\t[{}] [{}] {}".format(status_fail, printable_name, function_result.output)
+                    "\t\t[{}] [{}] {}".format(status_fail, printable_name, function_result.get('output'))
                 )
             else:
                 print(
-                    "\t\t[{}] [{}] {}".format(status_pass, printable_name, function_result.output)
+                    "\t\t[{}] [{}] {}".format(status_pass, printable_name, function_result.get('output'))
                 )
 
 
