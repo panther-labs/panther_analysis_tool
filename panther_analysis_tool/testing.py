@@ -23,7 +23,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from panther_analysis_tool.detection import DetectionResult
-
+from panther_analysis_tool.Rule import Rule
+from panther_analysis_tool.Policy import Policy, TYPE_POLICY
 
 @dataclass
 class TestError:
@@ -80,22 +81,6 @@ class FunctionTestResult:
         if exc is None:
             return None
         return TestError(message=FunctionTestResult.format_exception(exc, title=title))
-
-    @staticmethod
-    def truncate(string: Optional[str], length: int) -> Optional[str]:
-        """
-        Truncate a string to the given length and append ellipsis
-        to mark the truncation.
-
-        :param string: the string to be checked and truncated if length exceeds length
-        :param length: the maximum length of the string
-        :return: a string of size lower or equal to the length parameter
-        """
-        if string is None:
-            return None
-        if len(string) > length:
-            return string[:length] + "..."
-        return string
 
 
 @dataclass  # pylint: disable=R0902
@@ -163,14 +148,13 @@ class TestCaseEvaluator:
 
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
+        
+        # Any error should mark the test as failing
+        if self._detection_result.errored:
+            return False
+        # expectations match the detection output
+        return self._spec.expectations.detection == self._detection_result.detection_output
 
-        # Title/dedup functions are executed unconditionally
-        # (regardless if the detection trigger_alert or not) during testing.
-        if self._spec.expectations.detection == self._detection_result.detection_output:
-            # Any error should mark the test as failing
-            return not self._detection_result.errored
-        # expectations didn't match for the detection output
-        return False
 
     def _get_generic_error_details(self) -> Tuple[Optional[Exception], Optional[str]]:
         generic_error = None
@@ -181,6 +165,11 @@ class TestCaseEvaluator:
         elif self._detection_result.setup_exception is not None:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
+
+    def _get_detection_alert_value(self):
+        if self._detection_result.detection_type == TYPE_POLICY:
+            return Policy.matcher_alert_value
+        return Rule.matcher_alert_value
 
     def interpret(self) -> TestResult:
         """Evaluate the detection result taking into account
@@ -197,9 +186,7 @@ class TestCaseEvaluator:
         # unless the test was expected to match and trigger an alert.
         # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
-        if self._detection_result.trigger_alert or (
-            self._spec.expectations.detection is not self._detection_result.detection_output
-        ):
+        if self._spec.expectations.detection == self._get_detection_alert_value():
 
             function_results.update(
                 dict(
