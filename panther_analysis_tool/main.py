@@ -36,7 +36,7 @@ from datetime import datetime
 from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -701,9 +701,13 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
+    ignore_exception_types: List[Type[Exception]] = []
+
     available_destinations: List[str] = []
     if args.available_destination:
         available_destinations.extend(args.available_destination)
+    else:
+        ignore_exception_types.append(UnknownDestinationError)
 
     destinations_by_name = {
         name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
@@ -727,6 +731,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
+        ignore_exception_types=ignore_exception_types,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -803,6 +808,7 @@ def setup_run_tests(
     minimum_tests: int,
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -845,6 +851,7 @@ def setup_run_tests(
             failed_tests,
             minimum_tests,
             destinations_by_name,
+            ignore_exception_types,
         )
         print("")
     return failed_tests, invalid_specs
@@ -1059,6 +1066,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     failed_tests: DefaultDict[str, list],
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
 
     if len(analysis.get("Tests", [])) < minimum_tests:
@@ -1074,7 +1082,12 @@ def run_tests(  # pylint: disable=too-many-arguments
         return failed_tests
 
     failed_tests = _run_tests(
-        analysis_data_models, detection, analysis["Tests"], failed_tests, destinations_by_name
+        analysis_data_models,
+        detection,
+        analysis["Tests"],
+        failed_tests,
+        destinations_by_name,
+        ignore_exception_types,
     )
 
     if minimum_tests > 1 and not (
@@ -1094,6 +1107,7 @@ def _run_tests(
     tests: List[Dict[str, Any]],
     failed_tests: DefaultDict[str, list],
     destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
 
     for unit_test in tests:
@@ -1134,9 +1148,7 @@ def _run_tests(
             mocks=unit_test.get("Mocks", {}),
             expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
         )
-        ignore_exception_types: List[Exception] = []
-        if not bool(destinations_by_name):
-            ignore_exception_types.append(UnknownDestinationError)
+
         test_result = TestCaseEvaluator(spec, result).interpret(
             ignore_exception_types=ignore_exception_types
         )
