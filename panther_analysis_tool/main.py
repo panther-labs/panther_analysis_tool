@@ -1142,7 +1142,7 @@ def _run_tests(
                 failed_tests[analysis_id].append(unit_test["Name"])
         else:
             rule_result: DetectionResult = result
-            if rule_result.matched is not unit_test["ExpectedResult"]:
+            if rule_result.trigger_alert is not unit_test["ExpectedResult"]:
                 test_result["outcome"] = "FAIL"
                 failed_tests[analysis_id].append(unit_test["Name"])
 

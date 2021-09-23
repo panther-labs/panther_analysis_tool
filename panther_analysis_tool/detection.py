@@ -39,7 +39,7 @@ class DetectionResult:
     detection_id: str
     detection_severity: str
     detection_type: str
-    matched: bool  # detection output, default to non-alerting value
+    trigger_alert: bool  # detection output, default to non-alerting value
 
     setup_exception: Optional[Exception] = None
 

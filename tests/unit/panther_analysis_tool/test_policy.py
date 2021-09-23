@@ -43,8 +43,8 @@ class TestPolicy(unittest.TestCase):
             {},
             {},
         )
-        # true return from a policy will not trigger an alert, therefore matched will be False
-        self.assertFalse(result.matched)
+        # true return from a policy will not trigger an alert, therefore trigger_alert will be False
+        self.assertFalse(result.trigger_alert)
 
     def test_run_false(self) -> None:
         """Imported policy body returns False."""
@@ -61,8 +61,8 @@ class TestPolicy(unittest.TestCase):
             {},
             {},
         )
-        # false return from a policy will trigger an alert, therefore matched will be True
-        self.assertTrue(result.matched)
+        # false return from a policy will trigger an alert, therefore trigger_alert will be True
+        self.assertTrue(result.trigger_alert)
 
     def test_run_import_error(self) -> None:
         """A policy which failed to import will raise errors for every resource."""
@@ -130,7 +130,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertIsNone(result.fatal_error)
         fields = ('detection_exception', 'setup_exception', 'input_exception')
@@ -143,7 +143,7 @@ class TestDetectionResult(unittest.TestCase):
                 'detection_severity': 'INFO',
                 'detection_type': 'POLICY',
                 'dedup_output': 'failed.policy',
-                'matched': False, # default value
+                'trigger_alert': False, # default value
             }
             result = DetectionResult(**params)
             self.assertIs(result.fatal_error, exc)
@@ -154,7 +154,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertIsNone(result.error_type)
         result = DetectionResult(
@@ -163,7 +163,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
             detection_exception=TypeError('something went wrong'),
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertEqual(result.error_type, 'TypeError')
 
@@ -173,7 +173,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertIsNone(result.short_error_message)
         result = DetectionResult(
@@ -182,7 +182,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_type=TYPE_POLICY,
             detection_id='failed.policy',
             detection_exception=TypeError('something went wrong'),
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertEqual(result.short_error_message, "TypeError('something went wrong')")
 
@@ -199,7 +199,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertRegex(
             # error_message return value is Optional[str]
@@ -214,7 +214,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False,
+            trigger_alert=False,
         )
         self.assertIsNone(result.error_message)
 
@@ -225,7 +225,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
             detection_exception=TypeError(),
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertTrue(result.errored)
 
@@ -234,7 +234,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertFalse(result.errored)
 
@@ -244,7 +244,7 @@ class TestDetectionResult(unittest.TestCase):
             detection_id='failed.policy',
             detection_severity='INFO',
             detection_type=TYPE_POLICY,
-            matched=False, # default value
+            trigger_alert=False, # default value
         )
         self.assertFalse(result.errored)
 
@@ -255,7 +255,7 @@ class TestDetectionResult(unittest.TestCase):
                 detection_severity='INFO',
                 detection_type=TYPE_POLICY,
                 detection_exception=TypeError(),
-                matched=False, # default value
+                trigger_alert=False, # default value
             ).detection_evaluation_failed
         )
         self.assertTrue(
@@ -265,6 +265,6 @@ class TestDetectionResult(unittest.TestCase):
                 detection_severity='INFO',
                 detection_type=TYPE_POLICY,
                 setup_exception=TypeError(),
-                matched=False, # default value
+                trigger_alert=False, # default value
             ).detection_evaluation_failed
         )
