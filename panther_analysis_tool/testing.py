@@ -204,7 +204,6 @@ class TestCaseEvaluator:
                 self._detection_result.dedup_exception = None
             if isinstance(self._detection_result.alert_context_exception, exception_type):
                 self._detection_result.alert_context_exception = None
-        return
 
     def interpret(
         self, ignore_exception_types: Optional[List[Type[Exception]]] = None

@@ -654,6 +654,7 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
+# pylint: disable=too-many-locals
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -801,8 +802,7 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
     return log_type_to_data_model, invalid_specs
 
 
-# pylint: disable=too-many-locals
-def setup_run_tests(
+def setup_run_tests( # pylint: disable=too-many-locals,too-many-arguments
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[Any],
     minimum_tests: int,
@@ -1101,7 +1101,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     return failed_tests
 
 
-def _run_tests(
+def _run_tests( # pylint: disable=too-many-arguments
     analysis_data_models: Dict[str, DataModel],
     detection: Detection,
     tests: List[Dict[str, Any]],
