@@ -166,7 +166,7 @@ class TestCaseEvaluator:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
-    def _get_detection_alert_value(self):
+    def _get_detection_alert_value(self) -> bool:
         if self._detection_result.detection_type == TYPE_POLICY:
             return Policy.matcher_alert_value
         return Rule.matcher_alert_value
