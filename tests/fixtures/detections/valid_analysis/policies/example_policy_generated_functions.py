@@ -30,4 +30,4 @@ def reference(resource):
     return 'THIS IS AN EXAMPLE REFERENCE.'
 
 def severity(resource):
-    return 'CRITICAL'
+    return 'CrItIcAl'
