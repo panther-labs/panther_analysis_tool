@@ -24,7 +24,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import List, Optional
+from typing import List, Optional, Type
 
 from panther_analysis_tool.util import id_to_path, import_file_as_module, store_modules
 
@@ -146,6 +146,28 @@ class DetectionResult:
     def detection_evaluation_failed(self) -> bool:
         """Returns whether the detection function raises an error or an import error occurred"""
         return bool(self.detection_exception or self.setup_exception)
+
+    def ignore_errors(self, ignore_exception_types: List[Type[Exception]]) -> None:
+        """Used to ignore exceptions of particular types, used primarily in testing"""
+        for exception_type in ignore_exception_types:
+            if isinstance(self.detection_exception, exception_type):
+                self.detection_exception = None
+            if isinstance(self.title_exception, exception_type):
+                self.title_exception = None
+            if isinstance(self.description_exception, exception_type):
+                self.description_exception = None
+            if isinstance(self.reference_exception, exception_type):
+                self.reference_exception = None
+            if isinstance(self.severity_exception, exception_type):
+                self.severity_exception = None
+            if isinstance(self.runbook_exception, exception_type):
+                self.runbook_exception = None
+            if isinstance(self.destinations_exception, exception_type):
+                self.destinations_exception = None
+            if isinstance(self.dedup_exception, exception_type):
+                self.dedup_exception = None
+            if isinstance(self.alert_context_exception, exception_type):
+                self.alert_context_exception = None
 
 
 class BaseImporter:

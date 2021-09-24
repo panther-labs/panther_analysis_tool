@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
-import functools
 import hashlib
 import importlib.util
 import json
@@ -32,11 +31,12 @@ import sys
 import tempfile
 import zipfile
 from collections import defaultdict
+from dataclasses import asdict
 from datetime import datetime
 from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -58,14 +58,11 @@ from schema import (
 
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
-from panther_analysis_tool.detection import DetectionResult
 from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.exceptions import (
-    FunctionReturnTypeError,
-    UnknownDestinationError,
-)
+from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.rule import Rule
+from panther_analysis_tool.policy import Policy
+from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -74,6 +71,12 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
+)
+from panther_analysis_tool.testing import (
+    TestCaseEvaluator,
+    TestExpectations,
+    TestResult,
+    TestSpecification,
 )
 from panther_analysis_tool.util import get_client
 
@@ -651,6 +654,7 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
+# pylint: disable=too-many-locals
 def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -698,9 +702,13 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
+    ignore_exception_types: List[Type[Exception]] = []
+
     available_destinations: List[str] = []
     if args.available_destination:
         available_destinations.extend(args.available_destination)
+    else:
+        ignore_exception_types.append(UnknownDestinationError)
 
     destinations_by_name = {
         name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
@@ -724,6 +732,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
+        ignore_exception_types=ignore_exception_types,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -793,13 +802,13 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
     return log_type_to_data_model, invalid_specs
 
 
-# pylint: disable=too-many-locals
-def setup_run_tests(
+def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[Any],
     minimum_tests: int,
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -808,20 +817,17 @@ def setup_run_tests(
             continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
-        print(analysis_id)
-
         module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
-        module, load_err = load_module(module_code_path)
-        # If the module could not be loaded, continue to the next
-        if load_err:
-            invalid_specs.append((analysis_spec_filename, load_err))
-            continue
-
-        analysis_funcs = {"module": module}
+        detection: Detection = Rule(
+            dict(
+                id=analysis_id,
+                analysisType=analysis_type,
+                path=module_code_path,
+                versionId="0000-0000-0000",
+            )
+        )
         if analysis_type == POLICY:
-            analysis_funcs["run"] = module.policy
-        elif analysis_type in [RULE, SCHEDULED_RULE]:
-            rule = Rule(
+            detection = Policy(
                 dict(
                     id=analysis_id,
                     analysisType=analysis_type,
@@ -829,18 +835,23 @@ def setup_run_tests(
                     versionId="0000-0000-0000",
                 )
             )
-            analysis_funcs["run"] = functools.partial(
-                rule.run, outputs={}, outputs_names=destinations_by_name, batch_mode=False
-            )
-            analysis_funcs["module"] = rule.module
+
+        print(detection.detection_id)
+
+        # if there is a setup exception, no need to run tests
+        if detection.setup_exception:
+            invalid_specs.append((analysis_spec_filename, detection.setup_exception))
+            print("\n")
+            continue
 
         failed_tests = run_tests(
             analysis_spec,
-            analysis_funcs,
             log_type_to_data_model,
+            detection,
             failed_tests,
             minimum_tests,
-            bool(destinations_by_name),
+            destinations_by_name,
+            ignore_exception_types,
         )
         print("")
     return failed_tests, invalid_specs
@@ -1050,15 +1061,16 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
-    analysis_funcs: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
+    detection: Detection,
     failed_tests: DefaultDict[str, list],
     minimum_tests: int,
-    destination_names_strict_check: bool,
+    destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
 
     if len(analysis.get("Tests", [])) < minimum_tests:
-        failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
+        failed_tests[detection.detection_id].append(
             "Insufficient test coverage: {} tests required but only {} found".format(
                 minimum_tests, len(analysis.get("Tests", []))
             )
@@ -1066,35 +1078,39 @@ def run_tests(  # pylint: disable=too-many-arguments
 
     # First check if any tests exist, so we can print a helpful message if not
     if "Tests" not in analysis:
-        analysis_id = analysis.get("PolicyID") or analysis["RuleID"]
-        print("\tNo tests configured for {}".format(analysis_id))
+        print("\tNo tests configured for {}".format(detection.detection_id))
         return failed_tests
 
     failed_tests = _run_tests(
-        analysis, analysis_funcs, analysis_data_models, failed_tests, destination_names_strict_check
+        analysis_data_models,
+        detection,
+        analysis["Tests"],
+        failed_tests,
+        destinations_by_name,
+        ignore_exception_types,
     )
 
     if minimum_tests > 1 and not (
         [x for x in analysis["Tests"] if x["ExpectedResult"]]
         and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
     ):
-        failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(
+        failed_tests[detection.detection_id].append(
             "Insufficient test coverage: expected at least one positive and one negative test"
         )
 
     return failed_tests
 
 
-def _run_tests(
-    analysis: Dict[str, Any],
-    analysis_funcs: Dict[str, Any],
+def _run_tests(  # pylint: disable=too-many-arguments
     analysis_data_models: Dict[str, DataModel],
+    detection: Detection,
+    tests: List[Dict[str, Any]],
     failed_tests: DefaultDict[str, list],
-    destination_names_strict_check: bool,
+    destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
-    is_policy = analysis.get("PolicyID") is not None
-    analysis_id = analysis.get("PolicyID") or analysis["RuleID"]
-    for unit_test in analysis["Tests"]:
+
+    for unit_test in tests:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
@@ -1106,124 +1122,84 @@ def _run_tests(
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            if is_policy:
-                # Policies use plain dict objects as input
-                test_case = entry
-            else:
-                # Set up each test case, including any relevant data models
-                test_case = PantherEvent(entry, analysis_data_models.get(log_type))
+            test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             if mock_methods:
-                with patch.multiple(analysis_funcs["module"], **mock_methods):
-                    result = analysis_funcs["run"](test_case)
+                with patch.multiple(detection.module, **mock_methods):
+                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
             else:
-                result = analysis_funcs["run"](test_case)
+                result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
             logging.debug(str(err), exc_info=err)
-            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
+            failed_tests[detection.detection_id].append(unit_test["Name"])
             continue
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions raised by user code
             logging.warning("Unexpected exception: {%s}", err)
             logging.debug(str(err), exc_info=err)
-            failed_tests[analysis.get("PolicyID") or analysis["RuleID"]].append(unit_test["Name"])
+            failed_tests[detection.detection_id].append(unit_test["Name"])
             continue
 
-        # using a dictionary to map between the tests and their outcomes
-        # assume the test passes (default "PASS")
-        # until failure condition is found (set to "FAIL")
-        test_result: Dict[Any, str] = defaultdict(lambda: "PASS")
-
-        # check expected result
-        auxiliary_functions_result_message = ""
-        if is_policy:
-            if result != unit_test["ExpectedResult"]:
-                test_result["outcome"] = "FAIL"
-                failed_tests[analysis_id].append(unit_test["Name"])
-        else:
-            rule_result: DetectionResult = result
-            if rule_result.trigger_alert is not unit_test["ExpectedResult"]:
-                test_result["outcome"] = "FAIL"
-                failed_tests[analysis_id].append(unit_test["Name"])
-
-            # validate reserved function return types and values
-            # Only applies to rules which match an incoming event
-            if unit_test["ExpectedResult"]:
-                for function_name in RESERVED_FUNCTIONS:
-                    strict_check = (
-                        function_name == "destinations" and destination_names_strict_check
-                    )
-                    aux_function_result = _evaluate_auxiliary_function_result(
-                        function_name, rule_result, strict_check
-                    )
-
-                    # The function has not been executed, nothing to display
-                    if aux_function_result["display"] is None:
-                        continue
-
-                    if aux_function_result["failed"]:
-                        # Mark the test as failed if an auxiliary function fails
-                        test_result[function_name] = test_result["outcome"] = "FAIL"
-                        failed_tests[analysis_id].append(f"{unit_test['Name']}:{function_name}")
-
-                    auxiliary_functions_result_message += f"\t\t[{test_result[function_name]}] "
-                    if aux_function_result["has_invalid_type"]:
-                        auxiliary_functions_result_message += "[INVALID TYPE] "
-                    auxiliary_functions_result_message += (
-                        f"[{function_name}] {aux_function_result['display']}\n"
-                    )
-                auxiliary_functions_result_message = auxiliary_functions_result_message.rstrip()
-
         # print results
-        print("\t[{}] {}".format(test_result["outcome"], unit_test["Name"]))
-        if auxiliary_functions_result_message:
-            print(auxiliary_functions_result_message)
+        spec = TestSpecification(
+            id=unit_test["Name"],
+            name=unit_test["Name"],
+            data=unit_test.get("Resource") or unit_test["Log"],
+            mocks=unit_test.get("Mocks", {}),
+            expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
+        )
+
+        test_result = TestCaseEvaluator(spec, result).interpret(
+            ignore_exception_types=ignore_exception_types
+        )
+
+        _print_test_result(detection, test_result, failed_tests)
 
     return failed_tests
 
 
-def _evaluate_auxiliary_function_result(
-    function_name: str, detection_result: DetectionResult, strict_check: bool
-) -> Dict[str, Any]:
-    """Determine whether an auxiliary function for a rule raised an error"""
-    function_error = getattr(detection_result, f"{function_name}_exception")
-    output = getattr(detection_result, f"{function_name}_output")
-    is_defined = getattr(detection_result, f"{function_name}_defined")
-    failed = function_error is not None
-
-    # For backwards compatibility we can accept invalid destination names,
-    # as long as a string is returned. Strict check is enabled when users
-    # pass destination names explicitly through command-line parameters.
-    if function_name == "destinations" and failed and not strict_check:
-        # Otherwise we fall back to a best-effort check of the return type only
-        if isinstance(function_error, UnknownDestinationError):
-            exc: UnknownDestinationError = function_error
-            failed = not _check_destinations_type(exc.result())
-
-    # The function has not been executed
-    if not is_defined:
-        display = None
+def _print_test_result(
+    detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
+) -> None:
+    status_pass = "PASS" # nosec
+    status_fail = "FAIL"
+    if test_result.passed:
+        outcome = status_pass
     else:
-        display = function_error if failed else output
+        outcome = status_fail
+    # print overall status for this test
+    print("\t[{}] {}".format(outcome, test_result.name))
 
-    return {
-        "error": function_error,
-        "output": output,
-        "failed": failed,
-        "has_invalid_type": isinstance(function_error, FunctionReturnTypeError),
-        "display": display,
-    }
-
-
-def _check_destinations_type(obj: Any) -> bool:
-    """Checks that the return value of the `destinations` function is a list of strings"""
-    if obj is None:
-        return True
-
-    if not isinstance(obj, list):
-        return False
-
-    return all(isinstance(destination_name, str) for destination_name in obj)
+    # print function output and status as necessary
+    functions = asdict(test_result.functions)
+    for function_name, function_result in functions.items():
+        printable_name = function_name.replace("Function", "")
+        if printable_name == "detection":
+            # extract this detections matcher function name
+            printable_name = detection.matcher_function_name
+        if function_result:
+            if function_result.get("error"):
+                # add this as output to the failed test spec as well
+                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
+                print(
+                    "\t\t[{}] [{}] {}".format(
+                        status_fail, printable_name, function_result.get("error", {}).get("message")
+                    )
+                )
+            # if it didn't error, we simply need to check if the output was as expected
+            elif not function_result.get("matched", True):
+                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
+                print(
+                    "\t\t[{}] [{}] {}".format(
+                        status_fail, printable_name, function_result.get("output")
+                    )
+                )
+            else:
+                print(
+                    "\t\t[{}] [{}] {}".format(
+                        status_pass, printable_name, function_result.get("output")
+                    )
+                )
 
 
 def setup_parser() -> argparse.ArgumentParser:

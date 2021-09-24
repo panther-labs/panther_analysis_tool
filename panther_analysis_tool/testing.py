@@ -20,11 +20,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from panther_analysis_tool.detection import DetectionResult
+from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Rule
-from panther_analysis_tool.policy import Policy, TYPE_POLICY
+
 
 @dataclass
 class TestError:
@@ -42,12 +43,15 @@ class FunctionTestResult:
     # error contains a TestError instance with the error message or
     # None if no error was raised
     error: Optional[TestError]
+    # return value matched expectations
+    matched: Optional[bool]
 
     @classmethod
     def new(
         cls,
         output: Optional[Union[bool, str, List[str]]],
         raw_exception: Optional[Exception] = None,
+        matched: Optional[bool] = True,
     ) -> Optional["FunctionTestResult"]:
         """Create a new instance while applying
         the necessary transformations to the parameters"""
@@ -57,10 +61,7 @@ class FunctionTestResult:
         if output is not None and not isinstance(output, str):
             output = json.dumps(output)
 
-        return cls(
-            output=output,
-            error=cls.to_test_error(raw_exception),
-        )
+        return cls(output=output, error=cls.to_test_error(raw_exception), matched=matched)
 
     @staticmethod
     def format_exception(exc: Optional[Exception], title: Optional[str] = None) -> Optional[str]:
@@ -153,7 +154,6 @@ class TestCaseEvaluator:
         # expectations match the detection output
         return self._spec.expectations.detection == self._detection_result.detection_output
 
-
     def _get_generic_error_details(self) -> Tuple[Optional[Exception], Optional[str]]:
         generic_error = None
         generic_error_title = None
@@ -165,18 +165,27 @@ class TestCaseEvaluator:
         return generic_error, generic_error_title
 
     def _get_detection_alert_value(self) -> bool:
-        if self._detection_result.detection_type == TYPE_POLICY:
+        if self._detection_result.detection_type.upper() == TYPE_POLICY.upper():
             return Policy.matcher_alert_value
         return Rule.matcher_alert_value
 
-    def interpret(self) -> TestResult:
+    def interpret(
+        self, ignore_exception_types: List[Type[Exception]] = None
+    ) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""
+
+        # first, we should update the detection result, taking into account any
+        # ignored exception types passed into this test
+        if ignore_exception_types:
+            self._detection_result.ignore_errors(ignore_exception_types)
+
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
                 self._detection_result.detection_output,
                 self._detection_result.detection_exception,
+                self._spec.expectations.detection == self._detection_result.detection_output,
             )
         )
 
@@ -189,7 +198,8 @@ class TestCaseEvaluator:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
-                        self._detection_result.title_output, self._detection_result.title_exception
+                        self._detection_result.title_output,
+                        self._detection_result.title_exception,
                     ),
                     descriptionFunction=FunctionTestResult.new(
                         self._detection_result.description_output,
@@ -212,7 +222,8 @@ class TestCaseEvaluator:
                         self._detection_result.destinations_exception,
                     ),
                     dedupFunction=FunctionTestResult.new(
-                        self._detection_result.dedup_output, self._detection_result.dedup_exception
+                        self._detection_result.dedup_output,
+                        self._detection_result.dedup_exception,
                     ),
                     alertContextFunction=FunctionTestResult.new(
                         self._detection_result.alert_context_output,
