@@ -75,7 +75,6 @@ class TestFunctionTestResult(unittest.TestCase):
 
 class TestTestCaseEvaluator(unittest.TestCase):
 
-
     def test_interpret_passing_test_not_expected_to_match(self) -> None:
         detection = Rule(TEST_RULE)
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))

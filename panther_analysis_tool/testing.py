@@ -110,7 +110,6 @@ class TestResult:
     # TODO: provide a field name translation step if necessary
     detectionId: Optional[str]  # pylint: disable=C0103
     genericError: Optional[str]  # pylint: disable=C0103
-    # TODO:
     error: Optional[TestError]
     errored: bool
     passed: bool
