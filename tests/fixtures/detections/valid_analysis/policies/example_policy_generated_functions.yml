@@ -1,9 +1,9 @@
 AnalysisType: policy
-Filename: example_policy_beta.py
-DisplayName: MFA Is Enabled For User
+Filename: example_policy_generated_functions.py
+DisplayName: MFA Is Enabled For User Generated Fields
 Description: Another valid policy.
 Severity: High
-PolicyID: AWS.IAM.BetaTest
+PolicyID: AWS.IAM.MFAEnabledGenerated
 Enabled: true
 ResourceTypes:
   - AWS.IAM.RootUser

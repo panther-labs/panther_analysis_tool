@@ -31,7 +31,7 @@ from panther_analysis_tool.detection import DetectionResult, FilesystemImporter,
 from panther_analysis_tool.rule import Rule, MAX_DEDUP_STRING_SIZE, \
     MAX_GENERATED_FIELD_SIZE, TRUNCATED_STRING_SUFFIX, TYPE_RULE
 from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.exceptions import FunctionReturnTypeError
+from panther_analysis_tool.exceptions import FunctionReturnTypeError, UnknownDestinationError
 
 
 class TestRule(TestCase):  # pylint: disable=too-many-public-methods
@@ -164,8 +164,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_rule = DetectionResult(
             detection_id='test_rule_matches',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_matches',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE, 
         )
@@ -174,13 +175,13 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
     def test_rule_doesnt_match(self) -> None:
         rule_body = 'def rule(event):\n\treturn False'
         rule = Rule({'id': 'test_rule_doesnt_match', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
-        expected_rule = DetectionResult(matched=False, detection_id='test_rule_doesnt_match', detection_severity='INFO', detection_type=TYPE_RULE, )
+        expected_rule = DetectionResult(trigger_alert=False, detection_id='test_rule_doesnt_match',  detection_output=False, detection_severity='INFO', detection_type=TYPE_RULE, )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
     def test_rule_with_dedup(self) -> None:
         rule_body = 'def rule(event):\n\treturn True\ndef dedup(event):\n\treturn "testdedup"'
         rule = Rule({'id': 'test_rule_with_dedup', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
-        expected_rule = DetectionResult(detection_id='test_rule_with_dedup', matched=True,
+        expected_rule = DetectionResult(detection_id='test_rule_with_dedup', trigger_alert=True, detection_output=True,
                                    dedup_output='testdedup', detection_severity='INFO', detection_type=TYPE_RULE, dedup_defined=True)
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -192,8 +193,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_dedup_string_prefix = ''.join('a' for _ in range(MAX_DEDUP_STRING_SIZE - len(TRUNCATED_STRING_SUFFIX)))
         expected_rule = DetectionResult(
             detection_id='test_restrict_dedup_size',
-            matched=True,
+            trigger_alert=True,
             dedup_output=expected_dedup_string_prefix + TRUNCATED_STRING_SUFFIX,
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
@@ -210,9 +212,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_title_string_prefix = ''.join('a' for _ in range(MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)))
         expected_rule = DetectionResult(
             detection_id='test_restrict_title_size',
-            matched=True,
+            trigger_alert=True,
             dedup_output='test',
             title_output=expected_title_string_prefix + TRUNCATED_STRING_SUFFIX,
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
@@ -226,8 +229,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_rule = DetectionResult(
             detection_id='test_empty_dedup_result_to_default',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_empty_dedup_result_to_default',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
@@ -238,7 +242,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule_body = 'def rule(event):\n\traise Exception("test")'
         rule = Rule({'id': 'test_rule_throws_exception', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
         rule_result = rule.run(PantherEvent({}, None), {}, {})
-        self.assertIsNone(rule_result.matched)
+        self.assertFalse(rule_result.trigger_alert)
         self.assertIsNone(rule_result.dedup_output)
         self.assertIsNotNone(rule_result.detection_exception)
 
@@ -246,7 +250,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule_body = 'def rule(test):this is invalid python syntax'
         rule = Rule({'id': 'test_invalid_python_syntax', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
         rule_result = rule.run(PantherEvent({}, None), {}, {})
-        self.assertIsNone(rule_result.matched)
+        self.assertFalse(rule_result.trigger_alert)
         self.assertIsNone(rule_result.dedup_output)
         self.assertIsNone(rule_result.detection_exception)
 
@@ -259,7 +263,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule_body = 'def rule(event):\n\treturn "test"'
         rule = Rule({'id': 'test_rule_invalid_rule_return', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
         rule_result = rule.run(PantherEvent({}, None), {}, {})
-        self.assertIsNone(rule_result.matched)
+        self.assertFalse(rule_result.trigger_alert)
         self.assertIsNone(rule_result.dedup_output)
         self.assertTrue(rule_result.errored)
 
@@ -273,8 +277,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_rule = DetectionResult(
             detection_id='test_dedup_throws_exception',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_dedup_throws_exception',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
@@ -287,7 +292,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         actual = rule.run(PantherEvent({}, None), {}, {}, batch_mode=False)
 
-        self.assertTrue(actual.matched)
+        self.assertTrue(actual.trigger_alert)
         self.assertIsNotNone(actual.dedup_exception)
         self.assertTrue(actual.errored)
 
@@ -297,8 +302,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_rule = DetectionResult(
             detection_id='test_rule_invalid_dedup_return',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_invalid_dedup_return',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
@@ -311,8 +317,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_dedup_returns_empty_string',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_dedup_returns_empty_string',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
@@ -324,9 +331,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule = Rule({'id': 'test_rule_matches_with_title', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
 
         expected_result = DetectionResult(
-            detection_id='test_rule_matches_with_title', matched=True,
-            dedup_output='title', title_output='title', detection_severity='INFO',
-            detection_type=TYPE_RULE, title_defined=True,
+            detection_id='test_rule_matches_with_title', trigger_alert=True,
+            dedup_output='title', title_output='title', detection_output=True,
+            detection_severity='INFO', detection_type=TYPE_RULE, title_defined=True,
         )
         self.assertEqual(rule.run(PantherEvent({}, None), {}, {}), expected_result)
 
@@ -336,9 +343,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_title_throws_exception',
-            matched=True,
+            trigger_alert=True,
             dedup_output='test_rule_title_throws_exception',
             title_output='test_rule_title_throws_exception',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             title_defined=True,
@@ -351,9 +359,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_invalid_title_return',
-            matched=True,
+            trigger_alert=True,
             dedup_output='test_rule_invalid_title_return',
             title_output='test_rule_invalid_title_return',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             title_defined=True,
@@ -366,9 +375,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_title_returns_empty_string',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_title_returns_empty_string',
             title_output='',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             title_defined=True,
@@ -381,9 +391,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_alert_context',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context',
             alert_context_output='{"string": "string", "int": 1, "nested": {}}',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -402,9 +413,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         )
         expected_result = DetectionResult(
             detection_id='test_alert_context_invalid_return_value',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context_invalid_return_value',
             alert_context_output=expected_alert_context,
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -425,9 +437,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         )
         expected_result = DetectionResult(
             detection_id='test_alert_context_too_big',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context_too_big',
             alert_context_output=expected_alert_context,
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -445,9 +458,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_alert_context = json.dumps({'headers': event['headers'], 'get_params': event['query_string_args']})
         expected_result = DetectionResult(
             detection_id='test_alert_context_immutable_event',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context_immutable_event',
-            alert_context_output=expected_alert_context,
+            alert_context_output=expected_alert_context,            
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -463,9 +477,10 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_alert_context = json.dumps(event)
         expected_result = DetectionResult(
             detection_id='test_alert_context_returns_full_event',
-            matched=True,
+            trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context_returns_full_event',
             alert_context_output=expected_alert_context,
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -486,7 +501,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_with_all_generated_fields',
-            matched=True,
+            trigger_alert=True,
             alert_context_output='{}',
             title_output='test_rule_with_all_generated_fields',
             dedup_output='test_rule_with_all_generated_fields',
@@ -495,6 +510,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             reference_output='test reference',
             runbook_output='test runbook',
             destinations_output=["SKIP"],
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -516,7 +532,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_with_invalid_severity',
-            matched=True,
+            trigger_alert=True,
             alert_context_output='{}',
             title_output='test_rule_with_invalid_severity',
             dedup_output='test_rule_with_invalid_severity',
@@ -524,6 +540,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
                 "Expected severity to be any of the following: [['INFO', 'LOW', 'MEDIUM', 'HIGH', "
                 "'CRITICAL']], got [CRITICAL-ISH] instead."
             ),
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -550,12 +567,13 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         )
 
         expected_result = DetectionResult(
-            matched=True,
+            trigger_alert=True,
             detection_id='test_rule_with_valid_severity_case_insensitive',
             alert_context_output='{}',
             title_output='test_rule_with_valid_severity_case_insensitive',
             dedup_output='test_rule_with_valid_severity_case_insensitive',
             severity_output="CRITICAL",
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -582,7 +600,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_with_valid_severity_case_insensitive',
-            matched=True,
+            trigger_alert=True,
             alert_context_output='{}',
             title_output='test_rule_with_valid_severity_case_insensitive',
             dedup_output='test_rule_with_valid_severity_case_insensitive',
@@ -591,6 +609,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             destinations_exception=FunctionReturnTypeError(
                 'detection [{}] function [{}] returned [{}], expected a list'.format(rule.detection_id, 'destinations', 'str')
             ),
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
@@ -617,11 +636,12 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         )
         expected_result = DetectionResult(
             detection_id='test_rule_with_severity_raising_exception_unit_test',
-            matched=True,
+            trigger_alert=True,
             title_output='test_rule_with_severity_raising_exception_unit_test',
             dedup_output='test_rule_with_severity_raising_exception_unit_test',
             severity_output=None,
             severity_exception=AssertionError("something bad happened"),
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             title_defined=True,
@@ -648,10 +668,11 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 
         expected_result = DetectionResult(
             detection_id='test_rule_with_severity_raising_exception_batch_mode',
-            matched=True,
+            trigger_alert=True,
             title_output='test_rule_with_severity_raising_exception_batch_mode',
             dedup_output='test_rule_with_severity_raising_exception_batch_mode',
             severity_output='INFO',
+            detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             title_defined=True,
@@ -664,7 +685,7 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
 class TestDetectionResult(TestCase):
 
     def test_fatal_error(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertIsNone(result.fatal_error)
         fields = ('detection_exception', 'setup_exception', 'input_exception')
         exc = TypeError('something went wrong')
@@ -675,24 +696,26 @@ class TestDetectionResult(TestCase):
                 'detection_id': 'failed.rule',
                 'detection_severity': 'INFO',
                 'detection_type': 'RULE',
+                'trigger_alert': False,
             }
             result = DetectionResult(**params)  # type: ignore
             self.assertIs(result.fatal_error, exc)
 
     def test_error_type(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertIsNone(result.error_type)
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError('something went wrong'))
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError('something went wrong'), trigger_alert=False)
         self.assertEqual(result.error_type, 'TypeError')
 
     def test_short_error_message(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertIsNone(result.short_error_message)
         result = DetectionResult(
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             detection_id='failed.rule',
             detection_exception=TypeError('something went wrong'),
+            trigger_alert=False
         )
         self.assertEqual(result.short_error_message, "TypeError('something went wrong')")
 
@@ -703,7 +726,7 @@ class TestDetectionResult(TestCase):
         except TypeError as exception:
             exc = exception
 
-        result = DetectionResult(detection_exception=exc, detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_exception=exc, detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertRegex(  # type: ignore
             # error_message return value is Optional[str]
             # but here we know that it is a string
@@ -712,26 +735,65 @@ class TestDetectionResult(TestCase):
             r"in test_error_message\s+raise TypeError\('rule failed'\)"
         )
 
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertIsNone(result.error_message)
 
     def test_errored(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError())
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError(), trigger_alert=False)
         self.assertTrue(result.errored)
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError())
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError(), trigger_alert=False)
         self.assertTrue(result.errored)
 
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertFalse(result.errored)
 
     def test_detection_evaluation_failed(self) -> None:
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE)
+        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, trigger_alert=False)
         self.assertFalse(result.errored)
 
-        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError()).detection_evaluation_failed)
-        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, setup_exception=TypeError()).detection_evaluation_failed)
-        self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError()).detection_evaluation_failed)
+        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError(), trigger_alert=False).detection_evaluation_failed)
+        self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, setup_exception=TypeError(), trigger_alert=False).detection_evaluation_failed)
+        self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError(), trigger_alert=False).detection_evaluation_failed)
 
+    def test_ignore_errors(self) -> None:
+        # type error should be ignored, and there are no other exceptions
+        result = DetectionResult(
+            detection_id='failed.rule',
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            detection_exception=TypeError(),
+            trigger_alert=False,
+        )
+        result.ignore_errors([TypeError])
+        self.assertFalse(result.errored)
+        self.assertIsNone(result.detection_exception)
+
+        # type error should be ignored, but the ZeroDivisionError should not
+        result = DetectionResult(
+            detection_id='failed.rule',
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            detection_exception=ZeroDivisionError(),
+            trigger_alert=False,
+            title_exception=TypeError(),
+        )
+        result.ignore_errors([TypeError])
+        self.assertTrue(result.errored)
+        self.assertIsInstance(result.detection_exception, ZeroDivisionError)
+        self.assertIsNone(result.title_exception)
+
+        # UnknownDestinationError should be ignored, and there are no other exceptions
+        result = DetectionResult(
+            detection_id='failed.rule',
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            detection_exception=None,
+            trigger_alert=False,
+            destinations_exception=UnknownDestinationError(),
+        )
+        result.ignore_errors([UnknownDestinationError])
+        self.assertFalse(result.errored)
+        self.assertIsNone(result.destinations_exception)
 
 class TestRawStringImporter(TestCase):
     def setUp(self) -> None:
