@@ -170,7 +170,7 @@ class TestCaseEvaluator:
         return Rule.matcher_alert_value
 
     def interpret(
-        self, ignore_exception_types: Optional[List[Type[Exception]]] = None
+        self, ignore_exception_types: List[Type[Exception]] = None
     ) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
@@ -178,7 +178,8 @@ class TestCaseEvaluator:
 
         # first, we should update the detection result, taking into account any
         # ignored exception types passed into this test
-        self._detection_result.ignore_errors(ignore_exception_types)
+        if ignore_exception_types:
+            self._detection_result.ignore_errors(ignore_exception_types)
 
         function_results = dict(
             detectionFunction=FunctionTestResult.new(

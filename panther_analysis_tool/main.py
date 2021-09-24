@@ -1161,7 +1161,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
 def _print_test_result(
     detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
 ) -> None:
-    status_pass = "PASS"  # nosec
+    status_pass = "PASS" # nosec
     status_fail = "FAIL"
     if test_result.passed:
         outcome = status_pass
@@ -1186,7 +1186,7 @@ def _print_test_result(
                         status_fail, printable_name, function_result.get("error", {}).get("message")
                     )
                 )
-            # if it didn't error, we simiply need to check if the output was as expected
+            # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(

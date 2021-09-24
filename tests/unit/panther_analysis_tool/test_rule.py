@@ -755,7 +755,7 @@ class TestDetectionResult(TestCase):
         self.assertTrue(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, setup_exception=TypeError(), trigger_alert=False).detection_evaluation_failed)
         self.assertFalse(DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, title_exception=TypeError(), trigger_alert=False).detection_evaluation_failed)
 
-    def test_ignore_errores(self) -> None:
+    def test_ignore_errors(self) -> None:
         # type error should be ignored, and there are no other exceptions
         result = DetectionResult(
             detection_id='failed.rule',
@@ -768,7 +768,7 @@ class TestDetectionResult(TestCase):
         self.assertFalse(result.errored)
         self.assertIsNone(result.detection_exception)
 
-        # type error should be ignored, but the ZeroDivisonError should not
+        # type error should be ignored, but the ZeroDivisionError should not
         result = DetectionResult(
             detection_id='failed.rule',
             detection_severity='INFO',
