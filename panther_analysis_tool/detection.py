@@ -147,9 +147,7 @@ class DetectionResult:
         """Returns whether the detection function raises an error or an import error occurred"""
         return bool(self.detection_exception or self.setup_exception)
 
-    def ignore_errors(
-        self, ignore_exception_types: Optional[List[Type[Exception]]] = None
-    ) -> None:
+    def ignore_errors(self, ignore_exception_types: Optional[List[Type[Exception]]] = None) -> None:
         """Used to ignore exceptions of particular types, used primarily in testing"""
         for exception_type in ignore_exception_types or []:
             if isinstance(self.detection_exception, exception_type):

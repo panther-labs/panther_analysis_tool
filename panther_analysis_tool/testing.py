@@ -23,8 +23,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from panther_analysis_tool.detection import DetectionResult
+from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Rule
-from panther_analysis_tool.policy import Policy, TYPE_POLICY
+
 
 @dataclass
 class TestError:
@@ -152,7 +153,6 @@ class TestCaseEvaluator:
             return False
         # expectations match the detection output
         return self._spec.expectations.detection == self._detection_result.detection_output
-
 
     def _get_generic_error_details(self) -> Tuple[Optional[Exception], Optional[str]]:
         generic_error = None

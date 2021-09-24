@@ -757,20 +757,40 @@ class TestDetectionResult(TestCase):
 
     def test_ignore_errores(self) -> None:
         # type error should be ignored, and there are no other exceptions
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=TypeError(), trigger_alert=False)
+        result = DetectionResult(
+            detection_id='failed.rule',
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            detection_exception=TypeError(),
+            trigger_alert=False,
+        )
         result.ignore_errors([TypeError])
         self.assertFalse(result.errored)
         self.assertIsNone(result.detection_exception)
 
         # type error should be ignored, but the ZeroDivisonError should not
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=ZeroDivisionError(), trigger_alert=False, title_exception=TypeError())
+        result = DetectionResult(
+            detection_id='failed.rule',
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            detection_exception=ZeroDivisionError(),
+            trigger_alert=False,
+            title_exception=TypeError(),
+        )
         result.ignore_errors([TypeError])
         self.assertTrue(result.errored)
         self.assertIsInstance(result.detection_exception, ZeroDivisionError)
         self.assertIsNone(result.title_exception)
 
         # UnknownDestinationError should be ignored, and there are no other exceptions
-        result = DetectionResult(detection_id='failed.rule', detection_severity='INFO', detection_type=TYPE_RULE, detection_exception=None, trigger_alert=False, destinations_exception=UnknownDestinationError())
+        result = DetectionResult(
+            detection_id='failed.rule',
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            detection_exception=None,
+            trigger_alert=False,
+            destinations_exception=UnknownDestinationError(),
+        )
         result.ignore_errors([UnknownDestinationError])
         self.assertFalse(result.errored)
         self.assertIsNone(result.destinations_exception)

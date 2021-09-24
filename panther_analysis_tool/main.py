@@ -802,7 +802,7 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests( # pylint: disable=too-many-locals,too-many-arguments
+def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[Any],
     minimum_tests: int,
@@ -1101,7 +1101,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     return failed_tests
 
 
-def _run_tests( # pylint: disable=too-many-arguments
+def _run_tests(  # pylint: disable=too-many-arguments
     analysis_data_models: Dict[str, DataModel],
     detection: Detection,
     tests: List[Dict[str, Any]],
