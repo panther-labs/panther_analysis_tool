@@ -164,29 +164,6 @@ class TestCaseEvaluator:
             generic_error = self._detection_result.setup_exception
         return generic_error, generic_error_title
 
-    def _check_exception_types(
-        self, ignore_exception_types: Optional[List[Type[Exception]]] = None
-    ) -> None:
-        for exception_type in ignore_exception_types or []:
-            if isinstance(self._detection_result.detection_exception, exception_type):
-                self._detection_result.detection_exception = None
-            if isinstance(self._detection_result.title_exception, exception_type):
-                self._detection_result.title_exception = None
-            if isinstance(self._detection_result.description_exception, exception_type):
-                self._detection_result.description_exception = None
-            if isinstance(self._detection_result.reference_exception, exception_type):
-                self._detection_result.reference_exception = None
-            if isinstance(self._detection_result.severity_exception, exception_type):
-                self._detection_result.severity_exception = None
-            if isinstance(self._detection_result.runbook_exception, exception_type):
-                self._detection_result.runbook_exception = None
-            if isinstance(self._detection_result.destinations_exception, exception_type):
-                self._detection_result.destinations_exception = None
-            if isinstance(self._detection_result.dedup_exception, exception_type):
-                self._detection_result.dedup_exception = None
-            if isinstance(self._detection_result.alert_context_exception, exception_type):
-                self._detection_result.alert_context_exception = None
-
     def _get_detection_alert_value(self) -> bool:
         if self._detection_result.detection_type.upper() == TYPE_POLICY.upper():
             return Policy.matcher_alert_value
@@ -201,7 +178,7 @@ class TestCaseEvaluator:
 
         # first, we should update the detection result, taking into account any
         # ignored exception types passed into this test
-        self._check_exception_types(ignore_exception_types)
+        self._detection_result.ignore_errors(ignore_exception_types)
 
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
