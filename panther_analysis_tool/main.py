@@ -36,7 +36,11 @@ from datetime import datetime
 from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
+
+# Importing Optional as OPT to avoid conflict with schema imports
+from typing import Any, DefaultDict, Dict, Iterator, List
+from typing import Optional as OPT
+from typing import Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -179,8 +183,9 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(directories: List[str],
-                        ignored_files=None) -> Iterator[Tuple[str, str, Any, Any]]:
+def load_analysis_specs(
+    directories: List[str], ignored_files: OPT[list] = None
+) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
@@ -689,8 +694,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             search_directories.append(absolute_helper_path)
 
     # First classify each file, always include globals and data models location
-    specs, invalid_specs = classify_analysis(list(load_analysis_specs(search_directories,
-                                                                      ignored_files=ignored_files)))
+    specs, invalid_specs = classify_analysis(
+        list(load_analysis_specs(search_directories, ignored_files=ignored_files))
+    )
 
     if all((len(specs[key]) == 0 for key in specs)):
         if invalid_specs:
@@ -1167,7 +1173,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
 def _print_test_result(
     detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
 ) -> None:
-    status_pass = "PASS" # nosec
+    status_pass = "PASS"  # nosec
     status_fail = "FAIL"
     if test_result.passed:
         outcome = status_pass
@@ -1270,13 +1276,12 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
     }
     ignore_files_name = "--ignore-files"
-    ignore_files_arg = {
+    ignore_files_arg: Dict[str, Any] = {
         "required": False,
-        "action": "append",
         "dest": "ignored_files",
-        "help": "Files in this project to be ignored by panther-analysis tool",
+        "nargs": "+",
+        "help": "Files in this project to be ignored by panther-analysis tool, space separated",
         "type": str,
-        "default": ""
     }
     available_destination_name = "--available-destination"
     available_destination_arg: Dict[str, Any] = {
@@ -1293,7 +1298,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.10.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.10.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
@@ -1384,6 +1389,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(skip_test_name, **skip_test_arg)
     upload_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
+    upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
