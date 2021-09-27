@@ -10,7 +10,6 @@
 </p>
 
 <p align="center">
-  <a href="https://slack.runpanther.io/">Chat with us on Slack!</a>
   <a href="https://circleci.com/gh/panther-labs/panther_analysis_tool"><img src="https://circleci.com/gh/panther-labs/panther_analysis_tool.svg?style=svg" alt="CircleCI"/></a>
 </p>
 
