@@ -179,17 +179,21 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     return module, None
 
 
-def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any, Any]]:
+def load_analysis_specs(directories: List[str],
+                        ignored_files=None) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
         directories: The relative path to Panther policies or rules.
+        ignored_files: Files that Panther Analysis Tool should not process
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
+    if ignored_files is None:
+        ignored_files = []
     loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
@@ -223,8 +227,8 @@ def load_analysis_specs(directories: List[str]) -> Iterator[Tuple[str, str, Any,
                     logging.debug("Skipping path %s", relative_path)
                     continue
             for filename in sorted(file_list):
-                # Skip hidden files
-                if filename.startswith("."):
+                # Skip hidden files and files explicitly ignored
+                if filename.startswith(".") or filename in ignored_files:
                     continue
                 spec_filename = os.path.abspath(os.path.join(relative_path, filename))
                 # skip loading files that have already been imported
@@ -666,6 +670,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """
     logging.info("Testing analysis packs in %s\n", args.path)
 
+    ignored_files = args.ignored_files
     search_directories = [args.path]
 
     # Try the parent directory as well
@@ -684,7 +689,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             search_directories.append(absolute_helper_path)
 
     # First classify each file, always include globals and data models location
-    specs, invalid_specs = classify_analysis(list(load_analysis_specs(search_directories)))
+    specs, invalid_specs = classify_analysis(list(load_analysis_specs(search_directories,
+                                                                      ignored_files=ignored_files)))
 
     if all((len(specs[key]) == 0 for key in specs)):
         if invalid_specs:
@@ -1263,6 +1269,15 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": strtobool,
         "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
     }
+    ignore_files_name = "--ignore-files"
+    ignore_files_arg = {
+        "required": False,
+        "action": "append",
+        "dest": "ignored_files",
+        "help": "Files in this project to be ignored by panther-analysis tool",
+        "type": str,
+        "default": ""
+    }
     available_destination_name = "--available-destination"
     available_destination_arg: Dict[str, Any] = {
         "required": False,
@@ -1290,6 +1305,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     release_parser.add_argument(aws_profile_name, **aws_profile_arg)
     release_parser.add_argument(filter_name, **filter_arg)
+    release_parser.add_argument(ignore_files_name, **ignore_files_arg)
     release_parser.add_argument(kms_key_name, **kms_key_arg)
     release_parser.add_argument(min_test_name, **min_test_arg)
     release_parser.add_argument(out_name, **out_arg)
@@ -1306,6 +1322,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)
     test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
+    test_parser.add_argument(ignore_files_name, **ignore_files_arg)
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.set_defaults(func=test_analysis)
@@ -1390,6 +1407,7 @@ def setup_parser() -> argparse.ArgumentParser:
             "zip", help="Create an archive of local policies and rules for uploading to Panther."
         )
         zip_parser.add_argument(filter_name, **filter_arg)
+        zip_parser.add_argument(ignore_files_name, **ignore_files_arg)
         zip_parser.add_argument(min_test_name, **min_test_arg)
         zip_parser.add_argument(out_name, **out_arg)
         zip_parser.add_argument(path_name, **path_arg)
