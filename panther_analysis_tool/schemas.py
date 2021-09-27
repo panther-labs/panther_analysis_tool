@@ -51,7 +51,7 @@ LOG_TYPE_REGEX = Regex(
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|Salesforce\.Login|Salesforce\."
     r"LoginAs|Salesforce\.Logout|Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|"
     r"Slack\.IntegrationLogs|Sophos\.Central|Suricata\.Anomaly|Suricata\.DNS|Syslog\."
-    r"RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.AuditLog|Custom\.[A-Za-z0-9-]+)$"
+    r"RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk\.AuditLog|Custom\.[A-Za-z0-9-]+)$"
 )
 
 TYPE_SCHEMA = Schema(
