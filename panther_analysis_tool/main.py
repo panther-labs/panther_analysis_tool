@@ -37,10 +37,7 @@ from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
 
-# Importing Optional as OPT to avoid conflict with schema imports
-from typing import Any, DefaultDict, Dict, Iterator, List
-from typing import Optional as OPT
-from typing import Set, Tuple, Type
+from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -184,7 +181,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 
 def load_analysis_specs(
-    directories: List[str], ignored_files: OPT[list] = None
+    directories: List[str], ignored_files: List[list]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
@@ -197,8 +194,6 @@ def load_analysis_specs(
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
-    if ignored_files is None:
-        ignored_files = []
     loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
@@ -318,7 +313,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         analysis = []
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
-            load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION])
+            load_analysis_specs(
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignored_files
+            )
         ):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
@@ -1282,6 +1279,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "nargs": "+",
         "help": "Files in this project to be ignored by panther-analysis tool, space separated",
         "type": str,
+        "default": [],
     }
     available_destination_name = "--available-destination"
     available_destination_arg: Dict[str, Any] = {
