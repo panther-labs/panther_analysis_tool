@@ -36,7 +36,6 @@ from datetime import datetime
 from distutils.util import strtobool
 from fnmatch import fnmatch
 from importlib.abc import Loader
-
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -227,12 +226,17 @@ def load_analysis_specs(
                     logging.debug("Skipping path %s", relative_path)
                     continue
             for filename in sorted(file_list):
-                # Skip hidden files and files explicitly ignored
-                if filename.startswith(".") or filename in ignored_files:
+                # Skip hidden files
+                if filename.startswith("."):
                     continue
                 spec_filename = os.path.abspath(os.path.join(relative_path, filename))
                 # skip loading files that have already been imported
                 if spec_filename in loaded_specs:
+                    continue
+                # Dont load files that are explictly ignored
+                relative_name = os.path.join(relative_path, filename)
+                if relative_name in ignored_files:
+                    logging.info("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
                 if fnmatch(filename, "*.y*ml"):
@@ -1277,7 +1281,8 @@ def setup_parser() -> argparse.ArgumentParser:
         "required": False,
         "dest": "ignored_files",
         "nargs": "+",
-        "help": "Files in this project to be ignored by panther-analysis tool, space separated",
+        "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
+        + "space separated. Example ./foo.yaml ./bar/baz.yaml",
         "type": str,
         "default": [],
     }
