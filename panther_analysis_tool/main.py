@@ -180,7 +180,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 
 def load_analysis_specs(
-    directories: List[str], ignored_files: List[list]
+    directories: List[str], ignored_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
