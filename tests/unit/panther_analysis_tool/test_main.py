@@ -56,20 +56,28 @@ class TestPantherAnalysisTool(TestCase):
                 os.remove(os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1]))
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignored_files=[]):
             if spec_filename.endswith('example_policy.json'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
+    def test_ignored_files_are_not_loaded(self):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignored_files=["./example_ignored.yml"]):
+            assert_true(loaded_spec !="example_ignored.yml")
+
+    def test_multiple_ignored_files_are_not_loaded(self):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignored_files=["./example_ignored.yml", "./example_ignored_multi.yml"]):
+            assert_true(loaded_spec !="example_ignored.yml" and loaded_spec != "example_ignored_multi.yml")
+
     def test_valid_yaml_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH], ignored_files=[]):
             if spec_filename.endswith('example_policy.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_valid_pack_spec(self):
         pack_loaded = False
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignored_files=[]):
             if spec_filename.endswith('sample-pack.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
