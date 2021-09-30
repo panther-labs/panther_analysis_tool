@@ -1379,6 +1379,7 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument(skip_test_name, **skip_test_arg)
     publish_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     publish_parser.add_argument(available_destination_name, **available_destination_arg)
+    publish_parser.add_argument(ignore_files_name, **ignore_files_arg)
     publish_parser.set_defaults(func=publish_release)
 
     upload_parser = subparsers.add_parser(
