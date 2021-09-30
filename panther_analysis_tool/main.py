@@ -1141,7 +1141,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
             test_case: Mapping = entry
-            if detection.detection_type != TYPE_POLICY:
+            if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(detection.module, **mock_methods):
