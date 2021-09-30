@@ -205,7 +205,7 @@ class Detection(ABC):
         pass
 
     @abstractmethod
-    def matcher_function(self, event: dict) -> bool:
+    def matcher_function(self, event: Mapping) -> bool:
         pass
 
     @property
@@ -235,7 +235,7 @@ class Detection(ABC):
         self._setup_exception = val
 
     def run(
-        self, event: PantherEvent, outputs: dict, outputs_names: dict, batch_mode: bool = True
+        self, event: Mapping, outputs: dict, outputs_names: dict, batch_mode: bool = True
     ) -> DetectionResult:
         """
         Analyze a log line with this detection and return True, False, or an error.
@@ -375,7 +375,7 @@ class Detection(ABC):
         return detection_result
 
     def _get_alert_context(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: Mapping, use_default_on_exception: bool = True
     ) -> Optional[str]:
 
         try:
@@ -404,7 +404,7 @@ class Detection(ABC):
     # If no title and no dedup function is defined, return the default dedup string.
     def _get_dedup(
         self,
-        event: PantherEvent,
+        event: Mapping,
         use_default_on_exception: bool = True,
     ) -> str:
 
@@ -449,7 +449,7 @@ class Detection(ABC):
         return self._default_dedup_string
 
     def _get_description(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: Mapping, use_default_on_exception: bool = True
     ) -> Optional[str]:
 
         try:
@@ -481,7 +481,7 @@ class Detection(ABC):
 
     def _get_destinations(  # pylint: disable=too-many-return-statements,too-many-arguments
         self,
-        event: PantherEvent,
+        event: Mapping,
         outputs: dict,
         outputs_display_names: dict,
         use_default_on_exception: bool = True,
@@ -548,7 +548,7 @@ class Detection(ABC):
         return standardized_destinations
 
     def _get_reference(
-        self, event: PantherEvent, use_default_on_exception: bool = True
+        self, event: Mapping, use_default_on_exception: bool = True
     ) -> Optional[str]:
 
         try:
@@ -578,9 +578,7 @@ class Detection(ABC):
             return reference[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return reference
 
-    def _get_runbook(
-        self, event: PantherEvent, use_default_on_exception: bool = True
-    ) -> Optional[str]:
+    def _get_runbook(self, event: Mapping, use_default_on_exception: bool = True) -> Optional[str]:
 
         try:
             command = getattr(self._module, RUNBOOK_FUNCTION)
@@ -609,9 +607,7 @@ class Detection(ABC):
             return runbook[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return runbook
 
-    def _get_severity(
-        self, event: PantherEvent, use_default_on_exception: bool = True
-    ) -> Optional[str]:
+    def _get_severity(self, event: Mapping, use_default_on_exception: bool = True) -> Optional[str]:
 
         try:
             command = getattr(self._module, SEVERITY_FUNCTION)
@@ -640,7 +636,7 @@ class Detection(ABC):
             raise
         return severity
 
-    def _get_title(self, event: PantherEvent, use_default_on_exception: bool) -> Optional[str]:
+    def _get_title(self, event: Mapping, use_default_on_exception: bool) -> Optional[str]:
 
         try:
             command = getattr(self._module, TITLE_FUNCTION)
@@ -669,7 +665,7 @@ class Detection(ABC):
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return title
 
-    def _run_command(self, function: Callable, event: PantherEvent, expected_type: Any) -> Any:
+    def _run_command(self, function: Callable, event: Mapping, expected_type: Any) -> Any:
         result = function(event)
         # Branch in case of list
         if not isinstance(expected_type, list):
@@ -709,7 +705,7 @@ class Rule(Detection):
     # a rule should trigger an alert on True return value
     matcher_alert_value = True
 
-    def matcher_function(self, event: PantherEvent) -> bool:
+    def matcher_function(self, event: Mapping) -> bool:
         # for scheduled rules the rule function is optional,
         # defaults to True and will pass the events thru
         if self.detection_type == TYPE_SCHEDULED_RULE and not hasattr(
