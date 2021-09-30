@@ -193,6 +193,10 @@ def load_analysis_specs(
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
+    ignored_normalized = []
+    for file in ignored_files:
+        ignored_normalized.append(os.path.normpath(file))
+
     loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
@@ -234,8 +238,8 @@ def load_analysis_specs(
                 if spec_filename in loaded_specs:
                     continue
                 # Dont load files that are explictly ignored
-                relative_name = os.path.join(relative_path, filename)
-                if relative_name in ignored_files:
+                relative_name = os.path.normpath(os.path.join(relative_path, filename))
+                if relative_name in ignored_normalized:
                     logging.info("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
