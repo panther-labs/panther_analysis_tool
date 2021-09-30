@@ -61,7 +61,7 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.policy import Policy
+from panther_analysis_tool.policy import Policy, TYPE_POLICY
 from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
@@ -1135,7 +1135,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            test_case = PantherEvent(entry, analysis_data_models.get(log_type))
+            test_case: dict = entry
+            if detection.detection_type != TYPE_POLICY:
+                test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(detection.module, **mock_methods):
                     result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)

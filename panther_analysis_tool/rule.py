@@ -205,7 +205,7 @@ class Detection(ABC):
         pass
 
     @abstractmethod
-    def matcher_function(self, event: PantherEvent) -> bool:
+    def matcher_function(self, event: dict) -> bool:
         pass
 
     @property
