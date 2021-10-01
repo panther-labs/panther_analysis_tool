@@ -31,6 +31,7 @@ import sys
 import tempfile
 import zipfile
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
 from distutils.util import strtobool
@@ -61,7 +62,7 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.policy import Policy
+from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
@@ -1139,7 +1140,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
-            test_case = PantherEvent(entry, analysis_data_models.get(log_type))
+            test_case: Mapping = entry
+            if detection.detection_type.upper() != TYPE_POLICY.upper():
+                test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             if mock_methods:
                 with patch.multiple(detection.module, **mock_methods):
                     result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
@@ -1305,7 +1308,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.10.1")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.10.2")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
