@@ -44,6 +44,7 @@ from uuid import uuid4
 import botocore
 import requests
 import semver
+from dynaconf import Dynaconf
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -1514,6 +1515,30 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, archive
 
 
+def setup_dynaconf() -> Dict[str, Any]:
+    config_file_settings_raw = Dynaconf(
+        settings_file=".panther_settings.yml", envvar_prefix="PANTHER"
+        )
+    # Dynaconf stores its keys in ALL CAPS for some reason
+    config_file_settings = {k.lower():v for k, v in config_file_settings_raw.as_dict().items()}
+    return config_file_settings
+
+
+def dynaconf_argparse_merge(
+    argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
+) -> None:
+
+    for key, value in config_file_settings.items():
+        if not key in argparse_dict.keys():
+            argparse_dict[key] = [value]
+        # if key already exists but it's value is not a list convert it to a list
+        elif not isinstance(argparse_dict[key], list):
+            argparse_dict[key] = [argparse_dict[key]]
+        for val in value:
+            argparse_dict[key].append(str(val))
+
+
+
 # Parses the filters, expects a list of strings
 def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     parsed_filters = {}
@@ -1562,6 +1587,11 @@ def run() -> None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
+
+    if os.path.exists(".panther_settings.yml"):
+        config_file_settings = setup_dynaconf()
+        dynaconf_argparse_merge(args.__dict__, config_file_settings)
+        logging.info("Found Config File .panther_settings.yml")
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):

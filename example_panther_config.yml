@@ -1,0 +1,11 @@
+# Example configuration file for panther_analysis_tool.
+# Copy this file into the root of your test repository and name it .panther_settings
+#
+#
+# Ignored files are yaml files that panther_analysis_tool should not process.
+# This will merge with the --ignore_files command line argument
+#
+# ignored_files:
+#   - example.:yml
+#
+#
