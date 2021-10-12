@@ -6,6 +6,6 @@
 # This will merge with the --ignore_files command line argument
 #
 # ignored_files:
-#   - example.:yml
+#   - example.yml
 #
 #
