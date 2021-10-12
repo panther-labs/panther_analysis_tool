@@ -1589,7 +1589,7 @@ def run() -> None:
         args.filter_inverted = {}
 
     if os.path.exists(CONFIG_FILE):
-        logging.info("Found Config File " + CONFIG_FILE )
+        logging.info("Found Config File %s", CONFIG_FILE)
         config_file_settings = setup_dynaconf()
         dynaconf_argparse_merge(vars(args), config_file_settings)
 
