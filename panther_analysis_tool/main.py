@@ -82,6 +82,7 @@ from panther_analysis_tool.testing import (
 )
 from panther_analysis_tool.util import get_client
 
+CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
 
@@ -182,13 +183,13 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 
 def load_analysis_specs(
-    directories: List[str], ignored_files: List[str]
+    directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
         directories: The relative path to Panther policies or rules.
-        ignored_files: Files that Panther Analysis Tool should not process
+        ignore_files: Files that Panther Analysis Tool should not process
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
@@ -196,7 +197,7 @@ def load_analysis_specs(
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
     ignored_normalized = []
-    for file in ignored_files:
+    for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
     loaded_specs: List[Any] = []
@@ -324,7 +325,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
             load_analysis_specs(
-                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignored_files
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
             )
         ):
             if file_name not in files:
@@ -682,7 +683,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """
     logging.info("Testing analysis packs in %s\n", args.path)
 
-    ignored_files = args.ignored_files
+    ignored_files = args.ignore_files
     search_directories = [args.path]
 
     # Try the parent directory as well
@@ -702,7 +703,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignored_files=ignored_files))
+        list(load_analysis_specs(search_directories, ignore_files=ignored_files))
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -1287,7 +1288,7 @@ def setup_parser() -> argparse.ArgumentParser:
     ignore_files_name = "--ignore-files"
     ignore_files_arg: Dict[str, Any] = {
         "required": False,
-        "dest": "ignored_files",
+        "dest": "ignore_files",
         "nargs": "+",
         "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
         + "space separated. Example ./foo.yaml ./bar/baz.yaml",
@@ -1517,11 +1518,10 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 
 def setup_dynaconf() -> Dict[str, Any]:
     config_file_settings_raw = Dynaconf(
-        settings_file=".panther_settings.yml", envvar_prefix="PANTHER"
+        settings_file=CONFIG_FILE, envvar_prefix="PANTHER"
         )
     # Dynaconf stores its keys in ALL CAPS for some reason
-    config_file_settings = {k.lower():v for k, v in config_file_settings_raw.as_dict().items()}
-    return config_file_settings
+    return {k.lower():v for k, v in config_file_settings_raw.as_dict().items()}
 
 
 def dynaconf_argparse_merge(
@@ -1588,10 +1588,10 @@ def run() -> None:
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
 
-    if os.path.exists(".panther_settings.yml"):
+    if os.path.exists(CONFIG_FILE):
+        logging.info("Found Config File " + CONFIG_FILE )
         config_file_settings = setup_dynaconf()
-        dynaconf_argparse_merge(args.__dict__, config_file_settings)
-        logging.info("Found Config File .panther_settings.yml")
+        dynaconf_argparse_merge(vars(args), config_file_settings)
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):

@@ -5,7 +5,7 @@
 # Ignored files are yaml files that panther_analysis_tool should not process.
 # This will merge with the --ignore_files command line argument
 #
-# ignored_files:
+# ignore_files:
 #   - example.:yml
 #
 #
