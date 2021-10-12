@@ -1592,6 +1592,9 @@ def run() -> None:
         logging.info("Found Config File %s", CONFIG_FILE)
         config_file_settings = setup_dynaconf()
         dynaconf_argparse_merge(vars(args), config_file_settings)
+        if args.debug:
+            for key, value in vars(args).items():
+                logging.debug(key, "-", value)
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
