@@ -44,7 +44,7 @@ from uuid import uuid4
 import botocore
 import requests
 import semver
-from dynaconf import Dynaconf
+from dynaconf import Dynaconf, Validator
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -1518,10 +1518,28 @@ def zip_managed_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 
 def setup_dynaconf() -> Dict[str, Any]:
     config_file_settings_raw = Dynaconf(
-        settings_file=CONFIG_FILE, envvar_prefix="PANTHER"
-        )
-    # Dynaconf stores its keys in ALL CAPS for some reason
-    return {k.lower():v for k, v in config_file_settings_raw.as_dict().items()}
+        settings_file=CONFIG_FILE,
+        envvar_prefix="PANTHER",
+        validators=[
+            Validator("AWS_PROFILE", is_type_of=str),
+            Validator("MINIMUM_TESTS", is_type_of=int),
+            Validator("OUT", is_type_of=str),
+            Validator("PATH", is_type_of=str),
+            Validator("SKIP_TEST", is_type_of=bool),
+            Validator("SKIP_DISABLED_TESTS", is_type_of=bool),
+            Validator("IGNORE_FILES", is_type_of=(str, list)),
+            Validator("AVAILABLE_DESTINATION", is_type_of=(str, list)),
+            Validator("KMS_KEY", is_type_of=str),
+            Validator("BODY", is_type_of=str),
+            Validator("GITHUB_BRANCH", is_type_of=str),
+            Validator("GITHUB_OWNER", is_type_of=str),
+            Validator("GITHUB_REPOSITORY", is_type_of=str),
+            Validator("GITHUB_TAG", is_type_of=str),
+            Validator("FILTER", is_type_of=dict),
+        ],
+    )
+    # Dynaconf stores its keys in ALL CAPS
+    return {k.lower(): v for k, v in config_file_settings_raw.as_dict().items()}
 
 
 def dynaconf_argparse_merge(
@@ -1529,14 +1547,7 @@ def dynaconf_argparse_merge(
 ) -> None:
 
     for key, value in config_file_settings.items():
-        if not key in argparse_dict.keys():
-            argparse_dict[key] = [value]
-        # if key already exists but it's value is not a list convert it to a list
-        elif not isinstance(argparse_dict[key], list):
-            argparse_dict[key] = [argparse_dict[key]]
-        for val in value:
-            argparse_dict[key].append(str(val))
-
+        argparse_dict[key] = value
 
 
 # Parses the filters, expects a list of strings
@@ -1589,12 +1600,15 @@ def run() -> None:
         args.filter_inverted = {}
 
     if os.path.exists(CONFIG_FILE):
-        logging.info("Found Config File %s", CONFIG_FILE)
+        logging.info(
+            "Found Config File %s . NOTE: SETTINGS IN CONFIG FILE OVERRIDE COMMAND LINE OPTIONS",
+            CONFIG_FILE,
+        )
         config_file_settings = setup_dynaconf()
         dynaconf_argparse_merge(vars(args), config_file_settings)
         if args.debug:
             for key, value in vars(args).items():
-                logging.debug(key, "-", value)
+                logging.debug(f"{key}={value}") # pylint: disable=W1203
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
