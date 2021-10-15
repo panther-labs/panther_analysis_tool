@@ -308,9 +308,8 @@ class TestPantherAnalysisTool(TestCase):
         except OSError:
             pass
 
-        with mock.patch.dict(os.environ, {pat.ENV_VAR_INCLUDE_INTERNAL_SUBCOMMANDS: 'true'}):
-            args = pat.setup_parser().parse_args(
-                f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
+        args = pat.setup_parser().\
+            parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
 
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
