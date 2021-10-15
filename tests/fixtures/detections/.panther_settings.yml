@@ -1,0 +1,3 @@
+ignored_files:
+  - "example_ignored.yml"
+  - "example_ignored_multi"
