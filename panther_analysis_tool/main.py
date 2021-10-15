@@ -42,6 +42,7 @@ from uuid import uuid4
 
 import botocore
 import requests
+from dynaconf import Dynaconf, Validator
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -79,6 +80,7 @@ from panther_analysis_tool.testing import (
 )
 from panther_analysis_tool.util import get_client
 
+CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
 
@@ -175,13 +177,13 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 
 def load_analysis_specs(
-    directories: List[str], ignored_files: List[str]
+    directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
     Args:
         directories: The relative path to Panther policies or rules.
-        ignored_files: Files that Panther Analysis Tool should not process
+        ignore_files: Files that Panther Analysis Tool should not process
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
@@ -189,7 +191,7 @@ def load_analysis_specs(
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
     ignored_normalized = []
-    for file in ignored_files:
+    for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
     loaded_specs: List[Any] = []
@@ -317,7 +319,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
             load_analysis_specs(
-                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignored_files
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
             )
         ):
             if file_name not in files:
@@ -675,7 +677,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     """
     logging.info("Testing analysis packs in %s\n", args.path)
 
-    ignored_files = args.ignored_files
+    ignored_files = args.ignore_files
     search_directories = [args.path]
 
     # Try the parent directory as well
@@ -695,7 +697,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignored_files=ignored_files))
+        list(load_analysis_specs(search_directories, ignore_files=ignored_files))
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -1280,7 +1282,7 @@ def setup_parser() -> argparse.ArgumentParser:
     ignore_files_name = "--ignore-files"
     ignore_files_arg: Dict[str, Any] = {
         "required": False,
-        "dest": "ignored_files",
+        "dest": "ignore_files",
         "nargs": "+",
         "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
         + "space separated. Example ./foo.yaml ./bar/baz.yaml",
@@ -1422,6 +1424,42 @@ def setup_parser() -> argparse.ArgumentParser:
 
     return parser
 
+
+def setup_dynaconf() -> Dict[str, Any]:
+    config_file_settings_raw = Dynaconf(
+        settings_file=CONFIG_FILE,
+        envvar_prefix="PANTHER",
+        validators=[
+            Validator("AWS_PROFILE", is_type_of=str),
+            Validator("MINIMUM_TESTS", is_type_of=int),
+            Validator("OUT", is_type_of=str),
+            Validator("PATH", is_type_of=str),
+            Validator("SKIP_TEST", is_type_of=bool),
+            Validator("SKIP_DISABLED_TESTS", is_type_of=bool),
+            Validator("IGNORE_FILES", is_type_of=(str, list)),
+            Validator("AVAILABLE_DESTINATION", is_type_of=(str, list)),
+            Validator("KMS_KEY", is_type_of=str),
+            Validator("BODY", is_type_of=str),
+            Validator("GITHUB_BRANCH", is_type_of=str),
+            Validator("GITHUB_OWNER", is_type_of=str),
+            Validator("GITHUB_REPOSITORY", is_type_of=str),
+            Validator("GITHUB_TAG", is_type_of=str),
+            Validator("FILTER", is_type_of=dict),
+        ],
+    )
+    # Dynaconf stores its keys in ALL CAPS
+    return {k.lower(): v for k, v in config_file_settings_raw.as_dict().items()}
+
+
+def dynaconf_argparse_merge(
+    argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
+) -> None:
+
+    for key, value in config_file_settings.items():
+        argparse_dict[key] = value
+
+
+
 # Parses the filters, expects a list of strings
 def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     parsed_filters = {}
@@ -1470,6 +1508,17 @@ def run() -> None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
+
+    if os.path.exists(CONFIG_FILE):
+        logging.info(
+            "Found Config File %s . NOTE: SETTINGS IN CONFIG FILE OVERRIDE COMMAND LINE OPTIONS",
+            CONFIG_FILE,
+        )
+        config_file_settings = setup_dynaconf()
+        dynaconf_argparse_merge(vars(args), config_file_settings)
+        if args.debug:
+            for key, value in vars(args).items():
+                logging.debug(f"{key}={value}") # pylint: disable=W1203
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):

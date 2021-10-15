@@ -1,0 +1,44 @@
+# Example configuration file for panther_analysis_tool.
+# Copy this file into the root of your test repository and name it .panther_settings.yml
+# Note that options in this file override options passed on the command line
+#
+# The AWS profile to use when updating the AWS Panther deployment.
+# aws_profile: "aws_profile"
+#
+# The key id to use to sign the release asset
+# kms_key: "kms-key"
+#
+# The branch to base the release on
+# github_branch: "main"
+#
+# The github owner of the repository
+# github_owner: "Bob Ownerson"
+#
+# The github repository name
+# github_repository: "panther-labs/panther-analysis"
+#
+# The tag name for this release
+# github_tag: "v.1.0.0"
+#
+# Skip tests for disabled rules
+# skip_disabled_tests: True
+#
+# The relative path to Panther policies and rules.
+# path: "."
+#
+# The path to store output files.
+# out: "."
+#
+# The minimum number of tests in order for a detection to be considered passing.
+# If a number greater than 1 is specified, at least one True and one False test is required.
+# minimum_tests: 0
+#
+# Relative path to files in this project to be ignored by panther-analysis tool
+# ignore_files:
+#   - "example.yml"
+#
+# A destination name that may be returned by the destinations function.
+# available_destination: "test_destination"
+#
+# Filter tests by RuleID and other parameters. This must be passed as a dict with lists as values.
+# filter: {"RuleID":["Standard.UnusualLogin"]}

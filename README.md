@@ -219,6 +219,11 @@ Failed Tests Summary
 
 So in this case even though the rules passed all their tests, they're still considered failing because they do not have the correct test coverage.
 
+# Configuration File
+Panther Analysis Tool will also read options from a configuration file called `.panther_settings.yml` located in your working directory. An example configuration file is included in this repo, [example_panther_config.yml](example_panther_config.yml), that contains example syntax for supported options.
+
+Note that options in the configuration file override options passed on the command line. For example if you set `minimum_tests: 2` in the configuration file and `--minimum-tests 1` on the command line the minimum number of tests will be 2.
+
 # Contributing
 
 We welcome all contributions! Please read the [contributing guidelines](https://github.com/panther-labs/panther-analysis/blob/master/CONTRIBUTING.md) before submitting pull requests. [Instructions for opening a pull request](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) from your fork of the repo can be found on Github.
