@@ -64,4 +64,30 @@ class PantherEvent(ImmutableCaseInsensitiveDict):  # pylint: disable=R0901
         # no matches, return None by default
         return None
 
+    def udm_path(self, key: str) -> str:
+        """Returns the JSON path or method name for the mapped field"""
+        if not self.data_model:
+            raise PantherError(E_NO_DATA_MODEL_FOUND, self._container.get("p_log_type"))
+        # access values via standardized fields
+        if key in self.data_model.paths:
+            # we are dealing with a jsonpath
+            json_path = self.data_model.paths.get(key)
+            if json_path:
+                matches = json_path.find(self._container)
+                if len(matches) == 1:
+                    return str(matches[0].full_path)
+                if len(matches) > 1:
+                    raise Exception(
+                        "JSONPath [{}] in DataModel [{}], matched multiple fields.".format(
+                            json_path, self.data_model.data_model_id
+                        )
+                    )
+        if key in self.data_model.methods:
+            # we are dealing with method
+            method = self.data_model.methods.get(key)
+            if callable(method):
+                return getattr(method, "__name__", repr(method))
+        # no matches, return None by default
+        return None
+
     json_encoder = json_encoder

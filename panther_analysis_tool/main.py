@@ -1459,7 +1459,6 @@ def dynaconf_argparse_merge(
         argparse_dict[key] = value
 
 
-
 # Parses the filters, expects a list of strings
 def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     parsed_filters = {}
@@ -1518,7 +1517,7 @@ def run() -> None:
         dynaconf_argparse_merge(vars(args), config_file_settings)
         if args.debug:
             for key, value in vars(args).items():
-                logging.debug(f"{key}={value}") # pylint: disable=W1203
+                logging.debug(f"{key}={value}")  # pylint: disable=W1203
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
