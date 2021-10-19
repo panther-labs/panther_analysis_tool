@@ -59,7 +59,7 @@ class PantherEvent(ImmutableCaseInsensitiveDict):  # pylint: disable=R0901
         if match:
             return str(match.full_path)
         method = self._get_method(key)
-        if callable(method):
+        if method:
             return getattr(method, "__name__", repr(method))
         # no matches, return None by default
         return None
