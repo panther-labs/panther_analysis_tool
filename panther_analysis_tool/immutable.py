@@ -200,4 +200,4 @@ def json_encoder(obj: Any) -> Any:
     """
     if isinstance(obj, ImmutableContainerMixin):
         return obj._container  # pylint: disable=W0212
-    raise TypeError
+    raise TypeError(f'invalid type in json: {type(obj)}')

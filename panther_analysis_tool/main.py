@@ -206,6 +206,11 @@ def load_analysis_specs(
                 continue
             # setup yaml object
             yaml = YAML(typ="safe")
+            # interpret datetime as str, the backend uses the default behavior for json.loads, which
+            # interprets these as str
+            yaml.constructor.yaml_constructors[
+                "tag:yaml.org,2002:timestamp"
+            ] = yaml.constructor.yaml_constructors["tag:yaml.org,2002:str"]
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
