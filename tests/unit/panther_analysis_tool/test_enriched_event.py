@@ -64,6 +64,7 @@ class TestEnrichedEvent(TestCase):
         )
         enriched_event = PantherEvent(event, data_model)
         self.assertEqual(enriched_event.udm('source_ip'), '1.2.3.4')
+        self.assertEqual(enriched_event.udm_path('source_ip'), 'get_source_ip')
 
     def test_udm_path(self) -> None:
         event = {'dst_ip': '1.1.1.1', 'dst_port': '2222'}
@@ -83,6 +84,7 @@ class TestEnrichedEvent(TestCase):
         )
         enriched_event = PantherEvent(event, data_model)
         self.assertEqual(enriched_event.udm('destination_ip'), '1.1.1.1')
+        self.assertEqual(enriched_event.udm_path('destination_ip'), 'dst_ip')
         # test path with '.' in it
         event = {'destination.ip': '1.1.1.1', 'dst_port': '2222'}
         data_model = DataModel(
@@ -97,6 +99,7 @@ class TestEnrichedEvent(TestCase):
         )
         enriched_event = PantherEvent(event, data_model)
         self.assertEqual(enriched_event.udm('destination_ip'), '1.1.1.1')
+        self.assertEqual(enriched_event.udm_path('destination_ip'), 'destination.ip')
 
     def test_udm_json_path(self) -> None:
         event = {'dst': {'ip': '1.1.1.1', 'port': '2222'}}
@@ -116,6 +119,7 @@ class TestEnrichedEvent(TestCase):
         )
         enriched_event = PantherEvent(event, data_model)
         self.assertEqual(enriched_event.udm('destination_ip'), '1.1.1.1')
+        self.assertEqual(enriched_event.udm_path('destination_ip'), 'dst.ip')
 
     def test_udm_complex_json_path(self) -> None:
         event = {'events': [{'parameters': [{'name': 'USER_EMAIL', 'value': 'user@example.com'}]}]}
@@ -138,6 +142,7 @@ class TestEnrichedEvent(TestCase):
         )
         enriched_event = PantherEvent(event, data_model)
         self.assertEqual(enriched_event.udm('email'), 'user@example.com')
+        self.assertEqual(enriched_event.udm_path('email'), 'events.[0].parameters.[0].value')
 
     def test_udm_multiple_matches(self) -> None:
         exception = False
