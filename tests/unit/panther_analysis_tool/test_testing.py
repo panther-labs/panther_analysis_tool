@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 
 from panther_analysis_tool.detection import DetectionResult
+from panther_analysis_tool.policy import TYPE_POLICY
 from panther_analysis_tool.rule import Rule, TYPE_RULE
 
 from panther_analysis_tool.testing import FunctionTestResult, TestError, TestSpecification, \
@@ -255,6 +256,45 @@ class TestTestCaseEvaluator(unittest.TestCase):
             trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output='false', error=None, matched=True),
+                titleFunction=None,
+                dedupFunction=None,
+                alertContextFunction=None,
+                descriptionFunction=None,
+                referenceFunction=None,
+                severityFunction=None,
+                runbookFunction=None,
+                destinationsFunction=None,
+            )
+        )
+        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        self.assertEqual(expected, actual)
+
+    def test_interpret_failing_test_policy_not_expected_to_trigger_alert_with_aux_exception(self) -> None:
+        spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
+        detection_result = DetectionResult(
+            detection_id=spec.id,
+            trigger_alert=False,
+            detection_output=True, # policys return true when not triggering an alert
+            detection_exception=None,
+            detection_severity='INFO',
+            detection_type=TYPE_POLICY,
+            destinations_exception=TypeError('wrong type'),
+            reference_exception=TypeError('wrong type'),
+            runbook_exception=TypeError('wrong type'),
+            severity_exception=TypeError('wrong type'),
+            title_exception=TypeError('wrong type'),
+        )
+        expected = TestResult(
+            id='test-id',
+            name='test-name',
+            detectionId='test-id',
+            genericError=None,
+            error=None,
+            errored=True,
+            passed=True,
+            trigger_alert=False,
+            functions=TestResultsPerFunction(
+                detectionFunction=FunctionTestResult(output='true', error=None, matched=True),
                 titleFunction=None,
                 dedupFunction=None,
                 alertContextFunction=None,
