@@ -200,4 +200,4 @@ def json_encoder(obj: Any) -> Any:
     """
     if isinstance(obj, ImmutableContainerMixin):
         return obj._container  # pylint: disable=W0212
-    raise TypeError(f'invalid type in json: {type(obj)}')
+    raise TypeError(f"object of type {type(obj)} is not JSON serializable")

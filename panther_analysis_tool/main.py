@@ -43,7 +43,7 @@ from uuid import uuid4
 import botocore
 import requests
 from dynaconf import Dynaconf, Validator
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
@@ -132,6 +132,11 @@ SET_FIELDS = [
     "Tags",
 ]
 
+# interpret datetime as str, the backend uses the default behavior for json.loads, which
+# interprets these as str.  This sets global config for ruamel SafeConstructor
+constructor.SafeConstructor.add_constructor(
+    "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
+)
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
@@ -206,11 +211,6 @@ def load_analysis_specs(
                 continue
             # setup yaml object
             yaml = YAML(typ="safe")
-            # interpret datetime as str, the backend uses the default behavior for json.loads, which
-            # interprets these as str
-            yaml.constructor.yaml_constructors[
-                "tag:yaml.org,2002:timestamp"
-            ] = yaml.constructor.yaml_constructors["tag:yaml.org,2002:str"]
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
@@ -1464,7 +1464,6 @@ def dynaconf_argparse_merge(
         argparse_dict[key] = value
 
 
-
 # Parses the filters, expects a list of strings
 def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     parsed_filters = {}
@@ -1523,7 +1522,7 @@ def run() -> None:
         dynaconf_argparse_merge(vars(args), config_file_settings)
         if args.debug:
             for key, value in vars(args).items():
-                logging.debug(f"{key}={value}") # pylint: disable=W1203
+                logging.debug(f"{key}={value}")  # pylint: disable=W1203
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
