@@ -49,9 +49,9 @@ class FunctionTestResult:
     @classmethod
     def new(
         cls,
+        matched: bool,
         output: Optional[Union[bool, str, List[str]]],
         raw_exception: Optional[Exception] = None,
-        matched: Optional[bool] = True,
     ) -> Optional["FunctionTestResult"]:
         """Create a new instance while applying
         the necessary transformations to the parameters"""
@@ -184,9 +184,9 @@ class TestCaseEvaluator:
 
         function_results = dict(
             detectionFunction=FunctionTestResult.new(
+                self._spec.expectations.detection == self._detection_result.detection_output,
                 self._detection_result.detection_output,
                 self._detection_result.detection_exception,
-                self._spec.expectations.detection == self._detection_result.detection_output,
             )
         )
 
@@ -199,34 +199,42 @@ class TestCaseEvaluator:
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(
+                        self._detection_result.title_exception is None,
                         self._detection_result.title_output,
                         self._detection_result.title_exception,
                     ),
                     descriptionFunction=FunctionTestResult.new(
+                        self._detection_result.description_exception is None,
                         self._detection_result.description_output,
                         self._detection_result.description_exception,
                     ),
                     referenceFunction=FunctionTestResult.new(
+                        self._detection_result.reference_exception is None,
                         self._detection_result.reference_output,
                         self._detection_result.reference_exception,
                     ),
                     severityFunction=FunctionTestResult.new(
+                        self._detection_result.severity_exception is None,
                         self._detection_result.severity_output,
                         self._detection_result.severity_exception,
                     ),
                     runbookFunction=FunctionTestResult.new(
+                        self._detection_result.runbook_exception is None,
                         self._detection_result.runbook_output,
                         self._detection_result.runbook_exception,
                     ),
                     destinationsFunction=FunctionTestResult.new(
+                        self._detection_result.destinations_exception is None,
                         self._detection_result.destinations_output,
                         self._detection_result.destinations_exception,
                     ),
                     dedupFunction=FunctionTestResult.new(
+                        self._detection_result.dedup_exception is None,
                         self._detection_result.dedup_output,
                         self._detection_result.dedup_exception,
                     ),
                     alertContextFunction=FunctionTestResult.new(
+                        self._detection_result.alert_context_exception is None,
                         self._detection_result.alert_context_output,
                         self._detection_result.alert_context_exception,
                     ),

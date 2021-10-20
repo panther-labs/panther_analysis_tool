@@ -39,21 +39,21 @@ class TestFunctionTestResult(unittest.TestCase):
 
     def test_new(self) -> None:
         # If output is boolean
-        result = FunctionTestResult.new(output=True)
-        self.assertEqual(result, FunctionTestResult(output='true', error=None, matched=True))
+        result = FunctionTestResult.new(matched=True, output=True)
+        self.assertEqual(result, FunctionTestResult(matched=True, output='true', error=None))
 
         # If output is string
-        result = FunctionTestResult.new(output='some output')
-        self.assertEqual(result, FunctionTestResult(output='some output', error=None, matched=True))
+        result = FunctionTestResult.new(matched=True, output='some output')
+        self.assertEqual(result, FunctionTestResult(matched=True, output='some output', error=None))
 
         # If both parameters are None
-        result = FunctionTestResult.new(output=None, raw_exception=None)
+        result = FunctionTestResult.new(matched=True, output=None, raw_exception=None)
         self.assertIsNone(result)
 
         # When an exception is given
         exception = TypeError('wrong type')
-        result = FunctionTestResult.new(output='some output', raw_exception=exception, matched=True)
-        expected = FunctionTestResult(output='some output', error=TestError(message='TypeError: wrong type'), matched=True)
+        result = FunctionTestResult.new(matched=False, output='some output', raw_exception=exception)
+        expected = FunctionTestResult(matched=False, output='some output', error=TestError(message='TypeError: wrong type'))
         self.assertEqual(result, expected)
 
     def test_format_exception(self) -> None:
@@ -184,7 +184,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             trigger_alert=True,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output='true', error=None, matched=True),
-                titleFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=True),
+                titleFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
                 dedupFunction=None,
                 alertContextFunction=None,
                 descriptionFunction=None,
