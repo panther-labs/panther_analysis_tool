@@ -28,7 +28,7 @@ setup(
     author='Panther Labs Inc',
     author_email='pypi@runpanther.io',
     url='https://github.com/panther-labs/panther_analysis_tool',
-    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.10.2.tar.gz',
+    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.10.3.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=install_requires,
