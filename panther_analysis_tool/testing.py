@@ -148,9 +148,12 @@ class TestCaseEvaluator:
 
     def _get_result_status(self) -> bool:
         """Get the test status - passing/failing"""
-        # Any error should mark the test as failing
-        if self._detection_result.errored:
-            return False
+        # Aux functions are executed unconditionally
+        # (regardless if the detection matched or not) during testing.
+        # Only if the detection is expected to trigger an alert,
+        # we want to include errors from other functions in the status.
+        if self._spec.expectations.detection == self._get_detection_alert_value():
+            return self._detection_result.trigger_alert and not self._detection_result.errored
         # expectations match the detection output
         return self._spec.expectations.detection == self._detection_result.detection_output
 
