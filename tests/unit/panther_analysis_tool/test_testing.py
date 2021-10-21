@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 
 from panther_analysis_tool.detection import DetectionResult
+from panther_analysis_tool.policy import TYPE_POLICY
 from panther_analysis_tool.rule import Rule, TYPE_RULE
 
 from panther_analysis_tool.testing import FunctionTestResult, TestError, TestSpecification, \
@@ -38,21 +39,21 @@ class TestFunctionTestResult(unittest.TestCase):
 
     def test_new(self) -> None:
         # If output is boolean
-        result = FunctionTestResult.new(output=True)
-        self.assertEqual(result, FunctionTestResult(output='true', error=None, matched=True))
+        result = FunctionTestResult.new(matched=True, output=True)
+        self.assertEqual(result, FunctionTestResult(matched=True, output='true', error=None))
 
         # If output is string
-        result = FunctionTestResult.new(output='some output')
-        self.assertEqual(result, FunctionTestResult(output='some output', error=None, matched=True))
+        result = FunctionTestResult.new(matched=True, output='some output')
+        self.assertEqual(result, FunctionTestResult(matched=True, output='some output', error=None))
 
         # If both parameters are None
-        result = FunctionTestResult.new(output=None, raw_exception=None)
+        result = FunctionTestResult.new(matched=True, output=None, raw_exception=None)
         self.assertIsNone(result)
 
         # When an exception is given
         exception = TypeError('wrong type')
-        result = FunctionTestResult.new(output='some output', raw_exception=exception, matched=True)
-        expected = FunctionTestResult(output='some output', error=TestError(message='TypeError: wrong type'), matched=True)
+        result = FunctionTestResult.new(matched=False, output='some output', raw_exception=exception)
+        expected = FunctionTestResult(matched=False, output='some output', error=TestError(message='TypeError: wrong type'))
         self.assertEqual(result, expected)
 
     def test_format_exception(self) -> None:
@@ -75,8 +76,7 @@ class TestFunctionTestResult(unittest.TestCase):
 
 class TestTestCaseEvaluator(unittest.TestCase):
 
-    def test_interpret_passing_test_not_expected_to_match(self) -> None:
-        detection = Rule(TEST_RULE)
+    def test_interpret_passing_test_not_expected_to_trigger_alert(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(detection_id=spec.id, trigger_alert=False, detection_output=False, detection_severity='INFO', detection_type=TYPE_RULE)
         expected = TestResult(
@@ -101,11 +101,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             )
         )
         actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
-        print(actual)
         self.assertEqual(expected, actual)
 
-    def test_interpret_passing_test_expected_to_match(self) -> None:
-        detection = Rule(TEST_RULE)
+    def test_interpret_passing_test_expected_to_trigger_alert(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
         detection_result = DetectionResult(detection_id=spec.id, trigger_alert=True, detection_output=True, detection_severity='INFO', detection_type=TYPE_RULE)
         expected = TestResult(
@@ -130,15 +128,13 @@ class TestTestCaseEvaluator(unittest.TestCase):
             )
         )
         actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
-        print(actual)
         self.assertEqual(actual, expected)
 
-    def test_interpret_failing_test_expected_to_match(self) -> None:
-        detection = Rule(TEST_RULE)
+    def test_interpret_failing_test_expected_to_trigger_alert(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            trigger_alert=None,
+            trigger_alert=False,
             detection_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -151,7 +147,74 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=None,
             errored=True,
             passed=False,
-            trigger_alert=None,
+            trigger_alert=False,
+            functions=TestResultsPerFunction(
+                detectionFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
+                titleFunction=None,
+                dedupFunction=None,
+                alertContextFunction=None,
+                descriptionFunction=None,
+                referenceFunction=None,
+                severityFunction=None,
+                runbookFunction=None,
+                destinationsFunction=None
+            )
+        )
+        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        self.assertEqual(expected, actual)
+    
+    def test_interpret_failing_test_expected_to_match_aux_function_error(self) -> None:
+        spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
+        detection_result = DetectionResult(
+            detection_id=spec.id,
+            trigger_alert=True,
+            detection_output=True,
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            title_exception=TypeError('wrong type')
+        )
+        expected = TestResult(
+            id='test-id',
+            name='test-name',
+            detectionId='test-id',
+            genericError=None,
+            error=None,
+            errored=True,
+            passed=False,
+            trigger_alert=True,
+            functions=TestResultsPerFunction(
+                detectionFunction=FunctionTestResult(output='true', error=None, matched=True),
+                titleFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
+                dedupFunction=None,
+                alertContextFunction=None,
+                descriptionFunction=None,
+                referenceFunction=None,
+                severityFunction=None,
+                runbookFunction=None,
+                destinationsFunction=None
+            )
+        )
+        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        self.assertEqual(expected, actual)
+
+    def test_interpret_failing_test_not_expected_to_trigger_alert_detection_error(self) -> None:
+        spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
+        detection_result = DetectionResult(
+            detection_id=spec.id,
+            trigger_alert=False,
+            detection_exception=TypeError('wrong type'),
+            detection_severity='INFO',
+            detection_type=TYPE_RULE
+        )
+        expected = TestResult(
+            id='test-id',
+            name='test-name',
+            detectionId='test-id',
+            genericError=None,
+            error=None,
+            errored=True,
+            passed=False,
+            trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
                 titleFunction=None,
@@ -167,15 +230,20 @@ class TestTestCaseEvaluator(unittest.TestCase):
         actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
-    def test_interpret_failing_test_not_expected_to_match(self) -> None:
-        detection = Rule(TEST_RULE)
+    def test_interpret_failing_test_not_expected_to_trigger_alert_with_aux_exception(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            trigger_alert=None,
-            detection_exception=TypeError('wrong type'),
+            trigger_alert=False,
+            detection_output=False,
+            detection_exception=None,
             detection_severity='INFO',
-            detection_type=TYPE_RULE
+            detection_type=TYPE_RULE,
+            destinations_exception=TypeError('wrong type'),
+            reference_exception=TypeError('wrong type'),
+            runbook_exception=TypeError('wrong type'),
+            severity_exception=TypeError('wrong type'),
+            title_exception=TypeError('wrong type'),
         )
         expected = TestResult(
             id='test-id',
@@ -184,10 +252,10 @@ class TestTestCaseEvaluator(unittest.TestCase):
             genericError=None,
             error=None,
             errored=True,
-            passed=False,
-            trigger_alert=None,
+            passed=True,
+            trigger_alert=False,
             functions=TestResultsPerFunction(
-                detectionFunction=FunctionTestResult(output=None, error=TestError(message='TypeError: wrong type'), matched=False),
+                detectionFunction=FunctionTestResult(output='false', error=None, matched=True),
                 titleFunction=None,
                 dedupFunction=None,
                 alertContextFunction=None,
@@ -195,18 +263,56 @@ class TestTestCaseEvaluator(unittest.TestCase):
                 referenceFunction=None,
                 severityFunction=None,
                 runbookFunction=None,
-                destinationsFunction=None
+                destinationsFunction=None,
+            )
+        )
+        actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
+        self.assertEqual(expected, actual)
+
+    def test_interpret_failing_test_policy_not_expected_to_trigger_alert_with_aux_exception(self) -> None:
+        spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
+        detection_result = DetectionResult(
+            detection_id=spec.id,
+            trigger_alert=False,
+            detection_output=True, # policys return true when not triggering an alert
+            detection_exception=None,
+            detection_severity='INFO',
+            detection_type=TYPE_POLICY,
+            destinations_exception=TypeError('wrong type'),
+            reference_exception=TypeError('wrong type'),
+            runbook_exception=TypeError('wrong type'),
+            severity_exception=TypeError('wrong type'),
+            title_exception=TypeError('wrong type'),
+        )
+        expected = TestResult(
+            id='test-id',
+            name='test-name',
+            detectionId='test-id',
+            genericError=None,
+            error=None,
+            errored=True,
+            passed=True,
+            trigger_alert=False,
+            functions=TestResultsPerFunction(
+                detectionFunction=FunctionTestResult(output='true', error=None, matched=True),
+                titleFunction=None,
+                dedupFunction=None,
+                alertContextFunction=None,
+                descriptionFunction=None,
+                referenceFunction=None,
+                severityFunction=None,
+                runbookFunction=None,
+                destinationsFunction=None,
             )
         )
         actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
 
     def test_interpret_failing_test_input_error(self) -> None:
-        detection = Rule(TEST_RULE)
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            trigger_alert=None,
+            trigger_alert=False,
             input_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -219,7 +325,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=TestError(message='Invalid event: TypeError: wrong type'),
             errored=True,
             passed=False,
-            trigger_alert=None,
+            trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=None,
                 titleFunction=None,
@@ -236,11 +342,10 @@ class TestTestCaseEvaluator(unittest.TestCase):
         self.assertEqual(expected, actual)
 
     def test_interpret_generic_error(self) -> None:
-        detection = Rule(TEST_RULE)
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            trigger_alert=None,
+            trigger_alert=False,
             setup_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -253,7 +358,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=TestError(message='TypeError: wrong type'),
             errored=True,
             passed=False,
-            trigger_alert=None,
+            trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=None,
                 titleFunction=None,
@@ -273,7 +378,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=False))
         detection_result = DetectionResult(
             detection_id=spec.id,
-            trigger_alert=None,
+            trigger_alert=False,
             input_exception=TypeError('wrong type'),
             detection_severity='INFO',
             detection_type=TYPE_RULE
@@ -286,7 +391,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             error=TestError(message='Invalid event: TypeError: wrong type'),
             errored=True,
             passed=False,
-            trigger_alert=None,
+            trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=None,
                 titleFunction=None,
