@@ -2,6 +2,7 @@ from distutils.core import setup
 
 install_requires = [
     'boto3',
+    'dynaconf',
     'jsonpath-ng',
     'requests',
     'ruamel.yaml',
