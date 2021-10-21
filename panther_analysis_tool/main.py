@@ -43,7 +43,7 @@ from uuid import uuid4
 import botocore
 import requests
 from dynaconf import Dynaconf, Validator
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
@@ -132,6 +132,11 @@ SET_FIELDS = [
     "Tags",
 ]
 
+# interpret datetime as str, the backend uses the default behavior for json.loads, which
+# interprets these as str.  This sets global config for ruamel SafeConstructor
+constructor.SafeConstructor.add_constructor(
+    "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
+)
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):

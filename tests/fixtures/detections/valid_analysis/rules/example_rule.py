@@ -23,3 +23,8 @@ def dedup(event):
 
 def title(event):
     return '{} does not have MFA enabled'.format(event['UserName'])
+
+
+def alert_context(event):
+    # test/validate that we can return the event as alert_context
+    return event
