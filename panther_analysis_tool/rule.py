@@ -139,10 +139,11 @@ class Detection(ABC):
         self.detection_version = config["versionId"]
 
         # backwards compatible for legacy mocking
+        self._setup_exception = None
         if "lastUpdatedVersion" in config:
             try:
                 detection_version = semver.VersionInfo.parse(config["lastUpdatedVersion"])
-            except ValueError as err:
+            except Exception as err:  # pylint: disable=broad-except
                 self._setup_exception = err
                 return
             # semver.compare
@@ -183,7 +184,6 @@ class Detection(ABC):
                 values.sort()
             self.detection_reports = config["reports"]
 
-        self._setup_exception = None
         try:
             self._module = self._load_detection(self.detection_id, config)
             if not self._is_function_defined(self.matcher_function_name):
