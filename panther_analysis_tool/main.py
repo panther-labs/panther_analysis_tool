@@ -752,6 +752,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
+        use_legacy_mocking=args.use_legacy_mocking,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -828,6 +829,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
+    use_legacy_mocking: bool,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -871,6 +873,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             minimum_tests,
             destinations_by_name,
             ignore_exception_types,
+            use_legacy_mocking,
         )
         print("")
     return failed_tests, invalid_specs
@@ -1086,6 +1089,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
+    use_legacy_mocking: bool,
 ) -> DefaultDict[str, list]:
 
     if len(analysis.get("Tests", [])) < minimum_tests:
@@ -1107,6 +1111,7 @@ def run_tests(  # pylint: disable=too-many-arguments
         failed_tests,
         destinations_by_name,
         ignore_exception_types,
+        use_legacy_mocking,
     )
 
     if minimum_tests > 1 and not (
@@ -1127,6 +1132,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
     failed_tests: DefaultDict[str, list],
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
+    use_legacy_mocking: bool,
 ) -> DefaultDict[str, list]:
 
     for unit_test in tests:
@@ -1136,11 +1142,28 @@ def _run_tests(  # pylint: disable=too-many-arguments
             mocks = unit_test.get("Mocks")
             mock_methods: Dict[str, Any] = {}
             if mocks:
-                mock_methods = {
-                    each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
-                    for each_mock in mocks
-                    if "objectName" in each_mock and "returnValue" in each_mock
-                }
+                if use_legacy_mocking:
+                    mock_methods = {
+                        each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
+                        for each_mock in mocks
+                        if "objectName" in each_mock and "returnValue" in each_mock
+                    }
+                    logging.info(
+                        f"Using legacy mocking for {detection.detection_id}:{unit_test['Name']}"
+                    )
+                else:
+                    for each_mock in mocks:
+                        if "objectName" in each_mock and "returnValue" in each_mock:
+                            try:
+                                return_object = json.loads(each_mock["returnValue"])
+                                mock_methods[
+                                    each_mock["objectName"]] = MagicMock(return_value=return_object)
+                            except Exception as err:  # pylint: disable=broad-except
+                                logging.warning(
+                                    f"Invalid JSON Mock for "
+                                    f"{detection.detection_id}:{unit_test['Name']} - {err} - {each_mock['returnValue']}"
+                                )
+                                continue
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
@@ -1303,6 +1326,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "A destination name that may be returned by the destinations function. "
         "Repeat the argument to define more than one name.",
     }
+    use_legacy_mocking_name = "--use-legacy-mocking"
+    use_legacy_mocking_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "default": False,
+        "dest": "use_legacy_mocking",
+        "required": False,
+    }
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
@@ -1329,6 +1359,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_test_name, **skip_test_arg)
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
+    release_parser.add_argument(use_legacy_mocking_name, **use_legacy_mocking_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     test_parser = subparsers.add_parser(
@@ -1341,6 +1372,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(ignore_files_name, **ignore_files_arg)
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     test_parser.add_argument(available_destination_name, **available_destination_arg)
+    test_parser.add_argument(use_legacy_mocking_name, **use_legacy_mocking_arg)
     test_parser.set_defaults(func=test_analysis)
 
     publish_parser = subparsers.add_parser(
@@ -1388,6 +1420,7 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     publish_parser.add_argument(available_destination_name, **available_destination_arg)
     publish_parser.add_argument(ignore_files_name, **ignore_files_arg)
+    publish_parser.add_argument(use_legacy_mocking_name, **use_legacy_mocking_arg)
     publish_parser.set_defaults(func=publish_release)
 
     upload_parser = subparsers.add_parser(
@@ -1403,6 +1436,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
+    upload_parser.add_argument(use_legacy_mocking_name, **use_legacy_mocking_arg)
     upload_parser.set_defaults(func=upload_analysis)
 
     update_custom_schemas_parser = subparsers.add_parser(
@@ -1425,6 +1459,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
+    zip_parser.add_argument(use_legacy_mocking_name, **use_legacy_mocking_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     return parser
@@ -1443,6 +1478,7 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("SKIP_DISABLED_TESTS", is_type_of=bool),
             Validator("IGNORE_FILES", is_type_of=(str, list)),
             Validator("AVAILABLE_DESTINATION", is_type_of=(str, list)),
+            Validator("USE_LEGACY_MOCKING", is_type_of=bool),
             Validator("KMS_KEY", is_type_of=str),
             Validator("BODY", is_type_of=str),
             Validator("GITHUB_BRANCH", is_type_of=str),

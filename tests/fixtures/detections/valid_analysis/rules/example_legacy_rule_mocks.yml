@@ -1,10 +1,10 @@
 AnalysisType: rule 
-Filename: example_rule_mocks.py
-DisplayName: MFA Rule
+Filename: example_legacy_rule_mocks.py
+DisplayName: MFA Rule - Legacy Mocks
 Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
 Severity: High
 Threshold: 5
-RuleID: AWS.CloudTrail.MFAEnabledMocks
+RuleID: AWS.CloudTrail.MFAEnabledLegacyMocks
 Enabled: true
 SummaryAttributes:
   - p_log_type
@@ -21,7 +21,7 @@ Runbook: >
 Reference: https://www.link-to-info.io
 Tests:
   -
-    Name: Example Mocking Test
+    Name: Example Legacy Mocking Test
     ExpectedResult: true
     Log:
       Arn: arn:aws:iam::123456789012:user/root
@@ -34,10 +34,10 @@ Tests:
       [
         {
           "objectName": "boto3",
-          "returnValue": "\"example_boto3_return_value\""
+          "returnValue": "example_boto3_return_value"
         },
         {
           "objectName": "date",
-          "returnValue": "[\"example_date_return_value\"]"
+          "returnValue": ["example_date_return_value"]
         }
       ]

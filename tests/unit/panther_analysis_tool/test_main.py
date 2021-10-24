@@ -124,8 +124,8 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(len(invalid_specs), 0)
 
     def test_rules_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules'.split())
-        args.filter_inverted = {}
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules --filter RuleID!=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -241,9 +241,17 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 7)
 
+    def test_with_legacy_mocks(self):
+        args = pat.setup_parser().parse_args(
+            f'test --use-legacy-mocking --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules --filter RuleID=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS RuleID!=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -253,7 +261,7 @@ class TestPantherAnalysisTool(TestCase):
         # Note: a comparison of the tests passed is required to make this test robust
         # (8 passing vs 1 passing)
         args = pat.setup_parser().parse_args(
-            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS Tags!=SOC2'.split())
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS Tags!=SOC2 RuleID!=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -261,8 +269,8 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args(
-            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1'.split())
-        args.filter_inverted = {}
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1 --filter RuleID!=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -309,8 +317,8 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().\
-            parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
-
+            parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/ --filter RuleID!=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
@@ -326,7 +334,8 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         args = pat.setup_parser().parse_args(
-            f'release --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/release/'.split())
+            f'release --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/release/ --filter RuleID!=AWS.CloudTrail.MFAEnabledLegacyMocks'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, _ = pat.generate_release_assets(args)
         analysis_file = 'tmp/release/panther-analysis-all.zip'
         statinfo = os.stat(analysis_file)

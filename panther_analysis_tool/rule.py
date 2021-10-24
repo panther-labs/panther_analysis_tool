@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 import logging
 import os
+import semver
 import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -57,6 +58,9 @@ MAX_GENERATED_FIELD_SIZE = 1000
 
 # Maximum number of destinations
 MAX_DESTINATIONS_SIZE = 10
+
+# Detection support for legacy mocking
+LEGACY_MOCKING_VERSION = semver.VersionInfo.parse("1.26.0")
 
 # The limit for DDB is 400kb per item (we store this one in DDB) and
 # the limit for SQS/SNS is 256KB. The limit of 200kb is an approximation - the other
@@ -110,6 +114,7 @@ class Detection(ABC):
                 (Optional) path: The detection module path
                 (Optional) dedupPeriodMinutes: The period during which
                 the events will be deduplicated
+                (Optional) lastUpdatedVersion: The last version of Panther the detection was updated
         """
         self.logger = get_logger()
 
@@ -132,6 +137,22 @@ class Detection(ABC):
 
         self.detection_id = config["id"]
         self.detection_version = config["versionId"]
+
+        # backwards compatible for legacy mocking
+        if "lastUpdatedVersion" in config:
+            try:
+                detection_version = semver.VersionInfo.parse(config["lastUpdatedVersion"])
+            except ValueError as err:
+                self._setup_exception = err
+                return
+            # semver.compare
+            #   returns -1 when the first version is less than the second
+            #   returns  0 when the two versions are equal
+            #   returns  1 when the first version is greater than the second
+            # So when semver.compare returns 1, the detection requires legacy mocking
+            self.use_legacy_mocking = semver.compare(LEGACY_MOCKING_VERSION, detection_version) == 1
+        else:
+            self.use_legacy_mocking = True
 
         # TODO: severity and other detection metadata is not passed through when we run tests.
         #       https://app.asana.com/0/1200360676535738/1200403272293475
