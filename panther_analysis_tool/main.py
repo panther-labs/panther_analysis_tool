@@ -1135,38 +1135,16 @@ def _run_tests(  # pylint: disable=too-many-arguments
     use_legacy_mocking: bool,
 ) -> DefaultDict[str, list]:
 
-    for unit_test in tests:  # pylint: disable=too-many-nested-blocks
+    for unit_test in tests:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
             mocks = unit_test.get("Mocks")
             mock_methods: Dict[str, Any] = {}
             if mocks:
-                if use_legacy_mocking:
-                    mock_methods = {
-                        each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
-                        for each_mock in mocks
-                        if "objectName" in each_mock and "returnValue" in each_mock
-                    }
-                    logging.info(
-                        "Using legacy mocking for %s:%s}",
-                        detection.detection_id,
-                        unit_test["Name"]
-                    )
-                else:
-                    for each_mock in mocks:
-                        if "objectName" in each_mock and "returnValue" in each_mock:
-                            try:
-                                return_object = json.loads(each_mock["returnValue"])
-                                mock_methods[
-                                    each_mock["objectName"]] = MagicMock(return_value=return_object)
-                            except Exception as err:  # pylint: disable=broad-except
-                                logging.warning(
-                                    "Invalid JSON Mock for %s:%s",
-                                    detection.detection_id,
-                                    unit_test["Name"]
-                                )
-                                continue
+                mock_methods = _resolve_mocks(
+                    mocks, use_legacy_mocking, detection.detection_id, unit_test["Name"]
+                )
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
@@ -1203,6 +1181,32 @@ def _run_tests(  # pylint: disable=too-many-arguments
         _print_test_result(detection, test_result, failed_tests)
 
     return failed_tests
+
+
+def _resolve_mocks(
+    mocks: List[Dict[str, str]],
+    use_legacy_mocking: bool,
+    detection_id: str,
+    test_name: str,
+) -> Dict[str, MagicMock]:
+    mock_methods: Dict[str, Any] = {}
+    if use_legacy_mocking:
+        mock_methods = {
+            each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
+            for each_mock in mocks if "objectName" in each_mock and "returnValue" in each_mock
+        }
+        logging.info("Using legacy mocking for %s:%s}", detection_id, test_name)
+    else:
+        for each_mock in mocks:
+            if "objectName" in each_mock and "returnValue" in each_mock:
+                try:
+                    return_object = json.loads(each_mock["returnValue"])
+                    mock_methods[
+                        each_mock["objectName"]] = MagicMock(return_value=return_object)
+                except Exception:  # pylint: disable=broad-except
+                    logging.warning("Invalid JSON Mock for %s:%s", detection_id, test_name)
+                    continue
+    return mock_methods
 
 
 def _print_test_result(
