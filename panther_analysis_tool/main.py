@@ -1161,7 +1161,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
                             except Exception as err:  # pylint: disable=broad-except
                                 logging.warning(
                                     f"Invalid JSON Mock for "
-                                    f"{detection.detection_id}:{unit_test['Name']} - {err} - {each_mock['returnValue']}"
+                                    f"{detection.detection_id}:{unit_test['Name']}"
                                 )
                                 continue
             test_case: Mapping = entry
