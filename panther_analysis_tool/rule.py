@@ -20,12 +20,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 import logging
 import os
-import semver
 import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional
+
+import semver
 
 from panther_analysis_tool.detection import (
     BaseImporter,

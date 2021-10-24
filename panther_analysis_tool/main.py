@@ -1135,7 +1135,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
     use_legacy_mocking: bool,
 ) -> DefaultDict[str, list]:
 
-    for unit_test in tests:
+    for unit_test in tests:  # pylint: disable=too-many-nested-blocks
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
@@ -1149,7 +1149,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
                         if "objectName" in each_mock and "returnValue" in each_mock
                     }
                     logging.info(
-                        f"Using legacy mocking for {detection.detection_id}:{unit_test['Name']}"
+                        "Using legacy mocking for %s:%s}",
+                        detection.detection_id,
+                        unit_test["Name"]
                     )
                 else:
                     for each_mock in mocks:
@@ -1160,8 +1162,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
                                     each_mock["objectName"]] = MagicMock(return_value=return_object)
                             except Exception as err:  # pylint: disable=broad-except
                                 logging.warning(
-                                    f"Invalid JSON Mock for "
-                                    f"{detection.detection_id}:{unit_test['Name']}"
+                                    "Invalid JSON Mock for %s:%s",
+                                    detection.detection_id,
+                                    unit_test["Name"]
                                 )
                                 continue
             test_case: Mapping = entry
