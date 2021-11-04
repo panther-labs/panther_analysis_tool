@@ -162,6 +162,8 @@ class Detection(ABC):
                 values.sort()
             self.detection_reports = config["reports"]
 
+        self.detection_suppressions = config.get("suppressions", [])
+
         self._setup_exception = None
         try:
             self._module = self._load_detection(self.detection_id, config)
