@@ -1,0 +1,14 @@
+schema: Custom.Sample.Schema3
+description: "Sample Schema 3"
+referenceURL: "https://runpanther.io"
+version: 0
+fields:
+  - name: time
+    description: Event timestamp
+    required: true
+    type: timestamp
+    timeFormat: rfc3339
+    isEventTime: true
+  - name: method
+    description: The HTTP method used for the request
+    type: string
