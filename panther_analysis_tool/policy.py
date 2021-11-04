@@ -37,9 +37,6 @@ class Policy(Detection):
     # a policy should trigger an alert on False return value
     matcher_alert_value = False
 
-    # suppressions for the policy
-    suppressions: List[str] = []
-
     def matcher_function(self, event: Mapping) -> bool:
         command = getattr(self._module, self.matcher_function_name)
         return self._run_command(command, event, bool)

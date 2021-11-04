@@ -161,6 +161,12 @@ class Detection(ABC):
             for values in config["reports"].values():
                 values.sort()
             self.detection_reports = config["reports"]
+        
+        if "suppressions" in config:
+            self.detection_suppressions = config["suppressions"]
+        else:
+            self.detection_suppressions = []
+
 
         self._setup_exception = None
         try:
