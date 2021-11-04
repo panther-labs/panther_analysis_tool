@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from collections.abc import Mapping
-from typing import List
 
 from panther_analysis_tool.rule import Detection
 
