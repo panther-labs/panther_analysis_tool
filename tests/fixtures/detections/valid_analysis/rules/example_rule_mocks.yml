@@ -19,6 +19,7 @@ Tags:
 Runbook: >
   Find out who disabled MFA on the account.
 Reference: https://www.link-to-info.io
+LastUpdatedVersion: 1.26.0
 Tests:
   -
     Name: Example Mocking Test

@@ -1,10 +1,10 @@
 AnalysisType: rule 
-Filename: example_legacy_rule_mocks.py
-DisplayName: MFA Rule - Legacy Mocks
+Filename: example_legacy_rule_mocks_missing_version.py
+DisplayName: MFA Rule - Legacy Mocks - Missing Version
 Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
 Severity: High
 Threshold: 5
-RuleID: AWS.CloudTrail.MFAEnabledLegacyMocks
+RuleID: AWS.CloudTrail.MFAEnabledLegacyMocksMissingVersion
 Enabled: true
 SummaryAttributes:
   - p_log_type
@@ -19,7 +19,6 @@ Tags:
 Runbook: >
   Find out who disabled MFA on the account.
 Reference: https://www.link-to-info.io
-LastUpdatedVersion: 1.25.15
 Tests:
   -
     Name: Example Legacy Mocking Test
