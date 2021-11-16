@@ -1191,22 +1191,22 @@ def _resolve_mocks(
     test_name: str,
 ) -> Dict[str, MagicMock]:
     mock_methods: Dict[str, Any] = {}
-    if use_legacy_mocking:
-        mock_methods = {
-            each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
-            for each_mock in mocks if "objectName" in each_mock and "returnValue" in each_mock
-        }
-        logging.info("Using legacy mocking for %s:%s}", detection_id, test_name)
-    else:
-        for each_mock in mocks:
-            if "objectName" in each_mock and "returnValue" in each_mock:
+    for each_mock in mocks:
+        if "objectName" in each_mock and "returnValue" in each_mock:
+            object_name = each_mock["objectName"]
+            return_value = each_mock["returnValue"]
+            # Deserialize JSON
+            if not use_legacy_mocking:
                 try:
-                    return_object = json.loads(each_mock["returnValue"])
-                    mock_methods[
-                        each_mock["objectName"]] = MagicMock(return_value=return_object)
-                except Exception:  # pylint: disable=broad-except
-                    logging.warning("Invalid JSON Mock for %s:%s", detection_id, test_name)
-                    continue
+                    return_value = json.loads(return_value)
+                except Exception as exc:
+                    logging.error("Invalid JSON Mock for %s:%s", detection_id, test_name)
+                    raise exc
+            # Check for duplicate object names
+            if object_name in mock_methods:
+                logging.error("Duplicate JSON Mock for %s:%s", detection_id, test_name)
+                raise
+            mock_methods[object_name] = MagicMock(return_value=return_value)
     return mock_methods
 
 
