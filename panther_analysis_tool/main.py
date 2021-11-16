@@ -28,6 +28,7 @@ import os
 import re
 import subprocess  # nosec
 import sys
+import warnings
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
@@ -1333,10 +1334,11 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "A destination name that may be returned by the destinations function. "
         "Repeat the argument to define more than one name.",
     }
+    # TODO(wey-chiang): Change default to False in v1.0.0
     use_legacy_mocking_name = "--use-legacy-mocking"
     use_legacy_mocking_arg: Dict[str, Any] = {
         "action": "store_true",
-        "default": False,
+        "default": True,
         "dest": "use_legacy_mocking",
         "required": False,
     }
@@ -1572,6 +1574,12 @@ def run() -> None:
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
+    # TODO(wey-chiang): Remove in v1.0.0
+    warnings.warn(
+        "Legacy JSON Mocking will be deprecated in v1.0.0 requiring changes to unit tests for"
+        " detections or an additional flag for CI/CD pipelines",
+        PendingDeprecationWarning
+    )
     try:
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
