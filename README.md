@@ -30,13 +30,17 @@ $ pip3 install panther_analysis_tool
 If you'd prefer instead to run from source for development reasons, first setup your environment:
 
 ```bash
-$ make venv
-$ source venv/bin/activate
 $ make install
-$ pipenv run -- make deps
 $ pipenv run -- pip3 install -e .
 ```
+## Updating Versions
 
+There exists a utility script to update the version number in relevant files if a new release is being created:
+
+```bash
+cd bin/
+./version_bump.py 0.10.9  #replace with the new version you are releasing
+```
 If you would rather use the `panther_analysis_tool` outside of the virtual environment, install it  directly:
 
 ```bash
