@@ -180,6 +180,7 @@ class Detection(ABC):
                 values.sort()
             self.detection_reports = config["reports"]
 
+        self.detection_suppressions = config.get("suppressions", [])
         try:
             self._module = self._load_detection(self.detection_id, config)
             if not self._is_function_defined(self.matcher_function_name):

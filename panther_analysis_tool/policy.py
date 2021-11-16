@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from collections.abc import Mapping
-from typing import List
 
 from panther_analysis_tool.rule import Detection
 
@@ -36,9 +35,6 @@ class Policy(Detection):
 
     # a policy should trigger an alert on False return value
     matcher_alert_value = False
-
-    # suppressions for the policy
-    suppressions: List[str] = []
 
     def matcher_function(self, event: Mapping) -> bool:
         command = getattr(self._module, self.matcher_function_name)

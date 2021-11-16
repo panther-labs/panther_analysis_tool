@@ -402,6 +402,19 @@ class TestPantherAnalysisTool(TestCase):
                                     'spec': schema2,
                                     'active': False,
                                     'native': False
+                                },
+                                {
+                                    'name': 'Custom.Sample.Schema3',
+                                    'revision': 17,
+                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
+                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
+                                    'managed': False,
+                                    'disabled': False,
+                                    'description': 'A verbose description',
+                                    'referenceURL': 'https://example.com',
+                                    'spec': schema2,
+                                    'active': False,
+                                    'native': False
                                 }
                             ]
                         }
@@ -411,7 +424,7 @@ class TestPantherAnalysisTool(TestCase):
                 return_code, _ = pat.update_custom_schemas(args)
                 assert_equal(return_code, 0)
                 mocks['error'].assert_not_called()
-                assert_equal(mocks['info'].call_count, 2)
+                assert_equal(mocks['info'].call_count, 3)
 
         with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
             with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \

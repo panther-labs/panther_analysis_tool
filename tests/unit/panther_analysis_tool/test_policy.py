@@ -28,6 +28,21 @@ from panther_analysis_tool.policy import Policy, TYPE_POLICY
 class TestPolicy(unittest.TestCase):
     """Unit tests for policy.Policy"""
 
+    def test_policy_suppressions(self) -> None:
+        policy_body = 'def policy(event):\n\treturn True'
+        policy = Policy(
+            {
+                'id': 'test_policy',
+                'body': policy_body,
+                'versionId': 'versionId',
+                'tags': ['tag2', 'tag1'],
+                'severity': 'INFO',
+                'suppressions': ['my-cloud-trail']
+            }
+        )
+
+        self.assertEqual(['my-cloud-trail'], policy.detection_suppressions)
+
     def test_run_true(self) -> None:
         """Imported policy body returns True."""
         policy = Policy({'id': 'test-id', 'body': 'def policy(resource):\n\treturn True', 'severity': 'INFO', 'versionId': 'abcdegh123456'})
