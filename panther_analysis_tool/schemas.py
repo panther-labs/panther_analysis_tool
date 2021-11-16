@@ -134,6 +134,7 @@ POLICY_SCHEMA = Schema(
                 Optional("Mocks"): object,
             }
         ],
+        Optional("LastUpdatedVersion"): str,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -168,6 +169,7 @@ RULE_SCHEMA = Schema(
                 Optional("Mocks"): object,
             }
         ],
+        Optional("LastUpdatedVersion"): str,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
