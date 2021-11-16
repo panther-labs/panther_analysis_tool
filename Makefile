@@ -1,7 +1,7 @@
 packages = panther_analysis_tool
 
 ci:
-	pipenv run $(MAKE) lint unit integration
+	lint unit integration
 
 
 deps:
