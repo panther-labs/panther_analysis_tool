@@ -143,7 +143,7 @@ class Detection(ABC):
         self._setup_exception = None
         if "lastUpdatedVersion" in config:
             try:
-                detection_version = semver.VersionInfo.parse(config["lastUpdatedVersion"])
+                detection_panther_version = semver.VersionInfo.parse(config["lastUpdatedVersion"])
             except Exception as err:  # pylint: disable=broad-except
                 self._setup_exception = err
                 return
@@ -152,7 +152,7 @@ class Detection(ABC):
             #   returns  0 when the two versions are equal
             #   returns  1 when the first version is greater than the second
             # So when semver.compare returns 1, the detection requires legacy mocking
-            self.use_legacy_mocking = semver.compare(LEGACY_MOCKING_VERSION, detection_version) == 1
+            self.use_legacy_mocking = semver.compare(LEGACY_MOCKING_VERSION, detection_panther_version) == 1
         else:
             self.use_legacy_mocking = True
 
