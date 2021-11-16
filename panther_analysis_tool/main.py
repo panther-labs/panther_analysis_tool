@@ -1204,8 +1204,7 @@ def _resolve_mocks(
                     raise exc
             # Check for duplicate object names
             if object_name in mock_methods:
-                logging.error("Duplicate JSON Mock for %s:%s", detection_id, test_name)
-                raise
+                logging.warning("Duplicate JSON Mock for %s:%s", detection_id, test_name)
             mock_methods[object_name] = MagicMock(return_value=return_value)
     return mock_methods
 
