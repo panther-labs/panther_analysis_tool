@@ -1495,6 +1495,17 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             parsed_filters_inverted[key] = split[1].split(",")
         else:
             parsed_filters[key] = split[1].split(",")
+        # Handle boolean fields
+        if key == "Enabled":
+            try:
+                bool_value = bool(strtobool(split[1]))
+            except ValueError:
+                logging.warning("Filter key %s should have either true or false, skipping", key)
+                continue
+            if invert_filter:
+                parsed_filters_inverted[key] = [bool_value]
+            else:
+                parsed_filters[key] = [bool_value]
     return parsed_filters, parsed_filters_inverted
 
 

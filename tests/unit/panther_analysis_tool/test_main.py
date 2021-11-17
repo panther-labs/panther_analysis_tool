@@ -177,17 +177,35 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(len(invalid_specs), 0)
 
     def test_parse_filters(self):
-        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical'.split())
+        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical Enabled=true'.split())
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         assert_true('AnalysisType' in args.filter.keys())
         assert_true('policy' in args.filter['AnalysisType'])
         assert_true('global' in args.filter['AnalysisType'])
         assert_true('Severity' in args.filter.keys())
         assert_true('Critical' in args.filter['Severity'])
+        assert_true('Enabled' in args.filter.keys())
+        assert_true('true' in args.filter['Enabled'])
 
     def test_with_filters(self):
         args = pat.setup_parser().parse_args(
             f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_enabled_filter(self):
+        args = pat.setup_parser().parse_args(
+            f'test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled=true'.split())
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_enabled_filter_inverted(self):
+        args = pat.setup_parser().parse_args(
+            f'test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled!=false'.split())
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
