@@ -1575,7 +1575,7 @@ def run() -> None:
 
     # TODO(wey-chiang): Remove in v1.0.0
     warnings.warn(
-        "Legacy JSON Mocking will be deprecated in v1.0.0 requiring changes to unit tests for"
+        "Plain string return values for Mocks will be deprecated in v1.0.0, in favor of full JSON object support, requiring changes to unit tests for"
         " detections or an additional flag for CI/CD pipelines",
         PendingDeprecationWarning
     )
