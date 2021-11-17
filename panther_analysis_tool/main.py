@@ -1466,8 +1466,8 @@ def dynaconf_argparse_merge(
 
 # Parses the filters, expects a list of strings
 def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    parsed_filters = {}
-    parsed_filters_inverted = {}
+    parsed_filters: Dict[str, Any] = {}
+    parsed_filters_inverted: Dict[str, Any] = {}
     for filt in filters:
         split = filt.split("=")
         if len(split) != 2 or split[0] == "" or split[1] == "":
