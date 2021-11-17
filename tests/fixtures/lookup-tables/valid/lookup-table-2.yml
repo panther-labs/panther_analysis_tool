@@ -1,0 +1,19 @@
+name: RefreshLookupTable
+refresh:
+  roleARN: arn:aws:iam::210768072910:role/PantherLUTsRole-refreshlookuptable
+  objectPath: s3://lookup-foobar/sample_aws_accounts.csv
+  periodMinutes: 30
+  objectKMSKey: test
+description: This example specifies an input file in S3
+enabled: true
+reference: https:/mysamplelookupdocpage.com
+logTypeMap:
+  primaryKey: awsacctid
+  associatedLogTypes:
+    - logType: AWS.CloudTrail
+      selectors:
+        - "$userIdentity.accountId" # This is JSON path and needs to start with $
+        - "recipientAccountId"
+lookupSchema:
+  logType: Custom.AWSAccountIDs
+  indexType: simple

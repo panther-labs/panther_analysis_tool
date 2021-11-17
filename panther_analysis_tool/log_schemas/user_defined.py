@@ -244,7 +244,6 @@ class Uploader:
 
             name, error = self._extract_schema_name(processed_file.yaml)
             result = UploaderResult(filename=filename, name=name, error=error)
-
             # Don't attempt to perform an update, if we could not extract the name from the file
             if not result.error:
                 existed, success, response = self._update_or_create_schema(name, processed_file)

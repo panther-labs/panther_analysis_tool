@@ -26,14 +26,15 @@ class TestUtilities(unittest.TestCase):
     def test_discover_files(self):
         path = os.path.join(FIXTURES_PATH, 'custom-schemas', 'valid')
         files = user_defined.discover_files(path, user_defined.Uploader._SCHEMA_FILE_GLOB_PATTERNS)
-        self.assertListEqual(files, [os.path.join(path, 'schema-1.yml'),
+        self.assertListEqual(files, [os.path.join(path, 'lookup-table-schema-1.yml'),
+                                     os.path.join(path, 'schema-1.yml'),
                                      os.path.join(path, 'schema-2.yaml'),
                                      os.path.join(path, 'schema-3.yml'),
                                      os.path.join(path, 'schema_1_tests.yml')])
 
     def test_ignore_schema_test_files(self):
         base_path = os.path.join(FIXTURES_PATH, 'custom-schemas', 'valid')
-        schema_files = ['schema-1.yml', 'schema-2.yml', 'schema-3.yml']
+        schema_files = ['lookup-table-schema-1.yml', 'schema-1.yml', 'schema-2.yml', 'schema-3.yml']
         schema_test_files = ['schema_1_tests.yml']
 
         all_files = [os.path.join(base_path, filename) for filename in schema_files + schema_test_files]
@@ -52,6 +53,10 @@ class TestUploader(unittest.TestCase):
     def setUp(self) -> None:
         self.valid_schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/valid')
         self.invalid_schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/invalid')
+
+        with open(os.path.join(self.valid_schema_path, 'lookup-table-schema-1.yml')) as f:
+            self.valid_schema0 = f.read()
+
         with open(os.path.join(self.valid_schema_path, 'schema-1.yml')) as f:
             self.valid_schema1 = f.read()
 
@@ -63,6 +68,19 @@ class TestUploader(unittest.TestCase):
 
         self.list_schemas_response = {
             'results': [
+               {
+                    'name': 'Custom.AWSAccountIDs',
+                    'revision': 17,
+                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
+                    'createdAt': '2021-05-11T14:08:08.42627193Z',
+                    'managed': False,
+                    'disabled': True,
+                    'description': 'A verbose description',
+                    'referenceURL': 'https://example.com',
+                    'spec': self.valid_schema0,
+                    'active': False,
+                    'native': False
+                },
                 {
                     'name': 'Custom.SampleSchema1',
                     'revision': 17,
@@ -144,14 +162,15 @@ class TestUploader(unittest.TestCase):
                         self.list_schemas_response['results']):
             uploader = user_defined.Uploader(self.valid_schema_path, None)
             self.assertDictEqual(uploader.find_schema('Custom.SampleSchema2'),
-                                 self.list_schemas_response['results'][1])
+                                 self.list_schemas_response['results'][2])
             self.assertIsNone(uploader.find_schema('unknown-schema'))
 
     def test_files(self):
         uploader = user_defined.Uploader(self.valid_schema_path, None)
         self.assertListEqual(
             uploader.files,
-            [os.path.join(self.valid_schema_path, 'schema-1.yml'),
+            [os.path.join(self.valid_schema_path, 'lookup-table-schema-1.yml'),
+             os.path.join(self.valid_schema_path, 'schema-1.yml'),
              os.path.join(self.valid_schema_path, 'schema-2.yaml'),
              os.path.join(self.valid_schema_path, 'schema-3.yml')]
         )
@@ -178,13 +197,20 @@ class TestUploader(unittest.TestCase):
             )
             uploader = user_defined.Uploader(self.valid_schema_path, None)
             results = uploader.process()
-            self.assertEqual(len(results), 3)
+            self.assertEqual(len(results), 4)
             self.assertListEqual([r.name for r in results],
-                                 ['Custom.SampleSchema1', 'Custom.SampleSchema2', 'Custom.Sample.Schema3'])
-            self.assertListEqual([r.existed for r in results], [True, True, True])
-            self.assertEqual(mock_uploader_client.put_schema.call_count, 3)
+                                 ['Custom.AWSAccountIDs', 'Custom.SampleSchema1', 'Custom.SampleSchema2', 'Custom.Sample.Schema3'])
+            self.assertListEqual([r.existed for r in results], [True, True, True, True])
+            self.assertEqual(mock_uploader_client.put_schema.call_count, 4)
             mock_uploader_client.put_schema.assert_has_calls(
               [
+                  mock.call(
+                      name="Custom.AWSAccountIDs",
+                      definition=self.valid_schema0,
+                      description='Sample Lookup Table Schema 1',
+                      reference_url='https://runpanther.io',
+                      revision=17
+                  ),
                   mock.call(
                       name="Custom.SampleSchema1",
                       definition=self.valid_schema1,

@@ -46,6 +46,7 @@ from uuid import uuid4
 
 import botocore
 import requests
+import schema
 from dynaconf import Dynaconf, Validator
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
@@ -63,6 +64,7 @@ from schema import (
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.lookup_tables import lookup_table
 from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.policy import TYPE_POLICY, Policy
@@ -70,6 +72,7 @@ from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
+    LOOKUP_TABLE_SCHEMA,
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
@@ -98,11 +101,12 @@ RULES_PATH_PATTERN = "*rules*"
 DATAMODEL = "datamodel"
 DETECTION = "detection"
 GLOBAL = "global"
+LOOKUP_TABLE = "lookup_table"
 PACK = "pack"
 POLICY = "policy"
 QUERY = "scheduled_query"
-SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
+SCHEDULED_RULE = "scheduled_rule"
 
 RESERVED_FUNCTIONS = (
     "alert_context",
@@ -120,6 +124,7 @@ VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
+    LOOKUP_TABLE: LOOKUP_TABLE,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
@@ -254,7 +259,7 @@ def load_analysis_specs(
                         try:
                             yield spec_filename, relative_path, yaml.load(spec_file_obj), None
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
-                            # recreate the yaml object and yeild the error
+                            # recreate the yaml object and yield the error
                             yaml = YAML(typ="safe")
                             yield spec_filename, relative_path, None, err
                 if fnmatch(filename, "*.json"):
@@ -486,6 +491,81 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
 
     return 0, ""
+
+
+def parse_lookup_table(args: argparse.Namespace) -> dict:
+    """Validates and parses a Lookup Table spec file
+
+    Returns a dict representing the Lookup Table
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A dict representing the Lookup Table, empty when parsing fails
+    """
+
+    logging.info("Parsing the Lookup Table spec defined in %s", args.path)
+    with open(args.path, "r") as input_file:
+        try:
+            yaml = YAML(typ="safe")
+            lookup_spec = yaml.load(input_file)
+            logging.info("Successfully parse the Lookup Table file %s", args.path)
+        except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
+            logging.error("Failed to parse the Lookup Table spec file %s", input_file)
+            logging.error(err)
+            return {}
+        try:
+            LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
+            logging.info("Successfully validated the Lookup Table file %s", args.path)
+        except (schema.SchemaError, schema.SchemaMissingKeyError, schema.SchemaWrongKeyError,
+                schema.SchemaForbiddenKeyError, schema.SchemaUnexpectedTypeError,
+                schema.SchemaOnlyOneAllowedError) as err:
+            logging.error("Invalid schema in the Lookup Table spec file %s", input_file)
+            logging.error(err)
+            return {}
+    return lookup_spec
+
+
+def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
+    """Validates a Lookup Table spec file
+
+    Returns 1 if the validation fails
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and and empty string (to satisfy calling conventions)
+    """
+
+    logging.info("Validating the Lookup Table spec defined in %s", args.path)
+    lookup_spec = parse_lookup_table(args)
+    if not lookup_spec:
+        return 1,""
+    return 0,""
+
+
+def update_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
+    """Updates or creates a Lookup Table
+
+    Returns 1 if the update/create fails.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and an empty string (to satisfy calling conventions)
+    """
+
+    logging.info("Updating the Lookup Table spec defined in %s", args.path)
+    lookup_spec = parse_lookup_table(args)
+    if not lookup_spec:
+        return 1, ""
+    spec_dir = os.path.dirname(args.path)
+    lut = lookup_table.LookupTable(lookup_spec, spec_dir, args.aws_profile)
+    return lut.update(), ""
+>>>>>>> 8a564af (Add Lookup Table upload support to PAT)
 
 
 def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
@@ -1356,6 +1436,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "The relative path to Panther policies and rules.",
         "required": False,
     }
+    lut_path_name = "--path"
+    lut_path_arg: Dict[str, Any] = {
+        "default": ".",
+        "type": str,
+        "help": "The relative path to a lookup table input file.",
+        "required": True,
+    }
     skip_test_name = "--skip-tests"
     skip_test_arg: Dict[str, Any] = {
         "action": "store_true",
@@ -1522,6 +1609,20 @@ def setup_parser() -> argparse.ArgumentParser:
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
+
+    update_lookup_table_parser = subparsers.add_parser(
+        "update-lookup-table", help="Update or create a Lookup Table in a Panther deployment."
+    )
+    update_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    update_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
+    update_lookup_table_parser.set_defaults(func=update_lookup_table)
+
+    test_lookup_table_parser = subparsers.add_parser(
+        "test-lookup-table", help="Validate a Lookup Table spec file."
+    )
+    test_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    test_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
+    test_lookup_table_parser.set_defaults(func=test_lookup_table)
 
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."
