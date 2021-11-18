@@ -48,10 +48,11 @@ LOG_TYPE_REGEX = Regex(
     r"Lacework\.Events|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit\.Exchange"
     r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
-    r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|Salesforce\.Login|Salesforce\."
-    r"LoginAs|Salesforce\.Logout|Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|"
-    r"Slack\.IntegrationLogs|Sophos\.Central|Suricata\.Anomaly|Suricata\.DNS|Syslog\."
-    r"RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk\.AuditLog|Custom\.[A-Za-z0-9-\.]+)$"
+    r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
+    r"\.SignInAttempt|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|Salesforce\."
+    r"URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata"
+    r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
+    r"\.AuditLog|Zoom\.Activity|Zoom\.Operation|Custom\.[A-Za-z0-9-\.]+)$"
 )
 
 TYPE_SCHEMA = Schema(
