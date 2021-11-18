@@ -53,7 +53,7 @@ LOG_TYPE_REGEX = Regex(
     r"URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata"
     r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation|"
-    r"Custom\.([A-Z][A-Za-z0-9]+)(\.[A-Z][A-Za-z0-9]+){0,5})$"
+    r"Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
 )
 
 TYPE_SCHEMA = Schema(
