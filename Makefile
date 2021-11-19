@@ -2,14 +2,13 @@ packages = panther_analysis_tool
 
 ci: lint unit integration
 
+
 deps:
-	pip3 install -r requirements.txt
-	pip3 install -r dev-requirements.txt
+	pipenv install --dev
 
 deps-update:
 	pipenv update
-	pipenv lock -r --dev-only > dev-requirements.txt
-	pipenv lock -r > requirements.txt
+	pipenv lock -r  > requirements.txt
 
 lint:
 	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores
@@ -17,16 +16,14 @@ lint:
 	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912,too-many-lines --max-line-length=100
 
 venv:
-	virtualenv -p python3.7 venv
+	pipenv install --dev
 
 fmt:
 	pipenv run isort --profile=black $(packages)
 	pipenv run black --line-length=100 $(packages)
 
 install:
-	pip3 install --upgrade pip
-	pip3 install pipenv --upgrade
-	pipenv install
+	pipenv install --dev
 
 unit:
 	pipenv run nosetests -v
@@ -36,7 +33,7 @@ integration:
 	rm -rf panther-analysis
 	git clone https://github.com/panther-labs/panther-analysis.git
 	cd panther-analysis && pipenv lock -r  | grep -v 'panther-analysis-tool==' > requirements.ci.txt
-	cd panther-analysis && pip install -r requirements.ci.txt
+	cd panther-analysis && pipenv install -r requirements.ci.txt
 	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
 
 test: unit

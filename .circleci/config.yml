@@ -8,7 +8,7 @@ jobs:
         - checkout
         - run:
             name: Setup the Virtual Environment
-            command: make venv && source venv/bin/activate && echo 'source venv/bin/activate' >> $BASH_ENV
+            command: make venv
         - run:
             name: Install core utilities
             command: make install
