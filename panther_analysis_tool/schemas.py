@@ -29,7 +29,7 @@ RESOURCE_TYPE_REGEX = Regex(
     r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
 )
 LOG_TYPE_REGEX = Regex(
-    r"^(Apache\.AccessCombined|Apache\.AccessCommon|AWS\.ALB|AWS\.AuroraMySQLAudit|AWS"
+    r"^(Apache\.AccessCombined|Apache\.AccessCommon|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit|AWS"
     r"\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents|AWS"
     r"\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
     r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
