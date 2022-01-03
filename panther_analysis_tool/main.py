@@ -33,7 +33,10 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
-from distutils.util import strtobool
+# Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
+# It seems to be unable to import the distutils module, however the module is present and importable
+# in the Python Repl.
+from distutils.util import strtobool #pylint: disable=E0611, E0401
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
