@@ -33,7 +33,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
-from distutils.util import strtobool
+from distutils.util import strtobool #pylint: disable=E0611, E0401
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
