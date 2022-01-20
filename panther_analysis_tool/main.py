@@ -33,10 +33,11 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
+
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
-from distutils.util import strtobool #pylint: disable=E0611, E0401
+from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
@@ -394,6 +395,38 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         body = json.loads(response_payload["body"])
         logging.info("Upload success.")
         logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
+
+    return 0, ""
+
+
+def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
+
+    client = get_client(args.aws_profile, "lambda")
+    analysis_id_list = args.analysis_id
+    payload:dict = {"deleteDetections": {"entries": []}}
+
+    for analysis_id in analysis_id_list:
+        payload["deleteDetections"]["entries"].append({"id": analysis_id})
+
+    response = client.invoke(
+        FunctionName="panther-analysis-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(payload),
+    )
+
+    response_str = response["Payload"].read().decode("utf-8")
+    response_payload = json.loads(response_str)
+
+    if response_payload.get("statusCode") != 200:
+        logging.warning(
+            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
+            response_payload.get("statusCode", 0),
+            response_payload.get("errorMessage", response_payload.get("body")),
+        )
+        return 1, ""
+
+    logging.info("Detection has been deleted.")
 
     return 0, ""
 
@@ -1306,13 +1339,22 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "A destination name that may be returned by the destinations function. "
         "Repeat the argument to define more than one name.",
     }
+    analysis_id_name = "--analysis-id"
+    analysis_id_arg: Dict[str, Any] = {
+        "required": True,
+        "dest": "analysis_id",
+        "nargs": "+",
+        "help": "Space separated list of Rule or Policy IDs",
+        "type": str,
+        "default": [],
+    }
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.10.6")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.11.0")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
@@ -1407,6 +1449,13 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.set_defaults(func=upload_analysis)
+
+    delete_parser = subparsers.add_parser(
+        "delete", help="Delete specified policies or rules from a Panther deployment"
+    )
+    delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
+    delete_parser.set_defaults(func=delete_analysis)
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
