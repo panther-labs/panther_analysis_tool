@@ -403,31 +403,39 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     client = get_client(args.aws_profile, "lambda")
     analysis_id_list = args.analysis_id
-    payload:dict = {"deleteDetections": {"entries": []}}
+    analysis_id_string = " ".join(analysis_id_list)
+    payload: dict = {"deleteDetections": {"entries": []}}
 
-    for analysis_id in analysis_id_list:
-        payload["deleteDetections"]["entries"].append({"id": analysis_id})
+    logging.warning("You are about to delete detections %s", analysis_id_string)
+    confirm = input("Continue? (y/n)")
 
-    response = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(payload),
-    )
+    if confirm.lower() == "y":
 
-    response_str = response["Payload"].read().decode("utf-8")
-    response_payload = json.loads(response_str)
+        for analysis_id in analysis_id_list:
+            payload["deleteDetections"]["entries"].append({"id": analysis_id})
 
-    if response_payload.get("statusCode") != 200:
-        logging.warning(
-            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
-            response_payload.get("statusCode", 0),
-            response_payload.get("errorMessage", response_payload.get("body")),
+        response = client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps(payload),
         )
-        return 1, ""
 
-    logging.info("Detection has been deleted.")
+        response_str = response["Payload"].read().decode("utf-8")
+        response_payload = json.loads(response_str)
 
+        if response_payload.get("statusCode") != 200:
+            logging.warning(
+                "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
+                response_payload.get("statusCode", 0),
+                response_payload.get("errorMessage", response_payload.get("body")),
+            )
+            return 1, ""
+
+        logging.info("Detection has been deleted.")
+
+        return 0, ""
+    print("Cancelled")
     return 0, ""
 
 
