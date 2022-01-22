@@ -399,18 +399,59 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
+# pylint: disable=too-many-locals
 def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     client = get_client(args.aws_profile, "lambda")
     analysis_id_list = args.analysis_id
-    analysis_id_string = " ".join(analysis_id_list)
     payload: dict = {"deleteDetections": {"entries": []}}
 
+    # Validate the Detection that we are deleting exists in Panther
+    validation_payload = {"listDetections": {"ids": analysis_id_list, "fields": ["id"]}}
+
+    validation = client.invoke(
+        FunctionName="panther-analysis-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(validation_payload),
+    )
+
+    validation_string = json.loads(validation["Payload"].read().decode("utf-8"))["body"]
+    analysis_found_count = json.loads(validation_string)["paging"]["totalItems"]
+
+    if len(analysis_id_list) != analysis_found_count:
+        analysis_found = []
+        analysis_confirmed = []
+        for i in range(len(analysis_id_list)):
+            # If we find none then the empty list will throw an index error, so catch it
+            try:
+                analysis_found.append(json.loads(validation_string)["detections"][i]["id"])
+            except IndexError:
+                continue
+
+
+        # Build a list of analysis we've confirmed are in Panther
+        for analysis in analysis_id_list:
+            if analysis not in analysis_found:
+                logging.info("%s was not found, skipping...", analysis)
+            else:
+                analysis_confirmed.append(analysis)
+
+        # If nothing was found bail out, otherwise prepare to delete what has been confirmed
+        if len(analysis_confirmed) == 0:
+            logging.error("No matching analysis found, exiting")
+            return 1, ""
+
+        analysis_id_list = analysis_confirmed
+
+    # Get user confirmation to delete
+    analysis_id_string = " ".join(analysis_id_list)
     logging.warning("You are about to delete detections %s", analysis_id_string)
     confirm = input("Continue? (y/n)")
 
     if confirm.lower() == "y":
 
+        # After conirmation and validation then delete
         for analysis_id in analysis_id_list:
             payload["deleteDetections"]["entries"].append({"id": analysis_id})
 
