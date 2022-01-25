@@ -471,5 +471,14 @@ class TestPantherAnalysisTool(TestCase):
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
 
-
-
+    def test_analysis_validation_function(self):
+        """Validation function only returns analysis that exist in Panther"""
+        requested_deletion = ['Rule.Does.Exist', 'Rule.Doesnt.Exist']
+        args = pat.setup_parser().parse_args(f'delete '
+                                            f'--analysis-id '
+                                            f'{requested_deletion}'.split())
+        with mock.patch('panther_analysis_tool.main.confirm_analysis_exists') as validation_function:
+            validation_function.validation = {}
+            validation_function.validation_string = '{"paging":{"thisPage":1,"totalPages":1,"totalItems":1},"detections":[{"complianceStatus":"","resourceTypes":[],"suppressions":[],"dedupPeriodMinutes":0,"logTypes":[],"scheduledQueries":[],"summaryAttributes":[],"threshold":0,"analysisType":"","body":"","createdAt":"0001-01-01T00:00:00Z","createdBy":"","description":"","displayName":"","enabled":false,"id":"Rule.Does.Exist","lastModified":"0001-01-01T00:00:00Z","lastModifiedBy":"","outputIds":[],"packIds":[],"reference":"","reports":{},"runbook":"","severity":"","tags":[],"tests":[],"versionId":"","managed":false,"parentId":""}]}'
+            validated_list = pat.confirm_analysis_exists(args, requested_deletion)
+            assert_equal(len(validated_list), 1)
