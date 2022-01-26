@@ -418,7 +418,6 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
         analysis_found_count = json.loads(validation_string)["paging"]["totalItems"]
 
     if len(analysis_id_list) != analysis_found_count:
-        analysis_confirmed = []
         analysis_found = {}
         # To handle mocks in testing, converting to string does not result in a processable string
         if isinstance(validation_string, dict):
@@ -432,9 +431,9 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
         for analysis in analysis_id_list:
             if analysis not in analysis_found:
                 logging.info("%s was not found, skipping...", analysis)
-            else:
-                analysis_confirmed.append(analysis)
-        return analysis_confirmed
+
+        return list(analysis_found.keys())
+
     return analysis_id_list
 
 
@@ -447,13 +446,11 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     # Validate the Detection that we are deleting exists in Panther
     # If nothing was found bail out, otherwise prepare to delete what has been confirmed
-    analysis_confirmed = confirm_analysis_exists(args, analysis_id_list)
 
-    if len(analysis_confirmed) == 0:
+    analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
+    if len(analysis_id_list) == 0:
         logging.error("No matching analysis found, exiting")
         return 1, ""
-
-    analysis_id_list = analysis_confirmed
 
     # Get user confirmation to delete
     analysis_id_string = " ".join(analysis_id_list)
