@@ -411,12 +411,20 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     )
 
     validation_string = json.loads(validation["Payload"].read().decode("utf-8"))["body"]
-    analysis_found_count = json.loads(validation_string)["paging"]["totalItems"]
+    # To handle mocks in testing, converting to string does not result in a processable string
+    if isinstance(validation_string, dict):
+        analysis_found_count = validation_string["paging"]["totalItems"]
+    else:
+        analysis_found_count = json.loads(validation_string)["paging"]["totalItems"]
 
     if len(analysis_id_list) != analysis_found_count:
         analysis_confirmed = []
         analysis_found = {}
-        json_output = json.loads(validation_string)
+        # To handle mocks in testing, converting to string does not result in a processable string
+        if isinstance(validation_string, dict):
+            json_output = validation_string
+        else:
+            json_output = json.loads(validation_string)
 
         for detection in json_output["detections"]:
             analysis_found[detection["id"]] = detection
