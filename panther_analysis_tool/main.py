@@ -476,7 +476,7 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         )
         return 1, ""
 
-    logging.info("Detection has been deleted.")
+    logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
 
     return 0, ""
 
