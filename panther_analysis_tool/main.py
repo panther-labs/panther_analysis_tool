@@ -413,13 +413,7 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     api_response = json.loads(validation["Payload"].read().decode("utf-8"))
     json_response = api_response["body"]
 
-    # The mock will result in a dict, the actual api returns a string.
-    # The following block deals with that deviation
-    if isinstance(json_response, dict):
-        json_output = json_response
-    # Normal Execution will hit the else clause
-    else:
-        json_output = json.loads(json_response)
+    json_output = json.loads(json_response)
 
     if len(analysis_id_list) != json_output["paging"]["totalItems"]:
         analysis_found = {}
