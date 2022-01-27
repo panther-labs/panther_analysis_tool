@@ -448,7 +448,7 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     # Get user confirmation to delete
     analysis_id_string = " ".join(analysis_id_list)
     logging.warning("You are about to delete detections %s", analysis_id_string)
-    confirm = input("Continue? (y/n)")
+    confirm = input("Continue? (y/n) ")
 
     if confirm.lower() != "y":
         print("Cancelled")
