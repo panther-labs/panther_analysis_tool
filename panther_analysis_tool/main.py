@@ -456,34 +456,34 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     logging.warning("You are about to delete detections %s", analysis_id_string)
     confirm = input("Continue? (y/n)")
 
-    if confirm.lower() == "y":
-
-        # After conirmation and validation then delete
-        for analysis_id in analysis_id_list:
-            payload["deleteDetections"]["entries"].append({"id": analysis_id})
-
-        response = client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
-
-        response_str = response["Payload"].read().decode("utf-8")
-        response_payload = json.loads(response_str)
-
-        if response_payload.get("statusCode") != 200:
-            logging.warning(
-                "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
-                response_payload.get("statusCode", 0),
-                response_payload.get("errorMessage", response_payload.get("body")),
-            )
-            return 1, ""
-
-        logging.info("Detection has been deleted.")
-
+    if confirm.lower() != "y":
+        print("Cancelled")
         return 0, ""
-    print("Cancelled")
+
+    # After conirmation and validation then delete
+    for analysis_id in analysis_id_list:
+        payload["deleteDetections"]["entries"].append({"id": analysis_id})
+
+    response = client.invoke(
+        FunctionName="panther-analysis-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(payload),
+    )
+
+    response_str = response["Payload"].read().decode("utf-8")
+    response_payload = json.loads(response_str)
+
+    if response_payload.get("statusCode") != 200:
+        logging.warning(
+            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
+            response_payload.get("statusCode", 0),
+            response_payload.get("errorMessage", response_payload.get("body")),
+        )
+        return 1, ""
+
+    logging.info("Detection has been deleted.")
+
     return 0, ""
 
 
