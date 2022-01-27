@@ -410,6 +410,13 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
         Payload=json.dumps(validation_payload),
     )
 
+    if validation["ResponseMetadata"]["HTTPStatusCode"] != 200:
+        logging.warning(
+            "Failed to validate analysis, API error.\n\t status code: %s",
+            validation["ResponseMetadata"]["HTTPStatusCode"],
+        )
+        return []
+
     api_response = json.loads(validation["Payload"].read().decode("utf-8"))
     json_response = api_response["body"]
 

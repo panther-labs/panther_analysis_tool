@@ -497,7 +497,7 @@ class TestPantherAnalysisTool(TestCase):
 
 
         invoke_mock = mock.MagicMock(return_value=rv)
-        invoke_mock.invoke.return_value = {"Payload":  BytesIO(rv)}
+        invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload":  BytesIO(rv)}
         patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
         with mock.patch.multiple("panther_analysis_tool.main", **patch):
             validated_list = pat.confirm_analysis_exists(args, requested_deletion)
