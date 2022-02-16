@@ -38,16 +38,14 @@ class LookupTable:
             spec_dir: a string representing the directory containing the spec file
             aws_profile: a string respresenting the AWS profile used to run PAT
         """
-        self._name = spec["name"]
         self._spec = spec
         self._spec_dir = spec_dir
         self._aws_profile = aws_profile
         self._client = get_client(self._aws_profile, "lambda")
         self._lookup_id = None
-        self._input_bucket = ""
         self._data_file = self._spec.get('dataFile', None)
         self._refresh = self._spec.get('refresh', None)
-        logging.info("Creating/updating the lookup table %s", self._name)
+        logging.info("Creating/updating the lookup table %s", self._spec["name"])
 
 
     def update(self) -> int:
@@ -60,11 +58,11 @@ class LookupTable:
         Returns:
         An integer return code
         """
-        logging.info("Creating or updating the %s lookup table", self._name)
+        logging.info("Creating or updating the %s lookup table", self._spec["name"])
 
         create_update = {
             "createOrUpdateLookup":
-            {"name": self._name, "enabled": self._spec["enabled"],
+            {"name": self._spec["name"], "enabled": self._spec["enabled"],
              "description": self._spec.get("description", ""),
              "reference": self._spec.get("reference", ""),
              "lookupSchema": self._spec["lookupSchema"],
@@ -89,7 +87,7 @@ class LookupTable:
         if status_code != 200 or error_msg:
             logging.warning(
                 "Failed to create/update the %s Lookup Table\n\tstatus code: %s\n\terror: %s",
-                self._name,
+                self._spec["name"],
                 status_code,
                 response_payload.get("errorMessage", response_payload.get("body")),
             )
@@ -132,12 +130,12 @@ class LookupTable:
 
             if put_response.status_code != 200:
                 logging.warning(
-                    "Failed to upload the the data file %s to the %s bucket\nhttp response: %s",
-                    self._data_file, self._input_bucket, put_response.text)
+                    "Failed to upload the the data file %s\nhttp response: %s",
+                    self._data_file, put_response.text)
         except Exception as err: # pylint: disable=broad-except
             logging.warning(
-                "Failed to upload the the data file %s to the %s bucket\nerror message: %s",
-                self._data_file, self._input_bucket, err)
+                "Failed to upload the the data file %s\nerror message: %s",
+                self._data_file, err)
         return upload_url
 
 
@@ -149,7 +147,7 @@ class LookupTable:
              {"id": self._lookup_id, "s3Path": s3_url, "isPresigned": True}
             }
         )
-        logging.info("Uploading the S3 input data to the %s Lookup Table", self._name)
+        logging.info("Uploading the S3 input data to the %s Lookup Table", self._spec["name"])
         logging.debug(request_payload)
 
         response = self._client.invoke(
@@ -169,7 +167,7 @@ class LookupTable:
                 "Failed to upload the S3 file %s to the %s Lookup Table\n\tstatus code: %s \
                 \n\terror message: %s",
                 s3_url,
-                self._name,
+                self._spec["name"],
                 status_code,
                 response_payload.get("errorMessage", response_payload.get("body")),
             )
