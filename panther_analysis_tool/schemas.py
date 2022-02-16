@@ -190,3 +190,39 @@ SCHEDULED_QUERY_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+LOOKUP_TABLE_SCHEMA = Schema(
+    {
+        "name": str,
+        "enabled": bool,
+        Or("dataFile", "refresh"): Or(str, {
+            "roleARN": str,
+            "objectPath": str,
+            Optional("periodMinutes"): int,
+            Optional("objectKMSKey"): str,
+        }),
+        "lookupSchema":
+        {
+            "logType": str,
+            Optional(
+                "indexType"
+                ): str
+        },
+        "logTypeMap":
+            {
+                "primaryKey": str,
+                "associatedLogTypes": [
+                    {
+                        "logType": str,
+                        Optional(
+                            "selectors"
+                        ): [str]
+                     }
+                ]
+            }
+        ,
+        Optional("description"): str,
+        Optional("reference"): str,
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields

@@ -1,0 +1,18 @@
+schema: Custom.AWSAccountIDs
+description: "Sample Lookup Table Schema 1"
+referenceURL: "https://runpanther.io"
+version: 0
+parser:
+    csv:
+        delimiter: ','
+        hasHeader: true
+fields:
+  - name: email
+    required: true
+    type: string
+  - name: awsacctid
+    required: true
+    type: string
+  - name: isProduction
+    required: true
+    type: string
