@@ -421,8 +421,9 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return self._default_dedup_string
-            raise
+                dedup_string = repr(err)
+            else:
+                raise
 
         if not dedup_string:
             # If dedup string is None or empty, return the default dedup string
@@ -465,8 +466,9 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return ""
-            raise
+                description = repr(err)
+            else:
+                raise
 
         if len(description) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
@@ -494,7 +496,7 @@ class Detection(ABC):
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info("destinations method raised exception. Exception: %s", err)
-                return None
+                return []
             raise
         # Return early if destinations returned None
         if destinations is None:
@@ -564,8 +566,9 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return ""
-            raise
+                reference = repr(err)
+            else:
+                raise
 
         if len(reference) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
@@ -593,8 +596,9 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return ""
-            raise
+                runbook = repr(err)
+            else:
+                raise
 
         if len(runbook) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
@@ -651,8 +655,7 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return self.detection_id
-            raise
+                title = repr(err)
 
         if len(title) > MAX_GENERATED_FIELD_SIZE:
             # If generated field exceeds max size, truncate it
