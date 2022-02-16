@@ -565,7 +565,6 @@ def update_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     spec_dir = os.path.dirname(args.path)
     lut = lookup_table.LookupTable(lookup_spec, spec_dir, args.aws_profile)
     return lut.update(), ""
->>>>>>> 8a564af (Add Lookup Table upload support to PAT)
 
 
 def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
