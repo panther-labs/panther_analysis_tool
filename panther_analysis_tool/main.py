@@ -64,9 +64,9 @@ from schema import (
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.lookup_tables import lookup_table
 from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.lookup_tables import lookup_table
 from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
@@ -457,16 +457,17 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         logging.error("No matching analysis found, exiting")
         return 1, ""
 
-    # Get user confirmation to delete
-    analysis_id_string = " ".join(analysis_id_list)
-    logging.warning("You are about to delete detections %s", analysis_id_string)
-    confirm = input("Continue? (y/n) ")
+    # Unless explicitly bypassed, get user confirmation to delete
+    if not args.confirm_bypass:
+        analysis_id_string = " ".join(analysis_id_list)
+        logging.warning("You are about to delete detections %s", analysis_id_string)
+        confirm = input("Continue? (y/n) ")
 
-    if confirm.lower() != "y":
-        print("Cancelled")
-        return 0, ""
+        if confirm.lower() != "y":
+            print("Cancelled")
+            return 0, ""
 
-    # After conirmation and validation then delete
+    # After confirmation and validation then delete
     for analysis_id in analysis_id_list:
         payload["deleteDetections"]["entries"].append({"id": analysis_id})
 
@@ -518,9 +519,14 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
         try:
             LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             logging.info("Successfully validated the Lookup Table file %s", args.path)
-        except (schema.SchemaError, schema.SchemaMissingKeyError, schema.SchemaWrongKeyError,
-                schema.SchemaForbiddenKeyError, schema.SchemaUnexpectedTypeError,
-                schema.SchemaOnlyOneAllowedError) as err:
+        except (
+            schema.SchemaError,
+            schema.SchemaMissingKeyError,
+            schema.SchemaWrongKeyError,
+            schema.SchemaForbiddenKeyError,
+            schema.SchemaUnexpectedTypeError,
+            schema.SchemaOnlyOneAllowedError,
+        ) as err:
             logging.error("Invalid schema in the Lookup Table spec file %s", input_file)
             logging.error(err)
             return {}
@@ -542,8 +548,8 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     logging.info("Validating the Lookup Table spec defined in %s", args.path)
     lookup_spec = parse_lookup_table(args)
     if not lookup_spec:
-        return 1,""
-    return 0,""
+        return 1, ""
+    return 0, ""
 
 
 def update_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
@@ -1595,6 +1601,12 @@ def setup_parser() -> argparse.ArgumentParser:
 
     delete_parser = subparsers.add_parser(
         "delete", help="Delete specified policies or rules from a Panther deployment"
+    )
+    delete_parser.add_argument(
+        "--no-confirm",
+        help="Skip manual confirmation of deletion",
+        action="store_true",
+        dest="confirm_bypass",
     )
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)

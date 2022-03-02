@@ -17,15 +17,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os
 import json
 import logging
+import os
 
 import requests
 
 from panther_analysis_tool.util import get_client
 
 LOOKUP_LAMBDA_NAME = "panther-lookup-tables-api"
+
 
 class LookupTable:
     """A Panther Lookup Table"""
@@ -43,10 +44,9 @@ class LookupTable:
         self._aws_profile = aws_profile
         self._client = get_client(self._aws_profile, "lambda")
         self._lookup_id = None
-        self._data_file = self._spec.get('dataFile', None)
-        self._refresh = self._spec.get('refresh', None)
+        self._data_file = self._spec.get("dataFile", None)
+        self._refresh = self._spec.get("refresh", None)
         logging.info("Creating/updating the lookup table %s", self._spec["name"])
-
 
     def update(self) -> int:
         """Create a new Lookup Table or update a pre-existing one in Panther
@@ -61,12 +61,14 @@ class LookupTable:
         logging.info("Creating or updating the %s lookup table", self._spec["name"])
 
         create_update = {
-            "createOrUpdateLookup":
-            {"name": self._spec["name"], "enabled": self._spec["enabled"],
-             "description": self._spec.get("description", ""),
-             "reference": self._spec.get("reference", ""),
-             "lookupSchema": self._spec["lookupSchema"],
-             "logTypeMap": self._spec["logTypeMap"]}
+            "createOrUpdateLookup": {
+                "name": self._spec["name"],
+                "enabled": self._spec["enabled"],
+                "description": self._spec.get("description", ""),
+                "reference": self._spec.get("reference", ""),
+                "lookupSchema": self._spec["lookupSchema"],
+                "logTypeMap": self._spec["logTypeMap"],
+            }
         }
         if self._refresh:
             create_update["createOrUpdateLookup"]["refresh"] = self._refresh
@@ -102,7 +104,7 @@ class LookupTable:
             # Now "upload" the file from S3 to create the Lookup Table's index
             return self.upload_from_s3(upload_url)
 
-        return 0 # no local file i.e. refresh config was specified
+        return 0  # no local file i.e. refresh config was specified
 
     # Upload the local data file to S3
     def upload_data(self) -> str:
@@ -111,41 +113,38 @@ class LookupTable:
             logging.info("Uploading the data file %s to S3", self._data_file)
             file_path = os.path.join(self._spec_dir, self._data_file)
 
-            request_payload = json.dumps(
-                {"uploadUrl": {"key": self._data_file}}
-            )
+            request_payload = json.dumps({"uploadUrl": {"key": self._data_file}})
             logging.debug(request_payload)
 
             response = self._client.invoke(
                 FunctionName=LOOKUP_LAMBDA_NAME,
                 InvocationType="RequestResponse",
-                Payload=request_payload
+                Payload=request_payload,
             )
             logging.debug(response)
             response_str = response["Payload"].read().decode("utf-8")
             api_response = json.loads(response_str)
-            upload_url = api_response['url']
+            upload_url = api_response["url"]
 
-            put_response = requests.put(upload_url, data=open(file_path, 'rb'))
+            put_response = requests.put(upload_url, data=open(file_path, "rb"))
 
             if put_response.status_code != 200:
                 logging.warning(
                     "Failed to upload the the data file %s\nhttp response: %s",
-                    self._data_file, put_response.text)
-        except Exception as err: # pylint: disable=broad-except
+                    self._data_file,
+                    put_response.text,
+                )
+        except Exception as err:  # pylint: disable=broad-except
             logging.warning(
-                "Failed to upload the the data file %s\nerror message: %s",
-                self._data_file, err)
+                "Failed to upload the the data file %s\nerror message: %s", self._data_file, err
+            )
         return upload_url
-
 
     # Upload the data from S3 to the Lookup Table API to generate a new Lookup index
     # If the file hasn't changed, no further processing occurs
     def upload_from_s3(self, s3_url: str) -> int:
         request_payload = json.dumps(
-            {"upload":
-             {"id": self._lookup_id, "s3Path": s3_url, "isPresigned": True}
-            }
+            {"upload": {"id": self._lookup_id, "s3Path": s3_url, "isPresigned": True}}
         )
         logging.info("Uploading the S3 input data to the %s Lookup Table", self._spec["name"])
         logging.debug(request_payload)
@@ -153,7 +152,7 @@ class LookupTable:
         response = self._client.invoke(
             FunctionName=LOOKUP_LAMBDA_NAME,
             InvocationType="RequestResponse",
-            Payload=request_payload
+            Payload=request_payload,
         )
 
         response_str = response["Payload"].read().decode("utf-8")

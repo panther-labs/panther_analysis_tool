@@ -195,32 +195,20 @@ LOOKUP_TABLE_SCHEMA = Schema(
     {
         "name": str,
         "enabled": bool,
-        Or("dataFile", "refresh"): Or(str, {
-            "roleARN": str,
-            "objectPath": str,
-            Optional("periodMinutes"): int,
-            Optional("objectKMSKey"): str,
-        }),
-        "lookupSchema":
-        {
-            "logType": str,
-            Optional(
-                "indexType"
-                ): str
-        },
-        "logTypeMap":
+        Or("dataFile", "refresh"): Or(
+            str,
             {
-                "primaryKey": str,
-                "associatedLogTypes": [
-                    {
-                        "logType": str,
-                        Optional(
-                            "selectors"
-                        ): [str]
-                     }
-                ]
-            }
-        ,
+                "roleARN": str,
+                "objectPath": str,
+                Optional("periodMinutes"): int,
+                Optional("objectKMSKey"): str,
+            },
+        ),
+        "lookupSchema": {"logType": str, Optional("indexType"): str},
+        "logTypeMap": {
+            "primaryKey": str,
+            "associatedLogTypes": [{"logType": str, Optional("selectors"): [str]}],
+        },
         Optional("description"): str,
         Optional("reference"): str,
     },
