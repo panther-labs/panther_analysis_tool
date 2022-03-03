@@ -404,8 +404,39 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
+def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
+    analysis_list_payload = {"listDetections": {"ids": analysis_id_list}}
+    client = get_client(args.aws_profile, "lambda")
+
+    analysis_info = client.invoke(
+        FunctionName="panther-analysis-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(analysis_list_payload),
+    )
+
+    if analysis_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
+        logging.warning(
+            "Failed to validate analysis, API error.\n\t status code: %s",
+            analysis_info["ResponseMetadata"]["HTTPStatusCode"],
+        )
+        return []
+
+    analysis_api_response = json.loads(analysis_info["Payload"].read().decode("utf-8"))
+    analysis_json_response = analysis_api_response["body"]
+
+    analysis_json_output = json.loads(analysis_json_response)
+
+    query_list = []
+    for detection in analysis_json_output.get("detections"):
+        for query in detection.get("scheduledQueries"):
+            query_list.append(query)
+
+    return query_list
+
+
 def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) -> list:
-    validation_payload = {"listDetections": {"ids": analysis_id_list, "fields": ["id"]}}
+    validation_payload = {"listDetections": {"ids": analysis_id_list}}
     client = get_client(args.aws_profile, "lambda")
 
     validation = client.invoke(
@@ -442,6 +473,50 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     return analysis_id_list
 
 
+def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
+    client = get_client(args.aws_profile, "lambda")
+
+    # Delete function needs the query ID, required endpoint wont take a list
+    query_id_list = []
+    for query in query_list:
+        payload = {"listSavedQueries": {"pageSize": 1, "name": query}}
+        list_response = client.invoke(
+            FunctionName="panther-athena-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps(payload),
+        )
+        api_response = json.loads(list_response["Payload"].read().decode("utf-8"))
+        query_id = api_response.get("savedQueries")[0]["id"]
+        query_id_list.append(query_id)
+
+    # Now we have query ids, lets delete them
+    payload = {
+        "deleteSavedQueries": {
+            "ids": query_id_list,
+            "userId": "00000000-0000-4000-8000-000000000000",
+            # The UserID is required by Panther for this API call, but we have no way of
+            # acquiring it and it isn't used for anything. This is a valid UUID used by the
+            # Panther deployment tool to indicate this action was performed automatically.
+        }
+    }
+    delete_response = client.invoke(
+        FunctionName="panther-athena-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(payload),
+    )
+    if delete_response.get("statusCode") != 200:
+        logging.warning(
+            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
+            delete_response.get("statusCode", 0),
+            delete_response.get("errorMessage", delete_response.get("body")),
+        )
+        return 1, ""
+
+    return 0, ""
+
+
 # pylint: disable=too-many-locals
 def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
@@ -457,10 +532,17 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         logging.error("No matching analysis found, exiting")
         return 1, ""
 
+    has_associated_queries = False
+    associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
+    if len(associated_query_list) > 0:
+        has_associated_queries = True
     # Unless explicitly bypassed, get user confirmation to delete
     if not args.confirm_bypass:
         analysis_id_string = " ".join(analysis_id_list)
         logging.warning("You are about to delete detections %s", analysis_id_string)
+        if has_associated_queries:
+            associated_query_string = " ".join(associated_query_list)
+            logging.warning("Scheduled Queries %s will also be deleted", associated_query_string)
         confirm = input("Continue? (y/n) ")
 
         if confirm.lower() != "y":
@@ -470,6 +552,9 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     # After confirmation and validation then delete
     for analysis_id in analysis_id_list:
         payload["deleteDetections"]["entries"].append({"id": analysis_id})
+
+    if has_associated_queries:
+        delete_queries(args, associated_query_list)
 
     response = client.invoke(
         FunctionName="panther-analysis-api",
@@ -490,7 +575,6 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         return 1, ""
 
     logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
-
     return 0, ""
 
 
