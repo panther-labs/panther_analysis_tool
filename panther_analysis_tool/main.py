@@ -417,7 +417,7 @@ def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -
 
     if analysis_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
         logging.warning(
-            "Failed to validate analysis, API error.\n\t status code: %s",
+            "Failed to search for associated queries, API error.\n\t status code: %s",
             analysis_info["ResponseMetadata"]["HTTPStatusCode"],
         )
         return []
@@ -476,12 +476,16 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
 def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
     client = get_client(args.aws_profile, "lambda")
 
+    datalake_function = "panther-snowflake-api"
+    if args.athena_datalake:
+        datalake_function = "panther-athena-api"
+
     # Delete function needs the query ID, required endpoint wont take a list
     query_id_list = []
     for query in query_list:
         payload = {"listSavedQueries": {"pageSize": 1, "name": query}}
         list_response = client.invoke(
-            FunctionName="panther-athena-api",
+            FunctionName=datalake_function,
             InvocationType="RequestResponse",
             LogType="None",
             Payload=json.dumps(payload),
@@ -506,14 +510,12 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
         LogType="None",
         Payload=json.dumps(payload),
     )
-    if delete_response.get("statusCode") != 200:
-        logging.warning(
-            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
-            delete_response.get("statusCode", 0),
-            delete_response.get("errorMessage", delete_response.get("body")),
-        )
-        return 1, ""
 
+    if delete_response.get("ResponseMetadata").get("HTTPStatusCode") != 200:
+        error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
+        error_message = error_payload.get("errorMessage")
+        return 1, f"Error deleting associated queries, API error {error_message}"
+    logging.info("Queries %s have been deleted.", " ".join(query_list))
     return 0, ""
 
 
@@ -1691,6 +1693,12 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Skip manual confirmation of deletion",
         action="store_true",
         dest="confirm_bypass",
+    )
+    delete_parser.add_argument(
+        "--athena-datalake",
+        help="Instance DataLake is backed by Athena",
+        action="store_true",
+        dest="athena_datalake",
     )
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
