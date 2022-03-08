@@ -404,6 +404,36 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
+def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
+    query_list_payload = {"listDetections": {"scheduledQueries": query_list}}
+    client = get_client(args.aws_profile, "lambda")
+
+    query_info = client.invoke(
+        FunctionName="panther-analysis-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(query_list_payload),
+    )
+
+    if query_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
+        logging.warning(
+            "Failed to search for associated queries, API error.\n\t status code: %s",
+            query_info["ResponseMetadata"]["HTTPStatusCode"],
+        )
+        return []
+
+    analysis_api_response = json.loads(query_info["Payload"].read().decode("utf-8"))
+    analysis_json_response = analysis_api_response["body"]
+
+    analysis_json_output = json.loads(analysis_json_response)
+
+    analysis_id_list = []
+    for detection in analysis_json_output.get("detections"):
+        analysis_id_list.append(detection.get("id"))
+
+    return analysis_id_list
+
+
 def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
     analysis_list_payload = {"listDetections": {"ids": analysis_id_list}}
     client = get_client(args.aws_profile, "lambda")
@@ -524,20 +554,23 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     client = get_client(args.aws_profile, "lambda")
     analysis_id_list = args.analysis_id
-    payload: dict = {"deleteDetections": {"entries": []}}
+    query_list = args.query_id
 
-    # Validate the Detection that we are deleting exists in Panther
-    # If nothing was found bail out, otherwise prepare to delete what has been confirmed
+    # If we didn't get a list of analysis, look up analysis associated with queries that were passed
+    if len(analysis_id_list) == 0 and len(query_list) > 0:
+        analysis_id_list = get_analysis_id_by_query(args, query_list)
 
+    # Validate the Detections and queries that we are deleting exist in Panther
     analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
-    if len(analysis_id_list) == 0:
-        logging.error("No matching analysis found, exiting")
+    if len(analysis_id_list) == 0 and len(query_list) == 0:
+        logging.error("No matching analysis or queries found, exiting")
         return 1, ""
 
     has_associated_queries = False
     associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
     if len(associated_query_list) > 0:
         has_associated_queries = True
+
     # Unless explicitly bypassed, get user confirmation to delete
     if not args.confirm_bypass:
         analysis_id_string = " ".join(analysis_id_list)
@@ -552,6 +585,7 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
             return 0, ""
 
     # After confirmation and validation then delete
+    payload: dict = {"deleteDetections": {"entries": []}}
     for analysis_id in analysis_id_list:
         payload["deleteDetections"]["entries"].append({"id": analysis_id})
 
@@ -1576,10 +1610,19 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     analysis_id_name = "--analysis-id"
     analysis_id_arg: Dict[str, Any] = {
-        "required": True,
+        "required": False,
         "dest": "analysis_id",
         "nargs": "+",
         "help": "Space separated list of Rule or Policy IDs",
+        "type": str,
+        "default": [],
+    }
+    query_id_name = "--query-id"
+    query_id_arg: Dict[str, Any] = {
+        "required": False,
+        "dest": "query_id",
+        "nargs": "+",
+        "help": "Space separated list of Saved Queries",
         "type": str,
         "default": [],
     }
@@ -1702,6 +1745,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
+    delete_parser.add_argument(query_id_name, **query_id_arg)
     delete_parser.set_defaults(func=delete_analysis)
 
     update_custom_schemas_parser = subparsers.add_parser(
