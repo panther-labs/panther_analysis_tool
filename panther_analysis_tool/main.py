@@ -549,48 +549,11 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
     return 0, ""
 
 
-# pylint: disable=too-many-locals
-def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
-
+def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
     client = get_client(args.aws_profile, "lambda")
-    analysis_id_list = args.analysis_id
-    query_list = args.query_id
-
-    # If we didn't get a list of analysis, look up analysis associated with queries that were passed
-    if len(analysis_id_list) == 0 and len(query_list) > 0:
-        analysis_id_list = get_analysis_id_by_query(args, query_list)
-
-    # Validate the Detections and queries that we are deleting exist in Panther
-    analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
-    if len(analysis_id_list) == 0 and len(query_list) == 0:
-        logging.error("No matching analysis or queries found, exiting")
-        return 1, ""
-
-    has_associated_queries = False
-    associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
-    if len(associated_query_list) > 0:
-        has_associated_queries = True
-
-    # Unless explicitly bypassed, get user confirmation to delete
-    if not args.confirm_bypass:
-        analysis_id_string = " ".join(analysis_id_list)
-        logging.warning("You are about to delete detections %s", analysis_id_string)
-        if has_associated_queries:
-            associated_query_string = " ".join(associated_query_list)
-            logging.warning("Scheduled Queries %s will also be deleted", associated_query_string)
-        confirm = input("Continue? (y/n) ")
-
-        if confirm.lower() != "y":
-            print("Cancelled")
-            return 0, ""
-
-    # After confirmation and validation then delete
     payload: dict = {"deleteDetections": {"entries": []}}
     for analysis_id in analysis_id_list:
         payload["deleteDetections"]["entries"].append({"id": analysis_id})
-
-    if has_associated_queries:
-        delete_queries(args, associated_query_list)
 
     response = client.invoke(
         FunctionName="panther-analysis-api",
@@ -611,6 +574,51 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         return 1, ""
 
     logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
+    return 0, ""
+
+
+def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
+    # Routes all things delete to the functions they need to go to
+
+    # Get lists of analysis and queries from args
+    analysis_id_list = args.analysis_id
+    query_list = args.query_id
+
+    # If we didn't get a list of analysis, look up analysis associated with queries that were passed
+    if len(analysis_id_list) == 0 and len(query_list) > 0:
+        analysis_id_list = get_analysis_id_by_query(args, query_list)
+
+    # Validate the Detections and queries that we are deleting exist in Panther
+    analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
+    if len(analysis_id_list) == 0 and len(query_list) == 0:
+        logging.error("No matching analysis or queries found, exiting")
+        return 1, ""
+
+    # Similar to above, but we need convert our list of queries into UUIDs so the API understands
+    has_associated_queries = False
+    associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
+    if len(associated_query_list) > 0:
+        has_associated_queries = True
+
+    # Unless explicitly bypassed, get user confirmation to delete
+    if not args.confirm_bypass:
+        analysis_id_string = " ".join(analysis_id_list)
+        logging.warning("You are about to delete detections %s", analysis_id_string)
+        if has_associated_queries:
+            associated_query_string = " ".join(associated_query_list)
+            logging.warning("Scheduled Queries %s will also be deleted", associated_query_string)
+        confirm = input("Continue? (y/n) ")
+
+        if confirm.lower() != "y":
+            print("Cancelled")
+            return 0, ""
+
+    # After confirmation and validation then delete things
+    if has_associated_queries:
+        delete_queries(args, associated_query_list)
+
+    delete_detections(args, analysis_id_list)
+
     return 0, ""
 
 
@@ -1746,7 +1754,7 @@ def setup_parser() -> argparse.ArgumentParser:
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
     delete_parser.add_argument(query_id_name, **query_id_arg)
-    delete_parser.set_defaults(func=delete_analysis)
+    delete_parser.set_defaults(func=delete_router)
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
