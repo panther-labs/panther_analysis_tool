@@ -576,28 +576,33 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
         logging.error("Must specify a list of analysis or queries to delete")
         logging.error("Run panther_analysis_tool -h for help statement")
         return 1, ""
-    # If we didn't get a list of analysis, look up analysis associated with queries that were passed
-    if len(analysis_id_list) == 0 and len(query_list) > 0:
-        analysis_id_list = get_analysis_id_by_query(args, query_list)
 
-    # Validate the Detections and queries that we are deleting exist in Panther
+    # Look for associated queries / analysis
+    associated_analysis_id_list = []
+    associated_query_list = []
+    # If we get passed a list of queries look up the associated analysis
+    if len(query_list) > 0:
+        associated_analysis_id_list = get_analysis_id_by_query(args, query_list)
+    # Similar to above, if we get analysis, look for queries
+    if len(analysis_id_list) > 0:
+        associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
+    # Merge what we looked up with what was passed, removing dupes
+    analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
+    query_list = list(set(associated_query_list + query_list))
+    # Validate the analysis that we are deleting exist in Panther
     analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
+
     if len(analysis_id_list) == 0 and len(query_list) == 0:
         logging.error("No matching analysis or queries found, exiting")
         return 1, ""
 
-    # Similar to above, but we need convert our list of queries into UUIDs so the API understands
-    has_associated_queries = False
-    associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
-    if len(associated_query_list) > 0:
-        has_associated_queries = True
-
     # Unless explicitly bypassed, get user confirmation to delete
     if not args.confirm_bypass:
-        analysis_id_string = " ".join(analysis_id_list)
-        logging.warning("You are about to delete detections %s", analysis_id_string)
-        if has_associated_queries:
-            associated_query_string = " ".join(associated_query_list)
+        if len(analysis_id_list) > 0:
+            analysis_id_string = " ".join(analysis_id_list)
+            logging.warning("You are about to delete detections %s", analysis_id_string)
+        if len(query_list) > 0:
+            associated_query_string = " ".join(query_list)
             logging.warning("Scheduled Queries %s will also be deleted", associated_query_string)
         confirm = input("Continue? (y/n) ")
 
@@ -606,10 +611,10 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
             return 1, " "
 
     # After confirmation and validation then delete things
-    if has_associated_queries:
+    if len(query_list) > 0:
         delete_queries(args, associated_query_list)
-
-    delete_detections(args, analysis_id_list)
+    if len(analysis_id_list) > 0:
+        delete_detections(args, analysis_id_list)
 
     return 0, ""
 
