@@ -1741,7 +1741,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.set_defaults(func=upload_analysis)
 
     delete_parser = subparsers.add_parser(
-        "delete", help="Delete specified policies or rules from a Panther deployment"
+        "delete", help="Delete policies, rules, or saved queries from a Panther deployment"
     )
     delete_parser.add_argument(
         "--no-confirm",

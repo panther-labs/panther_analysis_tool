@@ -53,24 +53,27 @@ $ pip3 install -e .
 View available commands:
 
 ```bash
-$ panther_analysis_tool --help
-usage: panther_analysis_tool [-h] [--version] {test,zip,upload} ...
+$ panther_analysis_tool -h
 
-Panther Analysis Tool: A command line tool for managing Panther policies and
-rules.
+
+usage: panther_analysis_tool [-h] [--version] [--debug] {release,test,upload,delete,update-lookup-table,test-lookup-table,zip} ...
+
+Panther Analysis Tool: A command line tool for managing Panther policies and rules.
 
 positional arguments:
-  {test,zip,upload}
-    test             Validate analysis specifications and run policy and rule
-                     tests.
-    zip              Create an archive of local policies and rules for
-                     uploading to Panther.
-    upload           Upload specified policies and rules to a Panther
-                     deployment.
+  {release,test,upload,delete,update-lookup-table,test-lookup-table,zip}
+    release             Create release assets for repository containing panther detections. Generates a file called panther-analysis-all.zip and optionally generates panther-analysis-all.sig
+    test                Validate analysis specifications and run policy and rule tests.
+    upload              Upload specified policies and rules to a Panther deployment.
+    delete              Delete policies, rules, or saved queries from a Panther deployment
+    update-lookup-table Update or create a Lookup Table in a Panther deployment.
+    test-lookup-table   Validate a Lookup Table spec file.
+    zip                 Create an archive of local policies and rules for uploading to Panther.
 
 optional arguments:
-  -h, --help         show this help message and exit
-  --version          show program's version number and exit
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  --debug
 ```
 
 Run tests:
@@ -223,6 +226,22 @@ Failed Tests Summary
 
 So in this case even though the rules passed all their tests, they're still considered failing because they do not have the correct test coverage.
 
+Delete Rules, Policies, or Saved Queries from a Panther deployment. Like the Upload commands mentioned above, this option requires your environment to be configured as if you are using AWS-CLI
+```bash
+optional arguments:
+  -h, --help            show this help message and exit
+  --no-confirm          Skip manual confirmation of deletion
+  --athena-datalake     Instance DataLake is backed by Athena
+  --aws-profile AWS_PROFILE
+                        The AWS profile to use when updating the AWS Panther deployment.
+  --analysis-id ANALYSIS_ID [ANALYSIS_ID ...]
+                        Space separated list of Rule or Policy IDs
+  --query-id QUERY_ID [QUERY_ID ...]
+                        Space separated list of Saved Queries
+```
+You must pass a space separated list of Analysis IDs (RuleID or PolicyID) or QueryIDs. Use the `--no-confirm` flag to bypass a confirmation prompt.
+Rules will be matched with any associated saved queries and vice versa, and both associated items will be deleted.
+By default, this option is configured to talk to a Snowflake datalake, if your Panther instance is backed by an Athena datalake pass the flag `--athena-datalake`. 
 # Configuration File
 Panther Analysis Tool will also read options from a configuration file called `.panther_settings.yml` located in your working directory. An example configuration file is included in this repo, [example_panther_config.yml](example_panther_config.yml), that contains example syntax for supported options.
 
