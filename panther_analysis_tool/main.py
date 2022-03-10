@@ -403,9 +403,10 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     return 0, ""
 
-
-def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
-    query_list_payload = {"listDetections": {"scheduledQueries": query_list}}
+def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: list) -> dict:
+    # Queries analysis-api for information around detections. Arguments are what parameter in the
+    # API we want to filter on, and a list of values for that filter
+    query_list_payload = {"listDetections": {filter_by: object_list}}
     client = get_client(args.aws_profile, "lambda")
 
     query_info = client.invoke(
@@ -423,9 +424,13 @@ def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list
         return []
 
     analysis_api_response = json.loads(query_info["Payload"].read().decode("utf-8"))
-    analysis_json_response = analysis_api_response["body"]
+    analysis_api_json_response = json.loads(analysis_api_response["body"])
 
-    analysis_json_output = json.loads(analysis_json_response)
+    return analysis_api_json_response
+
+def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
+    # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
+    analysis_json_output = detection_info_query(args, "scheduledQueries", query_list)
 
     analysis_id_list = []
     for detection in analysis_json_output.get("detections"):
@@ -435,27 +440,8 @@ def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list
 
 
 def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
-    analysis_list_payload = {"listDetections": {"ids": analysis_id_list}}
-    client = get_client(args.aws_profile, "lambda")
-
-    analysis_info = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(analysis_list_payload),
-    )
-
-    if analysis_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        logging.warning(
-            "Failed to search for associated queries, API error.\n\t status code: %s",
-            analysis_info["ResponseMetadata"]["HTTPStatusCode"],
-        )
-        return []
-
-    analysis_api_response = json.loads(analysis_info["Payload"].read().decode("utf-8"))
-    analysis_json_response = analysis_api_response["body"]
-
-    analysis_json_output = json.loads(analysis_json_response)
+    # Retrieves saved queries associated with analysis_id
+    analysis_json_output = detection_info_query(args, "ids", analysis_id_list)
 
     query_list = []
     for detection in analysis_json_output.get("detections"):
