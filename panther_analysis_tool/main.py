@@ -509,32 +509,40 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
             Payload=json.dumps(payload),
         )
         api_response = json.loads(list_response["Payload"].read().decode("utf-8"))
-        query_id = api_response.get("savedQueries")[0]["id"]
+        api_saved_query_response = api_response.get("savedQueries")
+        if len(api_saved_query_response) == 0:
+            logging.warning("Unable to determine UUID for %s, skipping", query)
+            query_list.remove(query)
+            continue
+        query_id = api_saved_query_response[0]["id"]
         query_id_list.append(query_id)
 
     # Now we have query ids, lets delete them
-    payload = {
-        "deleteSavedQueries": {
-            "ids": query_id_list,
-            "userId": "00000000-0000-4000-8000-000000000000",
-            # The UserID is required by Panther for this API call, but we have no way of
-            # acquiring it and it isn't used for anything. This is a valid UUID used by the
-            # Panther deployment tool to indicate this action was performed automatically.
-        }
-    }
-    delete_response = client.invoke(
-        FunctionName="panther-athena-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(payload),
-    )
 
-    if delete_response.get("ResponseMetadata").get("HTTPStatusCode") != 200:
-        error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
-        error_message = error_payload.get("errorMessage")
-        return 1, f"Error deleting associated queries, API error {error_message}"
-    logging.info("Queries %s have been deleted.", " ".join(query_list))
-    return 0, ""
+    if len(query_id_list) > 0:
+        payload = {
+            "deleteSavedQueries": {
+                "ids": query_id_list,
+                "userId": "00000000-0000-4000-8000-000000000000",
+                # The UserID is required by Panther for this API call, but we have no way of
+                # acquiring it, and it isn't used for anything. This is a valid UUID used by the
+                # Panther deployment tool to indicate this action was performed automatically.
+            }
+        }
+        delete_response = client.invoke(
+            FunctionName="panther-athena-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps(payload),
+        )
+
+        if delete_response.get("ResponseMetadata").get("HTTPStatusCode") != 200:
+            error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
+            error_message = error_payload.get("errorMessage")
+            return 1, f"Error deleting queries, API error {error_message}"
+        logging.info("Queries %s have been deleted.", " ".join(query_list))
+        return 0, ""
+    return 1, "No queries left to delete, exiting"
 
 
 def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
