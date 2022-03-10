@@ -403,7 +403,8 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
     return 0, ""
 
-def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: list) -> dict:
+
+def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: list) -> Any:
     # Queries analysis-api for information around detections. Arguments are what parameter in the
     # API we want to filter on, and a list of values for that filter
     query_list_payload = {"listDetections": {filter_by: object_list}}
@@ -421,12 +422,13 @@ def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: 
             "Failed to search for associated queries, API error.\n\t status code: %s",
             query_info["ResponseMetadata"]["HTTPStatusCode"],
         )
-        return []
+        return {}
 
     analysis_api_response = json.loads(query_info["Payload"].read().decode("utf-8"))
     analysis_api_json_response = json.loads(analysis_api_response["body"])
 
     return analysis_api_json_response
+
 
 def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
     # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
