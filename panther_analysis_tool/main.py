@@ -584,6 +584,10 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
     analysis_id_list = args.analysis_id
     query_list = args.query_id
 
+    if len(analysis_id_list) == 0 and len(query_list) == 0:
+        logging.error("Must specify a list of analysis or queries to delete")
+        logging.error("Run panther_analysis_tool -h for help statement")
+        return 1, ""
     # If we didn't get a list of analysis, look up analysis associated with queries that were passed
     if len(analysis_id_list) == 0 and len(query_list) > 0:
         analysis_id_list = get_analysis_id_by_query(args, query_list)
@@ -611,7 +615,7 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
 
         if confirm.lower() != "y":
             print("Cancelled")
-            return 0, ""
+            return 1, " "
 
     # After confirmation and validation then delete things
     if has_associated_queries:
