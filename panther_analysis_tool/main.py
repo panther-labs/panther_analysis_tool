@@ -618,7 +618,7 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
 
         if confirm.lower() != "y":
             print("Cancelled")
-            return 1, " "
+            return 0, ""
 
     # After confirmation and validation then delete things
     if len(query_list) > 0:
@@ -1647,7 +1647,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.12.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.12.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
