@@ -499,7 +499,7 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
         datalake_function = "panther-athena-api"
 
     # Delete function needs the query ID, required endpoint wont take a list
-    query_id_list = []
+    query_map = {}
     for query in query_list:
         payload = {"listSavedQueries": {"pageSize": 1, "name": query}}
         list_response = client.invoke(
@@ -512,17 +512,16 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
         api_saved_query_response = api_response.get("savedQueries")
         if len(api_saved_query_response) == 0:
             logging.warning("%s was not found, skipping...", query)
-            query_list.remove(query)
             continue
         query_id = api_saved_query_response[0]["id"]
-        query_id_list.append(query_id)
+        query_map[query] = query_id
 
     # Now we have query ids, lets delete them
 
-    if len(query_id_list) > 0:
+    if len(query_map) > 0:
         payload = {
             "deleteSavedQueries": {
-                "ids": query_id_list,
+                "ids": list(query_map.values()),
                 "userId": "00000000-0000-4000-8000-000000000000",
                 # The UserID is required by Panther for this API call, but we have no way of
                 # acquiring it, and it isn't used for anything. This is a valid UUID used by the
@@ -540,7 +539,7 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
             error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
             error_message = error_payload.get("errorMessage")
             return 1, f"Error deleting queries, API error {error_message}"
-        logging.info("Queries %s have been deleted.", " ".join(query_list))
+        logging.info("Queries %s have been deleted.", " ".join(list(query_map.keys())))
         return 0, ""
     return 1, "No queries left to delete, exiting"
 
