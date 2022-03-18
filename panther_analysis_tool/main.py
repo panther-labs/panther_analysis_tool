@@ -602,7 +602,7 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
     query_list = list(set(associated_query_list + query_list))
 
     if len(analysis_id_list) == 0 and len(query_list) == 0:
-        logging.error("No matching analysis or queries found, exiting")
+        logging.warning("No matching analysis or queries found, exiting")
         return 1, ""
 
     # Unless explicitly bypassed, get user confirmation to delete
