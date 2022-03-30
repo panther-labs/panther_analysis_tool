@@ -124,7 +124,7 @@ VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
-    LOOKUP_TABLE: LOOKUP_TABLE,
+    LOOKUP_TABLE: LOOKUP_TABLE_SCHEMA,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
@@ -1055,7 +1055,6 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # then, setup data model dictionary to be used in rule/policy tests
     log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
-
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
         log_type_to_data_model,
@@ -1266,7 +1265,6 @@ def classify_analysis(
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
     analysis_ids: List[Any] = []
-
     # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys: List[Any] = list()

@@ -60,7 +60,7 @@ LOG_TYPE_REGEX = Regex(
 TYPE_SCHEMA = Schema(
     {
         "AnalysisType": Or(
-            "datamodel", "global", "pack", "policy", "rule", "scheduled_rule", "scheduled_query"
+            "datamodel", "global", "pack", "policy", "rule", "scheduled_rule", "scheduled_query", "lookup_table"
         ),
     },
     ignore_extra_keys=True,
@@ -193,24 +193,25 @@ SCHEDULED_QUERY_SCHEMA = Schema(
 
 LOOKUP_TABLE_SCHEMA = Schema(
     {
-        "name": str,
-        "enabled": bool,
-        Or("dataFile", "refresh"): Or(
+        "AnalysisType": Or("lookup_table"),
+        "LookupName": str,
+        "Enabled": bool,
+        Or("DataFile", "Refresh"): Or(
             str,
             {
-                "roleARN": str,
-                "objectPath": str,
-                Optional("periodMinutes"): int,
-                Optional("objectKMSKey"): str,
+                "RoleARN": str,
+                "ObjectPath": str,
+                Optional("PeriodMinutes"): int,
+                Optional("ObjectKMSKey"): str,
             },
         ),
-        "lookupSchema": {"logType": str, Optional("indexType"): str},
-        "logTypeMap": {
-            "primaryKey": str,
-            "associatedLogTypes": [{"logType": str, Optional("selectors"): [str]}],
+        "Schema": str,
+        "LogTypeMap": {
+            "PrimaryKey": str,
+            "AssociatedLogTypes": [{"LogType": str, Optional("Selectors"): [str]}],
         },
-        Optional("description"): str,
-        Optional("reference"): str,
+        Optional("Description"): str,
+        Optional("Reference"): str,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
