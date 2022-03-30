@@ -88,11 +88,10 @@ from panther_analysis_tool.util import get_client
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
-GREYNOISE_LUTS_LOCATION = "./greynoise"
 HELPERS_LOCATION = "./global_helpers"
-
+GREYNOISE_LUTS_LOCATION = "./greynoise"
 DATA_MODEL_PATH_PATTERN = "*data_models*"
-GREYNOISE_LUTS_PATH_PATTERN = "*greynoise*"
+GREYNOISE_LUTS_PATH_PATTERN = "greynoise"
 HELPERS_PATH_PATTERN = "*/global_helpers"
 PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
@@ -125,7 +124,7 @@ VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
-    LOOKUP_TABLE: LOOKUP_TABLE_SCHEMA,
+    LOOKUP_TABLE: LOOKUP_TABLE,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
@@ -231,7 +230,6 @@ def load_analysis_specs(
                         fnmatch(relative_path, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN,
-                            GREYNOISE_LUTS_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
                             RULES_PATH_PATTERN,
                             PACKS_PATH_PATTERN,
@@ -1036,6 +1034,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # then, setup data model dictionary to be used in rule/policy tests
     log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
+
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
         log_type_to_data_model,
@@ -1210,6 +1209,10 @@ def filter_analysis(
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
+        if fnmatch(dir_name, GREYNOISE_LUTS_PATH_PATTERN):
+            logging.debug("auto-adding GreyNoise lookup table file %s", os.path.join(file_name))
+            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            continue
         match = True
         for key, values in filters.items():
             spec_value = analysis_spec.get(key, "")
@@ -1246,6 +1249,7 @@ def classify_analysis(
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
     analysis_ids: List[Any] = []
+
     # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys: List[Any] = list()
@@ -1272,24 +1276,20 @@ def classify_analysis(
                 analysis_schema.schema[tmp_logtypes_key] = [str]
             analysis_schema.validate(analysis_spec)
             # lookup the analysis type id and validate there aren't any conflicts
-            if analysis_type == LOOKUP_TABLE:
-                pass
-            else:
-                analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
-                if analysis_id in analysis_ids:
-                    raise AnalysisIDConflictException(analysis_id)
-
-                # check for duplicates where panther expects a unique set
-                invalid_fields = contains_invalid_field_set(analysis_spec)
-                if invalid_fields:
-                    raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-                analysis_ids.append(analysis_id)
+            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+            if analysis_id in analysis_ids:
+                raise AnalysisIDConflictException(analysis_id)
+            # check for duplicates where panther expects a unique set
+            invalid_fields = contains_invalid_field_set(analysis_spec)
+            if invalid_fields:
+                raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
+            analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
-            elif analysis_type not in [LOOKUP_TABLE]:
+            else:
                 classified_specs[analysis_type].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
