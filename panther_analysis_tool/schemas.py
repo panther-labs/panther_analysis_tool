@@ -60,7 +60,8 @@ LOG_TYPE_REGEX = Regex(
 TYPE_SCHEMA = Schema(
     {
         "AnalysisType": Or(
-            "datamodel", "global", "pack", "policy", "rule", "scheduled_rule", "scheduled_query", "lookup_table"
+            "datamodel", "global", "pack", "policy", "rule",
+            "scheduled_rule", "scheduled_query", "lookup_table"
         ),
     },
     ignore_extra_keys=True,
