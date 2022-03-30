@@ -92,6 +92,7 @@ GREYNOISE_LUTS_LOCATION = "./greynoise"
 HELPERS_LOCATION = "./global_helpers"
 
 DATA_MODEL_PATH_PATTERN = "*data_models*"
+GREYNOISE_LUTS_PATH_PATTERN = "*greynoise*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
 PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
@@ -230,6 +231,7 @@ def load_analysis_specs(
                         fnmatch(relative_path, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN,
+                            GREYNOISE_LUTS_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
                             RULES_PATH_PATTERN,
                             PACKS_PATH_PATTERN,
