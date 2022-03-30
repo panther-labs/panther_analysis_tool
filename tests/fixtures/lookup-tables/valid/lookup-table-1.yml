@@ -1,15 +1,14 @@
-name: LocalFileLookupTable
-dataFile: sample_aws_accounts.csv # relative file path
-description: This example specifies a local input file
-enabled: true
-reference: https:/mysamplelookupdocpage.com
-logTypeMap:
-  primaryKey: awsacctid
-  associatedLogTypes:
-    - logType: AWS.CloudTrail
-      selectors:
+AnalysisType: lookup_table
+LookupName: LocalFileLookupTable
+DataFile: sample_aws_accounts.csv # relative file path
+Description: This example specifies a local input file
+Enabled: true
+Reference: https:/mysamplelookupdocpage.com
+LogTypeMap:
+  PrimaryKey: awsacctid
+  AssociatedLogTypes:
+    - LogType: AWS.CloudTrail
+      Selectors:
         - "$userIdentity.accountId" # This is JSON path and needs to start with $
         - "recipientAccountId"
-lookupSchema:
-  logType: Custom.AWSAccountIDs
-  indexType: simple
+Schema: Custom.AWSAccountIDs

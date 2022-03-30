@@ -66,7 +66,6 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.lookup_tables import lookup_table
 from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
@@ -686,27 +685,6 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
-def update_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
-    """Updates or creates a Lookup Table
-
-    Returns 1 if the update/create fails.
-
-    Args:
-        args: The populated Argparse namespace with parsed command-line arguments.
-
-    Returns:
-        A tuple of return code and an empty string (to satisfy calling conventions)
-    """
-
-    logging.info("Updating the Lookup Table spec defined in %s", args.path)
-    lookup_spec = parse_lookup_table(args)
-    if not lookup_spec:
-        return 1, ""
-    spec_dir = os.path.dirname(args.path)
-    lut = lookup_table.LookupTable(lookup_spec, spec_dir, args.aws_profile)
-    return lut.update(), ""
-
-
 def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     """Updates managed schemas in a Panther deployment.
 
@@ -1291,20 +1269,24 @@ def classify_analysis(
                 analysis_schema.schema[tmp_logtypes_key] = [str]
             analysis_schema.validate(analysis_spec)
             # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
-            if analysis_id in analysis_ids:
-                raise AnalysisIDConflictException(analysis_id)
-            # check for duplicates where panther expects a unique set
-            invalid_fields = contains_invalid_field_set(analysis_spec)
-            if invalid_fields:
-                raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            analysis_ids.append(analysis_id)
+            if analysis_type == LOOKUP_TABLE:
+                pass
+            else:
+                analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+                if analysis_id in analysis_ids:
+                    raise AnalysisIDConflictException(analysis_id)
+
+                # check for duplicates where panther expects a unique set
+                invalid_fields = contains_invalid_field_set(analysis_spec)
+                if invalid_fields:
+                    raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
+                analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
-            else:
+            elif analysis_type not in [LOOKUP_TABLE]:
                 classified_specs[analysis_type].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )

@@ -1,19 +1,18 @@
-name: RefreshLookupTable
-refresh:
-  roleARN: arn:aws:iam::123456789123:role/PantherLUTsRole-refreshlookuptable
-  objectPath: s3://lookup-foobar/sample_aws_accounts.csv
-  periodMinutes: 30
-  objectKMSKey: arn:aws:kms:us-east-1:123456789123:key/73d4c1e5-26d7-4a60-b2b5-13d171af7772
-description: This example specifies an input file in S3
-enabled: true
-reference: https:/mysamplelookupdocpage.com
-logTypeMap:
-  primaryKey: awsacctid
-  associatedLogTypes:
-    - logType: AWS.CloudTrail
-      selectors:
+AnalysisType: lookup_table
+LookupName: RefreshLookupTable
+Refresh:
+  RoleARN: arn:aws:iam::123456789123:role/PantherLUTsRole-refreshlookuptable
+  ObjectPath: s3://lookup-foobar/sample_aws_accounts.csv
+  PeriodMinutes: 30
+  ObjectKMSKey: arn:aws:kms:us-east-1:123456789123:key/73d4c1e5-26d7-4a60-b2b5-13d171af7772
+Description: This example specifies an input file in S3
+Enabled: true
+Reference: https:/mysamplelookupdocpage.com
+LogTypeMap:
+  PrimaryKey: awsacctid
+  AssociatedLogTypes:
+    - LogType: AWS.CloudTrail
+      Selectors:
         - "$.userIdentity.accountId" # A nested selector must be a valid JSONPath expression starting with '$'
         - "recipientAccountId"
-lookupSchema:
-  logType: Custom.AWSAccountIDs
-  indexType: simple
+Schema: Custom.AWSAccountIDs
