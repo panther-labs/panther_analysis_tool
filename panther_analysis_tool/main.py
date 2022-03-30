@@ -88,7 +88,7 @@ from panther_analysis_tool.util import get_client
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
-GREYNOSE_LUTS_LOCATION = "./greynoise"
+GREYNOISE_LUTS_LOCATION = "./greynoise"
 HELPERS_LOCATION = "./global_helpers"
 
 DATA_MODEL_PATH_PATTERN = "*data_models*"
