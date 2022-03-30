@@ -1751,13 +1751,6 @@ def setup_parser() -> argparse.ArgumentParser:
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
 
-    update_lookup_table_parser = subparsers.add_parser(
-        "update-lookup-table", help="Update or create a Lookup Table in a Panther deployment."
-    )
-    update_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    update_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
-    update_lookup_table_parser.set_defaults(func=update_lookup_table)
-
     test_lookup_table_parser = subparsers.add_parser(
         "test-lookup-table", help="Validate a Lookup Table spec file."
     )
