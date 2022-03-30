@@ -89,9 +89,9 @@ from panther_analysis_tool.util import get_client
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
-GREYNOISE_LUTS_LOCATION = "./greynoise"
+LUTS_LOCATION = "./lookup_tables"
 DATA_MODEL_PATH_PATTERN = "*data_models*"
-GREYNOISE_LUTS_PATH_PATTERN = "greynoise"
+LUTS_PATH_PATTERN = "*lookup_tables*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
 PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
@@ -333,7 +333,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
             load_analysis_specs(
-                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, GREYNOISE_LUTS_LOCATION], args.ignore_files
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, LUTS_LOCATION], args.ignore_files
             )
         ):
             if file_name not in files:
@@ -1209,8 +1209,8 @@ def filter_analysis(
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
-        if fnmatch(dir_name, GREYNOISE_LUTS_PATH_PATTERN):
-            logging.debug("auto-adding GreyNoise lookup table file %s", os.path.join(file_name))
+        if fnmatch(dir_name, LUTS_PATH_PATTERN):
+            logging.debug("auto-adding lookup table file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
         match = True
