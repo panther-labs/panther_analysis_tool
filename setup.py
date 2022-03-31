@@ -20,7 +20,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='panther_analysis_tool',
-    packages=['panther_analysis_tool', 'panther_analysis_tool/log_schemas', 'panther_analysis_tool/lookup_tables'],
+    packages=['panther_analysis_tool', 'panther_analysis_tool/log_schemas'],
     package_dir={'log_schemas': 'panther_analysis_tool/log_schemas'},
     version='0.12.1',
     license='AGPL-3.0',
