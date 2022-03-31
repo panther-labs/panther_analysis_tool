@@ -153,7 +153,7 @@ class Detection(ABC):
             config["tags"].sort()
             self.detection_tags = config["tags"]
 
-        if "reports" not in config:
+        if "reports" not in config or not config.get("reports"):
             self.detection_reports: Dict[str, List[str]] = dict()
         else:
             # Reports are Dict[str, List[str]]
