@@ -46,6 +46,7 @@ from uuid import uuid4
 
 import botocore
 import requests
+import schema
 from dynaconf import Dynaconf, Validator
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
@@ -70,6 +71,7 @@ from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
+    LOOKUP_TABLE_SCHEMA,
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
@@ -87,8 +89,9 @@ from panther_analysis_tool.util import get_client
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
-
+LUTS_LOCATION = "./lookup_tables"
 DATA_MODEL_PATH_PATTERN = "*data_models*"
+LUTS_PATH_PATTERN = "*lookup_tables*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
 PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
@@ -98,11 +101,12 @@ RULES_PATH_PATTERN = "*rules*"
 DATAMODEL = "datamodel"
 DETECTION = "detection"
 GLOBAL = "global"
+LOOKUP_TABLE = "lookup_table"
 PACK = "pack"
 POLICY = "policy"
 QUERY = "scheduled_query"
-SCHEDULED_RULE = "scheduled_rule"
 RULE = "rule"
+SCHEDULED_RULE = "scheduled_rule"
 
 RESERVED_FUNCTIONS = (
     "alert_context",
@@ -120,6 +124,7 @@ VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
+    LOOKUP_TABLE: LOOKUP_TABLE,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
@@ -254,7 +259,7 @@ def load_analysis_specs(
                         try:
                             yield spec_filename, relative_path, yaml.load(spec_file_obj), None
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
-                            # recreate the yaml object and yeild the error
+                            # recreate the yaml object and yield the error
                             yaml = YAML(typ="safe")
                             yield spec_filename, relative_path, None, err
                 if fnmatch(filename, "*.json"):
@@ -328,7 +333,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
             load_analysis_specs(
-                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, LUTS_LOCATION], args.ignore_files
             )
         ):
             if file_name not in files:
@@ -399,8 +404,57 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
+def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: list) -> Any:
+    # Queries analysis-api for information around detections. Arguments are what parameter in the
+    # API we want to filter on, and a list of values for that filter
+    query_list_payload = {"listDetections": {filter_by: object_list}}
+    client = get_client(args.aws_profile, "lambda")
+
+    query_info = client.invoke(
+        FunctionName="panther-analysis-api",
+        InvocationType="RequestResponse",
+        LogType="None",
+        Payload=json.dumps(query_list_payload),
+    )
+
+    if query_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
+        logging.warning(
+            "Failed to search for associated queries, API error.\n\t status code: %s",
+            query_info["ResponseMetadata"]["HTTPStatusCode"],
+        )
+        return {}
+
+    analysis_api_response = json.loads(query_info["Payload"].read().decode("utf-8"))
+    analysis_api_json_response = json.loads(analysis_api_response["body"])
+
+    return analysis_api_json_response
+
+
+def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
+    # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
+    analysis_json_output = detection_info_query(args, "scheduledQueries", query_list)
+
+    analysis_id_list = []
+    for detection in analysis_json_output.get("detections"):
+        analysis_id_list.append(detection.get("id"))
+
+    return analysis_id_list
+
+
+def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
+    # Retrieves saved queries associated with analysis_id
+    analysis_json_output = detection_info_query(args, "ids", analysis_id_list)
+
+    query_list = []
+    for detection in analysis_json_output.get("detections"):
+        for query in detection.get("scheduledQueries"):
+            query_list.append(query)
+
+    return query_list
+
+
 def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) -> list:
-    validation_payload = {"listDetections": {"ids": analysis_id_list, "fields": ["id"]}}
+    validation_payload = {"listDetections": {"ids": analysis_id_list}}
     client = get_client(args.aws_profile, "lambda")
 
     validation = client.invoke(
@@ -437,31 +491,62 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     return analysis_id_list
 
 
-# pylint: disable=too-many-locals
-def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
-
+def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
     client = get_client(args.aws_profile, "lambda")
-    analysis_id_list = args.analysis_id
-    payload: dict = {"deleteDetections": {"entries": []}}
 
-    # Validate the Detection that we are deleting exists in Panther
-    # If nothing was found bail out, otherwise prepare to delete what has been confirmed
+    datalake_function = "panther-snowflake-api"
+    if args.athena_datalake:
+        datalake_function = "panther-athena-api"
 
-    analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
-    if len(analysis_id_list) == 0:
-        logging.error("No matching analysis found, exiting")
-        return 1, ""
+    # Delete function needs the query ID, required endpoint wont take a list
+    query_map = {}
+    for query in query_list:
+        payload = {"listSavedQueries": {"pageSize": 1, "name": query}}
+        list_response = client.invoke(
+            FunctionName=datalake_function,
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps(payload),
+        )
+        api_response = json.loads(list_response["Payload"].read().decode("utf-8"))
+        api_saved_query_response = api_response.get("savedQueries")
+        if len(api_saved_query_response) == 0:
+            logging.warning("%s was not found, skipping...", query)
+            continue
+        query_id = api_saved_query_response[0]["id"]
+        query_map[query] = query_id
 
-    # Get user confirmation to delete
-    analysis_id_string = " ".join(analysis_id_list)
-    logging.warning("You are about to delete detections %s", analysis_id_string)
-    confirm = input("Continue? (y/n) ")
+    # Now we have query ids, lets delete them
 
-    if confirm.lower() != "y":
-        print("Cancelled")
+    if len(query_map) > 0:
+        payload = {
+            "deleteSavedQueries": {
+                "ids": list(query_map.values()),
+                "userId": "00000000-0000-4000-8000-000000000000",
+                # The UserID is required by Panther for this API call, but we have no way of
+                # acquiring it, and it isn't used for anything. This is a valid UUID used by the
+                # Panther deployment tool to indicate this action was performed automatically.
+            }
+        }
+        delete_response = client.invoke(
+            FunctionName="panther-athena-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps(payload),
+        )
+
+        if delete_response.get("ResponseMetadata").get("HTTPStatusCode") != 200:
+            error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
+            error_message = error_payload.get("errorMessage")
+            return 1, f"Error deleting queries, API error {error_message}"
+        logging.info("Queries %s have been deleted.", " ".join(list(query_map.keys())))
         return 0, ""
+    return 1, "No queries left to delete, exiting"
 
-    # After conirmation and validation then delete
+
+def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
+    client = get_client(args.aws_profile, "lambda")
+    payload: dict = {"deleteDetections": {"entries": []}}
     for analysis_id in analysis_id_list:
         payload["deleteDetections"]["entries"].append({"id": analysis_id})
 
@@ -484,7 +569,120 @@ def delete_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         return 1, ""
 
     logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
+    return 0, ""
 
+
+def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
+    # Routes all things delete to the functions they need to go to
+
+    # Get lists of analysis and queries from args
+    analysis_id_list = args.analysis_id
+    query_list = args.query_id
+
+    if len(analysis_id_list) == 0 and len(query_list) == 0:
+        logging.error("Must specify a list of analysis or queries to delete")
+        logging.error("Run panther_analysis_tool -h for help statement")
+        return 1, ""
+
+    # Look for associated queries / analysis
+    associated_analysis_id_list = []
+    associated_query_list = []
+    # If we get passed a list of queries look up the associated analysis
+    if len(query_list) > 0:
+        associated_analysis_id_list = get_analysis_id_by_query(args, query_list)
+
+    # Similar to above, if we get analysis, look for queries. Also ensure all analysis exist
+    # Query existence is validated in the query delete function
+    if len(analysis_id_list) > 0:
+        analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
+        associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
+
+    # Merge what we looked up with what was passed, removing dupes
+    analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
+    query_list = list(set(associated_query_list + query_list))
+
+    if len(analysis_id_list) == 0 and len(query_list) == 0:
+        logging.warning("No matching analysis or queries found, exiting")
+        return 1, ""
+
+    # Unless explicitly bypassed, get user confirmation to delete
+    if not args.confirm_bypass:
+        if len(analysis_id_list) > 0:
+            analysis_id_string = " ".join(analysis_id_list)
+            logging.warning("You are about to delete detections %s", analysis_id_string)
+        if len(query_list) > 0:
+            associated_query_string = " ".join(query_list)
+            logging.warning("You are about to delete queries %s", associated_query_string)
+        confirm = input("Continue? (y/n) ")
+
+        if confirm.lower() != "y":
+            print("Cancelled")
+            return 0, ""
+
+    # After confirmation and validation then delete things
+    if len(query_list) > 0:
+        delete_queries(args, query_list)
+    if len(analysis_id_list) > 0:
+        delete_detections(args, analysis_id_list)
+
+    return 0, ""
+
+
+def parse_lookup_table(args: argparse.Namespace) -> dict:
+    """Validates and parses a Lookup Table spec file
+
+    Returns a dict representing the Lookup Table
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A dict representing the Lookup Table, empty when parsing fails
+    """
+
+    logging.info("Parsing the Lookup Table spec defined in %s", args.path)
+    with open(args.path, "r") as input_file:
+        try:
+            yaml = YAML(typ="safe")
+            lookup_spec = yaml.load(input_file)
+            logging.info("Successfully parse the Lookup Table file %s", args.path)
+        except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
+            logging.error("Failed to parse the Lookup Table spec file %s", input_file)
+            logging.error(err)
+            return {}
+        try:
+            LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
+            logging.info("Successfully validated the Lookup Table file %s", args.path)
+        except (
+            schema.SchemaError,
+            schema.SchemaMissingKeyError,
+            schema.SchemaWrongKeyError,
+            schema.SchemaForbiddenKeyError,
+            schema.SchemaUnexpectedTypeError,
+            schema.SchemaOnlyOneAllowedError,
+        ) as err:
+            logging.error("Invalid schema in the Lookup Table spec file %s", input_file)
+            logging.error(err)
+            return {}
+    return lookup_spec
+
+
+def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
+    """Validates a Lookup Table spec file
+
+    Returns 1 if the validation fails
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and and empty string (to satisfy calling conventions)
+    """
+
+    logging.info("Validating the Lookup Table spec defined in %s", args.path)
+    lookup_spec = parse_lookup_table(args)
+    if not lookup_spec:
+        return 1, ""
     return 0, ""
 
 
@@ -1011,6 +1209,10 @@ def filter_analysis(
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
+        if fnmatch(dir_name, LUTS_PATH_PATTERN):
+            logging.debug("auto-adding lookup table file %s", os.path.join(file_name))
+            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            continue
         match = True
         for key, values in filters.items():
             spec_value = analysis_spec.get(key, "")
@@ -1356,6 +1558,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "The relative path to Panther policies and rules.",
         "required": False,
     }
+    lut_path_name = "--path"
+    lut_path_arg: Dict[str, Any] = {
+        "default": ".",
+        "type": str,
+        "help": "The relative path to a lookup table input file.",
+        "required": True,
+    }
     skip_test_name = "--skip-tests"
     skip_test_arg: Dict[str, Any] = {
         "action": "store_true",
@@ -1398,10 +1607,19 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     analysis_id_name = "--analysis-id"
     analysis_id_arg: Dict[str, Any] = {
-        "required": True,
+        "required": False,
         "dest": "analysis_id",
         "nargs": "+",
         "help": "Space separated list of Rule or Policy IDs",
+        "type": str,
+        "default": [],
+    }
+    query_id_name = "--query-id"
+    query_id_arg: Dict[str, Any] = {
+        "required": False,
+        "dest": "query_id",
+        "nargs": "+",
+        "help": "Space separated list of Saved Queries",
         "type": str,
         "default": [],
     }
@@ -1411,7 +1629,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.11.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.12.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
@@ -1508,11 +1726,24 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.set_defaults(func=upload_analysis)
 
     delete_parser = subparsers.add_parser(
-        "delete", help="Delete specified policies or rules from a Panther deployment"
+        "delete", help="Delete policies, rules, or saved queries from a Panther deployment"
+    )
+    delete_parser.add_argument(
+        "--no-confirm",
+        help="Skip manual confirmation of deletion",
+        action="store_true",
+        dest="confirm_bypass",
+    )
+    delete_parser.add_argument(
+        "--athena-datalake",
+        help="Instance DataLake is backed by Athena",
+        action="store_true",
+        dest="athena_datalake",
     )
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
-    delete_parser.set_defaults(func=delete_analysis)
+    delete_parser.add_argument(query_id_name, **query_id_arg)
+    delete_parser.set_defaults(func=delete_router)
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
@@ -1522,6 +1753,13 @@ def setup_parser() -> argparse.ArgumentParser:
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
+
+    test_lookup_table_parser = subparsers.add_parser(
+        "test-lookup-table", help="Validate a Lookup Table spec file."
+    )
+    test_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    test_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
+    test_lookup_table_parser.set_defaults(func=test_lookup_table)
 
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."

@@ -373,6 +373,9 @@ class TestPantherAnalysisTool(TestCase):
             _, _ = pat.update_custom_schemas(args)
             mock_uploader.assert_called_once_with(f'{FIXTURES_PATH}/custom-schemas/valid', None)
 
+        with open(os.path.join(schema_path, 'lookup-table-schema-1.yml')) as f:
+            schema0 = f.read()
+
         with open(os.path.join(schema_path, 'schema-1.yml')) as f:
             schema1 = f.read()
 
@@ -387,6 +390,19 @@ class TestPantherAnalysisTool(TestCase):
                         True,
                         {
                             'results': [
+                                {
+                                    'name': 'Custom.AWSAccountIDs',
+                                    'revision': 17,
+                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
+                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
+                                    'managed': False,
+                                    'disabled': True,
+                                    'description': 'A verbose description',
+                                    'referenceURL': 'https://example.com',
+                                    'spec': schema0,
+                                    'active': False,
+                                    'native': False
+                                },
                                 {
                                     'name': 'Custom.SampleSchema1',
                                     'revision': 17,
@@ -434,7 +450,7 @@ class TestPantherAnalysisTool(TestCase):
                 return_code, _ = pat.update_custom_schemas(args)
                 assert_equal(return_code, 0)
                 mocks['error'].assert_not_called()
-                assert_equal(mocks['info'].call_count, 3)
+                assert_equal(mocks['info'].call_count, 4)
 
         with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
             with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \

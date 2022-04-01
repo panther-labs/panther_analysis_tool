@@ -60,7 +60,8 @@ LOG_TYPE_REGEX = Regex(
 TYPE_SCHEMA = Schema(
     {
         "AnalysisType": Or(
-            "datamodel", "global", "pack", "policy", "rule", "scheduled_rule", "scheduled_query"
+            "datamodel", "global", "pack", "policy", "rule",
+            "scheduled_rule", "scheduled_query", "lookup_table"
         ),
     },
     ignore_extra_keys=True,
@@ -187,6 +188,31 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         },
         Optional("Description"): str,
         Optional("Tags"): [str],
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+LOOKUP_TABLE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("lookup_table"),
+        "LookupName": str,
+        "Enabled": bool,
+        Or("DataFile", "Refresh"): Or(
+            str,
+            {
+                "RoleARN": str,
+                "ObjectPath": str,
+                Optional("PeriodMinutes"): int,
+                Optional("ObjectKMSKey"): str,
+            },
+        ),
+        "Schema": str,
+        "LogTypeMap": {
+            "PrimaryKey": str,
+            "AssociatedLogTypes": [{"LogType": str, Optional("Selectors"): [str]}],
+        },
+        Optional("Description"): str,
+        Optional("Reference"): str,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
