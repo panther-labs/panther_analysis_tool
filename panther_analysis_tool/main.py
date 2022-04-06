@@ -1,5 +1,5 @@
 """
-Panther Analysis Tool is a command line interface for writing,
+ Analysis Tool is a command line interface for writing,
 testing, and packaging policies/rules.
 Copyright (C) 2020 Panther Labs Inc
 
@@ -474,21 +474,15 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     json_response = api_response["body"]
 
     json_output = json.loads(json_response)
-    if len(analysis_id_list) != json_output["paging"]["totalItems"]:
-        # if we have a different number of detections returned validate and return
-        # only the IDs that were passed
-        # pylint: disable=consider-using-set-comprehension
-        existing_ids = set([detection["id"] for detection in json_output["detections"]])
-        given_ids = set(analysis_id_list)
-        diff = given_ids.difference(existing_ids)
 
-        if diff:
-            for detection_id in diff:
-                logging.info("%s was not found, skipping...", detection_id)
+    existing_ids = set([detection["id"] for detection in json_output["detections"]])
+    given_ids = set(analysis_id_list)
+    diff = given_ids.difference(existing_ids)
+    if diff:
+        for detection_id in diff:
+            logging.info("%s was not found, skipping...", detection_id)
 
-            return list(existing_ids.intersection(given_ids))
-    # If a 1:1 is returned from the API, return what was passed
-    return analysis_id_list
+    return list(existing_ids.intersection(given_ids))
 
 
 def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
