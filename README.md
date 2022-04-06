@@ -56,17 +56,16 @@ $ pip3 install -e .
 $ panther_analysis_tool -h
 
 
-usage: panther_analysis_tool [-h] [--version] [--debug] {release,test,upload,delete,update-lookup-table,test-lookup-table,zip} ...
+usage: panther_analysis_tool [-h] [--version] [--debug] {release,test,upload,delete,test-lookup-table,zip} ...
 
 Panther Analysis Tool: A command line tool for managing Panther policies and rules.
 
 positional arguments:
-  {release,test,upload,delete,update-lookup-table,test-lookup-table,zip}
+  {release,test,upload,delete,test-lookup-table,zip}
     release             Create release assets for repository containing panther detections. Generates a file called panther-analysis-all.zip and optionally generates panther-analysis-all.sig
     test                Validate analysis specifications and run policy and rule tests.
     upload              Upload specified policies and rules to a Panther deployment.
     delete              Delete policies, rules, or saved queries from a Panther deployment
-    update-lookup-table Update or create a Lookup Table in a Panther deployment.
     test-lookup-table   Validate a Lookup Table spec file.
     zip                 Create an archive of local policies and rules for uploading to Panther.
 
