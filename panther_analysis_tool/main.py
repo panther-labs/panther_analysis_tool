@@ -475,22 +475,19 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
 
     json_output = json.loads(json_response)
     if len(analysis_id_list) != json_output["paging"]["totalItems"]:
+        # if we have a different number of detections returned validate and return
+        # only the IDs that were passed
+        # pylint: disable=consider-using-set-comprehension
+        existing_ids = set([detection["id"] for detection in json_output["detections"]])
+        given_ids = set(analysis_id_list)
+        diff = given_ids.difference(existing_ids)
 
-        analysis_response = {}
-        analysis_validated = []
+        if diff:
+            for detection_id in diff:
+                logging.info("%s was not found, skipping...", detection_id)
 
-        for detection in json_output["detections"]:
-            analysis_response[detection["id"]] = detection
-
-        # Build a list of analysis we've confirmed are in Panther
-        for analysis in analysis_id_list:
-            if analysis not in analysis_response:
-                logging.info("%s was not found, skipping...", analysis)
-            else:
-                analysis_validated.append(analysis)
-
-        return analysis_validated
-
+            return list(existing_ids.intersection(given_ids))
+    # If a 1:1 is returned from the API, return what was passed
     return analysis_id_list
 
 
