@@ -1,5 +1,5 @@
 """
-Panther Analysis Tool is a command line interface for writing,
+ Analysis Tool is a command line interface for writing,
 testing, and packaging policies/rules.
 Copyright (C) 2020 Panther Labs Inc
 
@@ -444,7 +444,6 @@ def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list
 def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
     # Retrieves saved queries associated with analysis_id
     analysis_json_output = detection_info_query(args, "ids", analysis_id_list)
-
     query_list = []
     for detection in analysis_json_output.get("detections"):
         for query in detection.get("scheduledQueries"):
@@ -475,20 +474,16 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     json_response = api_response["body"]
 
     json_output = json.loads(json_response)
+    # validate the API response matches what we passed in to avoid partial matching
+    # pylint: disable=consider-using-set-comprehension)
+    existing_ids = set([detection["id"] for detection in json_output["detections"]])
+    given_ids = set(analysis_id_list)
+    diff = given_ids.difference(existing_ids)
+    if diff:
+        for detection_id in diff:
+            logging.info("%s was not found, skipping...", detection_id)
 
-    if len(analysis_id_list) != json_output["paging"]["totalItems"]:
-        analysis_found = {}
-
-        for detection in json_output["detections"]:
-            analysis_found[detection["id"]] = detection
-        # Build a list of analysis we've confirmed are in Panther
-        for analysis in analysis_id_list:
-            if analysis not in analysis_found:
-                logging.info("%s was not found, skipping...", analysis)
-
-        return list(analysis_found.keys())
-
-    return analysis_id_list
+    return list(existing_ids.intersection(given_ids))
 
 
 def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
@@ -595,7 +590,8 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
     # Query existence is validated in the query delete function
     if len(analysis_id_list) > 0:
         analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
-        associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
+        if len(analysis_id_list) > 0:
+            associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
 
     # Merge what we looked up with what was passed, removing dupes
     analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
@@ -1629,7 +1625,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.13.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.13.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
