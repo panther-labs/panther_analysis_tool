@@ -168,7 +168,19 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             dedup_output='defaultDedupString:test_rule_matches',
             detection_output=True,
             detection_severity='INFO',
-            detection_type=TYPE_RULE, 
+            detection_type=TYPE_RULE,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_rule_matches',
+            title_defined=False,
         )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -181,8 +193,27 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
     def test_rule_with_dedup(self) -> None:
         rule_body = 'def rule(event):\n\treturn True\ndef dedup(event):\n\treturn "testdedup"'
         rule = Rule({'id': 'test_rule_with_dedup', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
-        expected_rule = DetectionResult(detection_id='test_rule_with_dedup', trigger_alert=True, detection_output=True,
-                                   dedup_output='testdedup', detection_severity='INFO', detection_type=TYPE_RULE, dedup_defined=True)
+        expected_rule = DetectionResult(
+            detection_id='test_rule_with_dedup',
+            trigger_alert=True,
+            detection_output=True,
+            dedup_output='testdedup',
+            dedup_defined=True,
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_rule_with_dedup',
+            title_defined=False,
+        )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
     def test_restrict_dedup_size(self) -> None:
@@ -199,6 +230,18 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_restrict_dedup_size',
+            title_defined=False,
         )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -214,11 +257,21 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_restrict_title_size',
             trigger_alert=True,
             dedup_output='test',
-            title_output=expected_title_string_prefix + TRUNCATED_STRING_SUFFIX,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             dedup_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output=expected_title_string_prefix + TRUNCATED_STRING_SUFFIX,
             title_defined=True,
         )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
@@ -231,10 +284,22 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_empty_dedup_result_to_default',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_empty_dedup_result_to_default',
+            dedup_defined=True,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            dedup_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_empty_dedup_result_to_default',
+            title_defined=False,
         )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -279,10 +344,22 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_dedup_throws_exception',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_dedup_throws_exception',
+            dedup_defined=True,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            dedup_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_dedup_throws_exception',
+            title_defined=False,
         )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -304,10 +381,22 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_rule_invalid_dedup_return',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_invalid_dedup_return',
+            dedup_defined=True,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            dedup_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_rule_invalid_dedup_return',
+            title_defined=False,
         )
         self.assertEqual(expected_rule, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -319,10 +408,22 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_rule_dedup_returns_empty_string',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_dedup_returns_empty_string',
+            dedup_defined=True,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            dedup_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_rule_dedup_returns_empty_string',
+            title_defined=False,
         )
         self.assertEqual(rule.run(PantherEvent({}, None), {}, {}), expected_result)
 
@@ -331,9 +432,24 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         rule = Rule({'id': 'test_rule_matches_with_title', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
 
         expected_result = DetectionResult(
-            detection_id='test_rule_matches_with_title', trigger_alert=True,
-            dedup_output='title', title_output='title', detection_output=True,
-            detection_severity='INFO', detection_type=TYPE_RULE, title_defined=True,
+            detection_id='test_rule_matches_with_title',
+            trigger_alert=True,
+            dedup_output='title',
+            detection_output=True,
+            detection_severity='INFO',
+            detection_type=TYPE_RULE,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='title',
+            title_defined=True,
         )
         self.assertEqual(rule.run(PantherEvent({}, None), {}, {}), expected_result)
 
@@ -345,10 +461,20 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_rule_title_throws_exception',
             trigger_alert=True,
             dedup_output='test_rule_title_throws_exception',
-            title_output='test_rule_title_throws_exception',
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_rule_title_throws_exception',
             title_defined=True,
         )
         self.assertEqual(rule.run(PantherEvent({}, None), {}, {}), expected_result)
@@ -361,10 +487,20 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_rule_invalid_title_return',
             trigger_alert=True,
             dedup_output='test_rule_invalid_title_return',
-            title_output='test_rule_invalid_title_return',
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_rule_invalid_title_return',
             title_defined=True,
         )
         self.assertEqual(rule.run(PantherEvent({}, None), {}, {}), expected_result)
@@ -377,10 +513,20 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_rule_title_returns_empty_string',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_rule_title_returns_empty_string',
-            title_output='',
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='',
             title_defined=True,
         )
         self.assertEqual(expected_result, rule.run(PantherEvent({}, None), {}, {}))
@@ -393,11 +539,24 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_alert_context',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context',
+            dedup_defined=False,
             alert_context_output='{"string": "string", "int": 1, "nested": {}}',
+            alert_context_defined=True,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            alert_context_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_alert_context',
+            title_defined=False,
         )
         self.assertEqual(expected_result, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -420,6 +579,18 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_alert_context_invalid_return_value',
+            title_defined=False,
         )
         self.assertEqual(expected_result, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -439,11 +610,23 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_id='test_alert_context_too_big',
             trigger_alert=True,
             dedup_output='defaultDedupString:test_alert_context_too_big',
+            alert_context_defined=True,
             alert_context_output=expected_alert_context,
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            alert_context_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_alert_context_too_big',
+            title_defined=False,
         )
         self.assertEqual(expected_result, rule.run(PantherEvent({}, None), {}, {}))
 
@@ -465,6 +648,18 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_alert_context_immutable_event',
+            title_defined=False,
         )
         self.assertEqual(expected_result, rule.run(PantherEvent(event, None), {}, {}))
 
@@ -484,6 +679,18 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             detection_severity='INFO',
             detection_type=TYPE_RULE,
             alert_context_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
+            severity_defined=False,
+            title_output='test_alert_context_returns_full_event',
+            title_defined=False,
         )
         self.assertEqual(expected_result, rule.run(PantherEvent(event, None), {}, {}))
 
@@ -529,12 +736,11 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
                     'def title(event):\n\treturn "test_rule_with_invalid_severity"\n' \
                     'def severity(event):\n\treturn "CRITICAL-ISH"\n'
         rule = Rule({'id': 'test_rule_with_invalid_severity', 'body': rule_body, 'versionId': 'versionId', 'severity': 'INFO'})
-
         expected_result = DetectionResult(
             detection_id='test_rule_with_invalid_severity',
             trigger_alert=True,
+            alert_context_defined=True,
             alert_context_output='{}',
-            title_output='test_rule_with_invalid_severity',
             dedup_output='test_rule_with_invalid_severity',
             detection_output=True,
             detection_severity='INFO',
@@ -552,12 +758,9 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
                 "Expected severity to be any of the following: [['INFO', 'LOW', 'MEDIUM', 'HIGH', "
                 "'CRITICAL']], got [CRITICAL-ISH] instead."
             ),
-            detection_output=True,
-            detection_severity='INFO',
-            detection_type=TYPE_RULE,
-            alert_context_defined=True,
-            title_defined=True,
             severity_defined=True,
+            title_output='test_rule_with_invalid_severity',
+            title_defined=True,
         )
         result = rule.run(PantherEvent({}, None), {}, {}, batch_mode=False)
         self.assertEqual(str(expected_result), str(result))
@@ -577,20 +780,27 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
                 'severity': 'INFO'
             }
         )
-
         expected_result = DetectionResult(
             trigger_alert=True,
             detection_id='test_rule_with_valid_severity_case_insensitive',
+            alert_context_defined=True,
             alert_context_output='{}',
-            title_output='test_rule_with_valid_severity_case_insensitive',
             dedup_output='test_rule_with_valid_severity_case_insensitive',
-            severity_output="CRITICAL",
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            alert_context_defined=True,
-            title_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output="CRITICAL",
             severity_defined=True,
+            title_output='test_rule_with_valid_severity_case_insensitive',
+            title_defined=True,
         )
         result = rule.run(PantherEvent({}, None), {}, {})
         self.assertEqual(expected_result, result)
@@ -613,8 +823,8 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_result = DetectionResult(
             detection_id='test_rule_with_valid_severity_case_insensitive',
             trigger_alert=True,
+            alert_context_defined=True,
             alert_context_output='{}',
-            title_output='test_rule_with_valid_severity_case_insensitive',
             dedup_output='test_rule_with_valid_severity_case_insensitive',
             detection_output=True,
             detection_severity='INFO',
@@ -626,13 +836,14 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             destinations_exception=FunctionReturnTypeError(
                 'detection [{}] function [{}] returned [{}], expected a list'.format(rule.detection_id, 'destinations', 'str')
             ),
-            detection_output=True,
-            detection_severity='INFO',
-            detection_type=TYPE_RULE,
-            alert_context_defined=True,
-            title_defined=True,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output="CRITICAL",
             severity_defined=True,
-            destinations_defined=True,
+            title_output='test_rule_with_valid_severity_case_insensitive',
+            title_defined=True,
         )
         result = rule.run(PantherEvent({}, None), {}, {}, batch_mode=False)
         self.assertEqual(str(expected_result), str(result))
@@ -653,8 +864,8 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         )
         expected_result = DetectionResult(
             detection_id='test_rule_with_severity_raising_exception_unit_test',
+            detection_type=TYPE_RULE,
             trigger_alert=True,
-            title_output='test_rule_with_severity_raising_exception_unit_test',
             dedup_output='test_rule_with_severity_raising_exception_unit_test',
             detection_output=True,
             detection_severity='INFO',
@@ -669,11 +880,8 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
             severity_output='INFO',
             severity_defined=True,
             severity_exception=AssertionError("something bad happened"),
-            detection_output=True,
-            detection_severity='INFO',
-            detection_type=TYPE_RULE,
+            title_output='test_rule_with_severity_raising_exception_unit_test',
             title_defined=True,
-            severity_defined=True,
         )
         result = rule.run(PantherEvent({}, None), {}, {}, batch_mode=False)
         self.assertTrue(result.errored)
@@ -697,14 +905,22 @@ class TestRule(TestCase):  # pylint: disable=too-many-public-methods
         expected_result = DetectionResult(
             detection_id='test_rule_with_severity_raising_exception_batch_mode',
             trigger_alert=True,
-            title_output='test_rule_with_severity_raising_exception_batch_mode',
             dedup_output='test_rule_with_severity_raising_exception_batch_mode',
-            severity_output='INFO',
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
-            title_defined=True,
+            description_output='',
+            description_defined=False,
+            destinations_output=[],
+            destinations_defined=False,
+            reference_output='',
+            reference_defined=False,
+            runbook_output='',
+            runbook_defined=False,
+            severity_output='INFO',
             severity_defined=True,
+            title_output='test_rule_with_severity_raising_exception_batch_mode',
+            title_defined=True,
         )
         result = rule.run(PantherEvent({}, None), {}, {}, batch_mode=True)
         self.assertEqual(str(expected_result), str(result))
