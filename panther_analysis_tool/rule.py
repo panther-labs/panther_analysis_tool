@@ -133,12 +133,13 @@ class Detection(ABC):
         self.detection_id = config["id"]
         self.detection_version = config["versionId"]
 
-        # TODO: severity and other detection metadata is not passed through when we run tests.
-        #       https://app.asana.com/0/1200360676535738/1200403272293475
-        if "severity" in config:
-            self.detection_severity = config["severity"]
-        else:
-            self.detection_severity = None
+        # set static values
+        self.detection_description = config.get("description", "")
+        self.detection_destinations = config.get("outputIds", [])
+        self.detection_display_name = config.get("displayName", "")
+        self.detection_reference = config.get("reference", "")
+        self.detection_runbook = config.get("runbook", "")
+        self.detection_severity = config["severity"] # required field
 
         if not ("dedupPeriodMinutes" in config) or not isinstance(
             config["dedupPeriodMinutes"], int
@@ -153,7 +154,7 @@ class Detection(ABC):
             config["tags"].sort()
             self.detection_tags = config["tags"]
 
-        if "reports" not in config or not config.get("reports"):
+        if "reports" not in config:
             self.detection_reports: Dict[str, List[str]] = dict()
         else:
             # Reports are Dict[str, List[str]]
@@ -441,7 +442,7 @@ class Detection(ABC):
     def _get_dedup_fallback(self, title: Optional[str]) -> str:
         if self._auxiliary_function_definitions[TITLE_FUNCTION] and title:
             return title
-            # If no dedup function defined, return default dedup string
+        # If no dedup function defined, return default dedup string
         return self._default_dedup_string
 
     def _get_description(
@@ -476,7 +477,7 @@ class Detection(ABC):
             return description[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return description
     
-    def _get_description_fallback(self) -> str:
+    def _get_description_fallback(self):
         return self.detection_description
 
     def _get_destinations(  # pylint: disable=too-many-return-statements,too-many-arguments
@@ -683,9 +684,12 @@ class Detection(ABC):
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return title
-    
-    def _get_title_fallback(self) -> Optional[str]:
-        return self.detection
+
+    def _get_title_fallback(self) -> str:
+        # try display name
+        if self.detection_display_name != "":
+            return self.detection_display_name
+        return  self.detection_id
 
     def _run_command(self, function: Callable, event: Mapping, expected_type: Any) -> Any:
         result = function(event)
