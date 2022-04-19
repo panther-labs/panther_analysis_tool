@@ -283,6 +283,8 @@ class Detection(ABC):
                     event,
                     use_default_on_exception=batch_mode,
                 )
+            else:
+                detection_result.title_output = self._get_title_fallback()
         except Exception as err:  # pylint: disable=broad-except
             detection_result.title_exception = err
 
@@ -465,7 +467,7 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return ""
+                return self.detection_description
             raise
 
         if len(description) > MAX_GENERATED_FIELD_SIZE:
@@ -494,7 +496,7 @@ class Detection(ABC):
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info("destinations method raised exception. Exception: %s", err)
-                return None
+                return self.detection_destinations
             raise
         # Return early if destinations returned None
         if destinations is None:
@@ -564,7 +566,7 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return ""
+                return self.detection_reference
             raise
 
         if len(reference) > MAX_GENERATED_FIELD_SIZE:
@@ -593,7 +595,7 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return ""
+                return self.detection_runbook
             raise
 
         if len(runbook) > MAX_GENERATED_FIELD_SIZE:
@@ -651,7 +653,7 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return self.detection_id
+                return self._get_title_fallback()
             raise
 
         if len(title) > MAX_GENERATED_FIELD_SIZE:
