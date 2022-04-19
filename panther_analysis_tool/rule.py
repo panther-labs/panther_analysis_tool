@@ -278,110 +278,101 @@ class Detection(ABC):
 
         try:
             detection_result.title_defined = self._auxiliary_function_definitions[TITLE_FUNCTION]
-            if detection_result.title_defined:
-                detection_result.title_output = self._get_title(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
-            else:
-                detection_result.title_output = self._get_title_fallback()
+            detection_result.title_output = self._get_title(
+                detection_result.title_defined,
+                event,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.title_output = self._get_title_fallback()
             detection_result.title_exception = err
 
         try:
-            detection_result.description_defined = self._auxiliary_function_definitions[
-                DESCRIPTION_FUNCTION
-            ]
-            if detection_result.description_defined:
-                detection_result.description_output = self._get_description(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.description_defined = self._auxiliary_function_definitions[DESCRIPTION_FUNCTION]
+            detection_result.description_output = self._get_description(
+                detection_result.description_defined,
+                event,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.description_output = self._get_description_fallback()
             detection_result.description_exception = err
 
         try:
-            detection_result.reference_defined = self._auxiliary_function_definitions[
-                REFERENCE_FUNCTION
-            ]
-            if detection_result.reference_defined:
-                detection_result.reference_output = self._get_reference(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.reference_defined = self._auxiliary_function_definitions[REFERENCE_FUNCTION]
+            detection_result.reference_output = self._get_reference(
+                detection_result.reference_defined,
+                event,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.reference_output = self._get_reference_fallback()
             detection_result.reference_exception = err
 
         try:
-            detection_result.severity_defined = self._auxiliary_function_definitions[
-                SEVERITY_FUNCTION
-            ]
-            if detection_result.severity_defined:
-                detection_result.severity_output = self._get_severity(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.severity_defined = self._auxiliary_function_definitions[SEVERITY_FUNCTION]
+            detection_result.severity_output = self._get_severity(
+                detection_result.severity_defined,
+                event,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.severity_output = self._get_severity_fallback()
             detection_result.severity_exception = err
 
         try:
-            detection_result.runbook_defined = self._auxiliary_function_definitions[
-                RUNBOOK_FUNCTION
-            ]
-            if detection_result.runbook_defined:
-                detection_result.runbook_output = self._get_runbook(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.runbook_defined = self._auxiliary_function_definitions[RUNBOOK_FUNCTION]
+            detection_result.runbook_output = self._get_runbook(
+                detection_result.runbook_defined,
+                event,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.runbook_output = self._get_runbook_fallback()
             detection_result.runbook_exception = err
 
         try:
-            detection_result.destinations_defined = self._auxiliary_function_definitions[
-                DESTINATIONS_FUNCTION
-            ]
-            if detection_result.destinations_defined:
-                detection_result.destinations_output = self._get_destinations(
-                    event,
-                    outputs,
-                    outputs_names,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.destinations_defined = self._auxiliary_function_definitions[DESTINATIONS_FUNCTION]
+            detection_result.destinations_output = self._get_destinations(
+                detection_result.destinations_defined,
+                event,
+                outputs,
+                outputs_names,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.destinations_output = self._get_destinations_fallback()
             detection_result.destinations_exception = err
 
         try:
             detection_result.dedup_defined = self._auxiliary_function_definitions[DEDUP_FUNCTION]
-            if not detection_result.dedup_defined:
-                detection_result.dedup_output = self._get_dedup_fallback(
-                    detection_result.title_output
-                )
-            else:
-                detection_result.dedup_output = self._get_dedup(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.dedup_output = self._get_dedup(
+                detection_result.dedup_defined,
+                event,
+                detection_result.title_output,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
+            detection_result.dedup_output = self._get_dedup_fallback(detection_result.title_output)
             detection_result.dedup_exception = err
 
         try:
-            detection_result.alert_context_defined = self._auxiliary_function_definitions[
-                ALERT_CONTEXT_FUNCTION
-            ]
-            if detection_result.alert_context_defined:
-                detection_result.alert_context_output = self._get_alert_context(
-                    event,
-                    use_default_on_exception=batch_mode,
-                )
+            detection_result.alert_context_defined = self._auxiliary_function_definitions[ALERT_CONTEXT_FUNCTION]
+            detection_result.alert_context_output = self._get_alert_context(
+                detection_result.alert_context_defined,
+                event,
+                use_default_on_exception=batch_mode,
+            )
         except Exception as err:  # pylint: disable=broad-except
             detection_result.alert_context_exception = err
 
         return detection_result
 
     def _get_alert_context(
-        self, event: Mapping, use_default_on_exception: bool = True
+        self, defined: bool, event: Mapping, use_default_on_exception: bool = True
     ) -> Optional[str]:
-
+        if not defined:
+            return None
         try:
             command = getattr(self._module, ALERT_CONTEXT_FUNCTION)
             alert_context = self._run_command(command, event, Mapping)
@@ -408,10 +399,13 @@ class Detection(ABC):
     # If no title and no dedup function is defined, return the default dedup string.
     def _get_dedup(
         self,
+        defined: bool,
         event: Mapping,
+        title: str,
         use_default_on_exception: bool = True,
     ) -> str:
-
+        if not defined:
+            return self._get_dedup_fallback(title)
         try:
             command = getattr(self._module, DEDUP_FUNCTION)
             dedup_string = self._run_command(command, event, str)
@@ -445,17 +439,16 @@ class Detection(ABC):
         return dedup_string
 
     def _get_dedup_fallback(self, title: Optional[str]) -> str:
-        if title:
-            # If no dedup function is defined but the detection
-            # had a title, use the title as dedup string
+        if self._auxiliary_function_definitions[TITLE_FUNCTION] and title:
             return title
             # If no dedup function defined, return default dedup string
         return self._default_dedup_string
 
     def _get_description(
-        self, event: Mapping, use_default_on_exception: bool = True
+        self, defined: bool, event: Mapping, use_default_on_exception: bool = True
     ) -> Optional[str]:
-
+        if not defined:
+            return self._get_description_fallback()
         try:
             command = getattr(self._module, DESCRIPTION_FUNCTION)
             description = self._run_command(command, event, str)
@@ -467,7 +460,7 @@ class Detection(ABC):
                     self.detection_id,
                     err,
                 )
-                return self.detection_description
+                return self._get_description_fallback()
             raise
 
         if len(description) > MAX_GENERATED_FIELD_SIZE:
@@ -482,21 +475,27 @@ class Detection(ABC):
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return description[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return description
+    
+    def _get_description_fallback(self) -> str:
+        return self.detection_description
 
     def _get_destinations(  # pylint: disable=too-many-return-statements,too-many-arguments
         self,
+        defined: bool,
         event: Mapping,
         outputs: dict,
         outputs_display_names: dict,
         use_default_on_exception: bool = True,
     ) -> Optional[List[str]]:
+        if not defined:
+            return self._get_destinations_fallback()
         try:
             command = getattr(self._module, DESTINATIONS_FUNCTION)
             destinations = self._run_command(command, event, list())
         except Exception as err:  # pylint: disable=broad-except
             if use_default_on_exception:
                 self.logger.info("destinations method raised exception. Exception: %s", err)
-                return self.detection_destinations
+                return self._get_destinations_fallback()
             raise
         # Return early if destinations returned None
         if destinations is None:
@@ -551,10 +550,14 @@ class Detection(ABC):
             return standardized_destinations[:MAX_DESTINATIONS_SIZE]
         return standardized_destinations
 
-    def _get_reference(
-        self, event: Mapping, use_default_on_exception: bool = True
-    ) -> Optional[str]:
+    def _get_destinations_fallback(self) -> Optional[List[str]]:
+        return self.detection_destinations
 
+    def _get_reference(
+        self, defined: bool, event: Mapping, use_default_on_exception: bool = True
+    ) -> Optional[str]:
+        if not defined:
+            return self._get_reference_fallback()
         try:
             command = getattr(self._module, REFERENCE_FUNCTION)
             reference = self._run_command(command, event, str)
@@ -582,8 +585,12 @@ class Detection(ABC):
             return reference[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return reference
 
-    def _get_runbook(self, event: Mapping, use_default_on_exception: bool = True) -> Optional[str]:
+    def _get_reference_fallback(self) -> Optional[str]:
+        return self.detection_reference
 
+    def _get_runbook(self, defined: bool, event: Mapping, use_default_on_exception: bool = True) -> Optional[str]:
+        if not defined:
+            return self._get_runbook_fallback()
         try:
             command = getattr(self._module, RUNBOOK_FUNCTION)
             runbook = self._run_command(command, event, str)
@@ -611,8 +618,12 @@ class Detection(ABC):
             return runbook[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return runbook
 
-    def _get_severity(self, event: Mapping, use_default_on_exception: bool = True) -> Optional[str]:
+    def _get_runbook_fallback(self) -> Optional[str]:
+        return self.detection_runbook
 
+    def _get_severity(self, defined: bool, event: Mapping, use_default_on_exception: bool = True) -> str:
+        if not defined:
+            return self._get_severity_fallback()
         try:
             command = getattr(self._module, SEVERITY_FUNCTION)
             severity = self._run_command(command, event, str).upper()
@@ -640,8 +651,12 @@ class Detection(ABC):
             raise
         return severity
 
-    def _get_title(self, event: Mapping, use_default_on_exception: bool) -> Optional[str]:
+    def _get_severity_fallback(self) -> str:
+        return self.detection_severity
 
+    def _get_title(self, defined: bool, event: Mapping, use_default_on_exception: bool) -> Optional[str]:
+        if not defined:
+            return self._get_title_fallback()
         try:
             command = getattr(self._module, TITLE_FUNCTION)
             title = self._run_command(command, event, str)
@@ -668,6 +683,9 @@ class Detection(ABC):
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return title
+    
+    def _get_title_fallback(self) -> Optional[str]:
+        return self.detection
 
     def _run_command(self, function: Callable, event: Mapping, expected_type: Any) -> Any:
         result = function(event)
