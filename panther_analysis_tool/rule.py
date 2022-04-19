@@ -289,7 +289,8 @@ class Detection(ABC):
             detection_result.title_exception = err
 
         try:
-            detection_result.description_defined = self._auxiliary_function_definitions[DESCRIPTION_FUNCTION]
+            detection_result.description_defined = self._auxiliary_function_definitions[
+                DESCRIPTION_FUNCTION]
             detection_result.description_output = self._get_description(
                 detection_result.description_defined,
                 event,
@@ -300,7 +301,8 @@ class Detection(ABC):
             detection_result.description_exception = err
 
         try:
-            detection_result.reference_defined = self._auxiliary_function_definitions[REFERENCE_FUNCTION]
+            detection_result.reference_defined = self._auxiliary_function_definitions[
+                REFERENCE_FUNCTION]
             detection_result.reference_output = self._get_reference(
                 detection_result.reference_defined,
                 event,
@@ -311,7 +313,8 @@ class Detection(ABC):
             detection_result.reference_exception = err
 
         try:
-            detection_result.severity_defined = self._auxiliary_function_definitions[SEVERITY_FUNCTION]
+            detection_result.severity_defined = self._auxiliary_function_definitions[
+                SEVERITY_FUNCTION]
             detection_result.severity_output = self._get_severity(
                 detection_result.severity_defined,
                 event,
@@ -322,7 +325,8 @@ class Detection(ABC):
             detection_result.severity_exception = err
 
         try:
-            detection_result.runbook_defined = self._auxiliary_function_definitions[RUNBOOK_FUNCTION]
+            detection_result.runbook_defined = self._auxiliary_function_definitions[
+                RUNBOOK_FUNCTION]
             detection_result.runbook_output = self._get_runbook(
                 detection_result.runbook_defined,
                 event,
@@ -333,7 +337,8 @@ class Detection(ABC):
             detection_result.runbook_exception = err
 
         try:
-            detection_result.destinations_defined = self._auxiliary_function_definitions[DESTINATIONS_FUNCTION]
+            detection_result.destinations_defined = self._auxiliary_function_definitions[
+                DESTINATIONS_FUNCTION]
             detection_result.destinations_output = self._get_destinations(
                 detection_result.destinations_defined,
                 event,
@@ -358,7 +363,8 @@ class Detection(ABC):
             detection_result.dedup_exception = err
 
         try:
-            detection_result.alert_context_defined = self._auxiliary_function_definitions[ALERT_CONTEXT_FUNCTION]
+            detection_result.alert_context_defined = self._auxiliary_function_definitions[
+                ALERT_CONTEXT_FUNCTION]
             detection_result.alert_context_output = self._get_alert_context(
                 detection_result.alert_context_defined,
                 event,
@@ -402,7 +408,7 @@ class Detection(ABC):
         self,
         defined: bool,
         event: Mapping,
-        title: str,
+        title: Optional[str],
         use_default_on_exception: bool = True,
     ) -> str:
         if not defined:
@@ -476,8 +482,8 @@ class Detection(ABC):
             num_characters_to_keep = MAX_GENERATED_FIELD_SIZE - len(TRUNCATED_STRING_SUFFIX)
             return description[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return description
-    
-    def _get_description_fallback(self):
+
+    def _get_description_fallback(self) -> Optional[str]:
         return self.detection_description
 
     def _get_destinations(  # pylint: disable=too-many-return-statements,too-many-arguments
@@ -589,7 +595,12 @@ class Detection(ABC):
     def _get_reference_fallback(self) -> Optional[str]:
         return self.detection_reference
 
-    def _get_runbook(self, defined: bool, event: Mapping, use_default_on_exception: bool = True) -> Optional[str]:
+    def _get_runbook(
+        self,
+        defined: bool,
+        event: Mapping,
+        use_default_on_exception: bool = True) -> Optional[str]:
+
         if not defined:
             return self._get_runbook_fallback()
         try:
@@ -622,7 +633,12 @@ class Detection(ABC):
     def _get_runbook_fallback(self) -> Optional[str]:
         return self.detection_runbook
 
-    def _get_severity(self, defined: bool, event: Mapping, use_default_on_exception: bool = True) -> str:
+    def _get_severity(
+        self,
+        defined: bool,
+        event: Mapping,
+        use_default_on_exception: bool = True) -> str:
+
         if not defined:
             return self._get_severity_fallback()
         try:
@@ -655,7 +671,12 @@ class Detection(ABC):
     def _get_severity_fallback(self) -> str:
         return self.detection_severity
 
-    def _get_title(self, defined: bool, event: Mapping, use_default_on_exception: bool) -> Optional[str]:
+    def _get_title(
+        self,
+        defined: bool,
+        event: Mapping,
+        use_default_on_exception: bool) -> Optional[str]:
+
         if not defined:
             return self._get_title_fallback()
         try:
@@ -685,7 +706,7 @@ class Detection(ABC):
             return title[:num_characters_to_keep] + TRUNCATED_STRING_SUFFIX
         return title
 
-    def _get_title_fallback(self) -> str:
+    def _get_title_fallback(self) -> Optional[str]:
         # try display name
         if self.detection_display_name != "":
             return self.detection_display_name

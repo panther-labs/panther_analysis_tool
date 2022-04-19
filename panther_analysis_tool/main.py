@@ -1091,7 +1091,7 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
                 params["body"] = body
 
             data_model = DataModel(params)
-            # check if the LogType already has an e nabled data model
+            # check if the LogType already has an enabled data model
             for log_type in analysis_spec["LogTypes"]:
                 if log_type in log_type_to_data_model:
                     print("\t[ERROR] Conflicting Enabled LogTypes\n")
