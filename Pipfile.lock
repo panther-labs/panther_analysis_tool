@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6be6d1759ceeffbbce03fe15e80a797f793a40b58202be832600ae0a945e5385"
+            "sha256": "af9f3b17d89ceef9be9f76c59b30de375340b4ab7ce43190607b03650a91bc34"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -104,6 +104,10 @@
             ],
             "index": "pypi",
             "version": "==1.5.3"
+        },
+        "panther-analysis-tool": {
+            "editable": true,
+            "path": "."
         },
         "ply": {
             "hashes": [
