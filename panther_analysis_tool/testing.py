@@ -256,7 +256,7 @@ class TestCaseEvaluator:
                         )
                     )
                 )
-            if self._detection_result.destinations_defined:
+            if self._detection_result.dedup_defined:
                 function_results.update(
                     dict(
                         dedupFunction=FunctionTestResult.new(
@@ -266,7 +266,7 @@ class TestCaseEvaluator:
                         )
                     )
                 )
-            if self._detection_result.destinations_defined:
+            if self._detection_result.alert_context_defined:
                 function_results.update(
                     dict(
                         alertContextFunction=FunctionTestResult.new(

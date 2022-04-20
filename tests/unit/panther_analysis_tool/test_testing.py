@@ -171,6 +171,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
             detection_output=True,
             detection_severity='INFO',
             detection_type=TYPE_RULE,
+            title_defined=True,
             title_exception=TypeError('wrong type')
         )
         expected = TestResult(
