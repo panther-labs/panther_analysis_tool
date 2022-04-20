@@ -134,11 +134,11 @@ class Detection(ABC):
         self.detection_version = config["versionId"]
 
         # set static values
-        self.detection_description = config.get("description", "")
-        self.detection_destinations = config.get("outputIds", [])
-        self.detection_display_name = config.get("displayName", "")
-        self.detection_reference = config.get("reference", "")
-        self.detection_runbook = config.get("runbook", "")
+        self.detection_description = config.get("description") or ""
+        self.detection_destinations = config.get("outputIds") or []
+        self.detection_display_name = config.get("displayName") or ""
+        self.detection_reference = config.get("reference") or ""
+        self.detection_runbook = config.get("runbook") or ""
         self.detection_severity = config["severity"] # required field
 
         if not ("dedupPeriodMinutes" in config) or not isinstance(
