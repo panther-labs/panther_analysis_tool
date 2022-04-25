@@ -1057,8 +1057,8 @@ def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
     global_folder = os.path.join(tempfile.gettempdir(), "globals")
     sys.path.insert(0, global_folder)
     # place globals in temp dir
-    invalid_specs = []
-    for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
+    invalid_specs: List[Any] = []
+    for _, dir_name, analysis_spec in global_analysis:
         analysis_id = analysis_spec["GlobalID"]
         source = os.path.join(dir_name, analysis_spec["Filename"])
         destination = os.path.join(global_folder, f"{analysis_id}.py")
