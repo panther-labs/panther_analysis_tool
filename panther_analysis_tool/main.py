@@ -1194,7 +1194,8 @@ def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
             invalid_specs.append(
                 (
                     analysis_spec_filename,
-                    f"pack ({analysis_spec['PackID']}) definition includes item(s) that do no exist ({', '.join(pack_invalid_ids)})",
+                    f"pack ({analysis_spec['PackID']}) definition includes item(s)"
+                    f" that do no exist ({', '.join(pack_invalid_ids)})",
                 )
             )
     return invalid_specs
