@@ -26,8 +26,10 @@ import logging
 import mimetypes
 import os
 import re
+import shutil
 import subprocess  # nosec
 import sys
+import tempfile
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
@@ -1051,15 +1053,16 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
 
 def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
+    # setup temp dir for globals
+    global_folder = os.path.join(tempfile.gettempdir(), "globals")
+    sys.path.insert(0, global_folder)
+    # place globals in temp dir
     invalid_specs = []
     for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
         analysis_id = analysis_spec["GlobalID"]
-        module, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
-        # If the module could not be loaded, continue to the next
-        if load_err:
-            invalid_specs.append((analysis_spec_filename, load_err))
-            continue
-        sys.modules[analysis_id] = module
+        source = os.path.join(dir_name, analysis_spec["Filename"])
+        destination = os.path.join(global_folder, f"{analysis_id}.py")
+        shutil.copyfile(source, destination)
     return invalid_specs
 
 

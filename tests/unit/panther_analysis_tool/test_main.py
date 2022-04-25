@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from datetime import datetime
 import os
 import shutil
+import tempfile
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 from unittest import mock
@@ -49,6 +50,7 @@ class TestPantherAnalysisTool(TestCase):
 
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
+        self.fs.add_real_directory(os.path.join(tempfile.gettempdir(), "globals"), read_only=False)
 
     def tearDown(self) -> None:
         with Pause(self.fs):
