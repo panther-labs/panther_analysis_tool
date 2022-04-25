@@ -1186,14 +1186,17 @@ def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
             id_to_detection[analysis_id] = analysis_spec
     for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
         # validate each id in the pack def exists
+        pack_invalid_ids = []
         for analysis_id in analysis_spec.get("PackDefinition", {}).get("IDs", []):
             if analysis_id not in id_to_detection:
-                invalid_specs.append(
-                    (
-                        analysis_spec_filename,
-                        f"pack definition includes an item that does no exist ({analysis_id})",
-                    )
+                pack_invalid_ids.append(analysis_id)
+        if pack_invalid_ids:
+            invalid_specs.append(
+                (
+                    analysis_spec_filename,
+                    f"pack ({analysis_spec['PackID']}) definition includes item(s) that do no exist ({', '.join(pack_invalid_ids)})",
                 )
+            )
     return invalid_specs
 
 
