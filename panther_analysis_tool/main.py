@@ -314,7 +314,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         if return_code != 0:
             return return_code, ""
 
-    logging.info("Zipping analysis packs in %s to %s", args.path, args.out)
+    logging.info("Zipping analysis items in %s to %s", args.path, args.out)
     # example: 2019-08-05T18-23-25
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
@@ -378,7 +378,7 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
             },
         }
 
-        logging.info("Uploading pack to Panther")
+        logging.info("Uploading items to Panther")
         response = client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
@@ -967,7 +967,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    logging.info("Testing analysis packs in %s\n", args.path)
+    logging.info("Testing analysis items in %s\n", args.path)
 
     ignored_files = args.ignore_files
     search_directories = [args.path]
@@ -1041,6 +1041,10 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         ignore_exception_types=ignore_exception_types,
     )
     invalid_specs.extend(invalid_detection)
+
+    # finally, validate pack defs
+    invalid_packs = validate_packs(specs)
+    invalid_specs.extend(invalid_packs)
 
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
     return int(bool(failed_tests or invalid_specs)), invalid_specs
@@ -1161,6 +1165,40 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
         )
         print("")
     return failed_tests, invalid_specs
+
+
+def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
+
+    invalid_specs = []
+    # first, setup dictionary of id to detection item
+    id_to_detection = {}
+    for analysis_type in analysis_specs:
+        for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
+            analysis_id = (
+                analysis_spec.get("PolicyID")
+                or analysis_spec.get("RuleID")
+                or analysis_spec.get("DataModelID")
+                or analysis_spec.get("GlobalID")
+                or analysis_spec.get("PackID")
+                or analysis_spec.get("QueryName")
+                or analysis_spec["LookupName"]
+            )
+            id_to_detection[analysis_id] = analysis_spec
+    for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
+        # validate each id in the pack def exists
+        pack_invalid_ids = []
+        for analysis_id in analysis_spec.get("PackDefinition", {}).get("IDs", []):
+            if analysis_id not in id_to_detection:
+                pack_invalid_ids.append(analysis_id)
+        if pack_invalid_ids:
+            invalid_specs.append(
+                (
+                    analysis_spec_filename,
+                    f"pack ({analysis_spec['PackID']}) definition includes item(s)"
+                    f" that do no exist ({', '.join(pack_invalid_ids)})",
+                )
+            )
+    return invalid_specs
 
 
 def print_summary(

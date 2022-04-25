@@ -114,7 +114,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      f'{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml')
-        assert_equal(len(invalid_specs), 11)
+        assert_equal(len(invalid_specs), 12)
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies'.split())

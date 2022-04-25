@@ -1,0 +1,6 @@
+AnalysisType: pack
+PackID: Contain.Unknown.ID
+PackDefinition:
+  IDs:
+    - AWS.IAM.BetaTest
+    - does.not.exist
