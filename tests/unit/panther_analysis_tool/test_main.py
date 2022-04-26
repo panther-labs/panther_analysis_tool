@@ -40,17 +40,24 @@ print('Using fixtures path:', FIXTURES_PATH)
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
-        # Data Models write the source code to a file and import it as module.
+        # Data Models and Globals write the source code to a file and import it as module.
         # This will not work if we are simply writing on the in-memory, fake filesystem.
         # We thus copy to a temporary space the Data Model Python modules.
         self.data_model_modules = [os.path.join(DETECTIONS_FIXTURES_PATH,
                                                 'valid_analysis/data_models/GSuite.Events.DataModel.py')]
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
+        self.global_modules = []
+        global_path = os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/')
+        for filename in os.listdir(global_path):
+            if filename.endswith(".py"):
+                self.global_modules.append(os.path.join(global_path, filename))
+        for global_module in self.global_modules:
+            shutil.copy(global_module, pat.TMP_HELPER_MODULE_LOCATION)
 
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
-        self.fs.add_real_directory(os.path.join(tempfile.gettempdir(), "globals"), read_only=False)
+        #self.fs.add_real_directory(tempfile.gettempdir(), read_only=False)
 
     def tearDown(self) -> None:
         with Pause(self.fs):
@@ -116,7 +123,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      f'{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml')
-        assert_equal(len(invalid_specs), 12)
+        assert_equal(len(invalid_specs), 11)
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies'.split())
