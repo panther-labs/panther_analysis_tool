@@ -124,7 +124,7 @@ VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
-    LOOKUP_TABLE: LOOKUP_TABLE,
+    LOOKUP_TABLE: LOOKUP_TABLE_SCHEMA,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
@@ -978,6 +978,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         "." + HELPERS_LOCATION,
         DATA_MODEL_LOCATION,
         "." + DATA_MODEL_LOCATION,
+        LUTS_LOCATION,
+            "." + LUTS_LOCATION,
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -1173,6 +1175,7 @@ def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
     # first, setup dictionary of id to detection item
     id_to_detection = {}
     for analysis_type in analysis_specs:
+        print(analysis_type)
         for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
             analysis_id = (
                 analysis_spec.get("PolicyID")
@@ -1663,7 +1666,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.13.1")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
