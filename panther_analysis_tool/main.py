@@ -127,7 +127,7 @@ VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 SCHEMAS: Dict[str, Schema] = {
     DATAMODEL: DATA_MODEL_SCHEMA,
     GLOBAL: GLOBAL_SCHEMA,
-    LOOKUP_TABLE: LOOKUP_TABLE,
+    LOOKUP_TABLE: LOOKUP_TABLE_SCHEMA,
     PACK: PACK_SCHEMA,
     POLICY: POLICY_SCHEMA,
     QUERY: SCHEDULED_QUERY_SCHEMA,
@@ -234,6 +234,7 @@ def load_analysis_specs(
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
+                            LUTS_PATH_PATTERN,
                             RULES_PATH_PATTERN,
                             PACKS_PATH_PATTERN,
                             POLICIES_PATH_PATTERN,
@@ -981,6 +982,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         "." + HELPERS_LOCATION,
         DATA_MODEL_LOCATION,
         "." + DATA_MODEL_LOCATION,
+        LUTS_LOCATION,
+        "." + LUTS_LOCATION,
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -1023,7 +1026,6 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
         for name in available_destinations
     }
-
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
@@ -1295,7 +1297,7 @@ def classify_analysis(
     # types of detections, meta types that can be zipped
     # or uploaded
     classified_specs: Dict[str, List[Any]] = dict()
-    for key in [DATAMODEL, DETECTION, GLOBAL, PACK, QUERY]:
+    for key in [DATAMODEL, DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
         classified_specs[key] = []
 
     invalid_specs = []
@@ -1384,6 +1386,8 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
         analysis_id = analysis_spec["DataModelID"]
     if analysis_type == GLOBAL:
         analysis_id = analysis_spec["GlobalID"]
+    if analysis_type == LOOKUP_TABLE:
+        analysis_id = analysis_spec["LookupName"]
     if analysis_type == PACK:
         analysis_id = analysis_spec["PackID"]
     if analysis_type == POLICY:
@@ -1682,7 +1686,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.13.1")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.0")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
