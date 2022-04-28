@@ -47,6 +47,14 @@ class TestPantherAnalysisTool(TestCase):
                                                 'valid_analysis/data_models/GSuite.Events.DataModel.py')]
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
+        os.makedirs(pat.TMP_HELPER_MODULE_LOCATION, exist_ok=True)
+        self.global_modules = {
+            "panther": os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/helpers.py'),
+            "a_helper": os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/a_helper.py'),
+            "b_helper": os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/b_helper.py'),
+        }
+        for module_name, filename in self.global_modules.items():
+            shutil.copy(filename, os.path.join(pat.TMP_HELPER_MODULE_LOCATION, f"{module_name}.py"))
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
         self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
@@ -115,7 +123,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      f'{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml')
-        assert_equal(len(invalid_specs), 11)
+        assert_equal(len(invalid_specs), 12)
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies'.split())
@@ -326,7 +334,6 @@ class TestPantherAnalysisTool(TestCase):
             self.fs.create_dir('tmp/')
         except OSError:
             pass
-
         args = pat.setup_parser().\
             parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
 

@@ -1049,7 +1049,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     invalid_specs.extend(invalid_packs)
 
     # cleanup tmp global dir
-    cleanup_global_helpers()
+    cleanup_global_helpers(specs[GLOBAL])
 
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
     return int(bool(failed_tests or invalid_specs)), invalid_specs
@@ -1057,7 +1057,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
 def setup_global_helpers(global_analysis: List[Any]) -> None:
     # ensure the directory does not exist, else clear it
-    cleanup_global_helpers()
+    cleanup_global_helpers(global_analysis)
     os.makedirs(TMP_HELPER_MODULE_LOCATION)
     # setup temp dir for globals
     if TMP_HELPER_MODULE_LOCATION not in sys.path:
@@ -1072,7 +1072,12 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
         if analysis_id in sys.modules:
             importlib.reload(sys.modules[analysis_id])
 
-def cleanup_global_helpers() -> None:
+def cleanup_global_helpers(global_analysis: List[Any]) -> None:
+    # clear the modules from the modules cache
+    for _, dir_name, analysis_spec in global_analysis:
+        analysis_id = analysis_spec["GlobalID"]
+        if analysis_id in sys.modules:
+            del sys.modules[analysis_id]
     # ensure the directory does not exist, else clear it
     if os.path.exists(TMP_HELPER_MODULE_LOCATION):
         shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
