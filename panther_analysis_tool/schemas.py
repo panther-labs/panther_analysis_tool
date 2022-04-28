@@ -28,6 +28,7 @@ RESOURCE_TYPE_REGEX = Regex(
     r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
     r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
 )
+# pylint: disable=line-too-long
 LOG_TYPE_REGEX = Regex(
     r"^(Apache\.AccessCombined|Apache\.AccessCommon|Asana\.Audit"
     r"|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
@@ -50,8 +51,8 @@ LOG_TYPE_REGEX = Regex(
     r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
-    r"\.SignInAttempt|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|Salesforce\."
-    r"URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata"
+    r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
+    r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata"
     r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation|"
     r"Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
