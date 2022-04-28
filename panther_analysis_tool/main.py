@@ -1057,8 +1057,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
 def setup_global_helpers(global_analysis: List[Any]) -> None:
     # ensure the directory does not exist, else clear it
-    print(TMP_HELPER_MODULE_LOCATION)
-    #cleanup_global_helpers()
+    cleanup_global_helpers()
     os.makedirs(TMP_HELPER_MODULE_LOCATION)
     # setup temp dir for globals
     sys.path.append(TMP_HELPER_MODULE_LOCATION)
@@ -1068,6 +1067,9 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
         source = os.path.join(dir_name, analysis_spec["Filename"])
         destination = os.path.join(TMP_HELPER_MODULE_LOCATION, f"{analysis_id}.py")
         shutil.copyfile(source, destination)
+        # force reload of the module as necessary
+        if analysis_id in sys.modules:
+            importlib.reload(sys.modules[analysis_id])
     return
 
 def cleanup_global_helpers() -> None:

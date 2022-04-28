@@ -47,17 +47,9 @@ class TestPantherAnalysisTool(TestCase):
                                                 'valid_analysis/data_models/GSuite.Events.DataModel.py')]
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
-        self.global_modules = []
-        global_path = os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/')
-        for filename in os.listdir(global_path):
-            if filename.endswith(".py"):
-                self.global_modules.append(os.path.join(global_path, filename))
-        for global_module in self.global_modules:
-            shutil.copy(global_module, pat.TMP_HELPER_MODULE_LOCATION)
-
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
-        #self.fs.add_real_directory(tempfile.gettempdir(), read_only=False)
+        self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
 
     def tearDown(self) -> None:
         with Pause(self.fs):
