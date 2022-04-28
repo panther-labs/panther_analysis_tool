@@ -1060,7 +1060,8 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
     cleanup_global_helpers()
     os.makedirs(TMP_HELPER_MODULE_LOCATION)
     # setup temp dir for globals
-    sys.path.append(TMP_HELPER_MODULE_LOCATION)
+    if TMP_HELPER_MODULE_LOCATION not in sys.path:
+        sys.path.append(TMP_HELPER_MODULE_LOCATION)
     # place globals in temp dir
     for _, dir_name, analysis_spec in global_analysis:
         analysis_id = analysis_spec["GlobalID"]
@@ -1070,13 +1071,11 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
         # force reload of the module as necessary
         if analysis_id in sys.modules:
             importlib.reload(sys.modules[analysis_id])
-    return
 
 def cleanup_global_helpers() -> None:
     # ensure the directory does not exist, else clear it
     if os.path.exists(TMP_HELPER_MODULE_LOCATION):
         shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
-    return
 
 def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
