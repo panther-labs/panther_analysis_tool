@@ -1074,7 +1074,7 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
 
 def cleanup_global_helpers(global_analysis: List[Any]) -> None:
     # clear the modules from the modules cache
-    for _, dir_name, analysis_spec in global_analysis:
+    for _, _, analysis_spec in global_analysis:
         analysis_id = analysis_spec["GlobalID"]
         if analysis_id in sys.modules:
             del sys.modules[analysis_id]
