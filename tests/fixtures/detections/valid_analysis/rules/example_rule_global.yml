@@ -1,0 +1,16 @@
+AnalysisType: rule 
+Filename: example_rule_global.py
+DisplayName: Rule with global importing global
+Description: we should be able to import a global in another global.
+Severity: High
+Threshold: 5
+RuleID: Test.Global.Global
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Simple return true
+    ExpectedResult: true
+    Log:
+      {}

@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from datetime import datetime
 import os
 import shutil
+import tempfile
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 from unittest import mock
@@ -39,16 +40,24 @@ print('Using fixtures path:', FIXTURES_PATH)
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
-        # Data Models write the source code to a file and import it as module.
+        # Data Models and Globals write the source code to a file and import it as module.
         # This will not work if we are simply writing on the in-memory, fake filesystem.
         # We thus copy to a temporary space the Data Model Python modules.
         self.data_model_modules = [os.path.join(DETECTIONS_FIXTURES_PATH,
                                                 'valid_analysis/data_models/GSuite.Events.DataModel.py')]
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
-
+        os.makedirs(pat.TMP_HELPER_MODULE_LOCATION, exist_ok=True)
+        self.global_modules = {
+            "panther": os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/helpers.py'),
+            "a_helper": os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/a_helper.py'),
+            "b_helper": os.path.join(DETECTIONS_FIXTURES_PATH, 'valid_analysis/global_helpers/b_helper.py'),
+        }
+        for module_name, filename in self.global_modules.items():
+            shutil.copy(filename, os.path.join(pat.TMP_HELPER_MODULE_LOCATION, f"{module_name}.py"))
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
+        self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
 
     def tearDown(self) -> None:
         with Pause(self.fs):
@@ -325,7 +334,6 @@ class TestPantherAnalysisTool(TestCase):
             self.fs.create_dir('tmp/')
         except OSError:
             pass
-
         args = pat.setup_parser().\
             parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
 
