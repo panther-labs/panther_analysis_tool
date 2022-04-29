@@ -84,8 +84,8 @@ class FunctionTestResult:
         return TestError(message=FunctionTestResult.format_exception(exc, title=title))
 
 
-@dataclass  # pylint: disable=R0902
-class TestResultsPerFunction:
+@dataclass
+class TestResultsPerFunction:  # pylint: disable=R0902
     """Container for the results of each function"""
 
     detectionFunction: Optional[FunctionTestResult]  # pylint: disable=C0103
@@ -99,8 +99,8 @@ class TestResultsPerFunction:
     destinationsFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
 
 
-@dataclass  # pylint: disable=R0902
-class TestResult:
+@dataclass
+class TestResult:  # pylint: disable=R0902
     """The structure of the results for a test case evaluation"""
 
     id: Optional[str]  # pylint: disable=C0103
