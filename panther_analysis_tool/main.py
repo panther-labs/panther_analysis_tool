@@ -26,8 +26,10 @@ import logging
 import mimetypes
 import os
 import re
+import shutil
 import subprocess  # nosec
 import sys
+import tempfile
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
@@ -97,6 +99,7 @@ PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
 QUERIES_PATH_PATTERN = "*queries*"
 RULES_PATH_PATTERN = "*rules*"
+TMP_HELPER_MODULE_LOCATION = os.path.join(tempfile.gettempdir(), "globals")
 
 DATAMODEL = "datamodel"
 DETECTION = "detection"
@@ -1026,8 +1029,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    invalid_globals = setup_global_helpers(specs[GLOBAL])
-    invalid_specs.extend(invalid_globals)
+    setup_global_helpers(specs[GLOBAL])
 
     # then, setup data model dictionary to be used in rule/policy tests
     log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
@@ -1048,22 +1050,39 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     invalid_packs = validate_packs(specs)
     invalid_specs.extend(invalid_packs)
 
+    # cleanup tmp global dir
+    cleanup_global_helpers(specs[GLOBAL])
+
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
     return int(bool(failed_tests or invalid_specs)), invalid_specs
 
 
-def setup_global_helpers(global_analysis: List[Any]) -> List[Any]:
-    invalid_specs = []
-    for analysis_spec_filename, dir_name, analysis_spec in global_analysis:
+def setup_global_helpers(global_analysis: List[Any]) -> None:
+    # ensure the directory does not exist, else clear it
+    cleanup_global_helpers(global_analysis)
+    os.makedirs(TMP_HELPER_MODULE_LOCATION)
+    # setup temp dir for globals
+    if TMP_HELPER_MODULE_LOCATION not in sys.path:
+        sys.path.append(TMP_HELPER_MODULE_LOCATION)
+    # place globals in temp dir
+    for _, dir_name, analysis_spec in global_analysis:
         analysis_id = analysis_spec["GlobalID"]
-        module, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
-        # If the module could not be loaded, continue to the next
-        if load_err:
-            invalid_specs.append((analysis_spec_filename, load_err))
-            continue
-        sys.modules[analysis_id] = module
-    return invalid_specs
+        source = os.path.join(dir_name, analysis_spec["Filename"])
+        destination = os.path.join(TMP_HELPER_MODULE_LOCATION, f"{analysis_id}.py")
+        shutil.copyfile(source, destination)
+        # force reload of the module as necessary
+        if analysis_id in sys.modules:
+            importlib.reload(sys.modules[analysis_id])
 
+def cleanup_global_helpers(global_analysis: List[Any]) -> None:
+    # clear the modules from the modules cache
+    for _, _, analysis_spec in global_analysis:
+        analysis_id = analysis_spec["GlobalID"]
+        if analysis_id in sys.modules:
+            del sys.modules[analysis_id]
+    # ensure the directory does not exist, else clear it
+    if os.path.exists(TMP_HELPER_MODULE_LOCATION):
+        shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
 
 def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
