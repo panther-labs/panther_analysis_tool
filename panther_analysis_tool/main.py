@@ -99,7 +99,7 @@ PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
 QUERIES_PATH_PATTERN = "*queries*"
 RULES_PATH_PATTERN = "*rules*"
-TMP_HELPER_MODULE_LOCATION = os.path.join(tempfile.gettempdir(), "globals")
+TMP_HELPER_MODULE_LOCATION = os.path.join(tempfile.gettempdir(), "panther-path", "globals")
 
 DATAMODEL = "datamodel"
 DETECTION = "detection"
@@ -1072,17 +1072,24 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
         shutil.copyfile(source, destination)
         # force reload of the module as necessary
         if analysis_id in sys.modules:
+            logging.warning(
+                "module name collision: global (%s) has same name as a module in python path",
+                analysis_id,
+            )
             importlib.reload(sys.modules[analysis_id])
+
 
 def cleanup_global_helpers(global_analysis: List[Any]) -> None:
     # clear the modules from the modules cache
     for _, _, analysis_spec in global_analysis:
         analysis_id = analysis_spec["GlobalID"]
+        # delete the helpers that were added to sys.modules for testing
         if analysis_id in sys.modules:
             del sys.modules[analysis_id]
     # ensure the directory does not exist, else clear it
     if os.path.exists(TMP_HELPER_MODULE_LOCATION):
         shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
+
 
 def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
