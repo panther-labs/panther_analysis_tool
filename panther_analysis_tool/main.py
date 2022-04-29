@@ -528,7 +528,7 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
             }
         }
         delete_response = client.invoke(
-            FunctionName="panther-athena-api",
+            FunctionName=datalake_function,
             InvocationType="RequestResponse",
             LogType="None",
             Payload=json.dumps(payload),
@@ -1693,7 +1693,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
