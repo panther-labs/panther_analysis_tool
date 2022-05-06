@@ -21,7 +21,7 @@ from copy import deepcopy
 import json
 from unittest import TestCase
 
-from panther_analysis_tool.immutable import ImmutableCaseInsensitiveDict, ImmutableList, json_encoder
+from panther_core.immutable import ImmutableCaseInsensitiveDict, ImmutableList, json_encoder
 
 
 class TestImmutableDict(TestCase):

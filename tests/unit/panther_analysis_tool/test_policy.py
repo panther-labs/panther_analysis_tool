@@ -20,9 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for src/policy.py"""
 import unittest
 
-from panther_analysis_tool.exceptions import FunctionReturnTypeError
-from panther_analysis_tool.rule import DetectionResult
-from panther_analysis_tool.policy import Policy, TYPE_POLICY
+from panther_core.exceptions import FunctionReturnTypeError
+from panther_core.rule import DetectionResult
+from panther_core.policy import Policy, TYPE_POLICY
 
 
 class TestPolicy(unittest.TestCase):

@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from unittest import TestCase
 from jsonpath_ng import Fields
 
-from panther_analysis_tool.data_model import DataModel
+from panther_core.data_model import DataModel
 
 
 class TestDataModel(TestCase):  # pylint: disable=too-many-public-methods

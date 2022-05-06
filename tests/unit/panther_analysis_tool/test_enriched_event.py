@@ -20,9 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from copy import deepcopy
 from unittest import TestCase
 
-from panther_analysis_tool.data_model import DataModel
-from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.immutable import ImmutableList, ImmutableCaseInsensitiveDict
+from panther_core.data_model import DataModel
+from panther_core.enriched_event import PantherEvent
+from panther_core.immutable import ImmutableList, ImmutableCaseInsensitiveDict
 
 
 class TestEnrichedEvent(TestCase):

@@ -16,6 +16,7 @@ dynaconf==3.1.8
 idna==3.3
 jmespath==1.0.0
 jsonpath-ng==1.5.3
+panther-core==0.0.2
 ply==3.11
 python-dateutil==2.8.2
 requests==2.27.1

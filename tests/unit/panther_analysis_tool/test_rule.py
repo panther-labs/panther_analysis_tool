@@ -27,11 +27,11 @@ from unittest import TestCase
 import tempfile
 from types import ModuleType
 
-from panther_analysis_tool.detection import DetectionResult, FilesystemImporter, RawStringImporter
-from panther_analysis_tool.rule import Rule, MAX_DEDUP_STRING_SIZE, \
+from panther_core.detection import DetectionResult, FilesystemImporter, RawStringImporter
+from panther_core.rule import Rule, MAX_DEDUP_STRING_SIZE, \
     MAX_GENERATED_FIELD_SIZE, TRUNCATED_STRING_SUFFIX, TYPE_RULE
-from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.exceptions import FunctionReturnTypeError, UnknownDestinationError
+from panther_core.enriched_event import PantherEvent
+from panther_core.exceptions import FunctionReturnTypeError, UnknownDestinationError
 
 
 class TestRule(TestCase):  # pylint: disable=too-many-public-methods

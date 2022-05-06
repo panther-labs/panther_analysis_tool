@@ -20,11 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
 
-from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.policy import TYPE_POLICY
-from panther_analysis_tool.rule import Rule, TYPE_RULE
+from panther_core.detection import DetectionResult
+from panther_core.policy import TYPE_POLICY
+from panther_core.rule import Rule, TYPE_RULE
 
-from panther_analysis_tool.testing import FunctionTestResult, TestError, TestSpecification, \
+from panther_core.testing import FunctionTestResult, TestError, TestSpecification, \
     TestExpectations, TestCaseEvaluator, TestResult, TestResultsPerFunction
 
 TEST_RULE = {

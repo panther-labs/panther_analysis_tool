@@ -31,7 +31,7 @@ from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
 
-from panther_analysis_tool.util import get_client
+from panther_core.util import get_client
 
 logger = logging.getLogger(__file__)
 
