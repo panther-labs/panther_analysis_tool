@@ -29,7 +29,7 @@ from schema import SchemaWrongKeyError
 from nose.tools import assert_equal, assert_is_instance, assert_true
 
 from panther_analysis_tool import main as pat
-from panther_core import util
+from panther_analysis_tool.util import set_env
 from panther_core.data_model import _DATAMODEL_FOLDER
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -224,7 +224,7 @@ class TestPantherAnalysisTool(TestCase):
         aws_profile = 'AWS_PROFILE'
         args = pat.setup_parser().parse_args(
             f'upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile'.split())
-        util.set_env(aws_profile, args.aws_profile)
+        set_env(aws_profile, args.aws_profile)
         assert_equal('myprofile', args.aws_profile)
         assert_equal(args.aws_profile, os.environ.get(aws_profile))
 

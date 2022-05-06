@@ -74,7 +74,6 @@ from panther_core.testing import (
     TestResult,
     TestSpecification,
 )
-from panther_core.util import get_client
 
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
@@ -88,6 +87,7 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
+from panther_analysis_tool.util import get_client
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
