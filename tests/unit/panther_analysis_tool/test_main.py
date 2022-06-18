@@ -383,7 +383,7 @@ class TestPantherAnalysisTool(TestCase):
                 with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
                     return_code, _ = pat.upload_analysis(args)
                     assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 10)
+                    assert_equal(logging_mocks['debug'].call_count, 20)
                     assert_equal(logging_mocks['warning'].call_count, 1)
                     # test + zip + upload messages
                     assert_equal(logging_mocks['info'].call_count, 3)
@@ -408,7 +408,7 @@ class TestPantherAnalysisTool(TestCase):
                 with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
                     return_code, _ = pat.upload_analysis(args)
                     assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 10)
+                    assert_equal(logging_mocks['debug'].call_count, 20)
                     # warning about max and final error
                     assert_equal(logging_mocks['warning'].call_count, 2)
                     assert_equal(logging_mocks['info'].call_count, 3)

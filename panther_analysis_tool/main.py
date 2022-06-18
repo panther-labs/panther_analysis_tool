@@ -401,10 +401,11 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         while response_payload.get("statusCode") != 200:
             if max_retries > 0 and "another upload is in process" in response_payload.get("body"):
                 logging.debug(
-                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s. Re-trying.",
+                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s.",
                     response_payload.get("statusCode", 0),
                     response_payload.get("errorMessage", response_payload.get("body")),
                 )
+                logging.debug("Retries left: %s", max_retries)
                 max_retries = max_retries - 1
                 # typical bulk upload takes 30 seconds, allow any currently running one to complete
                 time.sleep(30)
@@ -426,7 +427,6 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         body = json.loads(response_payload["body"])
         logging.info("Upload success.")
         logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
-    logging.warning("outside")
     return 0, ""
 
 
@@ -1715,7 +1715,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 100.00.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
