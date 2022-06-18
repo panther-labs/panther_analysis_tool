@@ -30,6 +30,7 @@ import shutil
 import subprocess  # nosec
 import sys
 import tempfile
+import time
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
@@ -367,9 +368,14 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return_code, archive = zip_analysis(args)
     if return_code == 1:
         return return_code, ""
-
+    # extract max retries we should handle
+    max_retries = 10
+    if args.max_retries > 10:
+        logging.warning("max_retries cannot be greater than 10, defaulting to 10")
+    elif args.max_retries < 0:
+        logging.warning("max_retries cannot be negative, defaulting to 0")
+        max_retries = 0
     client = get_client(args.aws_profile, "lambda")
-
     with open(archive, "rb") as analysis_zip:
         zip_bytes = analysis_zip.read()
         payload = {
@@ -392,19 +398,35 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 
         response_str = response["Payload"].read().decode("utf-8")
         response_payload = json.loads(response_str)
-
-        if response_payload.get("statusCode") != 200:
-            logging.warning(
-                "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s",
-                response_payload.get("statusCode", 0),
-                response_payload.get("errorMessage", response_payload.get("body")),
-            )
-            return 1, ""
-
+        while response_payload.get("statusCode") != 200:
+            if max_retries > 0 and "another upload is in process" in response_payload.get("body"):
+                logging.debug(
+                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s. Re-trying.",
+                    response_payload.get("statusCode", 0),
+                    response_payload.get("errorMessage", response_payload.get("body")),
+                )
+                max_retries = max_retries - 1
+                # typical bulk upload takes 30 seconds, allow any currently running one to complete
+                time.sleep(30)
+                response = client.invoke(
+                    FunctionName="panther-analysis-api",
+                    InvocationType="RequestResponse",
+                    LogType="None",
+                    Payload=json.dumps(payload),
+                )
+                response_str = response["Payload"].read().decode("utf-8")
+                response_payload = json.loads(response_str)
+            else:
+                logging.warning(
+                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s",
+                    response_payload.get("statusCode", 0),
+                    response_payload.get("errorMessage", response_payload.get("body")),
+                )
+                return 1, ""
         body = json.loads(response_payload["body"])
         logging.info("Upload success.")
         logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
-
+    logging.warning("outside")
     return 0, ""
 
 
@@ -1693,7 +1715,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.1")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 100.00.0")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
@@ -1776,6 +1798,13 @@ def setup_parser() -> argparse.ArgumentParser:
 
     upload_parser = subparsers.add_parser(
         "upload", help="Upload specified policies and rules to a Panther deployment."
+    )
+    upload_parser.add_argument(
+        "--max-retries",
+        help="Retry to upload on a failure for a maximum number of times",
+        default=10,
+        type=int,
+        required=False,
     )
     upload_parser.add_argument(aws_profile_name, **aws_profile_arg)
     upload_parser.add_argument(filter_name, **filter_arg)
