@@ -18,6 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from datetime import datetime
+import io
+import json
 import os
 import shutil
 import tempfile
@@ -37,6 +39,14 @@ DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
 
 print('Using fixtures path:', FIXTURES_PATH)
 
+def _mock_invoke(**_kwargs):  # pylint: disable=C0103
+    return {
+        "Payload": io.BytesIO(json.dumps({
+            "statusCode": 400,
+            "body": "another upload is in process",
+        }).encode("utf-8")),
+        "StatusCode": 400,
+    }
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
@@ -359,6 +369,51 @@ class TestPantherAnalysisTool(TestCase):
         assert_true(statinfo.st_size > 0)
         assert_equal(return_code, 0)
 
+    def test_retry_uploads(self):
+        import logging
+
+        args = pat.setup_parser().parse_args(
+            f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
+        invoke_mock = mock.MagicMock()
+        invoke_mock.invoke.side_effect = _mock_invoke
+        patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
+        # fails max of 10 times on default
+        with mock.patch.multiple("panther_analysis_tool.main", **patch):
+            with mock.patch('time.sleep', return_value=None) as time_mock:
+                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                    return_code, _ = pat.upload_analysis(args)
+                    assert_equal(return_code, 1)
+                    assert_equal(logging_mocks['debug'].call_count, 20)
+                    assert_equal(logging_mocks['warning'].call_count, 1)
+                    # test + zip + upload messages
+                    assert_equal(logging_mocks['info'].call_count, 3)
+                    assert_equal(time_mock.call_count, 10)
+        # invalid retry count, default to 0
+        args = pat.setup_parser().parse_args(
+            f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1'.split())
+        with mock.patch.multiple("panther_analysis_tool.main", **patch):
+            with mock.patch('time.sleep', return_value=None) as time_mock:
+                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                    return_code, _ = pat.upload_analysis(args)
+                    assert_equal(return_code, 1)
+                    assert_equal(logging_mocks['debug'].call_count, 0)
+                    assert_equal(logging_mocks['warning'].call_count, 2)
+                    assert_equal(logging_mocks['info'].call_count, 3)
+                    assert_equal(time_mock.call_count, 0)
+        # invalid retry count, default to 10
+        args = pat.setup_parser().parse_args(
+            f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100'.split())
+        with mock.patch.multiple("panther_analysis_tool.main", **patch) as client_mock:
+            with mock.patch('time.sleep', return_value=None) as time_mock:
+                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                    return_code, _ = pat.upload_analysis(args)
+                    assert_equal(return_code, 1)
+                    assert_equal(logging_mocks['debug'].call_count, 20)
+                    # warning about max and final error
+                    assert_equal(logging_mocks['warning'].call_count, 2)
+                    assert_equal(logging_mocks['info'].call_count, 3)
+                    assert_equal(time_mock.call_count, 10)
+
     def test_update_custom_schemas(self):
         from panther_analysis_tool.log_schemas.user_defined import Client
         from unittest import mock
@@ -521,7 +576,7 @@ class TestPantherAnalysisTool(TestCase):
 
 
         invoke_mock = mock.MagicMock(return_value=rv)
-        invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload":  BytesIO(rv)}
+        invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload": BytesIO(rv)}
         patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
         with mock.patch.multiple("panther_analysis_tool.main", **patch):
             validated_list = pat.confirm_analysis_exists(args, requested_deletion)
