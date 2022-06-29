@@ -1572,7 +1572,8 @@ def _print_test_result(
     # print overall status for this test
     print("\t[{}] {}".format(outcome, test_result.name))
 
-    # print function output and status as necessary
+    # print function output and status as necessarysh
+
     functions = asdict(test_result.functions)
     for function_name, function_result in functions.items():
         printable_name = function_name.replace("Function", "")
@@ -1715,7 +1716,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.15.0")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.2")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
