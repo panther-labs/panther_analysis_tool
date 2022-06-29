@@ -1572,7 +1572,7 @@ def _print_test_result(
     # print overall status for this test
     print("\t[{}] {}".format(outcome, test_result.name))
 
-    # print function output and status as necessarysh
+    # print function output and status as necessary
 
     functions = asdict(test_result.functions)
     for function_name, function_result in functions.items():
