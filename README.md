@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://docs.runpanther.io">Documentation</a> |
-  <a href="https://docs.runpanther.io/quick-start">Quick Start</a>
+  <a href="https://docs.panther.com/writing-detections/panther-analysis-tool#using-the-panther-analysis-tool">Quick Start</a>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 ---
 
-`panther_analysis_tool` is a Python CLI for testing, packaging, and deploying Panther Detections defined in code. See the [Panther documentation](https://docs.runpanther.io/quick-start) for more details on Panther.
+`panther_analysis_tool` is a Python CLI for testing, packaging, and deploying Panther Detections defined in code. See the [Panther documentation](https://docs.panther.com/writing-detections/panther-analysis-tool#using-the-panther-analysis-tool) for more details on Panther.
 
 # Installation
 
