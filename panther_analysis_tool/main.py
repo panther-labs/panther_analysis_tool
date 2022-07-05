@@ -64,6 +64,15 @@ from schema import (
     SchemaWrongKeyError,
 )
 
+from panther_analysis_tool.backend.client import (
+    BulkUploadParams,
+    ListDetectionsParams,
+    DeleteDetectionsParams,
+    ListSavedQueriesParams,
+    DeleteSavedQueriesParams,
+    UpdateManagedSchemasParams,
+)
+
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
@@ -87,7 +96,7 @@ from panther_analysis_tool.testing import (
     TestResult,
     TestSpecification,
 )
-from panther_analysis_tool.util import get_client
+from panther_analysis_tool.util import get_client, get_backend
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -365,6 +374,8 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     Returns:
         A tuple of return code and the archive filename.
     """
+
+
     return_code, archive = zip_analysis(args)
     if return_code == 1:
         return return_code, ""
@@ -375,103 +386,60 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     elif args.max_retries < 0:
         logging.warning("max_retries cannot be negative, defaulting to 0")
         max_retries = 0
-    client = get_client(args.aws_profile, "lambda")
+
+    backend = get_backend(args)
+
     with open(archive, "rb") as analysis_zip:
-        zip_bytes = analysis_zip.read()
-        payload = {
-            "bulkUpload": {
-                "data": base64.b64encode(zip_bytes).decode("utf-8"),
-                # The UserID is required by Panther for this API call, but we have no way of
-                # acquiring it and it isn't used for anything. This is a valid UUID used by the
-                # Panther deployment tool to indicate this action was performed automatically.
-                "userId": "00000000-0000-4000-8000-000000000000",
-            },
-        }
-
         logging.info("Uploading items to Panther")
-        response = client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
 
-        response_str = response["Payload"].read().decode("utf-8")
-        response_payload = json.loads(response_str)
-        while response_payload.get("statusCode") != 200:
-            if max_retries > 0 and "another upload is in process" in response_payload.get("body"):
+        upload_params = BulkUploadParams(zip_bytes=analysis_zip.read())
+        response = backend.bulk_upload(upload_params)
+
+        while response.data.get("statusCode") != 200:
+            if max_retries > 0 and "another upload is in process" in response.data.get("body"):
                 logging.debug(
                     "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s.",
-                    response_payload.get("statusCode", 0),
-                    response_payload.get("errorMessage", response_payload.get("body")),
+                    response.data.get("statusCode", 0),
+                    response.data.get("errorMessage", response.data.get("body")),
                 )
                 logging.debug("Retries left: %s", max_retries)
                 max_retries = max_retries - 1
                 # typical bulk upload takes 30 seconds, allow any currently running one to complete
                 time.sleep(30)
-                response = client.invoke(
-                    FunctionName="panther-analysis-api",
-                    InvocationType="RequestResponse",
-                    LogType="None",
-                    Payload=json.dumps(payload),
-                )
-                response_str = response["Payload"].read().decode("utf-8")
-                response_payload = json.loads(response_str)
+
+                response = backend.bulk_upload(upload_params)
             else:
                 logging.warning(
                     "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s",
-                    response_payload.get("statusCode", 0),
-                    response_payload.get("errorMessage", response_payload.get("body")),
+                    response.data.get("statusCode", 0),
+                    response.data.get("errorMessage", response.data.get("body")),
                 )
                 return 1, ""
-        body = json.loads(response_payload["body"])
+        body = json.loads(response.data["body"])
         logging.info("Upload success.")
         logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
     return 0, ""
 
-
-def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: list) -> Any:
-    # Queries analysis-api for information around detections. Arguments are what parameter in the
-    # API we want to filter on, and a list of values for that filter
-    query_list_payload = {"listDetections": {filter_by: object_list}}
-    client = get_client(args.aws_profile, "lambda")
-
-    query_info = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(query_list_payload),
-    )
-
-    if query_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        logging.warning(
-            "Failed to search for associated queries, API error.\n\t status code: %s",
-            query_info["ResponseMetadata"]["HTTPStatusCode"],
-        )
-        return {}
-
-    analysis_api_response = json.loads(query_info["Payload"].read().decode("utf-8"))
-    analysis_api_json_response = json.loads(analysis_api_response["body"])
-
-    return analysis_api_json_response
-
-
 def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
+    backend = get_backend(args)
     # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
-    analysis_json_output = detection_info_query(args, "scheduledQueries", query_list)
+    response = backend.list_detections(ListDetectionsParams(scheduled_queries=query_list))
 
     analysis_id_list = []
-    for detection in analysis_json_output.get("detections"):
+    for detection in response.data.get("detections"):
         analysis_id_list.append(detection.get("id"))
 
     return analysis_id_list
 
 
 def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
+    backend = get_backend(args)
+
     # Retrieves saved queries associated with analysis_id
-    analysis_json_output = detection_info_query(args, "ids", analysis_id_list)
+    response = backend.list_detections(ListDetectionsParams(ids=analysis_id_list))
+
     query_list = []
-    for detection in analysis_json_output.get("detections"):
+    for detection in response.data.get("detections"):
         for query in detection.get("scheduledQueries"):
             query_list.append(query)
 
@@ -479,25 +447,18 @@ def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -
 
 
 def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) -> list:
-    validation_payload = {"listDetections": {"ids": analysis_id_list}}
-    client = get_client(args.aws_profile, "lambda")
+    backend = get_backend(args)
 
-    validation = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(validation_payload),
-    )
+    validation = backend.list_detections(ListDetectionsParams(ids=analysis_id_list))
 
-    if validation["ResponseMetadata"]["HTTPStatusCode"] != 200:
+    if validation.status_code != 200:
         logging.warning(
             "Failed to validate analysis, API error.\n\t status code: %s",
-            validation["ResponseMetadata"]["HTTPStatusCode"],
+            validation.status_code,
         )
         return []
 
-    api_response = json.loads(validation["Payload"].read().decode("utf-8"))
-    json_response = api_response["body"]
+    json_response = validation.data
 
     json_output = json.loads(json_response)
     # validate the API response matches what we passed in to avoid partial matching
@@ -513,7 +474,7 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
 
 
 def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
-    client = get_client(args.aws_profile, "lambda")
+    backend = get_backend(args)
 
     datalake_function = "panther-snowflake-api"
     if args.athena_datalake:
@@ -522,15 +483,8 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
     # Delete function needs the query ID, required endpoint wont take a list
     query_map = {}
     for query in query_list:
-        payload = {"listSavedQueries": {"pageSize": 1, "name": query}}
-        list_response = client.invoke(
-            FunctionName=datalake_function,
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
-        api_response = json.loads(list_response["Payload"].read().decode("utf-8"))
-        api_saved_query_response = api_response.get("savedQueries")
+        response = backend.list_saved_queries(ListSavedQueriesParams(name=query))
+        api_saved_query_response = response.data.get("savedQueries")
         if len(api_saved_query_response) == 0:
             logging.warning("%s was not found, skipping...", query)
             continue
@@ -540,25 +494,10 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
     # Now we have query ids, lets delete them
 
     if len(query_map) > 0:
-        payload = {
-            "deleteSavedQueries": {
-                "ids": list(query_map.values()),
-                "userId": "00000000-0000-4000-8000-000000000000",
-                # The UserID is required by Panther for this API call, but we have no way of
-                # acquiring it, and it isn't used for anything. This is a valid UUID used by the
-                # Panther deployment tool to indicate this action was performed automatically.
-            }
-        }
-        delete_response = client.invoke(
-            FunctionName=datalake_function,
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
+        delete_response = backend.delete_saved_queries(DeleteSavedQueriesParams(ids=list(query_map.values())))
 
-        if delete_response.get("ResponseMetadata").get("HTTPStatusCode") != 200:
-            error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
-            error_message = error_payload.get("errorMessage")
+        if delete_response.status_code != 200:
+            error_message = delete_response.data.get("errorMessage")
             return 1, f"Error deleting queries, API error {error_message}"
         logging.info("Queries %s have been deleted.", " ".join(list(query_map.keys())))
         return 0, ""
@@ -566,26 +505,15 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
 
 
 def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
-    client = get_client(args.aws_profile, "lambda")
-    payload: dict = {"deleteDetections": {"entries": []}}
-    for analysis_id in analysis_id_list:
-        payload["deleteDetections"]["entries"].append({"id": analysis_id})
+    backend = get_backend(args)
 
-    response = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(payload),
-    )
+    response = backend.delete_detections(DeleteDetectionsParams(ids=analysis_id_list))
 
-    response_str = response["Payload"].read().decode("utf-8")
-    response_payload = json.loads(response_str)
-
-    if response_payload.get("statusCode") != 200:
+    if response.data.get("statusCode") != 200:
         logging.warning(
             "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
-            response_payload.get("statusCode", 0),
-            response_payload.get("errorMessage", response_payload.get("body")),
+            response.data.get("statusCode", 0),
+            response.data.get("errorMessage", response.data.get("body")),
         )
         return 1, ""
 

@@ -17,9 +17,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 from .params import (
     BulkUploadParams,
@@ -40,9 +41,10 @@ class BulkUploadPayload:
 @dataclass(frozen=True)
 class BackendResponse:
     data: Any
+    status_code: int
 
 
-class BackendClient(ABC):
+class Client(ABC):
 
     @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
@@ -71,4 +73,39 @@ class BackendClient(ABC):
     @abstractmethod
     def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         pass
+
+
+@dataclass(frozen=True)
+class BulkUploadParams:
+    zip_bytes: bytes
+
+    def encoded_bytes(self) -> str:
+        return base64.b64encode(self.zip_bytes).decode("utf-8")
+
+
+@dataclass(frozen=True)
+class ListDetectionsParams:
+    ids: List[str]
+    scheduled_queries: List[str]
+
+
+@dataclass(frozen=True)
+class ListSavedQueriesParams:
+    name: str
+
+
+@dataclass(frozen=True)
+class DeleteSavedQueriesParams:
+    ids: List[str]
+
+
+@dataclass(frozen=True)
+class DeleteDetectionsParams:
+    ids: List[str]
+
+
+@dataclass(frozen=True)
+class UpdateManagedSchemasParams:
+    release: str
+    manifest_url: str
 

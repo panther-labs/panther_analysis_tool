@@ -19,39 +19,50 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from dataclasses import dataclass
 
-from .base import BackendClient
+from .backend import (
+    Client,
+    BackendResponse,
+    BulkUploadParams,
+    ListDetectionsParams,
+    DeleteDetectionsParams,
+    ListSavedQueriesParams,
+    DeleteSavedQueriesParams,
+    UpdateManagedSchemasParams
+)
+
 from ..config.base import PATConfig
 
 
 @dataclass(frozen=True)
-class APIClientOptions:
-    token:  str
-    config: PATConfig
+class PublicAPIClientOptions:
+    token:   str
+    config:  PATConfig
+    user_id: str
 
 
-class APIClient(BackendClient):
-    _opts: APIClientOptions
+class PublicAPIClient(Client):
+    _opts: PublicAPIClientOptions
 
-    def __init__(self, opts: APIClientOptions):
+    def __init__(self, opts: PublicAPIClientOptions):
         self._opts = opts
 
-    def bulk_upload(self):
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         pass
 
-    def list_detections(self):
+    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
         pass
 
-    def list_saved_queries(self):
+    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
         pass
 
-    def delete_saved_queries(self):
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
         pass
 
-    def delete_detections(self):
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
         pass
 
-    def list_managed_schema_updates(self):
+    def list_managed_schema_updates(self) -> BackendResponse:
         pass
 
-    def update_managed_schemas(self):
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         pass

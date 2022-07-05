@@ -23,7 +23,9 @@ import logging
 
 from dataclasses import dataclass
 
-from .params import (
+from .backend import (
+    Client,
+    BackendResponse,
     BulkUploadParams,
     ListDetectionsParams,
     DeleteDetectionsParams,
@@ -32,8 +34,6 @@ from .params import (
     UpdateManagedSchemasParams
 )
 
-from .base import BackendClient, BackendResponse
-from .params import BulkUploadParams
 from ..config.base import PATConfig
 
 LAMBDA_CLIENT_NAME = "lambda"
@@ -47,7 +47,7 @@ class LambdaClientOpts:
     datalake_lambda: str
 
 
-class LambdaClient(BackendClient):
+class LambdaClient(Client):
     _config: PATConfig
     _user_id: str
     _lambda_client: boto3.client
@@ -171,5 +171,6 @@ class LambdaClient(BackendClient):
     @staticmethod
     def _parse_response(response) -> BackendResponse:
         return BackendResponse(
-            data=response["Payload"].read().decode("utf-8")
+            data=json.loads(response["Payload"].read().decode("utf-8")),
+            status_code=response["ResponseMetadata"]["HTTPStatusCode"],
         )
