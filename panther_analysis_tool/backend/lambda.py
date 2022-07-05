@@ -17,10 +17,23 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import json
 import boto3
 import logging
-from .base import BackendClient
+
 from dataclasses import dataclass
+
+from .params import (
+    BulkUploadParams,
+    ListDetectionsParams,
+    DeleteDetectionsParams,
+    ListSavedQueriesParams,
+    DeleteSavedQueriesParams,
+    UpdateManagedSchemasParams
+)
+
+from .base import BackendClient, BackendResponse
+from .params import BulkUploadParams
 from ..config.base import PATConfig
 
 LAMBDA_CLIENT_NAME = "lambda"
@@ -28,16 +41,22 @@ LAMBDA_CLIENT_NAME = "lambda"
 
 @dataclass(frozen=True)
 class LambdaClientOpts:
-    config:      PATConfig
+    config: PATConfig
+    user_id: str
     aws_profile: str
+    datalake_lambda: str
 
 
 class LambdaClient(BackendClient):
     _config: PATConfig
+    _user_id: str
     _lambda_client: boto3.client
+    _datalake_lambda: str
 
     def __init__(self, opts: LambdaClientOpts):
         self._config = opts.config
+        self._user_id = opts.user_id
+        self._datalake_lambda = opts.datalake_lambda
 
         if opts.aws_profile is not None:
             logging.info("Using AWS profile: %s", opts.aws_profile)
@@ -52,23 +71,105 @@ class LambdaClient(BackendClient):
     def setup_client_with_profile(self, profile: str):
         self._lambda_client = boto3.Session(profile_name=profile).client(LAMBDA_CLIENT_NAME)
 
-    def bulk_upload(self):
-        pass
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "bulkUpload": {
+                    "data": params.encoded_bytes(),
+                    # The UserID is required by Panther for this API call, but we have no way of
+                    # acquiring it, and it isn't used for anything. This is a valid UUID used by the
+                    # Panther deployment tool to indicate this action was performed automatically.
+                    "userId": self._user_id,
+                },
+            }),
+        ))
 
-    def list_detections(self):
-        pass
+    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
+        list_query = {}
 
-    def list_saved_queries(self):
-        pass
+        if params.ids:
+            list_query["ids"] = params.ids
 
-    def delete_saved_queries(self):
-        pass
+        if params.scheduled_queries:
+            list_query["scheduledQueries"] = params.scheduled_queries
 
-    def delete_detections(self):
-        pass
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "listDetections": list_query
+            }),
+        ))
 
-    def list_managed_schema_updates(self):
-        pass
+    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName=self._datalake_lambda,
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "listSavedQueries": {
+                    "name": params.name,
+                    "pageSize": 1
+                }
+            }),
+        ))
 
-    def update_managed_schemas(self):
-        pass
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName=self._datalake_lambda,
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "deleteSavedQueries": {
+                    "ids": params.ids,
+                    "userId": self._user_id,
+                }
+            }),
+        ))
+
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+        entries = []
+        for id_to_delete in params.ids:
+            entries.append({"id": id_to_delete})
+
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "deleteDetections": {
+                    "entries": entries,
+                }
+            }),
+        ))
+
+    def list_managed_schema_updates(self) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-logtypes-api",
+            InvocationType="RequestResponse",
+            Payload=json.dumps({
+                "ListManagedSchemaUpdates": {},
+            }),
+        ))
+
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-logtypes-api",
+            InvocationType="RequestResponse",
+            Payload=json.dumps({
+                "UpdateManagedSchemas": {
+                    "release": params.release,
+                    "manifestURL": params.manifest_url,
+                }
+            }),
+        ))
+
+    @staticmethod
+    def _parse_response(response) -> BackendResponse:
+        return BackendResponse(
+            data=response["Payload"].read().decode("utf-8")
+        )

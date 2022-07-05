@@ -18,35 +18,57 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any
+
+from .params import (
+    BulkUploadParams,
+    ListDetectionsParams,
+    DeleteDetectionsParams,
+    ListSavedQueriesParams,
+    DeleteSavedQueriesParams,
+    UpdateManagedSchemasParams
+)
+
+
+@dataclass(frozen=True)
+class BulkUploadPayload:
+    data: bytes
+    user_id: str
+
+
+@dataclass(frozen=True)
+class BackendResponse:
+    data: Any
 
 
 class BackendClient(ABC):
 
     @abstractmethod
-    def bulk_upload(self) -> None:
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         pass
 
     @abstractmethod
-    def list_detections(self) -> None:
+    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
         pass
 
     @abstractmethod
-    def list_saved_queries(self) -> None:
+    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
         pass
 
     @abstractmethod
-    def delete_saved_queries(self) -> None:
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
         pass
 
     @abstractmethod
-    def delete_detections(self) -> None:
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
         pass
 
     @abstractmethod
-    def list_managed_schema_updates(self) -> None:
+    def list_managed_schema_updates(self) -> BackendResponse:
         pass
 
     @abstractmethod
-    def update_managed_schemas(self) -> None:
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         pass
 
