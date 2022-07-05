@@ -23,30 +23,30 @@ from abc import ABC, abstractmethod
 class BackendClient(ABC):
 
     @abstractmethod
-    def bulk_upload(self):
+    def bulk_upload(self) -> None:
         pass
 
     @abstractmethod
-    def list_detections(self):
+    def list_detections(self) -> None:
         pass
 
     @abstractmethod
-    def list_saved_queries(self):
+    def list_saved_queries(self) -> None:
         pass
 
     @abstractmethod
-    def delete_saved_queries(self):
+    def delete_saved_queries(self) -> None:
         pass
 
     @abstractmethod
-    def delete_detections(self):
+    def delete_detections(self) -> None:
         pass
 
     @abstractmethod
-    def list_managed_schema_updates(self):
+    def list_managed_schema_updates(self) -> None:
         pass
 
     @abstractmethod
-    def update_managed_schemas(self):
+    def update_managed_schemas(self) -> None:
         pass
 

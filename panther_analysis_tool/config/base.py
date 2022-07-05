@@ -23,9 +23,6 @@ from abc import ABC, abstractmethod
 class PATConfig(ABC):
 
     @abstractmethod
-    def get_env(self, key: str) -> str:
+    def set_aws_profile_env(self, profile: str):
         pass
 
-    @abstractmethod
-    def set_env(self, key: str, val: str):
-        pass

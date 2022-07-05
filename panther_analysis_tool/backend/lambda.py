@@ -17,11 +17,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os
+import boto3
 import logging
 from .base import BackendClient
 from dataclasses import dataclass
 from ..config.base import PATConfig
+
+LAMBDA_CLIENT_NAME = "lambda"
 
 
 @dataclass(frozen=True)
@@ -31,13 +33,24 @@ class LambdaClientOpts:
 
 
 class LambdaClient(BackendClient):
-    _opts: LambdaClientOpts
+    _config: PATConfig
+    _lambda_client: boto3.client
 
     def __init__(self, opts: LambdaClientOpts):
-        self._opts = opts
+        self._config = opts.config
 
-        logging.info("Using AWS profile: %s", opts.aws_profile)
-        _opts.config.set("AWS_PROFILE", aws_profile)
+        if opts.aws_profile is not None:
+            logging.info("Using AWS profile: %s", opts.aws_profile)
+            self._config.set_aws_profile_env(opts.aws_profile)
+            self.setup_client_with_profile(opts.aws_profile)
+        else:
+            self.setup_client()
+
+    def setup_client(self):
+        self._lambda_client = boto3.client(LAMBDA_CLIENT_NAME)
+
+    def setup_client_with_profile(self, profile: str):
+        self._lambda_client = boto3.Session(profile_name=profile).client(LAMBDA_CLIENT_NAME)
 
     def bulk_upload(self):
         pass

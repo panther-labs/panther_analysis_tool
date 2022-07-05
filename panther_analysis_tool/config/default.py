@@ -20,11 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import os
 from .base import PATConfig
 
+AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
+
 
 class DefaultConfig(PATConfig):
 
-    def get_env(self, key: str) -> str:
-        return os.environ[key]
+    def set_aws_profile_env(self, profile: str) -> None:
+        os.environ[AWS_PROFILE_ENV_KEY] = profile
 
-    def set_env(self, key: str, val: str):
-        os.environ[key] = val
