@@ -454,12 +454,9 @@ def confirm_analysis_exists(backend: BackendClient, analysis_id_list: list) -> l
         )
         return []
 
-    json_response = validation.data
-
-    json_output = json.loads(json_response)
     # validate the API response matches what we passed in to avoid partial matching
     # pylint: disable=consider-using-set-comprehension)
-    existing_ids = set([detection["id"] for detection in json_output["detections"]])
+    existing_ids = set([detection["id"] for detection in validation.data["detections"]])
     given_ids = set(analysis_id_list)
     diff = given_ids.difference(existing_ids)
     if diff:
