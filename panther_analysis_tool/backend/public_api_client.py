@@ -26,17 +26,13 @@ from .client import (
     ListDetectionsParams,
     DeleteDetectionsParams,
     ListSavedQueriesParams,
-    DeleteSavedQueriesParams,
-    UpdateManagedSchemasParams
+    DeleteSavedQueriesParams
 )
-
-from ..config.base import PATConfig
 
 
 @dataclass(frozen=True)
 class PublicAPIClientOptions:
     token:   str
-    config:  PATConfig
     user_id: str
 
 
@@ -59,10 +55,4 @@ class PublicAPIClient(Client):
         pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
-        pass
-
-    def list_managed_schema_updates(self) -> BackendResponse:
-        pass
-
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         pass

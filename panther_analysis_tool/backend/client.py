@@ -45,8 +45,8 @@ class BulkUploadParams:
 
 @dataclass(frozen=True)
 class ListDetectionsParams:
-    ids: List[str]
-    scheduled_queries: List[str]
+    ids:               List[str] = None
+    scheduled_queries: List[str] = None
 
 
 @dataclass(frozen=True)
