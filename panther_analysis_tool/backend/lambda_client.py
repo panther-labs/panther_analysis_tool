@@ -80,9 +80,6 @@ class LambdaClient(Client):
             Payload=json.dumps({
                 "bulkUpload": {
                     "data": params.encoded_bytes(),
-                    # The UserID is required by Panther for this API call, but we have no way of
-                    # acquiring it, and it isn't used for anything. This is a valid UUID used by the
-                    # Panther deployment tool to indicate this action was performed automatically.
                     "userId": self._user_id,
                 },
             }),
