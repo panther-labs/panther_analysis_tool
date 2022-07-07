@@ -22,7 +22,7 @@ import logging
 import os
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.public_api_client import PublicAPIClient, PublicAPIClientOptions
@@ -73,6 +73,10 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
     else:
         client = boto3.client(service)
     return client
+
+
+def func_with_backend(func: Callable[[BackendClient, argparse.Namespace], Any]) -> Callable[[argparse.Namespace], Any]:
+    return lambda args: func(get_backend(args), args)
 
 
 def get_backend(args: argparse.Namespace) -> BackendClient:

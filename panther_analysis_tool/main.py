@@ -65,12 +65,12 @@ from schema import (
 )
 
 from panther_analysis_tool.backend.client import (
+    Client as BackendClient,
     BulkUploadParams,
     ListDetectionsParams,
     DeleteDetectionsParams,
     ListSavedQueriesParams,
     DeleteSavedQueriesParams,
-    UpdateManagedSchemasParams,
 )
 
 from panther_analysis_tool.data_model import DataModel
@@ -96,7 +96,7 @@ from panther_analysis_tool.testing import (
     TestResult,
     TestSpecification,
 )
-from panther_analysis_tool.util import get_client, get_backend
+from panther_analysis_tool.util import get_client, func_with_backend
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -159,6 +159,7 @@ SET_FIELDS = [
 constructor.SafeConstructor.add_constructor(
     "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
 )
+
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
@@ -363,12 +364,13 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, filename
 
 
-def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
+def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
     Returns 1 if the analysis tests, validation, or packaging fails.
 
     Args:
+        backend: a backend client
         args: The populated Argparse namespace with parsed command-line arguments.
 
     Returns:
@@ -386,8 +388,6 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     elif args.max_retries < 0:
         logging.warning("max_retries cannot be negative, defaulting to 0")
         max_retries = 0
-
-    backend = get_backend(args)
 
     with open(archive, "rb") as analysis_zip:
         logging.info("Uploading items to Panther")
@@ -420,8 +420,8 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
     return 0, ""
 
-def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
-    backend = get_backend(args)
+
+def get_analysis_id_by_query(backend: BackendClient, query_list: list) -> list:
     # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
     response = backend.list_detections(ListDetectionsParams(scheduled_queries=query_list))
 
@@ -432,9 +432,7 @@ def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list
     return analysis_id_list
 
 
-def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
-    backend = get_backend(args)
-
+def get_query_by_analysis_id(backend: BackendClient, analysis_id_list: list) -> list:
     # Retrieves saved queries associated with analysis_id
     response = backend.list_detections(ListDetectionsParams(ids=analysis_id_list))
 
@@ -446,9 +444,7 @@ def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -
     return query_list
 
 
-def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) -> list:
-    backend = get_backend(args)
-
+def confirm_analysis_exists(backend: BackendClient, analysis_id_list: list) -> list:
     validation = backend.list_detections(ListDetectionsParams(ids=analysis_id_list))
 
     if validation.status_code != 200:
@@ -473,13 +469,7 @@ def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) ->
     return list(existing_ids.intersection(given_ids))
 
 
-def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
-    backend = get_backend(args)
-
-    datalake_function = "panther-snowflake-api"
-    if args.athena_datalake:
-        datalake_function = "panther-athena-api"
-
+def delete_queries(backend: BackendClient, query_list: list) -> Tuple[int, str]:
     # Delete function needs the query ID, required endpoint wont take a list
     query_map = {}
     for query in query_list:
@@ -504,9 +494,7 @@ def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str
     return 1, "No queries left to delete, exiting"
 
 
-def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
-    backend = get_backend(args)
-
+def delete_detections(backend: BackendClient, args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
     response = backend.delete_detections(DeleteDetectionsParams(ids=analysis_id_list))
 
     if response.data.get("statusCode") != 200:
@@ -521,7 +509,7 @@ def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple
     return 0, ""
 
 
-def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
+def delete_router(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     # Routes all things delete to the functions they need to go to
 
     # Get lists of analysis and queries from args
@@ -538,14 +526,14 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
     associated_query_list = []
     # If we get passed a list of queries look up the associated analysis
     if len(query_list) > 0:
-        associated_analysis_id_list = get_analysis_id_by_query(args, query_list)
+        associated_analysis_id_list = get_analysis_id_by_query(backend, args, query_list)
 
     # Similar to above, if we get analysis, look for queries. Also ensure all analysis exist
     # Query existence is validated in the query delete function
     if len(analysis_id_list) > 0:
-        analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
+        analysis_id_list = confirm_analysis_exists(backend, analysis_id_list)
         if len(analysis_id_list) > 0:
-            associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
+            associated_query_list = get_query_by_analysis_id(backend, args, analysis_id_list)
 
     # Merge what we looked up with what was passed, removing dupes
     analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
@@ -571,7 +559,7 @@ def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
 
     # After confirmation and validation then delete things
     if len(query_list) > 0:
-        delete_queries(args, query_list)
+        delete_queries(backend, query_list)
     if len(analysis_id_list) > 0:
         delete_detections(args, analysis_id_list)
 
@@ -633,82 +621,6 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     lookup_spec = parse_lookup_table(args)
     if not lookup_spec:
         return 1, ""
-    return 0, ""
-
-
-def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
-    """Updates managed schemas in a Panther deployment.
-
-    Returns 1 if the update fails.
-
-    Args:
-        args: The populated Argparse namespace with parsed command-line arguments.
-
-    Returns:
-        A tuple of return code and the archive filename.
-    """
-
-    client = get_client(args.aws_profile, "lambda")
-
-    logging.info("Fetching updates")
-    response = client.invoke(
-        FunctionName="panther-logtypes-api",
-        InvocationType="RequestResponse",
-        Payload=json.dumps({"ListManagedSchemaUpdates": {}}),
-    )
-    response_str = response["Payload"].read().decode("utf-8")
-    response_payload = json.loads(response_str)
-
-    api_err = response_payload.get("error")
-    if api_err is not None:
-        logging.error(
-            "Failed to list managed schema updates\n\tcode: %s\n\terror message: %s",
-            api_err["code"],
-            api_err["message"],
-        )
-        return 1, ""
-
-    releases = response_payload.get("releases")
-    if not releases:
-        logging.info("No updates available.")
-        return 0, ""
-
-    tags = [r.get("tag") for r in releases]
-    latest_tag = tags[-1]
-    while True:
-        print("Available versions:")
-        for tag in tags:
-            print("\t%s" % tag)
-        print("Panther will update managed schemas to the latest version (%s)" % latest_tag)
-
-        prompt = "Choose a different version ({0}): ".format(latest_tag)
-        choice = input(prompt).strip() or latest_tag  # nosec
-        if choice in tags:
-            break
-
-        logging.error("Chosen tag %s is not valid", choice)
-
-    manifest_url = releases[tags.index(choice)].get("manifestURL")
-
-    response = client.invoke(
-        FunctionName="panther-logtypes-api",
-        InvocationType="RequestResponse",
-        Payload=json.dumps(
-            {"UpdateManagedSchemas": {"release": choice, "manifestURL": manifest_url}}
-        ),
-    )
-    response_str = response["Payload"].read().decode("utf-8")
-    response_payload = json.loads(response_str)
-    api_err = response_payload.get("error")
-    if api_err is not None:
-        logging.error(
-            "Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s",
-            choice,
-            api_err["code"],
-            api_err["message"],
-        )
-        return 1, ""
-    logging.info("Managed schemas updated successfully")
     return 0, ""
 
 
@@ -1541,6 +1453,12 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "The AWS profile to use when updating the AWS Panther deployment.",
         "required": False,
     }
+    api_token_name = "--api-token"
+    api_token_arg: Dict[str, Any] = {
+        "type": str,
+        "help": "The Panther API token to use",
+        "required": False,
+    }
     filter_name = "--filter"
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
     kms_key_name = "--kms-key"
@@ -1654,6 +1572,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "panther-analysis-all.sig",
     )
     release_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    release_parser.add_argument(api_token_name, **api_token_arg)
     release_parser.add_argument(filter_name, **filter_arg)
     release_parser.add_argument(ignore_files_name, **ignore_files_arg)
     release_parser.add_argument(kms_key_name, **kms_key_arg)
@@ -1714,6 +1633,7 @@ def setup_parser() -> argparse.ArgumentParser:
         required=True,
     )
     publish_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    publish_parser.add_argument(api_token_name, **api_token_arg)
     publish_parser.add_argument(filter_name, **filter_arg)
     publish_parser.add_argument(kms_key_name, **kms_key_arg)
     publish_parser.add_argument(min_test_name, **min_test_arg)
@@ -1735,6 +1655,7 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
     )
     upload_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    upload_parser.add_argument(api_token_name, **api_token_arg)
     upload_parser.add_argument(filter_name, **filter_arg)
     upload_parser.add_argument(min_test_name, **min_test_arg)
     upload_parser.add_argument(out_name, **out_arg)
@@ -1744,7 +1665,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
-    upload_parser.set_defaults(func=upload_analysis)
+    upload_parser.set_defaults(func=func_with_backend(upload_analysis))
 
     delete_parser = subparsers.add_parser(
         "delete", help="Delete policies, rules, or saved queries from a Panther deployment"
@@ -1762,14 +1683,16 @@ def setup_parser() -> argparse.ArgumentParser:
         dest="athena_datalake",
     )
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    delete_parser.add_argument(api_token_name, **api_token_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
     delete_parser.add_argument(query_id_name, **query_id_arg)
-    delete_parser.set_defaults(func=delete_router)
+    delete_parser.set_defaults(func=func_with_backend(delete_router))
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
     update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    update_custom_schemas_parser.add_argument(api_token_name, **api_token_arg)
     custom_schemas_path_arg = path_arg.copy()
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
@@ -1779,6 +1702,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "test-lookup-table", help="Validate a Lookup Table spec file."
     )
     test_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    test_lookup_table_parser.add_argument(api_token_name, **api_token_arg)
     test_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
     test_lookup_table_parser.set_defaults(func=test_lookup_table)
 

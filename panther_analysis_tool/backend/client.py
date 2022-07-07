@@ -14,22 +14,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, List
-
-from .params import (
-    BulkUploadParams,
-    ListDetectionsParams,
-    DeleteDetectionsParams,
-    ListSavedQueriesParams,
-    DeleteSavedQueriesParams,
-    UpdateManagedSchemasParams
-)
 
 
 @dataclass(frozen=True)
@@ -42,37 +33,6 @@ class BulkUploadPayload:
 class BackendResponse:
     data: Any
     status_code: int
-
-
-class Client(ABC):
-
-    @abstractmethod
-    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def list_managed_schema_updates(self) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
-        pass
 
 
 @dataclass(frozen=True)
@@ -104,8 +64,25 @@ class DeleteDetectionsParams:
     ids: List[str]
 
 
-@dataclass(frozen=True)
-class UpdateManagedSchemasParams:
-    release: str
-    manifest_url: str
+class Client(ABC):
+
+    @abstractmethod
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+        pass
 

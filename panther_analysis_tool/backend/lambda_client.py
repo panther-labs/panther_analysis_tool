@@ -17,13 +17,14 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os
 import json
 import boto3
 import logging
 
 from dataclasses import dataclass
 
-from .backend import (
+from .client import (
     Client,
     BackendResponse,
     BulkUploadParams,
@@ -31,36 +32,33 @@ from .backend import (
     DeleteDetectionsParams,
     ListSavedQueriesParams,
     DeleteSavedQueriesParams,
-    UpdateManagedSchemasParams
 )
 
-from ..config.base import PATConfig
 
 LAMBDA_CLIENT_NAME = "lambda"
+AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
 
 
 @dataclass(frozen=True)
 class LambdaClientOpts:
-    config: PATConfig
     user_id: str
     aws_profile: str
     datalake_lambda: str
 
 
 class LambdaClient(Client):
-    _config: PATConfig
     _user_id: str
     _lambda_client: boto3.client
     _datalake_lambda: str
 
     def __init__(self, opts: LambdaClientOpts):
-        self._config = opts.config
         self._user_id = opts.user_id
         self._datalake_lambda = opts.datalake_lambda
 
         if opts.aws_profile is not None:
             logging.info("Using AWS profile: %s", opts.aws_profile)
             self._config.set_aws_profile_env(opts.aws_profile)
+            os.environ[AWS_PROFILE_ENV_KEY] = opts.aws_profile
             self.setup_client_with_profile(opts.aws_profile)
         else:
             self.setup_client()
@@ -143,27 +141,6 @@ class LambdaClient(Client):
             Payload=json.dumps({
                 "deleteDetections": {
                     "entries": entries,
-                }
-            }),
-        ))
-
-    def list_managed_schema_updates(self) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-logtypes-api",
-            InvocationType="RequestResponse",
-            Payload=json.dumps({
-                "ListManagedSchemaUpdates": {},
-            }),
-        ))
-
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-logtypes-api",
-            InvocationType="RequestResponse",
-            Payload=json.dumps({
-                "UpdateManagedSchemas": {
-                    "release": params.release,
-                    "manifestURL": params.manifest_url,
                 }
             }),
         ))

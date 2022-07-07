@@ -33,6 +33,8 @@ from nose.tools import assert_equal, assert_is_instance, assert_true
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
+from panther_analysis_tool.backend.client import BackendResponse
+from .test_utils import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
@@ -551,34 +553,74 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
 
     def test_analysis_validation_function(self):
-        import boto3
-        import json
-        from io import BytesIO
-        from unittest import mock
         """Validation function only returns analysis that exist in Panther"""
         requested_deletion = ['Rule.Does.Exist', 'Rule.Doesnt.Exist']
-        args = pat.setup_parser().parse_args(f'delete '
-                                             f'--analysis-id '
-                                             f'{requested_deletion}'.split())
+        # args = pat.setup_parser().parse_args(f'delete '
+        #                                      f'--analysis-id '
+        #                                      f'{requested_deletion}'.split())
 
-        rv = b'{"body": "{\\"paging\\": {\\"thisPage\\": 1, \\"totalPages\\": 1, ' \
-             b'\\"totalItems\\": 1}, \\"detections\\": [{\\"complianceStatus\\": \\"\\", ' \
-             b'\\"resourceTypes\\": [], \\"suppressions\\": [], \\"dedupPeriodMinutes\\": 0, ' \
-             b'\\"logTypes\\": [], \\"scheduledQueries\\": [], \\"summaryAttributes\\": [], ' \
-             b'\\"threshold\\": 0, \\"analysisType\\": \\"\\", \\"body\\": \\"\\", ' \
-             b'\\"createdAt\\": \\"0001-01-01T00:00:00Z\\", \\"createdBy\\": \\"\\", ' \
-             b'\\"description\\": \\"\\", \\"displayName\\": \\"\\", \\"enabled\\": false, ' \
-             b'\\"id\\": \\"Rule.Does.Exist\\", \\"lastModified\\": \\"0001-01-01T00:00:00Z\\", ' \
-             b'\\"lastModifiedBy\\": \\"\\", \\"outputIds\\": [], \\"packIds\\": [], ' \
-             b'\\"reference\\": \\"\\", \\"reports\\": {}, \\"runbook\\": \\"\\", \\"severity\\": ' \
-             b'\\"\\", \\"tags\\": [], \\"tests\\": [], \\"versionId\\": \\"\\", \\"managed\\": ' \
-             b'false, \\"parentId\\": \\"\\"}]}"}'
+        # rv = b'{"body": "{\\"paging\\": {\\"thisPage\\": 1, \\"totalPages\\": 1, ' \
+        #      b'\\"totalItems\\": 1}, \\"detections\\": [{\\"complianceStatus\\": \\"\\", ' \
+        #      b'\\"resourceTypes\\": [], \\"suppressions\\": [], \\"dedupPeriodMinutes\\": 0, ' \
+        #      b'\\"logTypes\\": [], \\"scheduledQueries\\": [], \\"summaryAttributes\\": [], ' \
+        #      b'\\"threshold\\": 0, \\"analysisType\\": \\"\\", \\"body\\": \\"\\", ' \
+        #      b'\\"createdAt\\": \\"0001-01-01T00:00:00Z\\", \\"createdBy\\": \\"\\", ' \
+        #      b'\\"description\\": \\"\\", \\"displayName\\": \\"\\", \\"enabled\\": false, ' \
+        #      b'\\"id\\": \\"Rule.Does.Exist\\", \\"lastModified\\": \\"0001-01-01T00:00:00Z\\", ' \
+        #      b'\\"lastModifiedBy\\": \\"\\", \\"outputIds\\": [], \\"packIds\\": [], ' \
+        #      b'\\"reference\\": \\"\\", \\"reports\\": {}, \\"runbook\\": \\"\\", \\"severity\\": ' \
+        #      b'\\"\\", \\"tags\\": [], \\"tests\\": [], \\"versionId\\": \\"\\", \\"managed\\": ' \
+        #      b'false, \\"parentId\\": \\"\\"}]}"}'
+        #
+        #
+        # invoke_mock = mock.MagicMock(return_value=rv)
+        # invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload": BytesIO(rv)}
+        # patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
 
+        backend = MockBackend()
+        backend.list_detections_returns = BackendResponse(
+            data={
+                'paging': {
+                    'thisPage': 1,
+                    'totalPages': 1,
+                    'totalItems': 1
+                },
+                'detections': [
+                    {
+                        'complianceStatus': '',
+                        'resourceTypes': [],
+                        'suppressions': [],
+                        'dedupPeriodMinutes': 0,
+                        'logTypes': [],
+                        'scheduledQueries': [],
+                        'summaryAttributes': [],
+                        'threshold': 0,
+                        'analysisType': '',
+                        'body': '',
+                        'createdAt': '0001-01-01T00:00:00Z',
+                        'createdBy': '',
+                        'description': '',
+                        'displayName': '',
+                        'enabled': False,
+                        'id': 'Rule.Does.Exist',
+                        'lastModified': '0001-01-01T00:00:00Z',
+                        'lastModifiedBy': '',
+                        'outputIds': [],
+                        'packIds': [],
+                        'reference': '',
+                        'reports': {},
+                        'runbook': '',
+                        'severity': '',
+                        'tags': [],
+                        'tests': [],
+                        'versionId': '',
+                        'managed': False,
+                        'parentId': ''
+                     }
+                ]
+            }
+        )
 
-        invoke_mock = mock.MagicMock(return_value=rv)
-        invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload": BytesIO(rv)}
-        patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
-        with mock.patch.multiple("panther_analysis_tool.main", **patch):
-            validated_list = pat.confirm_analysis_exists(args, requested_deletion)
-            assert_equal(len(validated_list), 1)
-            assert_true("Rule.Doesnt.Exist" not in validated_list)
+        validated_list = pat.confirm_analysis_exists(backend, requested_deletion)
+        assert_equal(len(validated_list), 1)
+        assert_true("Rule.Doesnt.Exist" not in validated_list)
