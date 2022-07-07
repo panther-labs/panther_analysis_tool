@@ -1,6 +1,7 @@
 from distutils.core import setup
 
 install_requires = [
+    'gql',
     'boto3',
     'dynaconf',
     'jsonpath-ng',
@@ -20,8 +21,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='panther_analysis_tool',
-    packages=['panther_analysis_tool', 'panther_analysis_tool/backend'],
-    package_dir={'log_schemas': 'panther_analysis_tool/backend'},
+    packages=['panther_analysis_tool'],
     version='0.14.1',
     license='AGPL-3.0',
     description=
