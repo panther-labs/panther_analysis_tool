@@ -57,7 +57,6 @@ class LambdaClient(Client):
 
         if opts.aws_profile is not None:
             logging.info("Using AWS profile: %s", opts.aws_profile)
-            self._config.set_aws_profile_env(opts.aws_profile)
             os.environ[AWS_PROFILE_ENV_KEY] = opts.aws_profile
             self.setup_client_with_profile(opts.aws_profile)
         else:

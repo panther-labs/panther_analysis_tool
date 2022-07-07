@@ -374,47 +374,53 @@ class TestPantherAnalysisTool(TestCase):
     def test_retry_uploads(self):
         import logging
 
+        backend = MockBackend()
+        backend.bulk_upload_returns = BackendResponse(
+            data={"statusCode": 400, "body": "another upload is in process"},
+            status_code=400,
+        )
+
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
-        invoke_mock = mock.MagicMock()
-        invoke_mock.invoke.side_effect = _mock_invoke
-        patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
+        # invoke_mock = mock.MagicMock()
+        # invoke_mock.invoke.side_effect = _mock_invoke
+        # patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
+
         # fails max of 10 times on default
-        with mock.patch.multiple("panther_analysis_tool.main", **patch):
-            with mock.patch('time.sleep', return_value=None) as time_mock:
-                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
-                    return_code, _ = pat.upload_analysis(args)
-                    assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 20)
-                    assert_equal(logging_mocks['warning'].call_count, 1)
-                    # test + zip + upload messages
-                    assert_equal(logging_mocks['info'].call_count, 3)
-                    assert_equal(time_mock.call_count, 10)
+        with mock.patch('time.sleep', return_value=None) as time_mock:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                return_code, _ = pat.upload_analysis(backend, args)
+                assert_equal(return_code, 1)
+                assert_equal(logging_mocks['debug'].call_count, 20)
+                assert_equal(logging_mocks['warning'].call_count, 1)
+                # test + zip + upload messages
+                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(time_mock.call_count, 10)
+
         # invalid retry count, default to 0
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1'.split())
-        with mock.patch.multiple("panther_analysis_tool.main", **patch):
-            with mock.patch('time.sleep', return_value=None) as time_mock:
-                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
-                    return_code, _ = pat.upload_analysis(args)
-                    assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 0)
-                    assert_equal(logging_mocks['warning'].call_count, 2)
-                    assert_equal(logging_mocks['info'].call_count, 3)
-                    assert_equal(time_mock.call_count, 0)
+        with mock.patch('time.sleep', return_value=None) as time_mock:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                return_code, _ = pat.upload_analysis(backend, args)
+                assert_equal(return_code, 1)
+                assert_equal(logging_mocks['debug'].call_count, 0)
+                assert_equal(logging_mocks['warning'].call_count, 2)
+                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(time_mock.call_count, 0)
+
         # invalid retry count, default to 10
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100'.split())
-        with mock.patch.multiple("panther_analysis_tool.main", **patch) as client_mock:
-            with mock.patch('time.sleep', return_value=None) as time_mock:
-                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
-                    return_code, _ = pat.upload_analysis(args)
-                    assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 20)
-                    # warning about max and final error
-                    assert_equal(logging_mocks['warning'].call_count, 2)
-                    assert_equal(logging_mocks['info'].call_count, 3)
-                    assert_equal(time_mock.call_count, 10)
+        with mock.patch('time.sleep', return_value=None) as time_mock:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                return_code, _ = pat.upload_analysis(backend, args)
+                assert_equal(return_code, 1)
+                assert_equal(logging_mocks['debug'].call_count, 20)
+                # warning about max and final error
+                assert_equal(logging_mocks['warning'].call_count, 2)
+                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(time_mock.call_count, 10)
 
     def test_update_custom_schemas(self):
         from panther_analysis_tool.log_schemas.user_defined import Client

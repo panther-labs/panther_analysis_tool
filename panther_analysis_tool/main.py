@@ -494,7 +494,7 @@ def delete_queries(backend: BackendClient, query_list: list) -> Tuple[int, str]:
     return 1, "No queries left to delete, exiting"
 
 
-def delete_detections(backend: BackendClient, args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
+def delete_detections(backend: BackendClient, analysis_id_list: list) -> Tuple[int, str]:
     response = backend.delete_detections(DeleteDetectionsParams(ids=analysis_id_list))
 
     if response.data.get("statusCode") != 200:
@@ -561,7 +561,7 @@ def delete_router(backend: BackendClient, args: argparse.Namespace) -> Tuple[int
     if len(query_list) > 0:
         delete_queries(backend, query_list)
     if len(analysis_id_list) > 0:
-        delete_detections(args, analysis_id_list)
+        delete_detections(backend, analysis_id_list)
 
     return 0, ""
 
