@@ -561,27 +561,6 @@ class TestPantherAnalysisTool(TestCase):
     def test_analysis_validation_function(self):
         """Validation function only returns analysis that exist in Panther"""
         requested_deletion = ['Rule.Does.Exist', 'Rule.Doesnt.Exist']
-        # args = pat.setup_parser().parse_args(f'delete '
-        #                                      f'--analysis-id '
-        #                                      f'{requested_deletion}'.split())
-
-        # rv = b'{"body": "{\\"paging\\": {\\"thisPage\\": 1, \\"totalPages\\": 1, ' \
-        #      b'\\"totalItems\\": 1}, \\"detections\\": [{\\"complianceStatus\\": \\"\\", ' \
-        #      b'\\"resourceTypes\\": [], \\"suppressions\\": [], \\"dedupPeriodMinutes\\": 0, ' \
-        #      b'\\"logTypes\\": [], \\"scheduledQueries\\": [], \\"summaryAttributes\\": [], ' \
-        #      b'\\"threshold\\": 0, \\"analysisType\\": \\"\\", \\"body\\": \\"\\", ' \
-        #      b'\\"createdAt\\": \\"0001-01-01T00:00:00Z\\", \\"createdBy\\": \\"\\", ' \
-        #      b'\\"description\\": \\"\\", \\"displayName\\": \\"\\", \\"enabled\\": false, ' \
-        #      b'\\"id\\": \\"Rule.Does.Exist\\", \\"lastModified\\": \\"0001-01-01T00:00:00Z\\", ' \
-        #      b'\\"lastModifiedBy\\": \\"\\", \\"outputIds\\": [], \\"packIds\\": [], ' \
-        #      b'\\"reference\\": \\"\\", \\"reports\\": {}, \\"runbook\\": \\"\\", \\"severity\\": ' \
-        #      b'\\"\\", \\"tags\\": [], \\"tests\\": [], \\"versionId\\": \\"\\", \\"managed\\": ' \
-        #      b'false, \\"parentId\\": \\"\\"}]}"}'
-        #
-        #
-        # invoke_mock = mock.MagicMock(return_value=rv)
-        # invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload": BytesIO(rv)}
-        # patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
 
         backend = MockBackend()
         backend.list_detections_returns = BackendResponse(
