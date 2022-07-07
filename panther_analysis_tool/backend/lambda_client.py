@@ -28,6 +28,7 @@ from .client import (
     Client,
     BackendResponse,
     BulkUploadParams,
+    BackendCheckResponse,
     ListDetectionsParams,
     DeleteDetectionsParams,
     ListSavedQueriesParams,
@@ -55,18 +56,21 @@ class LambdaClient(Client):
         self._user_id = opts.user_id
         self._datalake_lambda = opts.datalake_lambda
 
-        if opts.aws_profile is not None:
-            logging.info("Using AWS profile: %s", opts.aws_profile)
-            os.environ[AWS_PROFILE_ENV_KEY] = opts.aws_profile
-            self.setup_client_with_profile(opts.aws_profile)
+        if opts.aws_profile is None:
+            self._setup_client()
         else:
-            self.setup_client()
+            self._setup_client_with_profile(opts.aws_profile)
 
-    def setup_client(self):
+    def _setup_client(self):
         self._lambda_client = boto3.client(LAMBDA_CLIENT_NAME)
 
-    def setup_client_with_profile(self, profile: str):
+    def _setup_client_with_profile(self, profile: str):
+        logging.info("Using AWS profile: %s", profile)
+        os.environ[AWS_PROFILE_ENV_KEY] = profile
         self._lambda_client = boto3.Session(profile_name=profile).client(LAMBDA_CLIENT_NAME)
+
+    def check(self) -> BackendCheckResponse:
+        return BackendCheckResponse(success=True, message="not implemented")
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         return self._parse_response(self._lambda_client.invoke(

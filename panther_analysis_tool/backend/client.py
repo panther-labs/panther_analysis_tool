@@ -25,14 +25,20 @@ from typing import Any, List
 
 @dataclass(frozen=True)
 class BulkUploadPayload:
-    data: bytes
+    data:    bytes
     user_id: str
 
 
 @dataclass(frozen=True)
 class BackendResponse:
-    data: Any
+    data:        Any
     status_code: int
+
+
+@dataclass(frozen=True)
+class BackendCheckResponse:
+    success: bool
+    message: str
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,10 @@ class DeleteDetectionsParams:
 
 
 class Client(ABC):
+
+    @abstractmethod
+    def check(self) -> BackendCheckResponse:
+        pass
 
     @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:

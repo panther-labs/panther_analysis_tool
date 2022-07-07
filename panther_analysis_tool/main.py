@@ -77,7 +77,6 @@ from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
 from panther_analysis_tool.exceptions import UnknownDestinationError
-from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
@@ -619,35 +618,6 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     if not lookup_spec:
         return 1, ""
     return 0, ""
-
-
-def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
-    """
-    Updates or creates custom schemas.
-
-    Returns 1 if any file failed to be updated.
-
-    Args:
-        args: The populated Argparse namespace with parsed command-line arguments.
-
-    Returns:
-        A tuple of return code and a placeholder string.
-    """
-    normalized_path = user_defined.normalize_path(args.path)
-    if not normalized_path:
-        return 1, f"path not found: {args.path}"
-
-    uploader = user_defined.Uploader(normalized_path, args.aws_profile)
-    results = uploader.process()
-    has_errors = False
-    for failed, summary in user_defined.report_summary(normalized_path, results):
-        if failed:
-            has_errors = True
-            logging.error(summary)
-        else:
-            logging.info(summary)
-
-    return int(has_errors), ""
 
 
 def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
@@ -1684,16 +1654,6 @@ def setup_parser() -> argparse.ArgumentParser:
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
     delete_parser.add_argument(query_id_name, **query_id_arg)
     delete_parser.set_defaults(func=func_with_backend(delete_router))
-
-    update_custom_schemas_parser = subparsers.add_parser(
-        "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
-    )
-    update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    update_custom_schemas_parser.add_argument(api_token_name, **api_token_arg)
-    custom_schemas_path_arg = path_arg.copy()
-    custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
-    update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
-    update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
 
     test_lookup_table_parser = subparsers.add_parser(
         "test-lookup-table", help="Validate a Lookup Table spec file."
