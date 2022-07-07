@@ -22,7 +22,7 @@ import logging
 import os
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.public_api_client import PublicAPIClient, PublicAPIClientOptions
@@ -75,7 +75,7 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
     return client
 
 
-def func_with_backend(func: Callable[[BackendClient, argparse.Namespace], Any]) -> Callable[[argparse.Namespace], Any]:
+def func_with_backend(func: Callable[[BackendClient, argparse.Namespace], Any]) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
 
@@ -86,9 +86,9 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
     user_id = "00000000-0000-4000-8000-000000000000"
 
     if args.api_token:
-        return PublicAPIClient(PublicAPIClientOptions(token=args.api_token, user_id=user_id))
+        return PublicAPIClient(PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host))
 
-    datalake_lambda = "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
+    datalake_lambda = get_datalake_lambda(args)
 
     return LambdaClient(LambdaClientOpts(
         user_id=user_id,
@@ -96,6 +96,12 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
         datalake_lambda=datalake_lambda,
     ))
 
+
+def get_datalake_lambda(args: argparse.Namespace) -> str:
+    if "athena_datalake" not in args:
+        return ""
+
+    return "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
 
 def set_env(key: str, value: str) -> None:
     os.environ[key] = value

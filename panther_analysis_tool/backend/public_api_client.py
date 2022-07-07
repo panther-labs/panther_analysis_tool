@@ -27,12 +27,13 @@ from .client import (
     ListDetectionsParams,
     DeleteDetectionsParams,
     ListSavedQueriesParams,
-    DeleteSavedQueriesParams
+    DeleteSavedQueriesParams, BackendCheckResponse
 )
 
 
 @dataclass(frozen=True)
 class PublicAPIClientOptions:
+    host:    str
     token:   str
     user_id: str
 
@@ -42,6 +43,12 @@ class PublicAPIClient(Client):
 
     def __init__(self, opts: PublicAPIClientOptions):
         self._opts = opts
+
+    def check(self) -> BackendCheckResponse:
+        return BackendCheckResponse(
+            success=False,
+            message="test"
+        )
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         pass

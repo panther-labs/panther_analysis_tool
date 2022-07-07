@@ -47,6 +47,7 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+
 import botocore
 import requests
 import schema
@@ -96,6 +97,10 @@ from panther_analysis_tool.testing import (
     TestSpecification,
 )
 from panther_analysis_tool.util import get_client, func_with_backend
+from panther_analysis_tool.cmd import (
+    standard_args,
+    check_connection
+)
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -1420,12 +1425,6 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "The AWS profile to use when updating the AWS Panther deployment.",
         "required": False,
     }
-    api_token_name = "--api-token"
-    api_token_arg: Dict[str, Any] = {
-        "type": str,
-        "help": "The Panther API token to use",
-        "required": False,
-    }
     filter_name = "--filter"
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
     kms_key_name = "--kms-key"
@@ -1538,8 +1537,10 @@ def setup_parser() -> argparse.ArgumentParser:
         + "Generates a file called panther-analysis-all.zip and optionally generates "
         + "panther-analysis-all.sig",
     )
+
+    standard_args.for_public_api(release_parser, required=False)
+
     release_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    release_parser.add_argument(api_token_name, **api_token_arg)
     release_parser.add_argument(filter_name, **filter_arg)
     release_parser.add_argument(ignore_files_name, **ignore_files_arg)
     release_parser.add_argument(kms_key_name, **kms_key_arg)
@@ -1599,8 +1600,10 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         required=True,
     )
+
+    standard_args.for_public_api(publish_parser, required=False)
+
     publish_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    publish_parser.add_argument(api_token_name, **api_token_arg)
     publish_parser.add_argument(filter_name, **filter_arg)
     publish_parser.add_argument(kms_key_name, **kms_key_arg)
     publish_parser.add_argument(min_test_name, **min_test_arg)
@@ -1621,8 +1624,10 @@ def setup_parser() -> argparse.ArgumentParser:
         type=int,
         required=False,
     )
+
+    standard_args.for_public_api(upload_parser, required=False)
+
     upload_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    upload_parser.add_argument(api_token_name, **api_token_arg)
     upload_parser.add_argument(filter_name, **filter_arg)
     upload_parser.add_argument(min_test_name, **min_test_arg)
     upload_parser.add_argument(out_name, **out_arg)
@@ -1649,8 +1654,10 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="athena_datalake",
     )
+
+    standard_args.for_public_api(delete_parser, required=False)
+
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    delete_parser.add_argument(api_token_name, **api_token_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
     delete_parser.add_argument(query_id_name, **query_id_arg)
     delete_parser.set_defaults(func=func_with_backend(delete_router))
@@ -1658,8 +1665,8 @@ def setup_parser() -> argparse.ArgumentParser:
     test_lookup_table_parser = subparsers.add_parser(
         "test-lookup-table", help="Validate a Lookup Table spec file."
     )
+
     test_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    test_lookup_table_parser.add_argument(api_token_name, **api_token_arg)
     test_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
     test_lookup_table_parser.set_defaults(func=test_lookup_table)
 
@@ -1675,6 +1682,14 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.set_defaults(func=zip_analysis)
+
+    check_conn_parser = subparsers.add_parser(
+        "check-connection", help="Check your Panther API connection"
+    )
+
+    standard_args.for_public_api(check_conn_parser, required=True)
+
+    check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
 
     return parser
 
