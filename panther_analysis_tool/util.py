@@ -103,5 +103,6 @@ def get_datalake_lambda(args: argparse.Namespace) -> str:
 
     return "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
 
+
 def set_env(key: str, value: str) -> None:
     os.environ[key] = value

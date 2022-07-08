@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Optional
 
 
 @dataclass(frozen=True)
@@ -51,8 +51,8 @@ class BulkUploadParams:
 
 @dataclass(frozen=True)
 class ListDetectionsParams:
-    ids:               List[str] = None
-    scheduled_queries: List[str] = None
+    ids:               Optional[List[str]] = None
+    scheduled_queries: Optional[List[str]] = None
 
 
 @dataclass(frozen=True)

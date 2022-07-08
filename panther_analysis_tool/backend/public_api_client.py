@@ -50,7 +50,7 @@ class PublicAPIClientOptions:
 class PublicAPIRequests:
     _cache: Dict[str, str]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache = dict()
 
     def version_query(self) -> DocumentNode:
@@ -85,7 +85,19 @@ class PublicAPIClient(Client):
                 message="connection check failed"
             )
 
-        panther_version = res.data["generalSettings"]["pantherVersion"]
+        if res.data is None:
+            return BackendCheckResponse(
+                success=False,
+                message="backend sent empty response"
+            )
+
+        panther_version = res.data.get("generalSettings", {}).get("pantherVersion")
+        if panther_version is None:
+            return BackendCheckResponse(
+                success=False,
+                message="did not receive version in response",
+            )
+
         return BackendCheckResponse(
             success=True,
             message=f"connected to Panther backend on version: {panther_version}"
@@ -124,10 +136,10 @@ def _build_client(host: str, token: str) -> GraphQLClient:
     return GraphQLClient(transport=transport, fetch_schema_from_transport=True)
 
 
-def _build_api_url(host: str):
+def _build_api_url(host: str) -> str:
     return f"https://{_API_DOMAIN_PREFIX}.{host}/{_API_URL_PATH}"
 
 
-def _get_graphql_content_filepath(name: str):
+def _get_graphql_content_filepath(name: str) -> str:
     wd = os.path.dirname(__file__)
     return os.path.join(wd, "graphql", f"{name}.graphql")

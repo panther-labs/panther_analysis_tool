@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import json
+from typing import Dict, Any
+
 import boto3
 import logging
 
@@ -61,10 +63,10 @@ class LambdaClient(Client):
         else:
             self._setup_client_with_profile(opts.aws_profile)
 
-    def _setup_client(self):
+    def _setup_client(self) -> None:
         self._lambda_client = boto3.client(LAMBDA_CLIENT_NAME)
 
-    def _setup_client_with_profile(self, profile: str):
+    def _setup_client_with_profile(self, profile: str) -> None:
         logging.info("Using AWS profile: %s", profile)
         os.environ[AWS_PROFILE_ENV_KEY] = profile
         self._lambda_client = boto3.Session(profile_name=profile).client(LAMBDA_CLIENT_NAME)
@@ -146,7 +148,7 @@ class LambdaClient(Client):
         ))
 
     @staticmethod
-    def _parse_response(response) -> BackendResponse:
+    def _parse_response(response: Dict[str, Any]) -> BackendResponse:
         return BackendResponse(
             data=json.loads(response["Payload"].read().decode("utf-8")),
             status_code=response["ResponseMetadata"]["HTTPStatusCode"],
