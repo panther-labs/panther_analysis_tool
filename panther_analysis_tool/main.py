@@ -527,14 +527,14 @@ def delete_router(backend: BackendClient, args: argparse.Namespace) -> Tuple[int
     associated_query_list = []
     # If we get passed a list of queries look up the associated analysis
     if len(query_list) > 0:
-        associated_analysis_id_list = get_analysis_id_by_query(backend, args, query_list)
+        associated_analysis_id_list = get_analysis_id_by_query(backend, query_list)
 
     # Similar to above, if we get analysis, look for queries. Also ensure all analysis exist
     # Query existence is validated in the query delete function
     if len(analysis_id_list) > 0:
         analysis_id_list = confirm_analysis_exists(backend, analysis_id_list)
         if len(analysis_id_list) > 0:
-            associated_query_list = get_query_by_analysis_id(backend, args, analysis_id_list)
+            associated_query_list = get_query_by_analysis_id(backend, analysis_id_list)
 
     # Merge what we looked up with what was passed, removing dupes
     analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
