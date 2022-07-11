@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List
 
 
 @dataclass(frozen=True)
@@ -50,11 +50,23 @@ class BulkUploadParams:
 
 
 @dataclass(frozen=True)
-class BulkDeleteParams:
-    dry_run:         bool
-    user_id:         str
-    detection_ids:   Optional[List[str]]
-    saved_query_ids: Optional[List[str]]
+class DeleteSavedQueriesParams:
+    ids:     List[str]
+    dry_run: bool
+    include_detections: bool
+
+
+@dataclass(frozen=True)
+class DeleteDetectionsParams:
+    ids:     List[str]
+    dry_run: bool
+    include_saved_queries: bool
+
+
+@dataclass(frozen=True)
+class UpdateManagedSchemasParams:
+    release: str
+    manifest_url: str
 
 
 class Client(ABC):
@@ -68,6 +80,17 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def bulk_delete(self, params: BulkDeleteParams) -> BackendResponse:
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
         pass
 
+    @abstractmethod
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def list_managed_schema_updates(self) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
+        pass

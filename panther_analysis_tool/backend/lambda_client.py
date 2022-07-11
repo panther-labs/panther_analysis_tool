@@ -30,8 +30,10 @@ from .client import (
     Client,
     BackendResponse,
     BulkUploadParams,
-    BulkDeleteParams,
     BackendCheckResponse,
+    DeleteDetectionsParams,
+    DeleteSavedQueriesParams,
+    UpdateManagedSchemasParams,
 )
 
 
@@ -84,17 +86,57 @@ class LambdaClient(Client):
             }),
         ))
 
-    def bulk_delete(self, params: BulkDeleteParams) -> BackendResponse:
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+        entries = []
+        for id_to_delete in params.ids:
+            entries.append({"id": id_to_delete})
+
         return self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
             LogType="None",
             Payload=json.dumps({
-                "bulkDelete": {
+                "deleteDetections": {
+                    "dryRun": params.dry_run,
+                    "entries": entries,
+                    "includeSavedQueries": params.include_saved_queries,
+                }
+            }),
+        ))
+
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "deleteSavedQueries": {
+                    "ids": params.ids,
+                    "dryRun": params.dry_run,
                     "userId": self._user_id,
-                    "detectionIds": params.detection_ids,
-                    "savedQueryIds": params.saved_query_ids,
-                },
+                    "includeDetections": params.include_detections,
+                }
+            }),
+        ))
+
+    def list_managed_schema_updates(self) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-logtypes-api",
+            InvocationType="RequestResponse",
+            Payload=json.dumps({
+                "ListManagedSchemaUpdates": {},
+            }),
+        ))
+
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-logtypes-api",
+            InvocationType="RequestResponse",
+            Payload=json.dumps({
+                "UpdateManagedSchemas": {
+                    "release": params.release,
+                    "manifestURL": params.manifest_url,
+                }
             }),
         ))
 

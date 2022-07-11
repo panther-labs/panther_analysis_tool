@@ -32,8 +32,10 @@ from .client import (
     Client,
     BackendResponse,
     BulkUploadParams,
-    BulkDeleteParams,
     BackendCheckResponse,
+    DeleteDetectionsParams,
+    DeleteSavedQueriesParams,
+    UpdateManagedSchemasParams,
 )
 
 
@@ -103,7 +105,16 @@ class PublicAPIClient(Client):
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         pass
 
-    def bulk_delete(self, params: BulkDeleteParams) -> BackendResponse:
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
+        pass
+
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+        pass
+
+    def list_managed_schema_updates(self) -> BackendResponse:
+        pass
+
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         pass
 
     def _execute(self, request: DocumentNode) -> ExecutionResult:
