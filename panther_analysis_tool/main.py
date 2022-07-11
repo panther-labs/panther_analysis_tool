@@ -68,10 +68,6 @@ from schema import (
 from panther_analysis_tool.backend.client import (
     Client as BackendClient,
     BulkUploadParams,
-    ListDetectionsParams,
-    DeleteDetectionsParams,
-    ListSavedQueriesParams,
-    DeleteSavedQueriesParams,
 )
 
 from panther_analysis_tool.data_model import DataModel
@@ -99,6 +95,7 @@ from panther_analysis_tool.testing import (
 )
 from panther_analysis_tool.util import get_client, func_with_backend
 from panther_analysis_tool.cmd import (
+    bulk_delete,
     standard_args,
     check_connection
 )
@@ -423,148 +420,6 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         body = json.loads(response.data["body"])
         logging.info("Upload success.")
         logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
-    return 0, ""
-
-
-def get_analysis_id_by_query(backend: BackendClient, query_list: list) -> list:
-    # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
-    response = backend.list_detections(ListDetectionsParams(scheduled_queries=query_list))
-
-    analysis_id_list = []
-    for detection in response.data.get("detections"):
-        analysis_id_list.append(detection.get("id"))
-
-    return analysis_id_list
-
-
-def get_query_by_analysis_id(backend: BackendClient, analysis_id_list: list) -> list:
-    # Retrieves saved queries associated with analysis_id
-    response = backend.list_detections(ListDetectionsParams(ids=analysis_id_list))
-
-    query_list = []
-    for detection in response.data.get("detections"):
-        for query in detection.get("scheduledQueries"):
-            query_list.append(query)
-
-    return query_list
-
-
-def confirm_analysis_exists(backend: BackendClient, analysis_id_list: list) -> list:
-    validation = backend.list_detections(ListDetectionsParams(ids=analysis_id_list))
-
-    if validation.status_code != 200:
-        logging.warning(
-            "Failed to validate analysis, API error.\n\t status code: %s",
-            validation.status_code,
-        )
-        return []
-
-    # validate the API response matches what we passed in to avoid partial matching
-    # pylint: disable=consider-using-set-comprehension)
-    existing_ids = set([detection["id"] for detection in validation.data["detections"]])
-    given_ids = set(analysis_id_list)
-    diff = given_ids.difference(existing_ids)
-    if diff:
-        for detection_id in diff:
-            logging.info("%s was not found, skipping...", detection_id)
-
-    return list(existing_ids.intersection(given_ids))
-
-
-def delete_queries(backend: BackendClient, query_list: list) -> Tuple[int, str]:
-    # Delete function needs the query ID, required endpoint wont take a list
-    query_map = {}
-    for query in query_list:
-        response = backend.list_saved_queries(ListSavedQueriesParams(name=query))
-        api_saved_query_response = response.data.get("savedQueries")
-        if len(api_saved_query_response) == 0:
-            logging.warning("%s was not found, skipping...", query)
-            continue
-        query_id = api_saved_query_response[0]["id"]
-        query_map[query] = query_id
-
-    # Now we have query ids, lets delete them
-
-    if len(query_map) > 0:
-        delete_response = backend.delete_saved_queries(DeleteSavedQueriesParams(ids=list(query_map.values())))
-
-        if delete_response.status_code != 200:
-            error_message = delete_response.data.get("errorMessage")
-            return 1, f"Error deleting queries, API error {error_message}"
-        logging.info("Queries %s have been deleted.", " ".join(list(query_map.keys())))
-        return 0, ""
-    return 1, "No queries left to delete, exiting"
-
-
-def delete_detections(backend: BackendClient, analysis_id_list: list) -> Tuple[int, str]:
-    response = backend.delete_detections(DeleteDetectionsParams(ids=analysis_id_list))
-
-    if response.data.get("statusCode") != 200:
-        logging.warning(
-            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
-            response.data.get("statusCode", 0),
-            response.data.get("errorMessage", response.data.get("body")),
-        )
-        return 1, ""
-
-    logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
-    return 0, ""
-
-
-def delete_router(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
-    # Routes all things delete to the functions they need to go to
-
-    # Get lists of analysis and queries from args
-    analysis_id_list = args.analysis_id
-    query_list = args.query_id
-
-    if len(analysis_id_list) == 0 and len(query_list) == 0:
-        logging.error("Must specify a list of analysis or queries to delete")
-        logging.error("Run panther_analysis_tool -h for help statement")
-        return 1, ""
-
-    # Look for associated queries / analysis
-    associated_analysis_id_list = []
-    associated_query_list = []
-    # If we get passed a list of queries look up the associated analysis
-    if len(query_list) > 0:
-        associated_analysis_id_list = get_analysis_id_by_query(backend, query_list)
-
-    # Similar to above, if we get analysis, look for queries. Also ensure all analysis exist
-    # Query existence is validated in the query delete function
-    if len(analysis_id_list) > 0:
-        analysis_id_list = confirm_analysis_exists(backend, analysis_id_list)
-        if len(analysis_id_list) > 0:
-            associated_query_list = get_query_by_analysis_id(backend, analysis_id_list)
-
-    # Merge what we looked up with what was passed, removing dupes
-    analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
-    query_list = list(set(associated_query_list + query_list))
-
-    if len(analysis_id_list) == 0 and len(query_list) == 0:
-        logging.warning("No matching analysis or queries found, exiting")
-        return 1, ""
-
-    # Unless explicitly bypassed, get user confirmation to delete
-    if not args.confirm_bypass:
-        if len(analysis_id_list) > 0:
-            analysis_id_string = " ".join(analysis_id_list)
-            logging.warning("You are about to delete detections %s", analysis_id_string)
-        if len(query_list) > 0:
-            associated_query_string = " ".join(query_list)
-            logging.warning("You are about to delete queries %s", associated_query_string)
-        confirm = input("Continue? (y/n) ")
-
-        if confirm.lower() != "y":
-            print("Cancelled")
-            return 0, ""
-
-    # After confirmation and validation then delete things
-    if len(query_list) > 0:
-        delete_queries(backend, query_list)
-    if len(analysis_id_list) > 0:
-        delete_detections(backend, analysis_id_list)
-
     return 0, ""
 
 
@@ -1734,7 +1589,7 @@ def setup_parser() -> argparse.ArgumentParser:
     delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
     delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
     delete_parser.add_argument(query_id_name, **query_id_arg)
-    delete_parser.set_defaults(func=func_with_backend(delete_router))
+    delete_parser.set_defaults(func=func_with_backend(bulk_delete.run))
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."

@@ -87,6 +87,19 @@ class LambdaClient(Client):
             }),
         ))
 
+    def bulk_delete(self, params: BulkUploadParams) -> BackendResponse:
+        return self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=json.dumps({
+                "bulkUpload": {
+                    "data": params.encoded_bytes(),
+                    "userId": self._user_id,
+                },
+            }),
+        ))
+
     def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
         list_query = {}
 

@@ -19,19 +19,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import logging
-
 from typing import Tuple
-from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import Client as BackendClient, BulkDeletePayload
 
 
 def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
-    logging.info(f"checking connection to {args.api_host}...")
-    result = backend.check()
+    logging.info("preparing bulk delete...")
 
-    if result.success:
-        logging.info(f"connection successful: {result.message}")
-        return 0, ""
-    else:
-        logging.info(f"connection failed")
-        return 1, result.message
+    dry_run_res = backend.bulk_delete(BulkDeletePayload(dry_run=True, detection_ids=args.analysis_ids, saved_query_ids=args.query_ids))
 
+    # TODO: introspect on dry run metadata, prompt as necessary...
+    # potentially expand the scope of the delete...
+
+    res = backend.bulk_delete(BulkDeletePayload(dry_run=True, detection_ids=args.analysis_ids, saved_query_ids=args.query_ids))
+
+    return 0, ""

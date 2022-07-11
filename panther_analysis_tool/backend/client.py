@@ -30,6 +30,14 @@ class BulkUploadPayload:
 
 
 @dataclass(frozen=True)
+class BulkDeletePayload:
+    dry_run:         bool
+    user_id:         str
+    detection_ids:   Optional[List[str]]
+    saved_query_ids: Optional[List[str]]
+
+
+@dataclass(frozen=True)
 class BackendResponse:
     data:        Any
     status_code: int
@@ -78,6 +86,10 @@ class Client(ABC):
 
     @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
+        pass
+
+    @abstractmethod
+    def bulk_delete(self, params: BulkDeletePayload) -> BackendResponse:
         pass
 
     @abstractmethod
