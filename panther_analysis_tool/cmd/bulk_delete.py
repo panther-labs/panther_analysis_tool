@@ -31,6 +31,6 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     # TODO: introspect on dry run metadata, prompt as necessary...
     # potentially expand the scope of the delete...
 
-    res = backend.bulk_delete(BulkDeletePayload(dry_run=True, detection_ids=args.analysis_ids, saved_query_ids=args.query_ids))
+    res = backend.bulk_delete(BulkDeletePayload(dry_run=False, detection_ids=args.analysis_ids, saved_query_ids=args.query_ids))
 
     return 0, ""
