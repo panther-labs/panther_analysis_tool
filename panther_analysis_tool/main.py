@@ -1662,6 +1662,15 @@ def setup_parser() -> argparse.ArgumentParser:
     delete_parser.add_argument(query_id_name, **query_id_arg)
     delete_parser.set_defaults(func=func_with_backend(delete_router))
 
+    update_custom_schemas_parser = subparsers.add_parser(
+        "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
+    )
+    update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
+    custom_schemas_path_arg = path_arg.copy()
+    custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
+    update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
+    update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
+
     test_lookup_table_parser = subparsers.add_parser(
         "test-lookup-table", help="Validate a Lookup Table spec file."
     )
