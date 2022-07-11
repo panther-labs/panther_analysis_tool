@@ -53,7 +53,7 @@ class BulkUploadParams:
 
 @dataclass(frozen=True)
 class DeleteSavedQueriesParams:
-    ids:     List[str]
+    names:   List[str]
     dry_run: bool
     include_detections: bool
 
@@ -80,7 +80,7 @@ class DeleteSavedQueriesResponse:
 @dataclass(frozen=True)
 class DeleteDetectionsResponse:
     ids: List[str]
-    linked_saved_query_ids: List[str]
+    linked_saved_query_names: List[str]
 
 
 class Client(ABC):
