@@ -77,6 +77,7 @@ from panther_analysis_tool.backend.client import (
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
+from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Detection, Rule
@@ -622,6 +623,79 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     lookup_spec = parse_lookup_table(args)
     if not lookup_spec:
         return 1, ""
+    return 0, ""
+
+
+def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """Updates managed schemas in a Panther deployment.
+    Returns 1 if the update fails.
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+    Returns:
+        A tuple of return code and the archive filename.
+    """
+
+    client = get_client(args.aws_profile, "lambda")
+
+    logging.info("Fetching updates")
+    response = client.invoke(
+        FunctionName="panther-logtypes-api",
+        InvocationType="RequestResponse",
+        Payload=json.dumps({"ListManagedSchemaUpdates": {}}),
+    )
+    response_str = response["Payload"].read().decode("utf-8")
+    response_payload = json.loads(response_str)
+
+    api_err = response_payload.get("error")
+    if api_err is not None:
+        logging.error(
+            "Failed to list managed schema updates\n\tcode: %s\n\terror message: %s",
+            api_err["code"],
+            api_err["message"],
+        )
+        return 1, ""
+
+    releases = response_payload.get("releases")
+    if not releases:
+        logging.info("No updates available.")
+        return 0, ""
+
+    tags = [r.get("tag") for r in releases]
+    latest_tag = tags[-1]
+    while True:
+        print("Available versions:")
+        for tag in tags:
+            print("\t%s" % tag)
+        print("Panther will update managed schemas to the latest version (%s)" % latest_tag)
+
+        prompt = "Choose a different version ({0}): ".format(latest_tag)
+        choice = input(prompt).strip() or latest_tag  # nosec
+        if choice in tags:
+            break
+
+        logging.error("Chosen tag %s is not valid", choice)
+
+    manifest_url = releases[tags.index(choice)].get("manifestURL")
+
+    response = client.invoke(
+        FunctionName="panther-logtypes-api",
+        InvocationType="RequestResponse",
+        Payload=json.dumps(
+            {"UpdateManagedSchemas": {"release": choice, "manifestURL": manifest_url}}
+        ),
+    )
+    response_str = response["Payload"].read().decode("utf-8")
+    response_payload = json.loads(response_str)
+    api_err = response_payload.get("error")
+    if api_err is not None:
+        logging.error(
+            "Failed to submit managed schema update to %s\n\tcode: %s\n\terror message: %s",
+            choice,
+            api_err["code"],
+            api_err["message"],
+        )
+        return 1, ""
+    logging.info("Managed schemas updated successfully")
     return 0, ""
 
 
