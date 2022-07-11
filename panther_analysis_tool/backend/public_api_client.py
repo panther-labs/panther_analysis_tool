@@ -22,7 +22,7 @@ import logging
 
 from gql import Client as GraphQLClient, gql
 from gql.transport.aiohttp import AIOHTTPTransport
-from typing import Dict, Union, Any
+from typing import Dict
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -32,11 +32,8 @@ from .client import (
     Client,
     BackendResponse,
     BulkUploadParams,
+    BulkDeleteParams,
     BackendCheckResponse,
-    ListDetectionsParams,
-    DeleteDetectionsParams,
-    ListSavedQueriesParams,
-    DeleteSavedQueriesParams,
 )
 
 
@@ -106,16 +103,7 @@ class PublicAPIClient(Client):
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         pass
 
-    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
-        pass
-
-    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
-        pass
-
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
-        pass
-
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+    def bulk_delete(self, params: BulkDeleteParams) -> BackendResponse:
         pass
 
     def _execute(self, request: DocumentNode) -> ExecutionResult:

@@ -30,11 +30,8 @@ from .client import (
     Client,
     BackendResponse,
     BulkUploadParams,
+    BulkDeleteParams,
     BackendCheckResponse,
-    ListDetectionsParams,
-    DeleteDetectionsParams,
-    ListSavedQueriesParams,
-    DeleteSavedQueriesParams,
 )
 
 
@@ -87,76 +84,17 @@ class LambdaClient(Client):
             }),
         ))
 
-    def bulk_delete(self, params: BulkUploadParams) -> BackendResponse:
+    def bulk_delete(self, params: BulkDeleteParams) -> BackendResponse:
         return self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
             LogType="None",
             Payload=json.dumps({
-                "bulkUpload": {
-                    "data": params.encoded_bytes(),
+                "bulkDelete": {
                     "userId": self._user_id,
+                    "detectionIds": params.detection_ids,
+                    "savedQueryIds": params.saved_query_ids,
                 },
-            }),
-        ))
-
-    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
-        list_query = {}
-
-        if params.ids:
-            list_query["ids"] = params.ids
-
-        if params.scheduled_queries:
-            list_query["scheduledQueries"] = params.scheduled_queries
-
-        return self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps({
-                "listDetections": list_query
-            }),
-        ))
-
-    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
-            FunctionName=self._datalake_lambda,
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps({
-                "listSavedQueries": {
-                    "name": params.name,
-                    "pageSize": 1
-                }
-            }),
-        ))
-
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
-            FunctionName=self._datalake_lambda,
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps({
-                "deleteSavedQueries": {
-                    "ids": params.ids,
-                    "userId": self._user_id,
-                }
-            }),
-        ))
-
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
-        entries = []
-        for id_to_delete in params.ids:
-            entries.append({"id": id_to_delete})
-
-        return self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps({
-                "deleteDetections": {
-                    "entries": entries,
-                }
             }),
         ))
 

@@ -30,14 +30,6 @@ class BulkUploadPayload:
 
 
 @dataclass(frozen=True)
-class BulkDeletePayload:
-    dry_run:         bool
-    user_id:         str
-    detection_ids:   Optional[List[str]]
-    saved_query_ids: Optional[List[str]]
-
-
-@dataclass(frozen=True)
 class BackendResponse:
     data:        Any
     status_code: int
@@ -58,24 +50,11 @@ class BulkUploadParams:
 
 
 @dataclass(frozen=True)
-class ListDetectionsParams:
-    ids:               Optional[List[str]] = None
-    scheduled_queries: Optional[List[str]] = None
-
-
-@dataclass(frozen=True)
-class ListSavedQueriesParams:
-    name: str
-
-
-@dataclass(frozen=True)
-class DeleteSavedQueriesParams:
-    ids: List[str]
-
-
-@dataclass(frozen=True)
-class DeleteDetectionsParams:
-    ids: List[str]
+class BulkDeleteParams:
+    dry_run:         bool
+    user_id:         str
+    detection_ids:   Optional[List[str]]
+    saved_query_ids: Optional[List[str]]
 
 
 class Client(ABC):
@@ -89,22 +68,6 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def bulk_delete(self, params: BulkDeletePayload) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def list_detections(self, params: ListDetectionsParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def list_saved_queries(self, params: ListSavedQueriesParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
-        pass
-
-    @abstractmethod
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+    def bulk_delete(self, params: BulkDeleteParams) -> BackendResponse:
         pass
 
