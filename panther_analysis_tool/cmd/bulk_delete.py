@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import logging
 from typing import Tuple
-from panther_analysis_tool.backend.client import Client as BackendClient, BulkDeletePayload
+from panther_analysis_tool.backend.client import Client as BackendClient, DeleteDetectionsParams, DeleteSavedQueriesParams
 
 
 def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
@@ -35,63 +35,72 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
         logging.error("Run panther_analysis_tool -h for help statement")
         return 1, ""
 
-    dry_run_res = backend.bulk_delete(BulkDeletePayload(dry_run=True, detection_ids=args.analysis_ids, saved_query_ids=args.query_ids))
-    if dry_run_res.status_code != 200:
-        logging.error("Error connecting to backend for delete.")
-        return 1, ""
+    code, msg = _delete_detections_dry_run(backend, args)
+    if code != 0:
+        return code, msg
 
-    dr_info = dry_run_res.data["dryRun"]
-
-    for not_found_detection_id in dr_info["detectionIdsNotFound"]:
-        logging.info(f"Detection '{not_found_detection_id}' was not found.")
-
-    for not_found_query_id in dr_info["savedQueryIdsNotFound"]:
-        logging.info(f"Saved Query '{not_found_query_id}' was not found.")
-
-    # BE needs to:
-    # - expand saved detection id list to include scheduled rules matching saved query ids.
-    # - validate which detection ids actually exist (metadata.detectionIdsNotFound)
-
-    # {
-    #     "detectionIds": [],  // empty because it's a dry run
-    #     "savedQueryIds": [], // empty because it's a dry run
-    #     "dryRun": {
-    #         "stats": {
-    #           "totalDetectionsToDelete": 0,
-    #           "totalSavedQueriesToDelete": 0,
-    #         }
-    #
-    #         "detectionIdsToDelete":  [],
-    #         "detectionIdsNotFound":  [],
-    #         "savedQueryIdsToDelete": [],
-    #         "savedQueryIdsNotFound": [],
-    #
-    #         "linkedDetectionsToDelete":   [],
-    #         "linkedSavedQueriesToDelete": [],
-    #     }
-    # }
+    code, msg = _delete_queries_dry_run(backend, args)
+    if code != 0:
+        return code, msg
 
     # Unless explicitly bypassed, get user confirmation to delete
     if not args.confirm_bypass:
-        dr_stats = dr_info["stats"]
-        total_detections = dr_stats["totalDetectionsToDelete"]
-        total_saved_queries = dr_stats["totalSavedQueriesToDelete"]
-
-        if total_detections > 0:
-            logging.warning("You are about to delete detections %s", total_detections)
-        if total_saved_queries > 0:
-            logging.warning("You are about to delete saved queries %s", total_saved_queries)
-
         confirm = input("Continue? (y/n) ")
 
         if confirm.lower() != "y":
             print("Cancelled")
             return 0, ""
 
-    delete_res = backend.bulk_delete(BulkDeletePayload(dry_run=False, detection_ids=args.analysis_ids, saved_query_ids=args.query_ids))
-
+    delete_res = backend.delete_detections(DeleteDetectionsParams(dry_run=False, ids=args.analysis_ids, include_saved_queries=True))
     if delete_res.status_code != 200:
-        logging.error("Error connecting to backend for delete.")
+        logging.error("Error deleting detections")
         return 1, ""
+
+    logging.info(f"{len(delete_res.data.ids)} detections and {len(delete_res.data.linked_saved_query_ids)} linked saved queries deleted")
+
+    delete_res = backend.delete_saved_queries(DeleteSavedQueriesParams(dry_run=False, ids=args.query_ids, include_detections=True))
+    if delete_res.status_code != 200:
+        logging.error("Error deleting saved queries")
+        return 1, ""
+
+    logging.info(f"{len(delete_res.data.ids)} saved queries and {len(delete_res.data.linked_detection_ids)} linked detections deleted")
+
+    return 0, ""
+
+
+def _delete_detections_dry_run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+    res = backend.delete_detections(DeleteDetectionsParams(dry_run=True, ids=args.analysis_ids, include_saved_queries=True))
+
+    if res.status_code != 200:
+        logging.error("Error connecting to backend.")
+        return 1, ""
+
+    for detection_id in args.analysis_ids:
+        if detection_id in res.data.ids:
+            logging.info(f"Detection '{detection_id}' will be deleted")
+        else:
+            logging.info(f"Detection '{detection_id}' was not found.")
+
+    for query_id in res.data.linked_saved_query_ids:
+        logging.info(f"Linked saved query '{query_id}' will be deleted.")
+
+    return 0, ""
+
+
+def _delete_queries_dry_run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+    res = backend.delete_saved_queries(DeleteSavedQueriesParams(dry_run=True, ids=args.query_ids, include_detections=True))
+
+    if res.status_code != 200:
+        logging.error("Error connecting to backend.")
+        return 1, ""
+
+    for query_id in args.query_ids:
+        if query_id in res.data.ids:
+            logging.info(f"Saved query '{query_id}' will be deleted")
+        else:
+            logging.info(f"Saved query '{query_id}' was not found.")
+
+    for detection_id in res.data.linked_detection_ids:
+        logging.info(f"Linked detection '{detection_id}' will be deleted.")
 
     return 0, ""

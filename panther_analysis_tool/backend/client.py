@@ -20,7 +20,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, TypeVar, Generic
+
+ResponseData = TypeVar('ResponseData')
 
 
 @dataclass(frozen=True)
@@ -30,8 +32,8 @@ class BulkUploadPayload:
 
 
 @dataclass(frozen=True)
-class BackendResponse:
-    data:        Any
+class BackendResponse(Generic[ResponseData]):
+    data:        ResponseData
     status_code: int
 
 
@@ -69,6 +71,18 @@ class UpdateManagedSchemasParams:
     manifest_url: str
 
 
+@dataclass(frozen=True)
+class DeleteSavedQueriesResponse:
+    ids: List[str]
+    linked_detection_ids: List[str]
+
+
+@dataclass(frozen=True)
+class DeleteDetectionsResponse:
+    ids: List[str]
+    linked_saved_query_ids: List[str]
+
+
 class Client(ABC):
 
     @abstractmethod
@@ -76,21 +90,21 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[Any]:
         pass
 
     @abstractmethod
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
         pass
 
     @abstractmethod
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
         pass
 
     @abstractmethod
-    def list_managed_schema_updates(self) -> BackendResponse:
+    def list_managed_schema_updates(self) -> BackendResponse[Any]:
         pass
 
     @abstractmethod
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
+    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse[Any]:
         pass

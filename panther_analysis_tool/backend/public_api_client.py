@@ -34,7 +34,9 @@ from .client import (
     BulkUploadParams,
     BackendCheckResponse,
     DeleteDetectionsParams,
+    DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
+    DeleteSavedQueriesResponse,
     UpdateManagedSchemasParams,
 )
 
@@ -105,10 +107,10 @@ class PublicAPIClient(Client):
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse:
         pass
 
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
         pass
 
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
         pass
 
     def list_managed_schema_updates(self) -> BackendResponse:

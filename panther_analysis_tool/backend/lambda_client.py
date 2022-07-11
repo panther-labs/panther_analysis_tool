@@ -32,7 +32,9 @@ from .client import (
     BulkUploadParams,
     BackendCheckResponse,
     DeleteDetectionsParams,
+    DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
+    DeleteSavedQueriesResponse,
     UpdateManagedSchemasParams,
 )
 
@@ -86,12 +88,12 @@ class LambdaClient(Client):
             }),
         ))
 
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse:
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
         entries = []
         for id_to_delete in params.ids:
             entries.append({"id": id_to_delete})
 
-        return self._parse_response(self._lambda_client.invoke(
+        res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
             LogType="None",
@@ -104,8 +106,16 @@ class LambdaClient(Client):
             }),
         ))
 
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
+        return BackendResponse(
+            status_code=res.status_code,
+            data=DeleteDetectionsResponse(
+                ids=res.data['ids'],
+                linked_saved_query_ids=res.data['linkedSavedQueryIds'],
+            )
+        )
+
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
+        res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
             LogType="None",
@@ -118,6 +128,14 @@ class LambdaClient(Client):
                 }
             }),
         ))
+
+        return BackendResponse(
+            status_code=res.status_code,
+            data=DeleteSavedQueriesResponse(
+                ids=res.data["ids"],
+                linked_detection_ids=res.data["linkedDetectionIds"],
+            )
+        )
 
     def list_managed_schema_updates(self) -> BackendResponse:
         return self._parse_response(self._lambda_client.invoke(
@@ -141,7 +159,7 @@ class LambdaClient(Client):
         ))
 
     @staticmethod
-    def _parse_response(response: Dict[str, Any]) -> BackendResponse:
+    def _parse_response(response: Dict[str, Any]) -> BackendResponse[Dict[str, Any]]:
         return BackendResponse(
             data=json.loads(response["Payload"].read().decode("utf-8")),
             status_code=response["ResponseMetadata"]["HTTPStatusCode"],
