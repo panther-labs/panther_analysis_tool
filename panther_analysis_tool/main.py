@@ -554,6 +554,32 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
+def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+    """
+    Updates or creates custom schemas.
+    Returns 1 if any file failed to be updated.
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+    Returns:
+        A tuple of return code and a placeholder string.
+    """
+    normalized_path = user_defined.normalize_path(args.path)
+    if not normalized_path:
+        return 1, f"path not found: {args.path}"
+
+    uploader = user_defined.Uploader(normalized_path, args.aws_profile)
+    results = uploader.process()
+    has_errors = False
+    for failed, summary in user_defined.report_summary(normalized_path, results):
+        if failed:
+            has_errors = True
+            logging.error(summary)
+        else:
+            logging.info(summary)
+
+    return int(has_errors), ""
+
+
 def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
     # First, generate the appropriate zip file
     # set the output file to appropriate name for the release: panther-analysis-all.zip

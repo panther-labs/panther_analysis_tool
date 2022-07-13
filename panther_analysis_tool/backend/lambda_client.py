@@ -100,6 +100,7 @@ class LambdaClient(Client):
             Payload=json.dumps({
                 "deleteDetections": {
                     "dryRun": params.dry_run,
+                    "userId": self._user_id,
                     "entries": entries,
                     "includeSavedQueries": params.include_saved_queries,
                 }
@@ -110,7 +111,7 @@ class LambdaClient(Client):
             status_code=res.status_code,
             data=DeleteDetectionsResponse(
                 ids=res.data['ids'],
-                linked_saved_query_ids=res.data['linkedSavedQueryIds'],
+                saved_query_names=res.data['linkedSavedQueryIds'],
             )
         )
 
@@ -133,7 +134,7 @@ class LambdaClient(Client):
             status_code=res.status_code,
             data=DeleteSavedQueriesResponse(
                 ids=res.data["ids"],
-                linked_detection_ids=res.data["linkedDetectionIds"],
+                detection_ids=res.data["linkedDetectionIds"],
             )
         )
 

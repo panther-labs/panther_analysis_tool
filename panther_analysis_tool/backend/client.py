@@ -74,13 +74,13 @@ class UpdateManagedSchemasParams:
 @dataclass(frozen=True)
 class DeleteSavedQueriesResponse:
     ids: List[str]
-    linked_detection_ids: List[str]
+    detection_ids: List[str]
 
 
 @dataclass(frozen=True)
 class DeleteDetectionsResponse:
     ids: List[str]
-    linked_saved_query_names: List[str]
+    saved_query_names: List[str]
 
 
 class Client(ABC):
