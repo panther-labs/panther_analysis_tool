@@ -1,6 +1,6 @@
 packages = panther_analysis_tool
 
-ci: lint unit integration
+ci: lint test integration
 
 
 deps:
@@ -25,8 +25,11 @@ fmt:
 install:
 	pipenv install --dev
 
-unit:
-	pipenv run nosetests -v
+test:
+	pipenv run nosetests -v --with-coverage --cover-package=panther_analysis_tool --cover-html --cover-html-dir=htmlcov
+
+coverage:
+	open ./htmlcov/index.html
 
 integration:
 	pipenv run panther_analysis_tool test --path tests/fixtures/detections/valid_analysis
@@ -35,8 +38,6 @@ integration:
 	cd panther-analysis && pipenv lock -r  | grep -v 'panther-analysis-tool==' > requirements.ci.txt
 	cd panther-analysis && pipenv install -r requirements.ci.txt
 	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
-
-test: unit
 
 pypi:
 	pipenv run python3 setup.py sdist

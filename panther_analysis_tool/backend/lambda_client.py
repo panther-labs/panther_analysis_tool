@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import boto3
 import logging
@@ -45,14 +45,14 @@ AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
 
 @dataclass(frozen=True)
 class LambdaClientOpts:
-    user_id: str
-    aws_profile: str
+    user_id:         str
+    aws_profile:     Optional[str]
     datalake_lambda: str
 
 
 class LambdaClient(Client):
-    _user_id: str
-    _lambda_client: boto3.client
+    _user_id:         str
+    _lambda_client:   boto3.client
     _datalake_lambda: str
 
     def __init__(self, opts: LambdaClientOpts):
