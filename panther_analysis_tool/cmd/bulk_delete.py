@@ -51,19 +51,25 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
             print("Cancelled")
             return 0, ""
 
-    delete_res = backend.delete_detections(DeleteDetectionsParams(dry_run=False, ids=analysis_id_list, include_saved_queries=True))
-    if delete_res.status_code != 200:
+    delete_detections_res = backend.delete_detections(DeleteDetectionsParams(
+        dry_run=False, ids=analysis_id_list, include_saved_queries=True))
+
+    if delete_detections_res.status_code != 200:
         logging.error("Error deleting detections")
         return 1, ""
 
-    logging.info(f"{len(delete_res.data.ids)} detections and {len(delete_res.data.linked_saved_query_ids)} linked saved queries deleted")
+    logging.info(f"{len(delete_detections_res.data.ids)} detections and" +
+                 f"{len(delete_detections_res.data.saved_query_names)} linked saved queries deleted")
 
-    delete_res = backend.delete_saved_queries(DeleteSavedQueriesParams(dry_run=False, ids=args.query_id_list, include_detections=True))
-    if delete_res.status_code != 200:
+    delete_queries_res = backend.delete_saved_queries(DeleteSavedQueriesParams(
+        dry_run=False, names=args.query_id_list, include_detections=True))
+
+    if delete_queries_res.status_code != 200:
         logging.error("Error deleting saved queries")
         return 1, ""
 
-    logging.info(f"{len(delete_res.data.ids)} saved queries and {len(delete_res.data.linked_detection_ids)} linked detections deleted")
+    logging.info(f"{len(delete_queries_res.data.names)} saved queries and" +
+                 f"{len(delete_queries_res.data.detection_ids)} linked detections deleted")
 
     return 0, ""
 
@@ -75,13 +81,13 @@ def _delete_detections_dry_run(backend: BackendClient, ids: List[str]) -> Tuple[
         logging.error("Error connecting to backend.")
         return 1, ""
 
-    for detection_id in args.analysis_ids:
+    for detection_id in ids:
         if detection_id in res.data.ids:
             logging.info(f"Detection '{detection_id}' will be deleted")
         else:
             logging.info(f"Detection '{detection_id}' was not found.")
 
-    for query_id in res.data.linked_saved_query_names:
+    for query_id in res.data.saved_query_names:
         logging.info(f"Linked saved query '{query_id}' will be deleted.")
 
     return 0, ""
@@ -95,12 +101,12 @@ def _delete_queries_dry_run(backend: BackendClient, names: List[str]) -> Tuple[i
         return 1, ""
 
     for query_name in names:
-        if query_name in res.data.ids:
+        if query_name in res.data.names:
             logging.info(f"Saved query '{query_name}' will be deleted")
         else:
             logging.info(f"Saved query '{query_name}' was not found.")
 
-    for detection_id in res.data.linked_detection_ids:
+    for detection_id in res.data.detection_ids:
         logging.info(f"Linked detection '{detection_id}' will be deleted.")
 
     return 0, ""

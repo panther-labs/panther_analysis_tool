@@ -73,13 +73,13 @@ class UpdateManagedSchemasParams:
 
 @dataclass(frozen=True)
 class DeleteSavedQueriesResponse:
-    ids: List[str]
+    names:         List[str]
     detection_ids: List[str]
 
 
 @dataclass(frozen=True)
 class DeleteDetectionsResponse:
-    ids: List[str]
+    ids:               List[str]
     saved_query_names: List[str]
 
 
