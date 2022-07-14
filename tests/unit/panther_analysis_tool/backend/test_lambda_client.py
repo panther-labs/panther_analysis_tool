@@ -17,6 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import io
 import json
 from typing import Any, Dict
 from unittest import TestCase, mock
@@ -34,7 +35,7 @@ class MockBoto:
 
 def _make_mock_response(http_status: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     return {
-        "Payload": json.dumps(payload).encode('utf-8'),
+        "Payload": io.BytesIO(json.dumps(payload).encode('utf-8')),
         "ResponseMetadata": {"HTTPStatusCode": http_status},
     }
 
