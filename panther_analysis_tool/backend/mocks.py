@@ -6,16 +6,18 @@ from panther_analysis_tool.backend.client import (
     BulkUploadParams,
     BackendCheckResponse,
     DeleteDetectionsParams,
+    DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     UpdateManagedSchemasParams,
+    DeleteSavedQueriesResponse,
 )
 
 
 class MockBackend(BackendClient):
     check_returns: BackendCheckResponse
     bulk_upload_returns: BackendResponse
-    delete_detections_returns: BackendResponse
-    delete_saved_queries_returns: BackendResponse
+    delete_detections_returns: BackendResponse[DeleteDetectionsResponse]
+    delete_saved_queries_returns: BackendResponse[DeleteSavedQueriesResponse]
     update_managed_schemas_returns: BackendResponse[Any]
     list_managed_schema_updates_returns: BackendResponse[Any]
 

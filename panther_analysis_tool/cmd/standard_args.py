@@ -11,4 +11,3 @@ def for_public_api(parser: argparse.ArgumentParser, required: bool) -> None:
                         type=str,
                         help="The Panther API token to use.",
                         required=required)
-

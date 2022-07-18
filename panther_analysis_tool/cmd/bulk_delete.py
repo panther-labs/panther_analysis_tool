@@ -24,6 +24,8 @@ from panther_analysis_tool.backend.client import Client as BackendClient, Delete
 
 
 def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+    # pylint: disable=too-many-return-statements
+
     logging.info("preparing bulk delete...")
 
     # Get lists of analysis and queries from args
@@ -52,24 +54,36 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
             return 0, ""
 
     delete_detections_res = backend.delete_detections(DeleteDetectionsParams(
-        dry_run=False, ids=analysis_id_list, include_saved_queries=True))
+        ids=analysis_id_list,
+        dry_run=False,
+        include_saved_queries=True,
+    ))
 
     if delete_detections_res.status_code != 200:
         logging.error("Error deleting detections")
         return 1, ""
 
-    logging.info(f"{len(delete_detections_res.data.ids)} detections and" +
-                 f"{len(delete_detections_res.data.saved_query_names)} linked saved queries deleted")
+    logging.info(
+        "%d detections and %d linked saved queries deleted",
+        len(delete_detections_res.data.ids),
+        len(delete_detections_res.data.saved_query_names),
+    )
 
     delete_queries_res = backend.delete_saved_queries(DeleteSavedQueriesParams(
-        dry_run=False, names=args.query_id_list, include_detections=True))
+        names=args.query_id_list,
+        dry_run=False,
+        include_detections=True,
+    ))
 
     if delete_queries_res.status_code != 200:
         logging.error("Error deleting saved queries")
         return 1, ""
 
-    logging.info(f"{len(delete_queries_res.data.names)} saved queries and" +
-                 f"{len(delete_queries_res.data.detection_ids)} linked detections deleted")
+    logging.info(
+        "%d saved queries and %d linked detections deleted",
+        len(delete_queries_res.data.names),
+        len(delete_queries_res.data.detection_ids),
+    )
 
     return 0, ""
 
@@ -83,12 +97,12 @@ def _delete_detections_dry_run(backend: BackendClient, ids: List[str]) -> Tuple[
 
     for detection_id in ids:
         if detection_id in res.data.ids:
-            logging.info(f"Detection '{detection_id}' will be deleted")
+            logging.info("Detection '%s' will be deleted", detection_id)
         else:
-            logging.info(f"Detection '{detection_id}' was not found.")
+            logging.info("Detection '%s' was not found.", detection_id)
 
     for query_id in res.data.saved_query_names:
-        logging.info(f"Linked saved query '{query_id}' will be deleted.")
+        logging.info("Linked saved query '%s' will be deleted.", query_id)
 
     return 0, ""
 
@@ -102,11 +116,11 @@ def _delete_queries_dry_run(backend: BackendClient, names: List[str]) -> Tuple[i
 
     for query_name in names:
         if query_name in res.data.names:
-            logging.info(f"Saved query '{query_name}' will be deleted")
+            logging.info("Saved query '%s' will be deleted", query_name)
         else:
-            logging.info(f"Saved query '{query_name}' was not found.")
+            logging.info("Saved query '%s' was not found.", query_name)
 
     for detection_id in res.data.detection_ids:
-        logging.info(f"Linked detection '{detection_id}' will be deleted.")
+        logging.info("Linked detection '%s' will be deleted.", detection_id)
 
     return 0, ""

@@ -20,12 +20,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import logging
 
-from gql import Client as GraphQLClient, gql
-from gql.transport.aiohttp import AIOHTTPTransport
 from typing import Dict
 from pathlib import Path
 from dataclasses import dataclass
 
+from gql import Client as GraphQLClient, gql
+from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import DocumentNode, ExecutionResult
 
 from .client import (
@@ -125,12 +125,12 @@ class PublicAPIClient(Client):
 
 _API_URL_PATH = "public/graphql"
 _API_DOMAIN_PREFIX = "api"
-_API_TOKEN_HEADER = "X-API-Key"
+_API_TOKEN_HEADER = "X-API-Key"  # nosec
 
 
 def _build_client(host: str, token: str) -> GraphQLClient:
     graphql_url = _build_api_url(host)
-    logging.info(f"Panther Public API endpoint: {graphql_url}")
+    logging.info("Panther Public API endpoint: %s", graphql_url)
 
     transport = AIOHTTPTransport(url=graphql_url, headers={_API_TOKEN_HEADER: token})
 
@@ -142,5 +142,5 @@ def _build_api_url(host: str) -> str:
 
 
 def _get_graphql_content_filepath(name: str) -> str:
-    wd = os.path.dirname(__file__)
-    return os.path.join(wd, "graphql", f"{name}.graphql")
+    work_dir = os.path.dirname(__file__)
+    return os.path.join(work_dir, "graphql", f"{name}.graphql")

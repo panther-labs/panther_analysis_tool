@@ -20,15 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import logging
 import os
+
 from importlib import util as import_util
 from pathlib import Path
 from typing import Any, Callable, Tuple
 
+import boto3
+
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.public_api_client import PublicAPIClient, PublicAPIClientOptions
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
-
-import boto3
 
 
 def allowed_char(char: str) -> bool:

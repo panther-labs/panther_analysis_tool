@@ -34,7 +34,7 @@ from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
 from panther_analysis_tool.backend.client import BackendResponse
-from .mock_backend import MockBackend
+from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')

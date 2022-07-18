@@ -19,12 +19,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import json
-from typing import Dict, Any, Optional
-
-import boto3
 import logging
 
+from typing import Dict, Any, Optional
 from dataclasses import dataclass
+
+import boto3
 
 from .client import (
     Client,
