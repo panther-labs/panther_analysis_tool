@@ -1,9 +1,10 @@
-from typing import Any
+from typing import Any, Optional
 
 from panther_analysis_tool.backend.client import (
     Client as BackendClient,
     BackendResponse,
     BulkUploadParams,
+    BulkUploadResponse,
     BackendCheckResponse,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
@@ -15,13 +16,18 @@ from panther_analysis_tool.backend.client import (
 
 class MockBackend(BackendClient):
     check_returns: BackendCheckResponse
-    bulk_upload_returns: BackendResponse
+    bulk_upload_returns: BackendResponse[BulkUploadResponse]
     delete_detections_returns: BackendResponse[DeleteDetectionsResponse]
     delete_saved_queries_returns: BackendResponse[DeleteSavedQueriesResponse]
     update_managed_schemas_returns: BackendResponse[Any]
     list_managed_schema_updates_returns: BackendResponse[Any]
 
-    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[Any]:
+    bulk_upload_error: Optional[Exception]
+
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        if self.bulk_upload_error:
+            raise self.bulk_upload_error
+
         return self.bulk_upload_returns
 
     def check(self) -> BackendCheckResponse:

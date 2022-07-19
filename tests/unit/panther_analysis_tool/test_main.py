@@ -33,7 +33,7 @@ from nose.tools import assert_equal, assert_is_instance, assert_true
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
-from panther_analysis_tool.backend.client import BackendResponse
+from panther_analysis_tool.backend.client import BackendResponse, BackendError
 from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -375,16 +375,10 @@ class TestPantherAnalysisTool(TestCase):
         import logging
 
         backend = MockBackend()
-        backend.bulk_upload_returns = BackendResponse(
-            data={"statusCode": 400, "body": "another upload is in process"},
-            status_code=400,
-        )
+        backend.bulk_upload_error = BackendError("another upload is in process")
 
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
-        # invoke_mock = mock.MagicMock()
-        # invoke_mock.invoke.side_effect = _mock_invoke
-        # patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
 
         # fails max of 10 times on default
         with mock.patch('time.sleep', return_value=None) as time_mock:

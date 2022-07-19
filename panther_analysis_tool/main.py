@@ -406,20 +406,17 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                 return 0, ""
 
             except BackendError as be_err:
-                logging.debug(
-                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s.",
-                    response.status_code,
-                    be_err,
-                )
 
                 if max_retries - retry_count > 0:
-                    # typical bulk upload takes 30 seconds, allow any currently running one to complete
+                    logging.debug("Failed to upload to Panther: %s.", be_err)
                     retry_count += 1
+
+                    # typical bulk upload takes 30 seconds, allow any currently running one to complete
                     logging.debug("Will retry upload in 30 seconds. Retries remaining: %s", max_retries - retry_count)
                     time.sleep(30)
 
                 else:
-                    logging.error("Exhausted retries attempting to perform bulk upload.")
+                    logging.warning("Exhausted retries attempting to perform bulk upload.")
                     return 1, ""
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
