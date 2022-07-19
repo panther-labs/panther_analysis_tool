@@ -12,6 +12,7 @@ pylint = "==2.7.2"
 pyfakefs = "==4.4.0"
 nose = "==1.3.7"
 PyYAML = "==5.4.1"
+coverage = "==6.4.2"
 
 [packages]
 boto3 = "==1.21.42"
@@ -19,6 +20,8 @@ jsonpath-ng = "==1.5.3"
 requests = "==2.27.1"
 schema = "==0.7.5"
 semver = "==2.13.0"
+gql = {extras = ["aiohttp"], version = "==3.3.0"}
+graphql-core = "==3.2.1"
 "ruamel.yaml" = "==0.17.21"
 botocore = "==1.24.42"
 certifi = "==2021.10.8"

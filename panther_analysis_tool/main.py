@@ -64,11 +64,17 @@ from schema import (
     SchemaWrongKeyError,
 )
 
+from panther_analysis_tool.backend.client import (
+    BackendError,
+    Client as BackendClient,
+    BulkUploadParams,
+)
+
 from panther_analysis_tool.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.exceptions import UnknownDestinationError
 from panther_analysis_tool.policy import TYPE_POLICY, Policy
 from panther_analysis_tool.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
@@ -87,7 +93,12 @@ from panther_analysis_tool.testing import (
     TestResult,
     TestSpecification,
 )
-from panther_analysis_tool.util import get_client
+from panther_analysis_tool.util import get_client, func_with_backend
+from panther_analysis_tool.cmd import (
+    bulk_delete,
+    standard_args,
+    check_connection
+)
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -151,6 +162,7 @@ constructor.SafeConstructor.add_constructor(
     "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
 )
 
+
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
     def __init__(self, analysis_id: str):
@@ -195,7 +207,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 
 def load_analysis_specs(
-    directories: List[str], ignore_files: List[str]
+        directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
@@ -217,9 +229,9 @@ def load_analysis_specs(
         for relative_path, _, file_list in os.walk(directory):
             # Skip hidden folders
             if (
-                relative_path.split("/")[-1].startswith(".")
-                and relative_path != "./"
-                and relative_path != "."
+                    relative_path.split("/")[-1].startswith(".")
+                    and relative_path != "./"
+                    and relative_path != "."
             ):
                 continue
             # setup yaml object
@@ -230,18 +242,18 @@ def load_analysis_specs(
             # when relative_path is the current dir
             if directory in [".", "./"] and relative_path not in [".", "./"]:
                 if not any(
-                    (
-                        fnmatch(relative_path, path_pattern)
-                        for path_pattern in (
-                            DATA_MODEL_PATH_PATTERN,
-                            HELPERS_PATH_PATTERN,
-                            LUTS_PATH_PATTERN,
-                            RULES_PATH_PATTERN,
-                            PACKS_PATH_PATTERN,
-                            POLICIES_PATH_PATTERN,
-                            QUERIES_PATH_PATTERN,
+                        (
+                                fnmatch(relative_path, path_pattern)
+                                for path_pattern in (
+                                DATA_MODEL_PATH_PATTERN,
+                                HELPERS_PATH_PATTERN,
+                                LUTS_PATH_PATTERN,
+                                RULES_PATH_PATTERN,
+                                PACKS_PATH_PATTERN,
+                                POLICIES_PATH_PATTERN,
+                                QUERIES_PATH_PATTERN,
                         )
-                    )
+                        )
                 ):
                     logging.debug("Skipping path %s", relative_path)
                     continue
@@ -337,9 +349,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         analysis = []
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
-            load_analysis_specs(
-                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, LUTS_LOCATION], args.ignore_files
-            )
+                load_analysis_specs(
+                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, LUTS_LOCATION], args.ignore_files
+                )
         ):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
@@ -354,17 +366,19 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, filename
 
 
-def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
+def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
     Returns 1 if the analysis tests, validation, or packaging fails.
 
     Args:
+        backend: a backend client
         args: The populated Argparse namespace with parsed command-line arguments.
 
     Returns:
         A tuple of return code and the archive filename.
     """
+
     return_code, archive = zip_analysis(args)
     if return_code == 1:
         return return_code, ""
@@ -375,279 +389,40 @@ def upload_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     elif args.max_retries < 0:
         logging.warning("max_retries cannot be negative, defaulting to 0")
         max_retries = 0
-    client = get_client(args.aws_profile, "lambda")
+
     with open(archive, "rb") as analysis_zip:
-        zip_bytes = analysis_zip.read()
-        payload = {
-            "bulkUpload": {
-                "data": base64.b64encode(zip_bytes).decode("utf-8"),
-                # The UserID is required by Panther for this API call, but we have no way of
-                # acquiring it and it isn't used for anything. This is a valid UUID used by the
-                # Panther deployment tool to indicate this action was performed automatically.
-                "userId": "00000000-0000-4000-8000-000000000000",
-            },
-        }
-
         logging.info("Uploading items to Panther")
-        response = client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
 
-        response_str = response["Payload"].read().decode("utf-8")
-        response_payload = json.loads(response_str)
-        while response_payload.get("statusCode") != 200:
-            if max_retries > 0 and "another upload is in process" in response_payload.get("body"):
-                logging.debug(
-                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s.",
-                    response_payload.get("statusCode", 0),
-                    response_payload.get("errorMessage", response_payload.get("body")),
-                )
-                logging.debug("Retries left: %s", max_retries)
-                max_retries = max_retries - 1
-                # typical bulk upload takes 30 seconds, allow any currently running one to complete
-                time.sleep(30)
-                response = client.invoke(
-                    FunctionName="panther-analysis-api",
-                    InvocationType="RequestResponse",
-                    LogType="None",
-                    Payload=json.dumps(payload),
-                )
-                response_str = response["Payload"].read().decode("utf-8")
-                response_payload = json.loads(response_str)
-            else:
-                logging.warning(
-                    "Failed to upload to Panther\n\tstatus code: %s\n\terror message: %s",
-                    response_payload.get("statusCode", 0),
-                    response_payload.get("errorMessage", response_payload.get("body")),
-                )
-                return 1, ""
-        body = json.loads(response_payload["body"])
-        logging.info("Upload success.")
-        logging.info("API Response:\n%s", json.dumps(body, indent=2, sort_keys=True))
-    return 0, ""
+        upload_params = BulkUploadParams(zip_bytes=analysis_zip.read())
+        retry_count = 0
 
+        while True:
+            try:
+                response = backend.bulk_upload(upload_params)
 
-def detection_info_query(args: argparse.Namespace, filter_by: str, object_list: list) -> Any:
-    # Queries analysis-api for information around detections. Arguments are what parameter in the
-    # API we want to filter on, and a list of values for that filter
-    query_list_payload = {"listDetections": {filter_by: object_list}}
-    client = get_client(args.aws_profile, "lambda")
+                logging.info("Upload success.")
+                logging.info("API Response:\n%s", response.data)
 
-    query_info = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(query_list_payload),
-    )
+                return 0, ""
 
-    if query_info["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        logging.warning(
-            "Failed to search for associated queries, API error.\n\t status code: %s",
-            query_info["ResponseMetadata"]["HTTPStatusCode"],
-        )
-        return {}
+            except BackendError as be_err:
 
-    analysis_api_response = json.loads(query_info["Payload"].read().decode("utf-8"))
-    analysis_api_json_response = json.loads(analysis_api_response["body"])
+                if max_retries - retry_count > 0:
+                    logging.debug("Failed to upload to Panther: %s.", be_err)
+                    retry_count += 1
 
-    return analysis_api_json_response
+                    # typical bulk upload takes 30 seconds, allow any currently running one to complete
+                    logging.debug("Will retry upload in 30 seconds. Retries remaining: %s", max_retries - retry_count)
+                    time.sleep(30)
 
+                else:
+                    logging.warning("Exhausted retries attempting to perform bulk upload.")
+                    return 1, ""
 
-def get_analysis_id_by_query(args: argparse.Namespace, query_list: list) -> list:
-    # Retrieves analysis_ids associated with saved queries. Generally these are scheduled rules
-    analysis_json_output = detection_info_query(args, "scheduledQueries", query_list)
-
-    analysis_id_list = []
-    for detection in analysis_json_output.get("detections"):
-        analysis_id_list.append(detection.get("id"))
-
-    return analysis_id_list
-
-
-def get_query_by_analysis_id(args: argparse.Namespace, analysis_id_list: list) -> list:
-    # Retrieves saved queries associated with analysis_id
-    analysis_json_output = detection_info_query(args, "ids", analysis_id_list)
-    query_list = []
-    for detection in analysis_json_output.get("detections"):
-        for query in detection.get("scheduledQueries"):
-            query_list.append(query)
-
-    return query_list
-
-
-def confirm_analysis_exists(args: argparse.Namespace, analysis_id_list: list) -> list:
-    validation_payload = {"listDetections": {"ids": analysis_id_list}}
-    client = get_client(args.aws_profile, "lambda")
-
-    validation = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(validation_payload),
-    )
-
-    if validation["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        logging.warning(
-            "Failed to validate analysis, API error.\n\t status code: %s",
-            validation["ResponseMetadata"]["HTTPStatusCode"],
-        )
-        return []
-
-    api_response = json.loads(validation["Payload"].read().decode("utf-8"))
-    json_response = api_response["body"]
-
-    json_output = json.loads(json_response)
-    # validate the API response matches what we passed in to avoid partial matching
-    # pylint: disable=consider-using-set-comprehension)
-    existing_ids = set([detection["id"] for detection in json_output["detections"]])
-    given_ids = set(analysis_id_list)
-    diff = given_ids.difference(existing_ids)
-    if diff:
-        for detection_id in diff:
-            logging.info("%s was not found, skipping...", detection_id)
-
-    return list(existing_ids.intersection(given_ids))
-
-
-def delete_queries(args: argparse.Namespace, query_list: list) -> Tuple[int, str]:
-    client = get_client(args.aws_profile, "lambda")
-
-    datalake_function = "panther-snowflake-api"
-    if args.athena_datalake:
-        datalake_function = "panther-athena-api"
-
-    # Delete function needs the query ID, required endpoint wont take a list
-    query_map = {}
-    for query in query_list:
-        payload = {"listSavedQueries": {"pageSize": 1, "name": query}}
-        list_response = client.invoke(
-            FunctionName=datalake_function,
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
-        api_response = json.loads(list_response["Payload"].read().decode("utf-8"))
-        api_saved_query_response = api_response.get("savedQueries")
-        if len(api_saved_query_response) == 0:
-            logging.warning("%s was not found, skipping...", query)
-            continue
-        query_id = api_saved_query_response[0]["id"]
-        query_map[query] = query_id
-
-    # Now we have query ids, lets delete them
-
-    if len(query_map) > 0:
-        payload = {
-            "deleteSavedQueries": {
-                "ids": list(query_map.values()),
-                "userId": "00000000-0000-4000-8000-000000000000",
-                # The UserID is required by Panther for this API call, but we have no way of
-                # acquiring it, and it isn't used for anything. This is a valid UUID used by the
-                # Panther deployment tool to indicate this action was performed automatically.
-            }
-        }
-        delete_response = client.invoke(
-            FunctionName=datalake_function,
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=json.dumps(payload),
-        )
-
-        if delete_response.get("ResponseMetadata").get("HTTPStatusCode") != 200:
-            error_payload = json.loads(list_response["Payload"].read().decode("utf-8"))
-            error_message = error_payload.get("errorMessage")
-            return 1, f"Error deleting queries, API error {error_message}"
-        logging.info("Queries %s have been deleted.", " ".join(list(query_map.keys())))
-        return 0, ""
-    return 1, "No queries left to delete, exiting"
-
-
-def delete_detections(args: argparse.Namespace, analysis_id_list: list) -> Tuple[int, str]:
-    client = get_client(args.aws_profile, "lambda")
-    payload: dict = {"deleteDetections": {"entries": []}}
-    for analysis_id in analysis_id_list:
-        payload["deleteDetections"]["entries"].append({"id": analysis_id})
-
-    response = client.invoke(
-        FunctionName="panther-analysis-api",
-        InvocationType="RequestResponse",
-        LogType="None",
-        Payload=json.dumps(payload),
-    )
-
-    response_str = response["Payload"].read().decode("utf-8")
-    response_payload = json.loads(response_str)
-
-    if response_payload.get("statusCode") != 200:
-        logging.warning(
-            "Failed to delete analysis.\n\tstatus code: %s\n\terror message: %s",
-            response_payload.get("statusCode", 0),
-            response_payload.get("errorMessage", response_payload.get("body")),
-        )
-        return 1, ""
-
-    logging.info("Detection(s) %s have been deleted.", " ".join(analysis_id_list))
-    return 0, ""
-
-
-def delete_router(args: argparse.Namespace) -> Tuple[int, str]:
-    # Routes all things delete to the functions they need to go to
-
-    # Get lists of analysis and queries from args
-    analysis_id_list = args.analysis_id
-    query_list = args.query_id
-
-    if len(analysis_id_list) == 0 and len(query_list) == 0:
-        logging.error("Must specify a list of analysis or queries to delete")
-        logging.error("Run panther_analysis_tool -h for help statement")
-        return 1, ""
-
-    # Look for associated queries / analysis
-    associated_analysis_id_list = []
-    associated_query_list = []
-    # If we get passed a list of queries look up the associated analysis
-    if len(query_list) > 0:
-        associated_analysis_id_list = get_analysis_id_by_query(args, query_list)
-
-    # Similar to above, if we get analysis, look for queries. Also ensure all analysis exist
-    # Query existence is validated in the query delete function
-    if len(analysis_id_list) > 0:
-        analysis_id_list = confirm_analysis_exists(args, analysis_id_list)
-        if len(analysis_id_list) > 0:
-            associated_query_list = get_query_by_analysis_id(args, analysis_id_list)
-
-    # Merge what we looked up with what was passed, removing dupes
-    analysis_id_list = list(set(analysis_id_list + associated_analysis_id_list))
-    query_list = list(set(associated_query_list + query_list))
-
-    if len(analysis_id_list) == 0 and len(query_list) == 0:
-        logging.warning("No matching analysis or queries found, exiting")
-        return 1, ""
-
-    # Unless explicitly bypassed, get user confirmation to delete
-    if not args.confirm_bypass:
-        if len(analysis_id_list) > 0:
-            analysis_id_string = " ".join(analysis_id_list)
-            logging.warning("You are about to delete detections %s", analysis_id_string)
-        if len(query_list) > 0:
-            associated_query_string = " ".join(query_list)
-            logging.warning("You are about to delete queries %s", associated_query_string)
-        confirm = input("Continue? (y/n) ")
-
-        if confirm.lower() != "y":
-            print("Cancelled")
-            return 0, ""
-
-    # After confirmation and validation then delete things
-    if len(query_list) > 0:
-        delete_queries(args, query_list)
-    if len(analysis_id_list) > 0:
-        delete_detections(args, analysis_id_list)
-
-    return 0, ""
+            # PEP8 guide states it is OK to catch BaseException if you log it.
+            except BaseException as err: # pylint: disable=broad-except
+                logging.error(err)
+                return 1, f"{err}"
 
 
 def parse_lookup_table(args: argparse.Namespace) -> dict:
@@ -676,12 +451,12 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
             LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             logging.info("Successfully validated the Lookup Table file %s", args.path)
         except (
-            schema.SchemaError,
-            schema.SchemaMissingKeyError,
-            schema.SchemaWrongKeyError,
-            schema.SchemaForbiddenKeyError,
-            schema.SchemaUnexpectedTypeError,
-            schema.SchemaOnlyOneAllowedError,
+                schema.SchemaError,
+                schema.SchemaMissingKeyError,
+                schema.SchemaWrongKeyError,
+                schema.SchemaForbiddenKeyError,
+                schema.SchemaUnexpectedTypeError,
+                schema.SchemaOnlyOneAllowedError,
         ) as err:
             logging.error("Invalid schema in the Lookup Table spec file %s", input_file)
             logging.error(err)
@@ -710,12 +485,9 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
 
 def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     """Updates managed schemas in a Panther deployment.
-
     Returns 1 if the update fails.
-
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
-
     Returns:
         A tuple of return code and the archive filename.
     """
@@ -787,12 +559,9 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
 def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     """
     Updates or creates custom schemas.
-
     Returns 1 if any file failed to be updated.
-
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
-
     Returns:
         A tuple of return code and a placeholder string.
     """
@@ -894,7 +663,7 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 def clone_github(
-    owner: str, repo: str, branch: str, path: str, access_token: str
+        owner: str, repo: str, branch: str, path: str, access_token: str
 ) -> Tuple[int, str]:
     repo_url = (
         f"https://{access_token}@github.com/{owner}/{repo}"
@@ -1000,12 +769,12 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # Try the parent directory as well
     for directory in (
-        HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,
-        DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,
-        LUTS_LOCATION,
-        "." + LUTS_LOCATION,
+            HELPERS_LOCATION,
+            "." + HELPERS_LOCATION,
+            DATA_MODEL_LOCATION,
+            "." + DATA_MODEL_LOCATION,
+            LUTS_LOCATION,
+            "." + LUTS_LOCATION,
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -1163,12 +932,12 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
 
 
 def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
-    log_type_to_data_model: Dict[str, DataModel],
-    analysis: List[Any],
-    minimum_tests: int,
-    skip_disabled_tests: bool,
-    destinations_by_name: Dict[str, FakeDestination],
-    ignore_exception_types: List[Type[Exception]],
+        log_type_to_data_model: Dict[str, DataModel],
+        analysis: List[Any],
+        minimum_tests: int,
+        skip_disabled_tests: bool,
+        destinations_by_name: Dict[str, FakeDestination],
+        ignore_exception_types: List[Type[Exception]],
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -1218,20 +987,19 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 
 
 def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
-
     invalid_specs = []
     # first, setup dictionary of id to detection item
     id_to_detection = {}
     for analysis_type in analysis_specs:
         for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
             analysis_id = (
-                analysis_spec.get("PolicyID")
-                or analysis_spec.get("RuleID")
-                or analysis_spec.get("DataModelID")
-                or analysis_spec.get("GlobalID")
-                or analysis_spec.get("PackID")
-                or analysis_spec.get("QueryName")
-                or analysis_spec["LookupName"]
+                    analysis_spec.get("PolicyID")
+                    or analysis_spec.get("RuleID")
+                    or analysis_spec.get("DataModelID")
+                    or analysis_spec.get("GlobalID")
+                    or analysis_spec.get("PackID")
+                    or analysis_spec.get("QueryName")
+                    or analysis_spec["LookupName"]
             )
             id_to_detection[analysis_id] = analysis_spec
     for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
@@ -1252,7 +1020,7 @@ def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
 
 
 def print_summary(
-    test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
+        test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
@@ -1278,7 +1046,7 @@ def print_summary(
 
 
 def filter_analysis(
-    analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
+        analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
 ) -> List[Any]:
     if filters is None:
         return analysis
@@ -1319,9 +1087,8 @@ def filter_analysis(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]]
+        specs: List[Tuple[str, str, Any, Any]]
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
-
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
@@ -1380,9 +1147,9 @@ def classify_analysis(
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
-            SchemaMissingKeyError,
-            SchemaForbiddenKeyError,
-            SchemaUnexpectedTypeError,
+                SchemaMissingKeyError,
+                SchemaForbiddenKeyError,
+                SchemaUnexpectedTypeError,
         ) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
@@ -1460,15 +1227,14 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 
 def run_tests(  # pylint: disable=too-many-arguments
-    analysis: Dict[str, Any],
-    analysis_data_models: Dict[str, DataModel],
-    detection: Detection,
-    failed_tests: DefaultDict[str, list],
-    minimum_tests: int,
-    destinations_by_name: Dict[str, FakeDestination],
-    ignore_exception_types: List[Type[Exception]],
+        analysis: Dict[str, Any],
+        analysis_data_models: Dict[str, DataModel],
+        detection: Detection,
+        failed_tests: DefaultDict[str, list],
+        minimum_tests: int,
+        destinations_by_name: Dict[str, FakeDestination],
+        ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
-
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection.detection_id].append(
             "Insufficient test coverage: {} tests required but only {} found".format(
@@ -1491,8 +1257,8 @@ def run_tests(  # pylint: disable=too-many-arguments
     )
 
     if minimum_tests > 1 and not (
-        [x for x in analysis["Tests"] if x["ExpectedResult"]]
-        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
+            [x for x in analysis["Tests"] if x["ExpectedResult"]]
+            and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
     ):
         failed_tests[detection.detection_id].append(
             "Insufficient test coverage: expected at least one positive and one negative test"
@@ -1502,14 +1268,13 @@ def run_tests(  # pylint: disable=too-many-arguments
 
 
 def _run_tests(  # pylint: disable=too-many-arguments
-    analysis_data_models: Dict[str, DataModel],
-    detection: Detection,
-    tests: List[Dict[str, Any]],
-    failed_tests: DefaultDict[str, list],
-    destinations_by_name: Dict[str, FakeDestination],
-    ignore_exception_types: List[Type[Exception]],
+        analysis_data_models: Dict[str, DataModel],
+        detection: Detection,
+        tests: List[Dict[str, Any]],
+        failed_tests: DefaultDict[str, list],
+        destinations_by_name: Dict[str, FakeDestination],
+        ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
-
     for unit_test in tests:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
@@ -1561,7 +1326,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
 
 def _print_test_result(
-    detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
+        detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
 ) -> None:
     status_pass = "PASS"  # nosec
     status_fail = "FAIL"
@@ -1607,12 +1372,6 @@ def _print_test_result(
 def setup_parser() -> argparse.ArgumentParser:
     # pylint: disable=too-many-statements,too-many-locals
     # setup dictionary of named args for some common arguments across commands
-    aws_profile_name = "--aws-profile"
-    aws_profile_arg: Dict[str, Any] = {
-        "type": str,
-        "help": "The AWS profile to use when updating the AWS Panther deployment.",
-        "required": False,
-    }
     filter_name = "--filter"
     filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
     kms_key_name = "--kms-key"
@@ -1626,8 +1385,8 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": 0,
         "type": int,
         "help": "The minimum number of tests in order for a detection to be considered passing. "
-        + "If a number greater than 1 is specified, at least one True and one False test is "
-        + "required.",
+                + "If a number greater than 1 is specified, at least one True and one False test is "
+                + "required.",
         "required": False,
     }
     out_name = "--out"
@@ -1643,13 +1402,6 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "help": "The relative path to Panther policies and rules.",
         "required": False,
-    }
-    lut_path_name = "--path"
-    lut_path_arg: Dict[str, Any] = {
-        "default": ".",
-        "type": str,
-        "help": "The relative path to a lookup table input file.",
-        "required": True,
     }
     skip_test_name = "--skip-tests"
     skip_test_arg: Dict[str, Any] = {
@@ -1678,7 +1430,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "dest": "ignore_files",
         "nargs": "+",
         "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
-        + "space separated. Example ./foo.yaml ./bar/baz.yaml",
+                + "space separated. Example ./foo.yaml ./bar/baz.yaml",
         "type": str,
         "default": [],
     }
@@ -1689,43 +1441,32 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "action": "append",
         "help": "A destination name that may be returned by the destinations function. "
-        "Repeat the argument to define more than one name.",
+                "Repeat the argument to define more than one name.",
     }
-    analysis_id_name = "--analysis-id"
-    analysis_id_arg: Dict[str, Any] = {
-        "required": False,
-        "dest": "analysis_id",
-        "nargs": "+",
-        "help": "Space separated list of Rule or Policy IDs",
-        "type": str,
-        "default": [],
-    }
-    query_id_name = "--query-id"
-    query_id_arg: Dict[str, Any] = {
-        "required": False,
-        "dest": "query_id",
-        "nargs": "+",
-        "help": "Space separated list of Saved Queries",
-        "type": str,
-        "default": [],
-    }
+
+    # -- root parser
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
-        + "managing Panther policies and rules.",
+                    + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
     parser.add_argument("--version", action="version", version="panther_analysis_tool 0.14.2")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
+    # -- release command
+
     release_parser = subparsers.add_parser(
         "release",
         help="Create release assets for repository containing panther detections. "
-        + "Generates a file called panther-analysis-all.zip and optionally generates "
-        + "panther-analysis-all.sig",
+             + "Generates a file called panther-analysis-all.zip and optionally generates "
+             + "panther-analysis-all.sig",
     )
-    release_parser.add_argument(aws_profile_name, **aws_profile_arg)
+
+    standard_args.for_public_api(release_parser, required=False)
+    standard_args.using_aws_profile(release_parser)
+
     release_parser.add_argument(filter_name, **filter_arg)
     release_parser.add_argument(ignore_files_name, **ignore_files_arg)
     release_parser.add_argument(kms_key_name, **kms_key_arg)
@@ -1736,6 +1477,8 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
     release_parser.set_defaults(func=generate_release_assets)
+
+    # -- test command
 
     test_parser = subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
@@ -1749,11 +1492,13 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.set_defaults(func=test_analysis)
 
+    # -- publish command
+
     publish_parser = subparsers.add_parser(
         "publish",
         help="Publishes a new release, generates the release assets, and uploads them. "
-        + "Generates a file called panther-analysis-all.zip and optionally generates "
-        + "panther-analysis-all.sig",
+             + "Generates a file called panther-analysis-all.zip and optionally generates "
+             + "panther-analysis-all.sig",
     )
     publish_parser.add_argument(
         "--body",
@@ -1785,7 +1530,10 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         required=True,
     )
-    publish_parser.add_argument(aws_profile_name, **aws_profile_arg)
+
+    standard_args.for_public_api(publish_parser, required=False)
+    standard_args.using_aws_profile(publish_parser)
+
     publish_parser.add_argument(filter_name, **filter_arg)
     publish_parser.add_argument(kms_key_name, **kms_key_arg)
     publish_parser.add_argument(min_test_name, **min_test_arg)
@@ -1795,6 +1543,8 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument(available_destination_name, **available_destination_arg)
     publish_parser.add_argument(ignore_files_name, **ignore_files_arg)
     publish_parser.set_defaults(func=publish_release)
+
+    # -- upload command
 
     upload_parser = subparsers.add_parser(
         "upload", help="Upload specified policies and rules to a Panther deployment."
@@ -1806,7 +1556,10 @@ def setup_parser() -> argparse.ArgumentParser:
         type=int,
         required=False,
     )
-    upload_parser.add_argument(aws_profile_name, **aws_profile_arg)
+
+    standard_args.for_public_api(upload_parser, required=False)
+    standard_args.using_aws_profile(upload_parser)
+
     upload_parser.add_argument(filter_name, **filter_arg)
     upload_parser.add_argument(min_test_name, **min_test_arg)
     upload_parser.add_argument(out_name, **out_arg)
@@ -1816,7 +1569,9 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
-    upload_parser.set_defaults(func=upload_analysis)
+    upload_parser.set_defaults(func=func_with_backend(upload_analysis))
+
+    # -- delete command
 
     delete_parser = subparsers.add_parser(
         "delete", help="Delete policies, rules, or saved queries from a Panther deployment"
@@ -1833,26 +1588,45 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="athena_datalake",
     )
-    delete_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    delete_parser.add_argument(analysis_id_name, **analysis_id_arg)
-    delete_parser.add_argument(query_id_name, **query_id_arg)
-    delete_parser.set_defaults(func=delete_router)
+
+    standard_args.for_public_api(delete_parser, required=False)
+    standard_args.using_aws_profile(delete_parser)
+
+    delete_parser.add_argument("--analysis-id", help="Space separated list of Detection IDs",
+                               required=False, dest="analysis_id", type=str, default=[], nargs="+")
+
+    delete_parser.add_argument("--query-id", help="Space separated list of Saved Queries",
+                               required=False, dest="query_id", nargs="+", type=str, default=[])
+
+    delete_parser.set_defaults(func=func_with_backend(bulk_delete.run))
+
+    # -- update custom schemas command
 
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
-    update_custom_schemas_parser.add_argument(aws_profile_name, **aws_profile_arg)
+
+    standard_args.using_aws_profile(update_custom_schemas_parser)
+
     custom_schemas_path_arg = path_arg.copy()
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
 
+    # -- test lookup command
+
     test_lookup_table_parser = subparsers.add_parser(
         "test-lookup-table", help="Validate a Lookup Table spec file."
     )
-    test_lookup_table_parser.add_argument(aws_profile_name, **aws_profile_arg)
-    test_lookup_table_parser.add_argument(lut_path_name, **lut_path_arg)
+
+    standard_args.using_aws_profile(test_lookup_table_parser)
+
+    test_lookup_table_parser.add_argument("--path",
+                                          type=str, help="The relative path to a lookup table input file.", default=".", required=True)
+
     test_lookup_table_parser.set_defaults(func=test_lookup_table)
+
+    # -- zip command
 
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."
@@ -1866,6 +1640,16 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.set_defaults(func=zip_analysis)
+
+    # -- check-connection command
+
+    check_conn_parser = subparsers.add_parser(
+        "check-connection", help="Check your Panther API connection"
+    )
+
+    standard_args.for_public_api(check_conn_parser, required=True)
+
+    check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
 
     return parser
 
@@ -1897,9 +1681,8 @@ def setup_dynaconf() -> Dict[str, Any]:
 
 
 def dynaconf_argparse_merge(
-    argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
+        argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
 ) -> None:
-
     for key, value in config_file_settings.items():
         argparse_dict[key] = value
 
@@ -1919,15 +1702,15 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             split[0] = split[0][:-1]  # Remove the trailing "!"
         key = split[0]
         if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
+                (
+                        key
+                        in (
+                                list(GLOBAL_SCHEMA.schema.keys())
+                                + list(POLICY_SCHEMA.schema.keys())
+                                + list(RULE_SCHEMA.schema.keys())
+                        )
+                        for key in (key, Optional(key))
                 )
-                for key in (key, Optional(key))
-            )
         ):
             logging.warning("Filter key %s is not a valid filter field, skipping", key)
             continue

@@ -33,6 +33,8 @@ from nose.tools import assert_equal, assert_is_instance, assert_true
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
+from panther_analysis_tool.backend.client import BackendResponse, BackendError
+from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
@@ -372,167 +374,47 @@ class TestPantherAnalysisTool(TestCase):
     def test_retry_uploads(self):
         import logging
 
+        backend = MockBackend()
+        backend.bulk_upload_error = BackendError("another upload is in process")
+
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
-        invoke_mock = mock.MagicMock()
-        invoke_mock.invoke.side_effect = _mock_invoke
-        patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
+
         # fails max of 10 times on default
-        with mock.patch.multiple("panther_analysis_tool.main", **patch):
-            with mock.patch('time.sleep', return_value=None) as time_mock:
-                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
-                    return_code, _ = pat.upload_analysis(args)
-                    assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 20)
-                    assert_equal(logging_mocks['warning'].call_count, 1)
-                    # test + zip + upload messages
-                    assert_equal(logging_mocks['info'].call_count, 3)
-                    assert_equal(time_mock.call_count, 10)
+        with mock.patch('time.sleep', return_value=None) as time_mock:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                return_code, _ = pat.upload_analysis(backend, args)
+                assert_equal(return_code, 1)
+                assert_equal(logging_mocks['debug'].call_count, 20)
+                assert_equal(logging_mocks['warning'].call_count, 1)
+                # test + zip + upload messages
+                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(time_mock.call_count, 10)
+
         # invalid retry count, default to 0
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1'.split())
-        with mock.patch.multiple("panther_analysis_tool.main", **patch):
-            with mock.patch('time.sleep', return_value=None) as time_mock:
-                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
-                    return_code, _ = pat.upload_analysis(args)
-                    assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 0)
-                    assert_equal(logging_mocks['warning'].call_count, 2)
-                    assert_equal(logging_mocks['info'].call_count, 3)
-                    assert_equal(time_mock.call_count, 0)
+        with mock.patch('time.sleep', return_value=None) as time_mock:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                return_code, _ = pat.upload_analysis(backend, args)
+                assert_equal(return_code, 1)
+                assert_equal(logging_mocks['debug'].call_count, 0)
+                assert_equal(logging_mocks['warning'].call_count, 2)
+                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(time_mock.call_count, 0)
+
         # invalid retry count, default to 10
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100'.split())
-        with mock.patch.multiple("panther_analysis_tool.main", **patch) as client_mock:
-            with mock.patch('time.sleep', return_value=None) as time_mock:
-                with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
-                    return_code, _ = pat.upload_analysis(args)
-                    assert_equal(return_code, 1)
-                    assert_equal(logging_mocks['debug'].call_count, 20)
-                    # warning about max and final error
-                    assert_equal(logging_mocks['warning'].call_count, 2)
-                    assert_equal(logging_mocks['info'].call_count, 3)
-                    assert_equal(time_mock.call_count, 10)
-
-    def test_update_custom_schemas(self):
-        from panther_analysis_tool.log_schemas.user_defined import Client
-        from unittest import mock
-        import logging
-
-        # If path does not exist, exits with failure code
-        args = pat.setup_parser().parse_args(
-            f'update-custom-schemas --path _unknown_path_/'.split()
-        )
-        return_code, _ = pat.update_custom_schemas(args)
-        assert_equal(return_code, 1)
-
-        # If path exists and contains valid YAML files
-        schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/valid')
-        args = pat.setup_parser().parse_args(
-            f'update-custom-schemas --path {schema_path}'.split()
-        )
-
-        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader') as mock_uploader:
-            _, _ = pat.update_custom_schemas(args)
-            mock_uploader.assert_called_once_with(f'{FIXTURES_PATH}/custom-schemas/valid', None)
-
-        with open(os.path.join(schema_path, 'lookup-table-schema-1.yml')) as f:
-            schema0 = f.read()
-
-        with open(os.path.join(schema_path, 'schema-1.yml')) as f:
-            schema1 = f.read()
-
-        with open(os.path.join(schema_path, 'schema-2.yaml')) as f:
-            schema2 = f.read()
-
-        with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
-            with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \
-                    as mock_uploader_client:
-                mock_uploader_client.list_schemas = mock.MagicMock(
-                    return_value=(
-                        True,
-                        {
-                            'results': [
-                                {
-                                    'name': 'Custom.AWSAccountIDs',
-                                    'revision': 17,
-                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                                    'managed': False,
-                                    'disabled': True,
-                                    'description': 'A verbose description',
-                                    'referenceURL': 'https://example.com',
-                                    'spec': schema0,
-                                    'active': False,
-                                    'native': False
-                                },
-                                {
-                                    'name': 'Custom.SampleSchema1',
-                                    'revision': 17,
-                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                                    'managed': False,
-                                    'disabled': True,
-                                    'description': 'A verbose description',
-                                    'referenceURL': 'https://example.com',
-                                    'spec': schema1,
-                                    'active': False,
-                                    'native': False
-                                },
-                                {
-                                    'name': 'Custom.SampleSchema2',
-                                    'revision': 17,
-                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                                    'managed': False,
-                                    'disabled': False,
-                                    'description': 'A verbose description',
-                                    'referenceURL': 'https://example.com',
-                                    'spec': schema2,
-                                    'active': False,
-                                    'native': False
-                                },
-                                {
-                                    'name': 'Custom.Sample.Schema3',
-                                    'revision': 17,
-                                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                                    'managed': False,
-                                    'disabled': False,
-                                    'description': 'A verbose description',
-                                    'referenceURL': 'https://example.com',
-                                    'spec': schema2,
-                                    'active': False,
-                                    'native': False
-                                }
-                            ]
-                        }
-                    )
-                )
-                mock_uploader_client.put_schema = mock.MagicMock(return_value=(True, {'results': []}))
-                return_code, _ = pat.update_custom_schemas(args)
-                assert_equal(return_code, 0)
-                mocks['error'].assert_not_called()
-                assert_equal(mocks['info'].call_count, 4)
-
-        with mock.patch.multiple(logging, error=mock.DEFAULT, info=mock.DEFAULT) as mocks:
-            with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client', autospec=Client) \
-                    as mock_uploader_client:
-                mock_uploader_client.list_schemas = mock.MagicMock(
-                    return_value=(True, {'results': []})
-                )
-                mock_uploader_client.put_schema = mock.MagicMock(
-                    return_value=(True, {'results': []})
-                )
-                # If path exists and does not contain valid YAML files
-                schema_path = os.path.join(FIXTURES_PATH, 'custom-schemas/invalid')
-                args = pat.setup_parser().parse_args(
-                    f'update-custom-schemas --path {schema_path}'.split()
-                )
-                return_code, _ = pat.update_custom_schemas(args)
+        with mock.patch('time.sleep', return_value=None) as time_mock:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+                return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(mocks['info'].call_count, 1)
-                assert_equal(mocks['error'].call_count, 1)
+                assert_equal(logging_mocks['debug'].call_count, 20)
+                # warning about max and final error
+                assert_equal(logging_mocks['warning'].call_count, 2)
+                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
         """When an available destination is given but does not match the returned names"""
@@ -550,35 +432,3 @@ class TestPantherAnalysisTool(TestCase):
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
 
-    def test_analysis_validation_function(self):
-        import boto3
-        import json
-        from io import BytesIO
-        from unittest import mock
-        """Validation function only returns analysis that exist in Panther"""
-        requested_deletion = ['Rule.Does.Exist', 'Rule.Doesnt.Exist']
-        args = pat.setup_parser().parse_args(f'delete '
-                                             f'--analysis-id '
-                                             f'{requested_deletion}'.split())
-
-        rv = b'{"body": "{\\"paging\\": {\\"thisPage\\": 1, \\"totalPages\\": 1, ' \
-             b'\\"totalItems\\": 1}, \\"detections\\": [{\\"complianceStatus\\": \\"\\", ' \
-             b'\\"resourceTypes\\": [], \\"suppressions\\": [], \\"dedupPeriodMinutes\\": 0, ' \
-             b'\\"logTypes\\": [], \\"scheduledQueries\\": [], \\"summaryAttributes\\": [], ' \
-             b'\\"threshold\\": 0, \\"analysisType\\": \\"\\", \\"body\\": \\"\\", ' \
-             b'\\"createdAt\\": \\"0001-01-01T00:00:00Z\\", \\"createdBy\\": \\"\\", ' \
-             b'\\"description\\": \\"\\", \\"displayName\\": \\"\\", \\"enabled\\": false, ' \
-             b'\\"id\\": \\"Rule.Does.Exist\\", \\"lastModified\\": \\"0001-01-01T00:00:00Z\\", ' \
-             b'\\"lastModifiedBy\\": \\"\\", \\"outputIds\\": [], \\"packIds\\": [], ' \
-             b'\\"reference\\": \\"\\", \\"reports\\": {}, \\"runbook\\": \\"\\", \\"severity\\": ' \
-             b'\\"\\", \\"tags\\": [], \\"tests\\": [], \\"versionId\\": \\"\\", \\"managed\\": ' \
-             b'false, \\"parentId\\": \\"\\"}]}"}'
-
-
-        invoke_mock = mock.MagicMock(return_value=rv)
-        invoke_mock.invoke.return_value = {'ResponseMetadata': {'RequestId': '1234', 'HTTPStatusCode': 200}, "Payload": BytesIO(rv)}
-        patch = {"get_client": mock.MagicMock(return_value=invoke_mock)}
-        with mock.patch.multiple("panther_analysis_tool.main", **patch):
-            validated_list = pat.confirm_analysis_exists(args, requested_deletion)
-            assert_equal(len(validated_list), 1)
-            assert_true("Rule.Doesnt.Exist" not in validated_list)

@@ -1,6 +1,6 @@
 packages = panther_analysis_tool
 
-ci: lint unit integration
+ci: lint test integration
 
 
 deps:
@@ -13,7 +13,7 @@ deps-update:
 lint:
 	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores
 	pipenv run bandit -r $(packages)
-	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912,too-many-lines --max-line-length=100
+	pipenv run pylint $(packages) --disable=missing-docstring,bad-continuation,duplicate-code,W0511,R0912,too-many-lines,too-few-public-methods --max-line-length=140
 
 venv:
 	pipenv install --dev
@@ -25,8 +25,14 @@ fmt:
 install:
 	pipenv install --dev
 
-unit:
-	pipenv run nosetests -v
+test:
+	pipenv run nosetests -v --with-coverage --cover-package=panther_analysis_tool --cover-html --cover-html-dir=htmlcov
+
+test-fail-fast:
+	pipenv run nosetests -v --stop
+
+coverage:
+	open ./htmlcov/index.html
 
 integration:
 	pipenv run panther_analysis_tool test --path tests/fixtures/detections/valid_analysis
@@ -35,8 +41,6 @@ integration:
 	cd panther-analysis && pipenv lock -r  | grep -v 'panther-analysis-tool==' > requirements.ci.txt
 	cd panther-analysis && pipenv install -r requirements.ci.txt
 	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
-
-test: unit
 
 pypi:
 	pipenv run python3 setup.py sdist
