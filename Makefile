@@ -28,6 +28,9 @@ install:
 test:
 	pipenv run nosetests -v --with-coverage --cover-package=panther_analysis_tool --cover-html --cover-html-dir=htmlcov
 
+test-fail-fast:
+	pipenv run nosetests -v --stop
+
 coverage:
 	open ./htmlcov/index.html
 

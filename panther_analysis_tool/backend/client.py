@@ -20,9 +20,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, TypeVar, Generic
+from typing import Any, List, TypeVar, Generic, Optional
 
 ResponseData = TypeVar('ResponseData')
+
+
+class BackendError(Exception):
+    pass
 
 
 @dataclass(frozen=True)
@@ -72,6 +76,24 @@ class UpdateManagedSchemasParams:
 
 
 @dataclass(frozen=True)
+class BulkUploadStatistics:
+    new:      int
+    total:    int
+    modified: int
+
+
+@dataclass(frozen=True)
+class BulkUploadResponse:
+    rules:              BulkUploadStatistics
+    policies:           BulkUploadStatistics
+    data_models:        BulkUploadStatistics
+    lookup_tables:      BulkUploadStatistics
+    global_helpers:     BulkUploadStatistics
+    new_detections:     Optional[List[Any]]
+    updated_detections: Optional[List[Any]]
+
+
+@dataclass(frozen=True)
 class DeleteSavedQueriesResponse:
     names:         List[str]
     detection_ids: List[str]
@@ -90,7 +112,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[Any]:
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         pass
 
     @abstractmethod
