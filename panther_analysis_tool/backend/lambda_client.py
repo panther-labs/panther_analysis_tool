@@ -143,8 +143,8 @@ class LambdaClient(Client):
             InvocationType="RequestResponse",
             LogType="None",
             Payload=self._serialize_request({
-                "deleteSavedQueries": {
-                    "ids": params.names,
+                "deleteSavedQueriesByName": {
+                    "names": params.names,
                     "dryRun": params.dry_run,
                     "userId": self._user_id,
                     "includeDetections": params.include_detections,
@@ -152,11 +152,13 @@ class LambdaClient(Client):
             }),
         ))
 
+        body = json.loads(res.data['body'])
+
         return BackendResponse(
             status_code=res.status_code,
             data=DeleteSavedQueriesResponse(
-                names=res.data.get("names", []),
-                detection_ids=res.data.get("detectionIds", []),
+                names=body.get("names", []),
+                detection_ids=body.get("detectionIds", []),
             )
         )
 
