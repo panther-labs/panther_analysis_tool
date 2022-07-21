@@ -23,6 +23,7 @@ import logging
 from typing import Dict
 from pathlib import Path
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from gql import Client as GraphQLClient, gql
 from gql.transport.aiohttp import AIOHTTPTransport
@@ -137,7 +138,18 @@ def _build_client(host: str, token: str) -> GraphQLClient:
     return GraphQLClient(transport=transport, fetch_schema_from_transport=True)
 
 
+def is_url(url: str) -> bool:
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+
 def _build_api_url(host: str) -> str:
+    if is_url(host):
+        return host
+
     return f"https://{_API_DOMAIN_PREFIX}.{host}/{_API_URL_PATH}"
 
 
