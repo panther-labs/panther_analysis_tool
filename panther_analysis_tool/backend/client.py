@@ -57,14 +57,14 @@ class BulkUploadParams:
 
 @dataclass(frozen=True)
 class DeleteSavedQueriesParams:
-    names:   List[str]
+    names: List[str]
     dry_run: bool
     include_detections: bool
 
 
 @dataclass(frozen=True)
 class DeleteDetectionsParams:
-    ids:     List[str]
+    ids: List[str]
     dry_run: bool
     include_saved_queries: bool
 
@@ -77,31 +77,31 @@ class UpdateManagedSchemasParams:
 
 @dataclass(frozen=True)
 class BulkUploadStatistics:
-    new:      int
-    total:    int
+    new: int
+    total: int
     modified: int
 
 
 @dataclass(frozen=True)
 class BulkUploadResponse:
-    rules:              BulkUploadStatistics
-    policies:           BulkUploadStatistics
-    data_models:        BulkUploadStatistics
-    lookup_tables:      BulkUploadStatistics
-    global_helpers:     BulkUploadStatistics
-    new_detections:     Optional[List[Any]]
+    rules: BulkUploadStatistics
+    policies: BulkUploadStatistics
+    data_models: BulkUploadStatistics
+    lookup_tables: BulkUploadStatistics
+    global_helpers: BulkUploadStatistics
+    new_detections: Optional[List[Any]]
     updated_detections: Optional[List[Any]]
 
 
 @dataclass(frozen=True)
 class DeleteSavedQueriesResponse:
-    names:         List[str]
+    names: List[str]
     detection_ids: List[str]
 
 
 @dataclass(frozen=True)
 class DeleteDetectionsResponse:
-    ids:               List[str]
+    ids: List[str]
     saved_query_names: List[str]
 
 

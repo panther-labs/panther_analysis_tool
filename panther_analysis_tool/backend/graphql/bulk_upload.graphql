@@ -1,0 +1,28 @@
+mutation UploadDetections($input: UploadDetectionEntitiesInput!) {
+  uploadDetectionEntities(input: $input) {
+    dataModels {
+      ...UploadStatisticDetails
+    }
+    globalHelpers {
+      ...UploadStatisticDetails
+    }
+    lookupTables {
+      ...UploadStatisticDetails
+    }
+    policies {
+      ...UploadStatisticDetails
+    }
+    rules {
+      ...UploadStatisticDetails
+    }
+    queries {
+      ...UploadStatisticDetails
+    }
+  }
+}
+
+fragment UploadStatisticDetails on UploadStatistics {
+  modified
+  new
+  total
+}
