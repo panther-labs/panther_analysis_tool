@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import logging
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +56,9 @@ class PublicAPIRequests:
 
     def version_query(self) -> DocumentNode:
         return self._load("get_version")
+
+    def delete_detections_query(self) -> DocumentNode:
+        return self._load("delete_detections")
 
     def bulk_upload_mutation(self) -> DocumentNode:
         return self._load("bulk_upload")
@@ -139,7 +143,30 @@ class PublicAPIClient(Client):
         pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
-        pass
+        gql_params = {
+            "input": {
+                "dryRun": params.dry_run,
+                "includeSavedQueries": params.include_saved_queries,
+                "ids": params.ids
+            }
+        }
+        res = self._execute(self._requests.delete_detections_query(), gql_params)
+        if res.errors:
+            for err in res.errors:
+                logging.error(err.message)
+
+            raise Exception(res.errors)
+
+        if res.data is None:
+            raise Exception("empty data")
+
+        return BackendResponse(
+            status_code=200,
+            data=DeleteDetectionsResponse(
+                ids=res.data.get('deleteDetections', {}).get('ids', []),
+                saved_query_names=res.data.get('deleteDetections', {}).get('saved_query_names', [])
+            )
+        )
 
     def list_managed_schema_updates(self) -> BackendResponse:
         pass
@@ -149,6 +176,7 @@ class PublicAPIClient(Client):
 
     def _execute(self, request: DocumentNode, variable_values: Optional[Dict[str, Any]] = None, ) -> ExecutionResult:
         return self._gql_client.execute(request, variable_values=variable_values, get_execution_result=True)
+
 
 
 _API_URL_PATH = "public/graphql"
