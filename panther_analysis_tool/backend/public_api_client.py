@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import logging
 
-from typing import Dict
+from typing import Dict, Optional
 from pathlib import Path
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -57,6 +57,9 @@ class PublicAPIRequests:
 
     def version_query(self) -> DocumentNode:
         return self._load("get_version")
+
+    def delete_detections_query(self) -> DocumentNode:
+        return self._load("delete_detections")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -112,7 +115,30 @@ class PublicAPIClient(Client):
         pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
-        pass
+        params = {
+            "input": {
+                "dryRun": params.dry_run,
+                "includeSavedQueries": params.include_saved_queries,
+                "ids": params.ids
+            }
+        }
+        res = self._execute(self._requests.delete_detections_query(), params)
+        if res.errors:
+            for err in res.errors:
+                logging.error(err.message)
+
+            raise Exception(res.errors)
+
+        if res.data is None:
+            raise Exception("empty data")
+
+        return BackendResponse(
+            status_code=200,
+            data=DeleteDetectionsResponse(
+                ids=res.data.get('deleteDetections', {}).get('ids'),
+                saved_query_names=res.data.get('deleteDetections', {}).get('saved_query_names')
+            )
+        )
 
     def list_managed_schema_updates(self) -> BackendResponse:
         pass
@@ -120,8 +146,8 @@ class PublicAPIClient(Client):
     def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         pass
 
-    def _execute(self, request: DocumentNode) -> ExecutionResult:
-        return self._gql_client.execute(request, get_execution_result=True)
+    def _execute(self, request: DocumentNode, params: Optional[dict] = None) -> ExecutionResult:
+        return self._gql_client.execute(request, get_execution_result=True, variable_values=params)
 
 
 _API_URL_PATH = "public/graphql"
