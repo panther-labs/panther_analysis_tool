@@ -163,8 +163,8 @@ class PublicAPIClient(Client):
         return BackendResponse(
             status_code=200,
             data=DeleteDetectionsResponse(
-                ids=res.data.get('deleteDetections', {}).get('ids'),
-                saved_query_names=res.data.get('deleteDetections', {}).get('saved_query_names')
+                ids=res.data.get('deleteDetections', {}).get('ids', []),
+                saved_query_names=res.data.get('deleteDetections', {}).get('saved_query_names', [])
             )
         )
 

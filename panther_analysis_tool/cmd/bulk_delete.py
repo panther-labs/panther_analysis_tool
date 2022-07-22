@@ -64,7 +64,6 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
 
     # Delete Detections
     if targets_detections:
-        logging.info("calling delete with '%s'", detection_id_list)
         code, msg = _delete_detections(backend, detection_id_list)
         if code != 0:
             logging.warning("error deleting detections: %s", msg)
@@ -150,10 +149,11 @@ def _delete_detections(backend: BackendClient, ids: List[str]) -> Tuple[int, str
     if delete_detections_res.status_code != 200:
         logging.error("Error deleting detections")
         return 1, ""
+
     logging.info(
         "%d detections and %d linked saved queries deleted",
-        0 if delete_detections_res.data.ids is None else len(delete_detections_res.data.ids),
-        0 if delete_detections_res.data.saved_query_names is None else len(None or delete_detections_res.data.saved_query_names),
+        len(delete_detections_res.data.ids),
+        len(delete_detections_res.data.saved_query_names),
     )
 
     return 0, ""
