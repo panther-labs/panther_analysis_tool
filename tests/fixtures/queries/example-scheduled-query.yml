@@ -7,7 +7,7 @@ Query:
    user_name,
    reported_client_type,
    COUNT(event_id) AS counts
-   FROM snowflake.account_usage.login_history
+   FROM datalake.account_usage.login_history
    WHERE
     DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
    AND
@@ -19,13 +19,15 @@ SnowflakeQuery:
    user_name,
    reported_client_type,
    COUNT(event_id) AS counts
-   FROM snowflake.account_usage.login_history
+   FROM datalake.account_usage.login_history
    WHERE
     DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
    AND
    error_code IS NOT NULL
    GROUP BY reported_client_type, user_name
    HAVING counts >= 3"
+Tags:
+  Datalake
 Schedule:
   CronExpression: "0 0 29 2 *"
   RateMinutes: 0
