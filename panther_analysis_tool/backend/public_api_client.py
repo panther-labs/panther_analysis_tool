@@ -115,14 +115,14 @@ class PublicAPIClient(Client):
         pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
-        params = {
+        gql_params = {
             "input": {
                 "dryRun": params.dry_run,
                 "includeSavedQueries": params.include_saved_queries,
                 "ids": params.ids
             }
         }
-        res = self._execute(self._requests.delete_detections_query(), params)
+        res = self._execute(self._requests.delete_detections_query(), gql_params)
         if res.errors:
             for err in res.errors:
                 logging.error(err.message)
