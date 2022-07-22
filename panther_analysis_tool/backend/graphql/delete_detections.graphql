@@ -1,0 +1,6 @@
+mutation DeleteDetections($input: DeleteDetectionsInput!) {
+  deleteDetections(input: $input) {
+    ids
+    savedQueryNames
+  }
+}
