@@ -565,16 +565,12 @@ def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> T
     Returns:
         A tuple of return code and a placeholder string.
     """
-    print('normalized path')
     normalized_path = user_defined.normalize_path(args.path)
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    print('init uploader')
     uploader = user_defined.Uploader(normalized_path, backend)
-    print('about to call uploader process')
     results = uploader.process()
-    print('got results')
     has_errors = False
     for failed, summary in user_defined.report_summary(normalized_path, results):
         if failed:

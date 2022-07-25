@@ -1,0 +1,14 @@
+mutation CreateOrUpdateSchema($input: CreateOrUpdateSchemaInput!) {
+  createOrUpdateSchema(input: $input) {
+    schema {
+        createdAt
+        description
+        isManaged
+        name
+        referenceURL
+        revision
+        spec
+        updatedAt
+    }
+  }
+}

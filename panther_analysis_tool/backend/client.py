@@ -73,10 +73,12 @@ class ListSchemasParams:
     is_managed: bool
 
 @dataclass(frozen=True)
-class UpdateManagedSchemasParams:
-    release: str
-    manifest_url: str
-
+class UpdateManagedSchemaParams:
+    description: str
+    name: str
+    reference_url: str
+    revision: int
+    spec: str
 
 @dataclass(frozen=True)
 class BulkUploadStatistics:
@@ -114,13 +116,17 @@ class ManagedSchema:
     is_managed: bool
     name: str
     reference_url: str
-    revision: str
+    revision: int
     spec: str
     updated_at: str
 
 @dataclass(frozen=True)
 class ListManagedSchemasResponse:
     schemas: List[ManagedSchema]
+
+@dataclass(frozen=True)
+class UpdateManagedSchemaResponse:
+    schema: ManagedSchema
 
 class Client(ABC):
 
@@ -145,5 +151,5 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse[Any]:
+    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
         pass

@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from itertools import filterfalse
 from typing import Any, Dict, List, Optional, Tuple, cast
 from panther_analysis_tool.backend.client import (
-    Client as BackendClient, ListSchemasParams, ManagedSchema,
+    Client as BackendClient, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams, BackendResponse,
 )
 
 from botocore import client
@@ -38,88 +38,6 @@ from panther_analysis_tool.util import get_client
 
 logger = logging.getLogger(__file__)
 
-
-class Client:
-    _LAMBDA_NAME = "panther-logtypes-api"
-    _LIST_SCHEMAS_ENDPOINT = "ListSchemas"
-    _PUT_SCHEMA_ENDPOINT = "PutUserSchema"
-
-    def __init__(self, aws_profile: str) -> None:
-        self._lambda_client = None
-        self._aws_profile = aws_profile
-
-    @property
-    def lambda_client(self) -> client.BaseClient:
-        if self._lambda_client is None:
-            self._lambda_client = get_client(self._aws_profile, "lambda")
-        return self._lambda_client
-
-    def list_schemas(self) -> Tuple[bool, dict]:
-        """
-        Retrieves the list of user-defined schemas.
-
-        Returns:
-            A boolean flag denoting if the request was successful,
-            along with the response payload.
-        """
-        return self._invoke(
-            self._create_lambda_request(
-                endpoint=self._LIST_SCHEMAS_ENDPOINT, payload={"isManaged": False}
-            )
-        )
-
-    def put_schema(  # pylint: disable=too-many-arguments
-        self,
-        name: str,
-        definition: str,
-        revision: int,
-        description: str,
-        reference_url: str,
-    ) -> Tuple[bool, dict]:
-        """
-        Update a custom schema.
-
-        Args:
-            name: the schema name which uniquely identifies the schema
-            definition: the YAML spec for this schema
-            revision: the current revision number used to perform
-                      backwards incompatibility checks
-            description: an optional schema description
-            reference_url: an optional schema reference URL
-
-        Returns:
-            A boolean flag denoting if the request was successful,
-            along with the response payload.
-        """
-        return self._invoke(
-            self._create_lambda_request(
-                endpoint=self._PUT_SCHEMA_ENDPOINT,
-                payload=dict(
-                    name=name,
-                    referenceURL=reference_url,
-                    description=description,
-                    spec=definition,
-                    revision=revision,
-                ),
-            )
-        )
-
-    def _invoke(self, request: dict) -> Tuple[bool, dict]:
-        response = self.lambda_client.invoke(**request)
-        response = json.loads(response["Payload"].read().decode("utf-8"))
-        api_error = response.get("error")
-        if api_error is not None:
-            return False, response
-        return True, response
-
-    def _create_lambda_request(self, endpoint: str, payload: dict) -> dict:
-        return dict(
-            FunctionName=self._LAMBDA_NAME,
-            InvocationType="RequestResponse",
-            Payload=json.dumps({endpoint: payload}),
-        )
-
-
 @dataclass
 class UploaderResult:
     # The path of the schema definition file
@@ -127,7 +45,7 @@ class UploaderResult:
     # The schema name / identifier, e.g. Custom.SampleSchema
     name: Optional[str]
     # The Lambda invocation response payload (PutUserSchema endpoint)
-    api_response: Optional[Dict[str, Any]] = None
+    backend_response: Optional[ManagedSchema] = None
     # The schema specification in YAML form
     definition: Optional[Dict[str, Any]] = None
     # Any error encountered during processing will be stored here
@@ -144,7 +62,6 @@ class ProcessedFile:
     raw: str = ""
     # The deserialized schema
     yaml: Optional[Dict[str, Any]] = None
-
 
 class Uploader:
     _SCHEMA_NAME_PREFIX = "Custom."
@@ -237,27 +154,22 @@ class Uploader:
                 continue
 
             logger.info("Processing file %s", filename)
-            ## todo remove this
-            #self.find_schema('test')
+
             name, error = self._extract_schema_name(processed_file.yaml)
-            print("extracted schema name")
             result = UploaderResult(filename=filename, name=name, error=error)
             logger.info("uploader result is '%s'", result)
             # Don't attempt to perform an update, if we could not extract the name from the file
             if not result.error:
-                print('about to update')
-                existed, success, response = self._update_or_create_schema(name, processed_file)
-                result.existed = existed
-                if not success:
-                    api_error = response.get("error")
-                    if api_error is not None:
-                        result.error = (
-                            f"failure to update schema {name}: "
-                            f'code={api_error["code"]}, message={api_error["message"]}'
-                        )
-                result.api_response = response
+                try:
+                    existed, response = self._update_or_create_schema(name, processed_file)
+                    result.existed = existed
+                    result.backend_response = response
+                except BaseException as exc:
+                    result.error = (
+                        f"failure to update schema {name}: "
+                        f'message={exc}'
+                    )
             results.append(result)
-        print('returning')
         return results
 
     @staticmethod
@@ -299,7 +211,7 @@ class Uploader:
 
     def _update_or_create_schema(
         self, name: str, processed_file: ProcessedFile
-    ) -> Tuple[bool, bool, Dict[str, Any]]:
+    ) -> Tuple[bool, BackendResponse]:
         existing_schema = self.find_schema(name)
         current_reference_url = ""
         current_description = ""
@@ -320,14 +232,16 @@ class Uploader:
             reference_url,
             description,
         )
-        success, response = self.api_client.put_schema(
-            name=name,
-            definition=processed_file.raw,
-            revision=current_revision,
-            reference_url=reference_url,
-            description=description,
+        response = self._backend.update_managed_schema(
+            params=UpdateManagedSchemaParams(
+                name=name,
+                spec=processed_file.raw,
+                revision=current_revision,
+                reference_url=reference_url,
+                description=description,
+            )
         )
-        return existed, success, response
+        return existed, response
 
 
 def discover_files(base_path: str, patterns: Tuple[str, ...]) -> List[str]:
