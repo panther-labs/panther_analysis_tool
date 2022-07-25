@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import fnmatch
-import json
 import logging
 import os
 from dataclasses import dataclass
@@ -28,13 +27,11 @@ from panther_analysis_tool.backend.client import (
     Client as BackendClient, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams, BackendResponse,
 )
 
-from botocore import client
 from ruamel.yaml import YAML
 from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
 
-from panther_analysis_tool.util import get_client
 
 logger = logging.getLogger(__file__)
 
@@ -70,9 +67,7 @@ class Uploader:
     def __init__(self, path: str, backend: BackendClient):
         self._path = path
         self._files: Optional[List[str]] = None
-        #self._api_client: Optional[Client] = None
         self._existing_schemas: Optional[List[ManagedSchema]] = None
-        #self._aws_profile = aws_profile
         self._backend = backend
 
     @property
@@ -97,7 +92,6 @@ class Uploader:
              List of user-defined schema records.
         """
         if self._existing_schemas is None:
-            #success, response = self.api_client.list_schemas()
             resp = self._backend.list_managed_schemas(ListSchemasParams(is_managed=False))
             if not resp.status_code == 200:
                 raise RuntimeError("unable to retrieve custom schemas")
