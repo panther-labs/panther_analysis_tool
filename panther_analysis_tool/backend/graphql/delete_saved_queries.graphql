@@ -1,0 +1,6 @@
+mutation DeleteSavedQueries($input: DeleteSavedQueriesByNameInput!) {
+  deleteSavedQueriesByName(input: $input) {
+    detectionIDs
+    names
+  }
+}
