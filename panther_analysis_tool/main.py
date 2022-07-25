@@ -70,13 +70,13 @@ from panther_analysis_tool.backend.client import (
     BulkUploadParams,
 )
 
-from panther_analysis_tool.data_model import DataModel
+from panther_core.data_model import DataModel
 from panther_analysis_tool.destination import FakeDestination
-from panther_analysis_tool.enriched_event import PantherEvent
+from panther_core.enriched_event import PantherEvent
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.exceptions import UnknownDestinationError
-from panther_analysis_tool.policy import TYPE_POLICY, Policy
-from panther_analysis_tool.rule import Detection, Rule
+from panther_core.exceptions import UnknownDestinationError
+from panther_core.policy import TYPE_POLICY, Policy
+from panther_core.rule import Detection, Rule
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
@@ -87,7 +87,7 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.testing import (
+from panther_core.testing import (
     TestCaseEvaluator,
     TestExpectations,
     TestResult,

@@ -9,6 +9,7 @@ install_requires = [
     'ruamel.yaml',
     'schema',
     'semver',
+    'panther_core',
 ]
 
 with open('requirements.txt') as f:
