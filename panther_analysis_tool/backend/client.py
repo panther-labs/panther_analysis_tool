@@ -68,6 +68,9 @@ class DeleteDetectionsParams:
     dry_run: bool
     include_saved_queries: bool
 
+@dataclass(frozen=True)
+class ListSchemasParams:
+    is_managed: bool
 
 @dataclass(frozen=True)
 class UpdateManagedSchemasParams:
@@ -104,6 +107,20 @@ class DeleteDetectionsResponse:
     ids: List[str]
     saved_query_names: List[str]
 
+@dataclass(frozen=True)
+class ManagedSchema:
+    created_at: str
+    description: str
+    is_managed: bool
+    name: str
+    reference_url: str
+    revision: str
+    spec: str
+    updated_at: str
+
+@dataclass(frozen=True)
+class ListManagedSchemasResponse:
+    schemas: List[ManagedSchema]
 
 class Client(ABC):
 
@@ -124,7 +141,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def list_managed_schema_updates(self) -> BackendResponse[Any]:
+    def list_managed_schema_updates(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
         pass
 
     @abstractmethod

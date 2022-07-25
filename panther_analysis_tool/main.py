@@ -556,7 +556,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
-def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """
     Updates or creates custom schemas.
     Returns 1 if any file failed to be updated.
@@ -565,12 +565,16 @@ def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     Returns:
         A tuple of return code and a placeholder string.
     """
+    print('normalized path')
     normalized_path = user_defined.normalize_path(args.path)
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    uploader = user_defined.Uploader(normalized_path, args.aws_profile)
+    print('init uploader')
+    uploader = user_defined.Uploader(normalized_path, backend)
+    print('about to call uploader process')
     results = uploader.process()
+    print('got results')
     has_errors = False
     for failed, summary in user_defined.report_summary(normalized_path, results):
         if failed:
@@ -1606,12 +1610,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
 
+    standard_args.for_public_api(update_custom_schemas_parser, required=True)
     standard_args.using_aws_profile(update_custom_schemas_parser)
 
     custom_schemas_path_arg = path_arg.copy()
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
-    update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
+    update_custom_schemas_parser.set_defaults(func=func_with_backend(update_custom_schemas))
 
     # -- test lookup command
 

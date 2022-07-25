@@ -24,6 +24,9 @@ import os
 from dataclasses import dataclass
 from itertools import filterfalse
 from typing import Any, Dict, List, Optional, Tuple, cast
+from panther_analysis_tool.backend.client import (
+    Client as BackendClient, ListSchemasParams, ManagedSchema,
+)
 
 from botocore import client
 from ruamel.yaml import YAML
@@ -147,18 +150,13 @@ class Uploader:
     _SCHEMA_NAME_PREFIX = "Custom."
     _SCHEMA_FILE_GLOB_PATTERNS = ("*.yml", "*.yaml")
 
-    def __init__(self, path: str, aws_profile: str):
+    def __init__(self, path: str, backend: BackendClient):
         self._path = path
         self._files: Optional[List[str]] = None
-        self._api_client: Optional[Client] = None
-        self._existing_schemas: Optional[List[Dict[str, Any]]] = None
-        self._aws_profile = aws_profile
-
-    @property
-    def api_client(self) -> Client:
-        if self._api_client is None:
-            self._api_client = Client(self._aws_profile)
-        return self._api_client
+        #self._api_client: Optional[Client] = None
+        self._existing_schemas: Optional[List[ManagedSchema]] = None
+        #self._aws_profile = aws_profile
+        self._backend = backend
 
     @property
     def files(self) -> List[str]:
@@ -173,7 +171,7 @@ class Uploader:
         return self._files
 
     @property
-    def existing_schemas(self) -> List[Dict[str, Any]]:
+    def existing_schemas(self) -> List[ManagedSchema]:
         """
         Retrieves and caches in the instance state the list
         of available user-defined schemas.
@@ -182,16 +180,14 @@ class Uploader:
              List of user-defined schema records.
         """
         if self._existing_schemas is None:
-            success, response = self.api_client.list_schemas()
-            if not success:
+            #success, response = self.api_client.list_schemas()
+            resp = self._backend.list_managed_schema_updates(ListSchemasParams(is_managed=False))
+            if not resp.status_code == 200:
                 raise RuntimeError("unable to retrieve custom schemas")
-            if "results" in response:
-                self._existing_schemas = response["results"]
-            else:
-                self._existing_schemas = []
+            self._existing_schemas = resp.data.schemas
         return self._existing_schemas
 
-    def find_schema(self, name: str) -> Optional[Dict[str, Any]]:
+    def find_schema(self, name: str) -> Optional[ManagedSchema]:
         """
         Find schema by name.
 
@@ -199,7 +195,7 @@ class Uploader:
              The decoded YAML schema or None if no matching name is found.
         """
         for schema in self.existing_schemas:
-            if schema["name"] == name:
+            if schema.name == name:
                 return schema
         return None
 
@@ -241,11 +237,15 @@ class Uploader:
                 continue
 
             logger.info("Processing file %s", filename)
-
+            ## todo remove this
+            # self.find_schema('test')
             name, error = self._extract_schema_name(processed_file.yaml)
+            print("extracted schema name")
             result = UploaderResult(filename=filename, name=name, error=error)
+            logger.info("uploader result is '%s'", result)
             # Don't attempt to perform an update, if we could not extract the name from the file
             if not result.error:
+                print('about to update')
                 existed, success, response = self._update_or_create_schema(name, processed_file)
                 result.existed = existed
                 if not success:
@@ -257,6 +257,7 @@ class Uploader:
                         )
                 result.api_response = response
             results.append(result)
+        print('returning')
         return results
 
     @staticmethod
@@ -306,11 +307,10 @@ class Uploader:
         definition = cast(Dict[str, Any], processed_file.yaml)
         existed = False
         if existing_schema is not None:
-            existing_schema = cast(Dict[str, Any], existing_schema)
             existed = True
-            current_reference_url = existing_schema.get("referenceURL", "")
-            current_description = existing_schema.get("description", "")
-            current_revision = existing_schema["revision"]
+            current_reference_url = existing_schema.reference_url
+            current_description = existing_schema.description
+            current_revision = existing_schema.revision
         reference_url = definition.get("referenceURL", current_reference_url)
         description = definition.get("description", current_description)
         logger.debug(
