@@ -1610,7 +1610,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
 
-    standard_args.for_public_api(update_custom_schemas_parser, required=True)
+    standard_args.for_public_api(update_custom_schemas_parser, required=False)
     standard_args.using_aws_profile(update_custom_schemas_parser)
 
     custom_schemas_path_arg = path_arg.copy()

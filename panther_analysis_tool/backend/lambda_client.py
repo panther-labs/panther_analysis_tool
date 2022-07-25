@@ -38,7 +38,7 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    UpdateManagedSchemasParams,
+    UpdateManagedSchemasParams, ListManagedSchemasResponse, ListSchemasParams, ManagedSchema,
 )
 
 
@@ -162,14 +162,35 @@ class LambdaClient(Client):
             )
         )
 
-    def list_managed_schema_updates(self) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
+    def list_managed_schema_updates(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+        res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-logtypes-api",
             InvocationType="RequestResponse",
             Payload=self._serialize_request({
-                "ListManagedSchemaUpdates": {},
+                "ListSchemas": {
+                    "isManaged": params.is_managed
+                },
             }),
         ))
+        schemas = []
+        for result in res.data['results']:
+            schemas.append(ManagedSchema(
+                created_at=result.get('createdAt', ''),
+                description=result.get('description', ''),
+                is_managed=result.get('isManaged', False),
+                name=result.get('name', ''),
+                reference_url=result.get('referenceURL', ''),
+                revision=result.get('revision', ''),
+                spec=result.get('spec', ''),
+                updated_at=result.get('updatedAt', '')
+            ))
+
+        return BackendResponse(
+                status_code=200,
+                data=ListManagedSchemasResponse(
+                    schemas=schemas
+                )
+            )
 
     def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
         return self._parse_response(self._lambda_client.invoke(
