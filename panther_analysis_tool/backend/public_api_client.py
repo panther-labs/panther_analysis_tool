@@ -63,6 +63,9 @@ class PublicAPIRequests:
     def bulk_upload_mutation(self) -> DocumentNode:
         return self._load("bulk_upload")
 
+    def delete_saved_queries(self) -> DocumentNode:
+        return self._load("delete_saved_queries")
+
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
             self._cache[name] = Path(_get_graphql_content_filepath(name)).read_text()
@@ -117,9 +120,6 @@ class PublicAPIClient(Client):
         res = self._execute(query, variable_values=upload_params)
 
         if res.errors:
-            for err in res.errors:
-                logging.error(err.message)
-
             raise Exception(res.errors)
 
         if res.data is None:
@@ -140,7 +140,29 @@ class PublicAPIClient(Client):
             ))
 
     def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
-        pass
+        query = self._requests.delete_saved_queries()
+        delete_params = {"input": {
+            "dryRun": params.dry_run,
+            "includeDetections": params.include_detections,
+            "names": params.names,
+        }}
+        res = self._execute(query, variable_values=delete_params)
+
+        if res.errors:
+            raise Exception(res.errors)
+
+        if res.data is None:
+            raise Exception("empty data")
+
+        data = res.data.get("deleteSavedQueriesByName", {})
+
+        return BackendResponse(
+            status_code=200,
+            data=DeleteSavedQueriesResponse(
+                names=data.get("names", []),
+                detection_ids=data.get("detectionIDs", []),
+            )
+        )
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
         gql_params = {
