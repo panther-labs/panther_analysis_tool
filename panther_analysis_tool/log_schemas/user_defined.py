@@ -181,7 +181,7 @@ class Uploader:
         """
         if self._existing_schemas is None:
             #success, response = self.api_client.list_schemas()
-            resp = self._backend.list_managed_schema_updates(ListSchemasParams(is_managed=False))
+            resp = self._backend.list_managed_schemas(ListSchemasParams(is_managed=False))
             if not resp.status_code == 200:
                 raise RuntimeError("unable to retrieve custom schemas")
             self._existing_schemas = resp.data.schemas
@@ -238,7 +238,7 @@ class Uploader:
 
             logger.info("Processing file %s", filename)
             ## todo remove this
-            # self.find_schema('test')
+            #self.find_schema('test')
             name, error = self._extract_schema_name(processed_file.yaml)
             print("extracted schema name")
             result = UploaderResult(filename=filename, name=name, error=error)

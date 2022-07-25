@@ -10,7 +10,7 @@ from panther_analysis_tool.backend.client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     UpdateManagedSchemasParams,
-    DeleteSavedQueriesResponse,
+    DeleteSavedQueriesResponse, ListSchemasParams,
 )
 
 
@@ -20,7 +20,7 @@ class MockBackend(BackendClient):
     delete_detections_returns: BackendResponse[DeleteDetectionsResponse]
     delete_saved_queries_returns: BackendResponse[DeleteSavedQueriesResponse]
     update_managed_schemas_returns: BackendResponse[Any]
-    list_managed_schema_updates_returns: BackendResponse[Any]
+    list_managed_schemas_returns: BackendResponse[Any]
 
     bulk_upload_error: Optional[Exception]
 
@@ -33,8 +33,8 @@ class MockBackend(BackendClient):
     def check(self) -> BackendCheckResponse:
         return self.check_returns
 
-    def list_managed_schema_updates(self) -> BackendResponse[Any]:
-        return self.list_managed_schema_updates_returns
+    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]:
+        return self.list_managed_schemas_returns
 
     def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse[Any]:
         return self.update_managed_schemas_returns

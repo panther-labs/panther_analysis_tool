@@ -162,7 +162,7 @@ class LambdaClient(Client):
             )
         )
 
-    def list_managed_schema_updates(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
         res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-logtypes-api",
             InvocationType="RequestResponse",

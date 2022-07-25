@@ -173,7 +173,7 @@ class PublicAPIClient(Client):
             )
         )
 
-    def list_managed_schema_updates(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
         gql_params = {
             "input": {
                 "isManaged": params.is_managed,
