@@ -22,9 +22,9 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.policy import TYPE_POLICY, Policy
-from panther_analysis_tool.rule import Rule
+from panther_core.detection import DetectionResult
+from panther_core.policy import TYPE_POLICY, Policy
+from panther_core.rule import Rule
 
 
 @dataclass

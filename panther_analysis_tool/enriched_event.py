@@ -20,8 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from collections.abc import Mapping
 from typing import Any, Optional
 
-from .data_model import E_NO_DATA_MODEL_FOUND, DataModel
-from .exceptions import PantherError
+from panther_core.data_model import E_NO_DATA_MODEL_FOUND, DataModel
+from panther_core.exceptions import PantherError
 from .immutable import ImmutableCaseInsensitiveDict, json_encoder
 
 

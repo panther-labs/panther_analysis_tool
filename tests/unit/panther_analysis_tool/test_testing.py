@@ -20,9 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
 
-from panther_analysis_tool.detection import DetectionResult
-from panther_analysis_tool.policy import TYPE_POLICY
-from panther_analysis_tool.rule import Rule, TYPE_RULE
+from panther_core.detection import DetectionResult
+from panther_core.policy import TYPE_POLICY
+from panther_core.rule import Rule, TYPE_RULE
 
 from panther_analysis_tool.testing import FunctionTestResult, TestError, TestSpecification, \
     TestExpectations, TestCaseEvaluator, TestResult, TestResultsPerFunction
@@ -162,7 +162,7 @@ class TestTestCaseEvaluator(unittest.TestCase):
         )
         actual = TestCaseEvaluator(spec=spec, detection_result=detection_result).interpret()
         self.assertEqual(expected, actual)
-    
+
     def test_interpret_failing_test_expected_to_match_aux_function_error(self) -> None:
         spec = TestSpecification(id='test-id', name='test-name', data={}, mocks=[], expectations=TestExpectations(detection=True))
         detection_result = DetectionResult(
