@@ -1,4 +1,5 @@
 from typing import Any, Optional
+from unittest.mock import MagicMock
 
 from panther_analysis_tool.backend.client import (
     Client as BackendClient,
@@ -9,38 +10,25 @@ from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
-    UpdateManagedSchemasParams,
-    DeleteSavedQueriesResponse, ListSchemasParams,
+    DeleteSavedQueriesResponse, ListSchemasParams, UpdateManagedSchemaParams,
 )
 
 
 class MockBackend(BackendClient):
-    check_returns: BackendCheckResponse
-    bulk_upload_returns: BackendResponse[BulkUploadResponse]
-    delete_detections_returns: BackendResponse[DeleteDetectionsResponse]
-    delete_saved_queries_returns: BackendResponse[DeleteSavedQueriesResponse]
-    update_managed_schemas_returns: BackendResponse[Any]
-    list_managed_schemas_returns: BackendResponse[Any]
-
-    bulk_upload_error: Optional[Exception]
-
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
-        if self.bulk_upload_error:
-            raise self.bulk_upload_error
-
-        return self.bulk_upload_returns
+        pass
 
     def check(self) -> BackendCheckResponse:
-        return self.check_returns
+        return self.check_returns()
 
     def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]:
-        return self.list_managed_schemas_returns
+        pass
 
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse[Any]:
-        return self.update_managed_schemas_returns
+    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
+        pass
 
     def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[Any]:
-        return self.delete_saved_queries_returns
+        pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[Any]:
-        return self.delete_detections_returns
+        pass
