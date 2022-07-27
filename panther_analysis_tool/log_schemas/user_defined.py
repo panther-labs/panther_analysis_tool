@@ -41,8 +41,8 @@ class UploaderResult:
     filename: str
     # The schema name / identifier, e.g. Custom.SampleSchema
     name: Optional[str]
-    # The Lambda invocation response payload (PutUserSchema endpoint)
-    backend_response: Optional[ManagedSchema] = None
+    # The Backend Client invocation response payload (PutUserSchema endpoint)
+    backend_response: Optional[BackendResponse] = None
     # The schema specification in YAML form
     definition: Optional[Dict[str, Any]] = None
     # Any error encountered during processing will be stored here

@@ -19,7 +19,7 @@ class MockBackend(BackendClient):
         pass
 
     def check(self) -> BackendCheckResponse:
-        return self.check_returns()
+        pass
 
     def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]:
         pass
