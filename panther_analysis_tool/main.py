@@ -17,8 +17,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from gql.transport.aiohttp import log as aiohttp_logger
-
 import argparse
 import base64
 import hashlib
@@ -48,6 +46,7 @@ from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
+from gql.transport.aiohttp import log as aiohttp_logger
 
 import botocore
 import requests
