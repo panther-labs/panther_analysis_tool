@@ -174,7 +174,7 @@ class LambdaClient(Client):
             }),
         ))
         if res.data.get("error") is not None:
-            raise Exception(res.data.get("error"))
+            raise BackendError(res.data.get("error"))
 
         schemas = []
         for result in res.data['results']:
@@ -211,7 +211,7 @@ class LambdaClient(Client):
             }),
         ))
         if res.data.get("error") is not None:
-            raise Exception(res.data.get("error"))
+            raise BackendError(res.data.get("error"))
 
         schema=res.data.get('result', {})
         return BackendResponse(

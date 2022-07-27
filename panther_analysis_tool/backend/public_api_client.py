@@ -41,7 +41,8 @@ from .client import (
     ListSchemasParams,
     ListManagedSchemasResponse,
     BulkUploadResponse, BulkUploadStatistics, ManagedSchema, UpdateManagedSchemaParams, UpdateManagedSchemaResponse,
-    BackendError, )
+    BackendError
+    )
 
 
 @dataclass(frozen=True)
@@ -129,10 +130,10 @@ class PublicAPIClient(Client):
         res = self._execute(query, variable_values=upload_params)
 
         if res.errors:
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         data = res.data.get("uploadDetectionEntities", {})
 
@@ -158,10 +159,10 @@ class PublicAPIClient(Client):
         res = self._execute(query, variable_values=delete_params)
 
         if res.errors:
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         data = res.data.get("deleteSavedQueriesByName", {})
 
@@ -186,10 +187,10 @@ class PublicAPIClient(Client):
             for err in res.errors:
                 logging.error(err.message)
 
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         return BackendResponse(
             status_code=200,
@@ -209,10 +210,10 @@ class PublicAPIClient(Client):
         if res.errors:
             for err in res.errors:
                 logging.error(err.message)
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         schemas = []
         for edge in res.data.get('schemas', {}).get('edges', []):
@@ -250,10 +251,10 @@ class PublicAPIClient(Client):
         if res.errors:
             for err in res.errors:
                 logging.error(err.message)
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         schema = res.data.get('schema', {})
         return BackendResponse(

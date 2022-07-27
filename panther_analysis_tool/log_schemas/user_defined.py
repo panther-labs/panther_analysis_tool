@@ -17,6 +17,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from ruamel.yaml import YAML
+from ruamel.yaml.composer import ComposerError
+from ruamel.yaml.parser import ParserError
+from ruamel.yaml.scanner import ScannerError
+
 import fnmatch
 import logging
 import os
@@ -24,13 +29,8 @@ from dataclasses import dataclass
 from itertools import filterfalse
 from typing import Any, Dict, List, Optional, Tuple, cast
 from panther_analysis_tool.backend.client import (
-    Client as BackendClient, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams, BackendResponse,
+    Client as BackendClient, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams, BackendResponse, BackendError
 )
-
-from ruamel.yaml import YAML
-from ruamel.yaml.composer import ComposerError
-from ruamel.yaml.parser import ParserError
-from ruamel.yaml.scanner import ScannerError
 
 
 logger = logging.getLogger(__file__)
@@ -158,7 +158,7 @@ class Uploader:
                     existed, response = self._update_or_create_schema(name, processed_file)
                     result.existed = existed
                     result.backend_response = response
-                except BaseException as exc:
+                except BackendError as exc:
                     result.error = (
                         f"failure to update schema {name}: "
                         f'message={exc}'

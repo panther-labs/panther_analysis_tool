@@ -1,5 +1,4 @@
-from typing import Any, Optional
-from unittest.mock import MagicMock
+from typing import Any
 
 from panther_analysis_tool.backend.client import (
     Client as BackendClient,
@@ -8,9 +7,8 @@ from panther_analysis_tool.backend.client import (
     BulkUploadResponse,
     BackendCheckResponse,
     DeleteDetectionsParams,
-    DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
-    DeleteSavedQueriesResponse, ListSchemasParams, UpdateManagedSchemaParams,
+    ListSchemasParams, UpdateManagedSchemaParams,
 )
 
 

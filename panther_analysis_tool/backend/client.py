@@ -109,6 +109,7 @@ class DeleteDetectionsResponse:
     ids: List[str]
     saved_query_names: List[str]
 
+# pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
 class ManagedSchema:
     created_at: str
