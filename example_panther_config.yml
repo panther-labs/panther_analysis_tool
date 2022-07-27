@@ -3,10 +3,10 @@
 # Note that options in this file override options passed on the command line
 #
 # The API token to use when making changes to Panther
-# api-token: "token"
+# api_token: "token"
 #
 # The URL where Panther is hosted
-# api-host: "test.runpanther.xyz"
+# api_host: "test.runpanther.xyz"
 #
 # The AWS profile to use when updating the AWS Panther deployment.
 # aws_profile: "aws_profile"

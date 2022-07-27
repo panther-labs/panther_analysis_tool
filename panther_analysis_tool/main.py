@@ -1677,6 +1677,8 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("GITHUB_REPOSITORY", is_type_of=str),
             Validator("GITHUB_TAG", is_type_of=str),
             Validator("FILTER", is_type_of=dict),
+            Validator("API_TOKEN", is_type_of=str),
+            Validator("API_HOST", is_type_of=str)
         ],
     )
     # Dynaconf stores its keys in ALL CAPS
