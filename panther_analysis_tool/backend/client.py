@@ -68,12 +68,17 @@ class DeleteDetectionsParams:
     dry_run: bool
     include_saved_queries: bool
 
+@dataclass(frozen=True)
+class ListSchemasParams:
+    is_managed: bool
 
 @dataclass(frozen=True)
-class UpdateManagedSchemasParams:
-    release: str
-    manifest_url: str
-
+class UpdateManagedSchemaParams:
+    description: str
+    name: str
+    reference_url: str
+    revision: int
+    spec: str
 
 @dataclass(frozen=True)
 class BulkUploadStatistics:
@@ -104,6 +109,25 @@ class DeleteDetectionsResponse:
     ids: List[str]
     saved_query_names: List[str]
 
+# pylint: disable=too-many-instance-attributes
+@dataclass(frozen=True)
+class ManagedSchema:
+    created_at: str
+    description: str
+    is_managed: bool
+    name: str
+    reference_url: str
+    revision: int
+    spec: str
+    updated_at: str
+
+@dataclass(frozen=True)
+class ListManagedSchemasResponse:
+    schemas: List[ManagedSchema]
+
+@dataclass(frozen=True)
+class UpdateManagedSchemaResponse:
+    schema: ManagedSchema
 
 class Client(ABC):
 
@@ -124,9 +148,9 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def list_managed_schema_updates(self) -> BackendResponse[Any]:
+    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
         pass
 
     @abstractmethod
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse[Any]:
+    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
         pass

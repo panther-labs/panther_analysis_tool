@@ -38,7 +38,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    UpdateManagedSchemasParams,
+    ListManagedSchemasResponse, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams,
+    UpdateManagedSchemaResponse,
 )
 
 
@@ -162,26 +163,72 @@ class LambdaClient(Client):
             )
         )
 
-    def list_managed_schema_updates(self) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
+    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+        res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-logtypes-api",
             InvocationType="RequestResponse",
             Payload=self._serialize_request({
-                "ListManagedSchemaUpdates": {},
+                "ListSchemas": {
+                    "isManaged": params.is_managed
+                },
             }),
         ))
+        if res.data.get("error") is not None:
+            raise BackendError(res.data.get("error"))
 
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
-        return self._parse_response(self._lambda_client.invoke(
+        schemas = []
+        for result in res.data['results']:
+            schemas.append(ManagedSchema(
+                created_at=result.get('createdAt', ''),
+                description=result.get('description', ''),
+                is_managed=result.get('isManaged', False),
+                name=result.get('name', ''),
+                reference_url=result.get('referenceURL', ''),
+                revision=result.get('revision', ''),
+                spec=result.get('spec', ''),
+                updated_at=result.get('updatedAt', '')
+            ))
+
+        return BackendResponse(
+                status_code=200,
+                data=ListManagedSchemasResponse(
+                    schemas=schemas
+                )
+            )
+
+    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
+        res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-logtypes-api",
             InvocationType="RequestResponse",
             Payload=self._serialize_request({
-                "UpdateManagedSchemas": {
-                    "release": params.release,
-                    "manifestURL": params.manifest_url,
+                "PutUserSchema": {
+                    "description": params.description,
+                    "name": params.name,
+                    "reference_url": params.reference_url,
+                    "revision": params.revision,
+                    "spec": params.spec
                 }
             }),
         ))
+        if res.data.get("error") is not None:
+            raise BackendError(res.data.get("error"))
+
+        schema=res.data.get('result', {})
+        return BackendResponse(
+            status_code=200,
+            data=UpdateManagedSchemaResponse(
+                schema=ManagedSchema(
+                    created_at=schema.get('createdAt', ''),
+                    description=schema.get('description', ''),
+                    is_managed=schema.get('isManaged', False),
+                    name=schema.get('name', ''),
+                    reference_url=schema.get('referenceURL', ''),
+                    revision=schema.get('revision', ''),
+                    spec=schema.get('spec', ''),
+                    updated_at=schema.get('updatedAt', '')
+                )
+            )
+        )
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:

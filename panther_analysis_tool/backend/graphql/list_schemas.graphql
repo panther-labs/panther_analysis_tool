@@ -1,0 +1,16 @@
+query Schemas($input: SchemasInput!) {
+    schemas(input: $input) {
+        edges {
+            node {
+                createdAt
+                description
+                isManaged
+                name
+                referenceURL
+                revision
+                spec
+                updatedAt
+            }
+        }
+    }
+}

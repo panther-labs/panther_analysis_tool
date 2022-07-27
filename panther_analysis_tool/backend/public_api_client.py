@@ -38,7 +38,11 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    UpdateManagedSchemasParams, BulkUploadResponse, BulkUploadStatistics, )
+    ListSchemasParams,
+    ListManagedSchemasResponse,
+    BulkUploadResponse, BulkUploadStatistics, ManagedSchema, UpdateManagedSchemaParams, UpdateManagedSchemaResponse,
+    BackendError
+    )
 
 
 @dataclass(frozen=True)
@@ -62,6 +66,12 @@ class PublicAPIRequests:
 
     def bulk_upload_mutation(self) -> DocumentNode:
         return self._load("bulk_upload")
+
+    def list_schemas_query(self) -> DocumentNode:
+        return self._load("list_schemas")
+
+    def update_schema_mutation(self) -> DocumentNode:
+        return self._load("create_or_update_schema")
 
     def delete_saved_queries(self) -> DocumentNode:
         return self._load("delete_saved_queries")
@@ -120,10 +130,10 @@ class PublicAPIClient(Client):
         res = self._execute(query, variable_values=upload_params)
 
         if res.errors:
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         data = res.data.get("uploadDetectionEntities", {})
 
@@ -149,10 +159,10 @@ class PublicAPIClient(Client):
         res = self._execute(query, variable_values=delete_params)
 
         if res.errors:
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         data = res.data.get("deleteSavedQueriesByName", {})
 
@@ -177,10 +187,10 @@ class PublicAPIClient(Client):
             for err in res.errors:
                 logging.error(err.message)
 
-            raise Exception(res.errors)
+            raise BackendError(res.errors)
 
         if res.data is None:
-            raise Exception("empty data")
+            raise BackendError("empty data")
 
         return BackendResponse(
             status_code=200,
@@ -190,15 +200,81 @@ class PublicAPIClient(Client):
             )
         )
 
-    def list_managed_schema_updates(self) -> BackendResponse:
-        pass
+    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+        gql_params = {
+            "input": {
+                "isManaged": params.is_managed,
+            }
+        }
+        res = self._execute(self._requests.list_schemas_query(), gql_params)
+        if res.errors:
+            for err in res.errors:
+                logging.error(err.message)
+            raise BackendError(res.errors)
 
-    def update_managed_schemas(self, params: UpdateManagedSchemasParams) -> BackendResponse:
-        pass
+        if res.data is None:
+            raise BackendError("empty data")
+
+        schemas = []
+        for edge in res.data.get('schemas', {}).get('edges', []):
+            node = edge.get('node', {})
+            schema = ManagedSchema(
+                created_at=node.get('createdAt', ''),
+                description=node.get('description', ''),
+                is_managed=node.get('isManaged', False),
+                name=node.get('name', ''),
+                reference_url=node.get('referenceURL', ''),
+                revision=node.get('revision', ''),
+                spec=node.get('spec', ''),
+                updated_at=node.get('updatedAt', '')
+            )
+            schemas.append(schema)
+
+        return BackendResponse(
+                status_code=200,
+                data=ListManagedSchemasResponse(
+                    schemas=schemas
+                )
+            )
+
+    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
+        gql_params = {
+            "input": {
+                "description": params.description,
+                "name": params.name,
+                "referenceURL": params.reference_url,
+                "revision": params.revision,
+                "spec": params.spec
+            }
+        }
+        res = self._execute(self._requests.update_schema_mutation(), gql_params)
+        if res.errors:
+            for err in res.errors:
+                logging.error(err.message)
+            raise BackendError(res.errors)
+
+        if res.data is None:
+            raise BackendError("empty data")
+
+        schema = res.data.get('schema', {})
+        return BackendResponse(
+            status_code=200,
+            data=UpdateManagedSchemaResponse(
+                schema=ManagedSchema(
+                    created_at=schema.get('createdAt', ''),
+                    description=schema.get('description', ''),
+                    is_managed=schema.get('isManaged', False),
+                    name=schema.get('name', ''),
+                    reference_url=schema.get('referenceURL', ''),
+                    revision=schema.get('revision', ''),
+                    spec=schema.get('spec', ''),
+                    updated_at=schema.get('updatedAt', '')
+                )
+            )
+        )
 
     def _execute(self, request: DocumentNode, variable_values: Optional[Dict[str, Any]] = None, ) -> ExecutionResult:
         return self._gql_client.execute(request, variable_values=variable_values, get_execution_result=True)
-
 
 
 _API_URL_PATH = "public/graphql"

@@ -558,7 +558,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
-def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
+def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """
     Updates or creates custom schemas.
     Returns 1 if any file failed to be updated.
@@ -571,7 +571,7 @@ def update_custom_schemas(args: argparse.Namespace) -> Tuple[int, str]:
     if not normalized_path:
         return 1, f"path not found: {args.path}"
 
-    uploader = user_defined.Uploader(normalized_path, args.aws_profile)
+    uploader = user_defined.Uploader(normalized_path, backend)
     results = uploader.process()
     has_errors = False
     for failed, summary in user_defined.report_summary(normalized_path, results):
@@ -1608,12 +1608,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
     )
 
+    standard_args.for_public_api(update_custom_schemas_parser, required=False)
     standard_args.using_aws_profile(update_custom_schemas_parser)
 
     custom_schemas_path_arg = path_arg.copy()
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
-    update_custom_schemas_parser.set_defaults(func=update_custom_schemas)
+    update_custom_schemas_parser.set_defaults(func=func_with_backend(update_custom_schemas))
 
     # -- test lookup command
 
@@ -1676,6 +1677,8 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("GITHUB_REPOSITORY", is_type_of=str),
             Validator("GITHUB_TAG", is_type_of=str),
             Validator("FILTER", is_type_of=dict),
+            Validator("API_TOKEN", is_type_of=str),
+            Validator("API_HOST", is_type_of=str)
         ],
     )
     # Dynaconf stores its keys in ALL CAPS
