@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 from typing import List, Dict, Any
 
-from panther_analysis_tool.exceptions import PantherError
+from panther_core.exceptions import PantherError
 
 
 class TestPantherError(unittest.TestCase):

@@ -24,6 +24,7 @@ graphql-core==3.2.1
 idna==3.3
 jmespath==1.0.0
 jsonpath-ng==1.5.3
+panther_core==0.0.9
 multidict==6.0.2; python_version >= '3.7'
 ply==3.11
 python-dateutil==2.8.2

@@ -22,7 +22,6 @@ import io
 import json
 import os
 import shutil
-import tempfile
 
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
 from unittest import mock
@@ -32,8 +31,9 @@ from nose.tools import assert_equal, assert_is_instance, assert_true
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
-from panther_analysis_tool.data_model import _DATAMODEL_FOLDER
-from panther_analysis_tool.backend.client import BackendError
+
+from panther_core.data_model import _DATAMODEL_FOLDER
+from panther_analysis_tool.backend.client import BackendResponse, BackendError
 from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -433,4 +433,3 @@ class TestPantherAnalysisTool(TestCase):
                                              '--available-destination Pagerduty'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
-
