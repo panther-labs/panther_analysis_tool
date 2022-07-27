@@ -17,6 +17,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from gql.transport.aiohttp import log as aiohttp_logger
+
 import argparse
 import base64
 import hashlib
@@ -1746,6 +1748,9 @@ def run() -> None:
         format="[%(levelname)s]: %(message)s",
         level=logging.DEBUG if args.debug else logging.INFO,
     )
+    if not args.debug:
+        aiohttp_logger.setLevel(logging.WARNING)
+
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
