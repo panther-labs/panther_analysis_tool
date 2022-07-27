@@ -1,9 +1,12 @@
 import os
 import unittest
 from unittest import mock
+from unittest.mock import MagicMock, create_autospec
 
+from panther_analysis_tool.backend.client import BackendResponse, ListManagedSchemasResponse, ManagedSchema, Client, \
+    UpdateManagedSchemaResponse, UpdateManagedSchemaParams
+from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.log_schemas import user_defined
-
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../', 'fixtures'))
 
@@ -66,63 +69,63 @@ class TestUploader(unittest.TestCase):
         with open(os.path.join(self.valid_schema_path, 'schema-3.yml')) as f:
             self.valid_schema3 = f.read()
 
-        self.list_schemas_response = {
-            'results': [
-               {
-                    'name': 'Custom.AWSAccountIDs',
-                    'revision': 17,
-                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                    'managed': False,
-                    'disabled': True,
-                    'description': 'A verbose description',
-                    'referenceURL': 'https://example.com',
-                    'spec': self.valid_schema0,
-                    'active': False,
-                    'native': False
-                },
-                {
-                    'name': 'Custom.SampleSchema1',
-                    'revision': 17,
-                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                    'managed': False,
-                    'disabled': True,
-                    'description': 'A verbose description',
-                    'referenceURL': 'https://example.com',
-                    'spec': self.valid_schema1,
-                    'active': False,
-                    'native': False
-                },
-                {
-                    'name': 'Custom.SampleSchema2',
-                    'revision': 17,
-                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                    'managed': False,
-                    'disabled': False,
-                    'description': 'A verbose description',
-                    'referenceURL': 'https://example.com',
-                    'spec': self.valid_schema2,
-                    'active': False,
-                    'native': False
-                },
-                {
-                    'name': 'Custom.Sample.Schema3',
-                    'revision': 17,
-                    'updatedAt': '2021-05-14T12:05:13.928862479Z',
-                    'createdAt': '2021-05-11T14:08:08.42627193Z',
-                    'managed': False,
-                    'disabled': False,
-                    'description': 'A verbose description',
-                    'referenceURL': 'https://example.com',
-                    'spec': self.valid_schema3,
-                    'active': False,
-                    'native': False
-                }
-            ]
-        }
-        self.put_schema_response = lambda: {
+        self.list_managed_schemas_response = BackendResponse(
+            status_code=200,
+            data=ListManagedSchemasResponse(
+                schemas=[
+                    ManagedSchema(
+                        created_at='2021-05-11T14:08:08.42627193Z',
+                        description='A verbose description',
+                        is_managed=False,
+                        name='Custom.AWSAccountIDs',
+                        reference_url='https://example.com',
+                        revision=17,
+                        spec=self.valid_schema0,
+                        updated_at='2021-05-14T12:05:13.928862479Z'
+                    ),
+                    ManagedSchema(
+                        created_at='2021-05-11T14:08:08.42627193Z',
+                        description='A verbose description',
+                        is_managed=False,
+                        name='Custom.SampleSchema1',
+                        reference_url='https://example.com',
+                        revision=17,
+                        spec=self.valid_schema1,
+                        updated_at='2021-05-14T12:05:13.928862479Z'
+                    ),
+                    ManagedSchema(
+                        created_at='2021-05-11T14:08:08.42627193Z',
+                        description='A verbose description',
+                        is_managed=False,
+                        name='Custom.SampleSchema2',
+                        reference_url='https://example.com',
+                        revision=17,
+                        spec=self.valid_schema2,
+                        updated_at='2021-05-14T12:05:13.928862479Z'
+                    ),
+                    ManagedSchema(
+                        created_at='2021-05-11T14:08:08.42627193Z',
+                        description='A verbose description',
+                        is_managed=False,
+                        name='Custom.Sample.Schema3',
+                        reference_url='https://example.com',
+                        revision=17,
+                        spec=self.valid_schema3,
+                        updated_at='2021-05-14T12:05:13.928862479Z'
+                    ),
+                ]
+            )
+        )
+        self.put_schema_response = lambda: ManagedSchema(
+            name='Custom.SampleSchema1',
+            revision=0,
+            updated_at='2021-05-17T10:34:18.192993496Z',
+            created_at='2021-05-17T10:15:38.18907328Z',
+            is_managed=False,
+            reference_url='https://github.com/random',
+            spec=''
+        )
+        self.put_schema_response2 = lambda: {
             'record': {
                 'name': 'Custom.SampleSchema1',
                 'revision': 0,
@@ -138,32 +141,39 @@ class TestUploader(unittest.TestCase):
         }
 
     def test_existing_schemas(self):
-        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client',
-                        autospec=user_defined.Client) as mock_uploader_client:
-            mock_uploader_client.list_schemas = mock.MagicMock(
-                return_value=(True, self.list_schemas_response)
-            )
-            uploader = user_defined.Uploader(self.valid_schema_path, None)
-            self.assertListEqual(uploader.existing_schemas, self.list_schemas_response['results'])
-            mock_uploader_client.list_schemas.assert_called_once()
+        backend = MockBackend()
+        backend.list_managed_schemas = mock.MagicMock(
+            return_value=self.list_managed_schemas_response
+        )
+        uploader = user_defined.Uploader(self.valid_schema_path, backend)
+        self.assertListEqual(uploader.existing_schemas, self.list_managed_schemas_response.data.schemas)
+        backend.list_managed_schemas.assert_called_once()
 
     def test_existing_schemas_empty_results_from_backend(self):
-        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client',
-                        autospec=user_defined.Client) as mock_uploader_client:
-            mock_uploader_client.list_schemas = mock.MagicMock(
-                return_value=(True, {})
+        backend = MockBackend()
+        backend.list_managed_schemas = mock.MagicMock(
+            return_value=BackendResponse(
+                status_code=200,
+                data=ListManagedSchemasResponse(
+                    schemas=[]
+                )
             )
-            uploader = user_defined.Uploader(self.valid_schema_path, None)
-            self.assertListEqual(uploader.existing_schemas, [])
-            mock_uploader_client.list_schemas.assert_called_once()
+        )
+
+        uploader = user_defined.Uploader(self.valid_schema_path, backend)
+        self.assertListEqual(uploader.existing_schemas, [])
+        backend.list_managed_schemas.assert_called_once()
 
     def test_find_schema(self):
-        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.existing_schemas',
-                        self.list_schemas_response['results']):
-            uploader = user_defined.Uploader(self.valid_schema_path, None)
-            self.assertDictEqual(uploader.find_schema('Custom.SampleSchema2'),
-                                 self.list_schemas_response['results'][2])
-            self.assertIsNone(uploader.find_schema('unknown-schema'))
+        backend = MockBackend()
+        backend.list_managed_schemas = mock.MagicMock(
+            return_value=self.list_managed_schemas_response
+        )
+        uploader = user_defined.Uploader(self.valid_schema_path, backend)
+        self.assertEqual(uploader.find_schema('Custom.SampleSchema2'),
+                         self.list_managed_schemas_response.data.schemas[2])
+        self.assertIsNone(uploader.find_schema('unknown-schema'))
+        backend.list_managed_schemas.assert_called_once()
 
     def test_files(self):
         uploader = user_defined.Uploader(self.valid_schema_path, None)
@@ -176,61 +186,55 @@ class TestUploader(unittest.TestCase):
         )
 
     def test_process(self):
-        with mock.patch('panther_analysis_tool.log_schemas.user_defined.Uploader.api_client',
-                        autospec=user_defined.Client) as mock_uploader_client:
-            mock_uploader_client.list_schemas = mock.MagicMock(
-                return_value=(True, self.list_schemas_response)
-            )
-            put_schema_responses = []
-            for response in self.list_schemas_response['results']:
-                put_schema_response = self.put_schema_response()
-                put_schema_response['record']['revision'] = response['revision'] + 1
-                put_schema_response['record']['name'] = response['name']
-                put_schema_responses.append((True, put_schema_response))
+        backend = MockBackend()
+        backend.list_managed_schemas = mock.MagicMock(
+            return_value=self.list_managed_schemas_response
+        )
 
-            # Empty spec field to verify uploaded data
-            for response in self.list_schemas_response['results']:
-                response['spec'] = ''
+        put_schema_responses = []
+        for response in self.list_managed_schemas_response.data.schemas:
+            put_schema_responses.append(
+                UpdateManagedSchemaResponse(
+                    schema=ManagedSchema(
+                        name=response.name,
+                        revision=response.revision + 1,
+                        updated_at='2021-05-17T10:34:18.192993496Z',
+                        created_at='2021-05-17T10:15:38.18907328Z',
+                        is_managed=False,
+                        reference_url='https://github.com/random',
+                        spec='',
+                        description=''
+                    )
+                )
+            )
 
-            mock_uploader_client.put_schema = mock.MagicMock(
-                side_effect=put_schema_responses
-            )
-            uploader = user_defined.Uploader(self.valid_schema_path, None)
-            results = uploader.process()
-            self.assertEqual(len(results), 4)
-            self.assertListEqual([r.name for r in results],
-                                 ['Custom.AWSAccountIDs', 'Custom.SampleSchema1', 'Custom.SampleSchema2', 'Custom.Sample.Schema3'])
-            self.assertListEqual([r.existed for r in results], [True, True, True, True])
-            self.assertEqual(mock_uploader_client.put_schema.call_count, 4)
-            mock_uploader_client.put_schema.assert_has_calls(
-              [
-                  mock.call(
-                      name="Custom.AWSAccountIDs",
-                      definition=self.valid_schema0,
-                      description='Sample Lookup Table Schema 1',
-                      reference_url='https://runpanther.io',
-                      revision=17
-                  ),
-                  mock.call(
-                      name="Custom.SampleSchema1",
-                      definition=self.valid_schema1,
-                      description='Sample Schema 1',
-                      reference_url='https://runpanther.io',
-                      revision=17
-                  ),
-                  mock.call(
-                      name="Custom.SampleSchema2",
-                      definition=self.valid_schema2,
-                      description='Sample Schema 2',
-                      reference_url='https://runpanther.io',
-                      revision=17
-                  ),
-                  mock.call(
-                      name="Custom.Sample.Schema3",
-                      definition=self.valid_schema3,
-                      description='Sample Schema 3',
-                      reference_url='https://runpanther.io',
-                      revision=17
-                  ),
-              ]
-            )
+        backend.update_managed_schema = mock.MagicMock(
+            side_effect=put_schema_responses
+        )
+        uploader = user_defined.Uploader(self.valid_schema_path, backend)
+        results = uploader.process()
+        self.assertEqual(len(results), 4)
+        self.assertListEqual([r.name for r in results],
+                             ['Custom.AWSAccountIDs', 'Custom.SampleSchema1', 'Custom.SampleSchema2',
+                              'Custom.Sample.Schema3'])
+
+        my_mock_call = backend.update_managed_schema.call_count
+        self.assertEqual(my_mock_call, 4)
+
+        self.assertListEqual([r.existed for r in results], [True, True, True, True])
+        self.assertEqual(backend.update_managed_schema.call_count, 4)
+        backend.update_managed_schema.assert_has_calls(
+            [
+                mock.call(
+                    params=UpdateManagedSchemaParams(
+                        name="Custom.AWSAccountIDs",
+                        spec=self.valid_schema0,
+                        description='Sample Lookup Table Schema 1',
+                        reference_url='https://runpanther.io',
+                        revision=17
+                    )
+                )
+            ]
+        )
+
+
