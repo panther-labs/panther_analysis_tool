@@ -45,9 +45,9 @@ from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
-from gql.transport.aiohttp import log as aiohttp_logger
 from dataclasses import asdict
 
+from gql.transport.aiohttp import log as aiohttp_logger
 import botocore
 import requests
 import schema
