@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, TypeVar, Generic, Optional
+from typing import Any, List, TypeVar, Generic
 
 ResponseData = TypeVar('ResponseData')
 
