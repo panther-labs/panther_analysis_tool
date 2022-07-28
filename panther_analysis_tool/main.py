@@ -34,6 +34,7 @@ import time
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
+from dataclasses import asdict
 from datetime import datetime
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
@@ -45,7 +46,6 @@ from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
-from dataclasses import asdict
 
 from gql.transport.aiohttp import log as aiohttp_logger
 import botocore
