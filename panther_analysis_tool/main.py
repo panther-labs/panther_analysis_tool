@@ -34,7 +34,6 @@ import time
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict
 from datetime import datetime
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
@@ -47,6 +46,7 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 from gql.transport.aiohttp import log as aiohttp_logger
+from dataclasses import asdict
 
 import botocore
 import requests
@@ -404,7 +404,12 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                 response = backend.bulk_upload(upload_params)
 
                 logging.info("Upload success.")
-                logging.info("API Response:\n%s", response.data)
+                logging.info("API Response:\n%s",
+                    json.dumps(
+                        asdict(response.data),
+                        indent=4
+                    )
+                )
 
                 return 0, ""
 
