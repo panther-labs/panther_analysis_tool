@@ -94,8 +94,6 @@ class BulkUploadResponse:
     data_models: BulkUploadStatistics
     lookup_tables: BulkUploadStatistics
     global_helpers: BulkUploadStatistics
-    new_detections: Optional[List[Any]]
-    updated_detections: Optional[List[Any]]
 
 
 @dataclass(frozen=True)

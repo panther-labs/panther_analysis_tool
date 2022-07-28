@@ -103,9 +103,7 @@ class LambdaClient(Client):
                 policies=BulkUploadStatistics(**body.get('policies', default_stats)),
                 data_models=BulkUploadStatistics(**body.get('dataModels', default_stats)),
                 lookup_tables=BulkUploadStatistics(**body.get('lookupTables', default_stats)),
-                global_helpers=BulkUploadStatistics(**body.get('globalHelpers', default_stats)),
-                new_detections=body.get('newDetections'),
-                updated_detections=body.get('updatedDetections'),
+                global_helpers=BulkUploadStatistics(**body.get('globalHelpers', default_stats))
             )
         )
 
