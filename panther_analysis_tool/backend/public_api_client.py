@@ -144,9 +144,7 @@ class PublicAPIClient(Client):
                 policies=BulkUploadStatistics(**data.get('policies', default_stats)),
                 data_models=BulkUploadStatistics(**data.get('dataModels', default_stats)),
                 lookup_tables=BulkUploadStatistics(**data.get('lookupTables', default_stats)),
-                global_helpers=BulkUploadStatistics(**data.get('globalHelpers', default_stats)),
-                new_detections=[],
-                updated_detections=[],
+                global_helpers=BulkUploadStatistics(**data.get('globalHelpers', default_stats))
             ))
 
     def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
