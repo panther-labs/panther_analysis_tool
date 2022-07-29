@@ -47,6 +47,7 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+from gql.transport.aiohttp import log as aiohttp_logger
 import botocore
 import requests
 import schema
@@ -403,7 +404,12 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                 response = backend.bulk_upload(upload_params)
 
                 logging.info("Upload success.")
-                logging.info("API Response:\n%s", response.data)
+                logging.info("API Response:\n%s",
+                    json.dumps(
+                        asdict(response.data),
+                        indent=4
+                    )
+                )
 
                 return 0, ""
 
@@ -1746,6 +1752,9 @@ def run() -> None:
         format="[%(levelname)s]: %(message)s",
         level=logging.DEBUG if args.debug else logging.INFO,
     )
+    if not args.debug:
+        aiohttp_logger.setLevel(logging.WARNING)
+
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
