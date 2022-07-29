@@ -98,7 +98,7 @@ def _delete_detections_dry_run(backend: BackendClient, ids: List[str]) -> Tuple[
 
     for detection_id in ids:
         if detection_id in found_ids:
-            logging.info("Detection '%s' will be delreted", detection_id)
+            logging.info("Detection '%s' will be deleted", detection_id)
         else:
             logging.info("Detection '%s' was not found.", detection_id)
 
