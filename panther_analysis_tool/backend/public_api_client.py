@@ -167,8 +167,8 @@ class PublicAPIClient(Client):
         return BackendResponse(
             status_code=200,
             data=DeleteSavedQueriesResponse(
-                names=data.get("names", []),
-                detection_ids=data.get("detectionIDs", []),
+                names=data.get("names") or [],
+                detection_ids=data.get("detectionIDs") or [],
             )
         )
 
@@ -190,11 +190,13 @@ class PublicAPIClient(Client):
         if res.data is None:
             raise BackendError("empty data")
 
+        data = res.data.get("deleteDetections", {})
+
         return BackendResponse(
             status_code=200,
             data=DeleteDetectionsResponse(
-                ids=res.data.get('deleteDetections', {}).get('ids', []),
-                saved_query_names=res.data.get('deleteDetections', {}).get('savedQueryNames', [])
+                ids=data.get('ids') or [],
+                saved_query_names=data.get('savedQueryNames') or [],
             )
         )
 
