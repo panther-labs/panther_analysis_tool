@@ -1694,8 +1694,19 @@ def setup_dynaconf() -> Dict[str, Any]:
 def dynaconf_argparse_merge(
         argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
 ) -> None:
+    # Set up another parser w/ no defaults
+    aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+    for k in argparse_dict:
+        arg_name = k.replace('_', '-')
+        if isinstance(argparse_dict[k], bool):
+            aux_parser.add_argument('--'+arg_name, action="store_true")
+        else:
+            aux_parser.add_argument('--'+arg_name)
+    # cli_args only contains args that were passed in the command line
+    cli_args, _ = aux_parser.parse_known_args()
     for key, value in config_file_settings.items():
-        argparse_dict[key] = value
+        if key not in cli_args:
+            argparse_dict[key] = value
 
 
 # Parses the filters, expects a list of strings
@@ -1761,16 +1772,22 @@ def run() -> None:
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
 
+    for key in os.environ:
+        if key.startswith("PANTHER_"):
+            logging.info(
+                "Found Environment Variables prefixed with 'PANTHER'."
+            )
+            break
     if os.path.exists(CONFIG_FILE):
         logging.info(
             "Found Config File %s . NOTE: SETTINGS IN CONFIG FILE OVERRIDE COMMAND LINE OPTIONS",
             CONFIG_FILE,
         )
-        config_file_settings = setup_dynaconf()
-        dynaconf_argparse_merge(vars(args), config_file_settings)
-        if args.debug:
-            for key, value in vars(args).items():
-                logging.debug(f"{key}={value}")  # pylint: disable=W1203
+    config_file_settings = setup_dynaconf()
+    dynaconf_argparse_merge(vars(args), config_file_settings)
+    if args.debug:
+        for key, value in vars(args).items():
+            logging.debug(f"{key}={value}")  # pylint: disable=W1203
 
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
