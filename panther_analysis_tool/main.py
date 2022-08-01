@@ -1694,8 +1694,19 @@ def setup_dynaconf() -> Dict[str, Any]:
 def dynaconf_argparse_merge(
         argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
 ) -> None:
+    # Set up another parser w/ no defaults
+    aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+    for k in argparse_dict:
+        arg_name = k.replace('_', '-')
+        if isinstance(argparse_dict[k], bool):
+            aux_parser.add_argument('--'+arg_name, action="store_true")
+        else:
+            aux_parser.add_argument('--'+arg_name)
+    # cli_args only contains args that were passed in the command line
+    cli_args, _ = aux_parser.parse_known_args()
     for key, value in config_file_settings.items():
-        argparse_dict[key] = value
+        if key not in cli_args:
+            argparse_dict[key] = value
 
 
 # Parses the filters, expects a list of strings
