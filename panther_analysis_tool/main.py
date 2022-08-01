@@ -1775,7 +1775,7 @@ def run() -> None:
     for key in os.environ:
         if key.startswith("PANTHER_"):
             logging.info(
-                "Found Environment Variables prefixed with 'PANTHER'.  NOTE: ENVIRONMENT VARIABLES OVERRIDE COMMAND LINE OPTIONS"
+                "Found Environment Variables prefixed with 'PANTHER'."
             )
             break
     if os.path.exists(CONFIG_FILE):
