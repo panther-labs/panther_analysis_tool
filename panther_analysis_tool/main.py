@@ -1656,7 +1656,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "check-connection", help="Check your Panther API connection"
     )
 
-    standard_args.for_public_api(check_conn_parser, required=True)
+    standard_args.for_public_api(check_conn_parser, required=False)
 
     check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
 
