@@ -24,8 +24,7 @@ with open('requirements.txt') as f:
 setup(
     name='panther_analysis_tool',
     version='0.15.0',
-    packages=['panther_analysis_tool', 'panther_analysis_tool/log_schemas', 'panther_analysis_tool/backend', 'panther_analysis_tool/cmd'],
-    package_dir={'log_schemas': 'panther_analysis_tool/log_schemas', 'backend': 'panther_analysis_tool/backend', 'cmd': 'panther_analysis_tool/cmd'},
+    packages=['panther_analysis_tool'],
     license='AGPL-3.0',
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',
@@ -43,4 +42,5 @@ setup(
         'License :: OSI Approved :: GNU Affero General Public License v3',
         'Programming Language :: Python :: 3.9',
     ],
+    include_package_data=True,
 )
