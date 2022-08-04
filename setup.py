@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 install_requires = [
     'gql',
@@ -25,7 +25,7 @@ with open('requirements.txt') as f:
 setup(
     name='panther_analysis_tool',
     version='0.15.0',
-    packages=['panther_analysis_tool'],
+    packages=find_packages(),
     license='AGPL-3.0',
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',
