@@ -11,6 +11,7 @@ install_requires = [
     'schema',
     'semver',
     'panther_core',
+    'typing-extensions',
 ]
 
 with open('requirements.txt') as f:
