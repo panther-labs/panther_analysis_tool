@@ -22,7 +22,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='panther_analysis_tool',
-    version='0.14.2',
+    version='0.15.0',
     packages=['panther_analysis_tool', 'panther_analysis_tool/log_schemas'],
     package_dir={'log_schemas': 'panther_analysis_tool/log_schemas'},
     license='AGPL-3.0',
@@ -31,7 +31,7 @@ setup(
     author='Panther Labs Inc',
     author_email='pypi@runpanther.io',
     url='https://github.com/panther-labs/panther_analysis_tool',
-    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.14.2.tar.gz',
+    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.15.0.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=install_requires,
