@@ -1,7 +1,8 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 install_requires = [
     'gql',
+    'aiohttp',
     'boto3',
     'dynaconf',
     'jsonpath-ng',
@@ -10,6 +11,7 @@ install_requires = [
     'schema',
     'semver',
     'panther_core',
+    'typing-extensions',
 ]
 
 with open('requirements.txt') as f:
@@ -22,16 +24,15 @@ with open('requirements.txt') as f:
 
 setup(
     name='panther_analysis_tool',
-    version='0.14.2',
-    packages=['panther_analysis_tool', 'panther_analysis_tool/log_schemas'],
-    package_dir={'log_schemas': 'panther_analysis_tool/log_schemas'},
+    version='0.15.0',
+    packages=find_packages(),
     license='AGPL-3.0',
     description=
     'Panther command line interface for writing, testing, and packaging policies/rules.',
     author='Panther Labs Inc',
     author_email='pypi@runpanther.io',
     url='https://github.com/panther-labs/panther_analysis_tool',
-    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.14.2.tar.gz',
+    download_url = 'https://github.com/panther-labs/panther_analysis_tool/archive/v0.15.0.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=install_requires,
@@ -42,4 +43,5 @@ setup(
         'License :: OSI Approved :: GNU Affero General Public License v3',
         'Programming Language :: Python :: 3.9',
     ],
+    include_package_data=True,
 )
