@@ -1316,12 +1316,16 @@ def _run_tests(  # pylint: disable=too-many-arguments
             continue
 
         # print results
+
         spec = TestSpecification(
             id=unit_test["Name"],
             name=unit_test["Name"],
             data=unit_test.get("Resource") or unit_test["Log"],
             mocks=unit_test.get("Mocks", {}),
-            expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
+            expectations=TestExpectations(
+                detection=unit_test["ExpectedResult"],
+                title=unit_test.get("ExpectedTitle", '')
+            ),
         )
 
         test_result = TestCaseEvaluator(spec, result).interpret(

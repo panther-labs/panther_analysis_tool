@@ -141,6 +141,9 @@ POLICY_SCHEMA = Schema(
                     "ResourceType"
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
+                Optional("ExpectedTitle"): str,
+                Optional("ExpectedRunbook"): str,
+                Optional("ExpectedSeverity"): str,
                 "Resource": object,
                 Optional("Mocks"): object,
             }
@@ -175,6 +178,9 @@ RULE_SCHEMA = Schema(
                     "LogType"
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
+                Optional("ExpectedTitle"): str,
+                Optional("ExpectedRunbook"): str,
+                Optional("ExpectedSeverity"): str,
                 "Log": object,
                 Optional("Mocks"): object,
             }

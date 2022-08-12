@@ -39,6 +39,7 @@ s3transfer = "==0.5.2"
 six = "==1.16.0"
 urllib3 = "==1.26.9"
 typing-extensions = "==4.3.0"
+panther-core = {editable = true, ref = "20d6185cc0d7e4dcf2146528675a7ae034d798dd", git = "https://github.com/panther-labs/panther_core.git"}
 
 [requires]
 python_version = "3.9"
