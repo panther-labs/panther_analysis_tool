@@ -204,7 +204,7 @@ LOOKUP_TABLE_SCHEMA = Schema(
         "AnalysisType": Or("lookup_table"),
         "LookupName": str,
         "Enabled": bool,
-        Or("FileName", "Refresh"): Or(
+        Or("Filename", "Refresh"): Or(
             str,
             {
                 "RoleARN": str,
