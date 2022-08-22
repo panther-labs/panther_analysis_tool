@@ -1,6 +1,6 @@
 AnalysisType: lookup_table
 LookupName: LocalFileLookupTable
-DataFile: sample_aws_accounts.csv # relative file path
+Filename: sample_aws_accounts.csv # relative file path
 Description: This example specifies a local input file
 Enabled: true
 Reference: https:/mysamplelookupdocpage.com
