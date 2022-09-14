@@ -1,0 +1,9 @@
+mutation SDKUpload($input: SDKUploadInput!) {
+    uploadDetectionEntities(input: $input) {
+        queries {
+            modified
+            new
+            total
+        }
+    }
+}

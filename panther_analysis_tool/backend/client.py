@@ -127,6 +127,17 @@ class ListManagedSchemasResponse:
 class UpdateManagedSchemaResponse:
     schema: ManagedSchema
 
+
+@dataclass(frozen=True)
+class ConfigSDKBulkUploadParams:
+    content: str
+
+
+@dataclass(frozen=True)
+class ConfigSDKBulkUploadResponse:
+    queries: BulkUploadStatistics
+
+
 class Client(ABC):
 
     @abstractmethod
@@ -151,4 +162,8 @@ class Client(ABC):
 
     @abstractmethod
     def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
+        pass
+
+    @abstractmethod
+    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
         pass

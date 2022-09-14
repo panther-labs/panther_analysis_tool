@@ -100,7 +100,8 @@ from panther_analysis_tool.util import get_client, func_with_backend
 from panther_analysis_tool.cmd import (
     bulk_delete,
     standard_args,
-    check_connection
+    check_connection,
+    configsdk_upload
 )
 
 CONFIG_FILE = ".panther_settings.yml"
@@ -1659,6 +1660,20 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.for_public_api(check_conn_parser, required=False)
 
     check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
+
+    # -- configsdk command
+
+    configsdk_parser = subparsers.add_parser(
+        "configsdk", help="Perform operations using the new Config SDK exclusively "
+                          "(pass configsdk --help for more)"
+    )
+    standard_args.for_public_api(configsdk_parser, required=True)
+    configsdk_subparsers = configsdk_parser.add_subparsers()
+
+    configsdk_upload_parser = configsdk_subparsers.add_parser(
+        "upload", help="Upload policies and rules from the ./panther_content module"
+    )
+    configsdk_upload_parser.set_defaults(func=func_with_backend(configsdk_upload.run))
 
     return parser
 
