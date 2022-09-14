@@ -68,9 +68,11 @@ class DeleteDetectionsParams:
     dry_run: bool
     include_saved_queries: bool
 
+
 @dataclass(frozen=True)
 class ListSchemasParams:
     is_managed: bool
+
 
 @dataclass(frozen=True)
 class UpdateManagedSchemaParams:
@@ -79,6 +81,7 @@ class UpdateManagedSchemaParams:
     reference_url: str
     revision: int
     spec: str
+
 
 @dataclass(frozen=True)
 class BulkUploadStatistics:
@@ -107,6 +110,7 @@ class DeleteDetectionsResponse:
     ids: List[str]
     saved_query_names: List[str]
 
+
 # pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
 class ManagedSchema:
@@ -119,9 +123,11 @@ class ManagedSchema:
     spec: str
     updated_at: str
 
+
 @dataclass(frozen=True)
 class ListManagedSchemasResponse:
     schemas: List[ManagedSchema]
+
 
 @dataclass(frozen=True)
 class UpdateManagedSchemaResponse:
