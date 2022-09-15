@@ -4,8 +4,8 @@ import os
 import runpy
 from typing import Final
 
-from panther_analysis_tool.backend.client import Client as BackendClient, ConfigSDKBulkUploadParams, \
-    BackendError
+from panther_analysis_tool.backend.client import Client as BackendClient, \
+    ConfigSDKBulkUploadParams, BackendError
 
 
 def run(
@@ -56,18 +56,23 @@ def run(
     runpy.run_path("panther_content")
 
     if not os.path.exists(panther_config_cache_path):
-        logging.error(f"panther_content did not generate {panther_config_cache_path}")
+        logging.error("panther_content did not generate %s", panther_config_cache_path)
         return 1
 
-    with open(panther_config_cache_path) as f:
+    with open(panther_config_cache_path) as config_cache_file:
         try:
             result = backend.configsdk_bulk_upload(params=ConfigSDKBulkUploadParams(
-                content=f.read()
+                content=config_cache_file.read()
             ))
         except BackendError as exc:
             logging.error(exc)
             return 1
 
-    logging.info(f"Config SDK module upload succeeded ({result.data.queries.new} new; "
-                 f"{result.data.queries.modified} modified; "
-                 f"{result.data.queries.total} total)")
+    logging.info(
+        "Config SDK module upload succeeded (%d new; %d modified; %d total)",
+        result.data.queries.new,
+        result.data.queries.modified,
+        result.data.queries.total,
+    )
+
+    return 0
