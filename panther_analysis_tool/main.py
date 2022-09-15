@@ -373,7 +373,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
-    Returns 1 if the analysis tests, validation, or packaging fails.
+    Returns 1 if the analysis tests, validation, packaging, or upload fails.
 
     Args:
         backend: a backend client
@@ -384,8 +384,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     """
 
     return_code, archive = zip_analysis(args)
-    if return_code == 1:
+    if return_code != 0:
         return return_code, ""
+    return_archive_fname = ""
+
     # extract max retries we should handle
     max_retries = 10
     if args.max_retries > 10:
@@ -412,7 +414,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                     )
                 )
 
-                return 0, ""
+                return_code = 0
+                return_archive_fname = ""
+                break
 
             except BackendError as be_err:
 
@@ -426,12 +430,23 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
                 else:
                     logging.warning("Exhausted retries attempting to perform bulk upload.")
-                    return 1, ""
+                    return_code = 1
+                    return_archive_fname = ""
+                    break
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
             except BaseException as err: # pylint: disable=broad-except
                 logging.error(err)
-                return 1, f"{err}"
+                return_code = 1
+                return_archive_fname = f"{err}"
+                break
+
+    if return_code != 0:
+        return return_code, return_archive_fname
+
+    return_code = configsdk_upload.run(backend=backend, args=args, indirect_invocation=True)
+
+    return return_code, return_archive_fname
 
 
 def parse_lookup_table(args: argparse.Namespace) -> dict:
