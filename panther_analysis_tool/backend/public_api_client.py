@@ -294,6 +294,8 @@ class PublicAPIClient(Client):
             raise BackendError("empty data")
 
         rule_upload_stats = res.data.get('uploadDetectionEntities', {}).get('rules', {})
+        policy_upload_stats = res.data.get('uploadDetectionEntities', {}).get('policies', {})
+        query_upload_stats = res.data.get('uploadDetectionEntities', {}).get('queries', {})
         return BackendResponse(
             status_code=200,
             data=ConfigSDKBulkUploadResponse(
@@ -301,6 +303,16 @@ class PublicAPIClient(Client):
                     modified=rule_upload_stats.get("modified"),
                     new=rule_upload_stats.get("new"),
                     total=rule_upload_stats.get("total")
+                ),
+                policies=BulkUploadStatistics(
+                    modified=policy_upload_stats.get("modified"),
+                    new=policy_upload_stats.get("new"),
+                    total=policy_upload_stats.get("total")
+                ),
+                queries=BulkUploadStatistics(
+                    modified=query_upload_stats.get("modified"),
+                    new=query_upload_stats.get("new"),
+                    total=query_upload_stats.get("total")
                 )
             )
         )

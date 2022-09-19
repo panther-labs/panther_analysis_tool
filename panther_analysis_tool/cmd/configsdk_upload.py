@@ -77,5 +77,17 @@ def run(
         result.data.rules.modified,
         result.data.rules.total,
     )
+    logging.info(
+        "(Policies: %d new; %d modified; %d total)",
+        result.data.policies.new,
+        result.data.policies.modified,
+        result.data.policies.total,
+    )
+    logging.info(
+        "(Queries: %d new; %d modified; %d total)",
+        result.data.queries.new,
+        result.data.queries.modified,
+        result.data.queries.total,
+    )
 
     return 0, ""

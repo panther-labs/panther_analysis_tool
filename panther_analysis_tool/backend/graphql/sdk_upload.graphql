@@ -5,5 +5,15 @@ mutation SDKUpload($input: UploadDetectionEntitiesInput!) {
             new
             total
         }
+        policies {
+            modified
+            new
+            total
+        }
+        queries {
+            modified
+            new
+            total
+        }
     }
 }
