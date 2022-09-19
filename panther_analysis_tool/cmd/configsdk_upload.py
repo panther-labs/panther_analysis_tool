@@ -3,6 +3,7 @@ import logging
 import os
 import runpy
 from typing import Final
+import sys
 
 from panther_analysis_tool.backend.client import Client as BackendClient, \
     ConfigSDKBulkUploadParams, BackendError
@@ -53,7 +54,12 @@ def run(
     except FileNotFoundError:
         pass
 
-    runpy.run_path("panther_content")
+    path_had_cwd = os.getcwd() in sys.path
+    if not path_had_cwd:
+        sys.path.append(os.getcwd())
+    runpy.run_module("panther_content")
+    if not path_had_cwd:
+        sys.path.remove(os.getcwd())
 
     if not os.path.exists(panther_config_cache_path):
         logging.error("panther_content did not generate %s", panther_config_cache_path)
