@@ -68,11 +68,12 @@ def run(
             logging.error(exc)
             return 1
 
+    logging.info("Config SDK module upload succeeded")
     logging.info(
-        "Config SDK module upload succeeded (%d new; %d modified; %d total)",
-        result.data.queries.new,
-        result.data.queries.modified,
-        result.data.queries.total,
+        "(Rules: %d new; %d modified; %d total)",
+        result.data.rules.new,
+        result.data.rules.modified,
+        result.data.rules.total,
     )
 
     return 0

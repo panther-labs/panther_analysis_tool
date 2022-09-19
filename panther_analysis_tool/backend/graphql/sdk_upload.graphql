@@ -1,6 +1,6 @@
 mutation SDKUpload($input: UploadDetectionEntitiesInput!) {
     uploadDetectionEntities(input: $input) {
-        queries {
+        rules {
             modified
             new
             total

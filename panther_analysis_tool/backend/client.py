@@ -141,7 +141,7 @@ class ConfigSDKBulkUploadParams:
 
 @dataclass(frozen=True)
 class ConfigSDKBulkUploadResponse:
-    queries: BulkUploadStatistics
+    rules: BulkUploadStatistics
 
 
 class Client(ABC):

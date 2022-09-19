@@ -293,14 +293,14 @@ class PublicAPIClient(Client):
         if res.data is None:
             raise BackendError("empty data")
 
-        queries = res.data.get('queries', {})
+        rule_upload_stats = res.data.get('uploadDetectionEntities', {}).get('rules', {})
         return BackendResponse(
             status_code=200,
             data=ConfigSDKBulkUploadResponse(
-                queries=BulkUploadStatistics(
-                    modified=queries.get("modified"),
-                    new=queries.get("new"),
-                    total=queries.get("total")
+                rules=BulkUploadStatistics(
+                    modified=rule_upload_stats.get("modified"),
+                    new=rule_upload_stats.get("new"),
+                    total=rule_upload_stats.get("total")
                 )
             )
         )
