@@ -1,4 +1,4 @@
-mutation SDKUpload($input: SDKUploadInput!) {
+mutation SDKUpload($input: UploadDetectionEntitiesInput!) {
     uploadDetectionEntities(input: $input) {
         queries {
             modified
