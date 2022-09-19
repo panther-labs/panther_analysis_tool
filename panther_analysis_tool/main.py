@@ -444,7 +444,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     if return_code != 0:
         return return_code, return_archive_fname
 
-    return_code = configsdk_upload.run(backend=backend, args=args, indirect_invocation=True)
+    return_code, _ = configsdk_upload.run(backend=backend, args=args, indirect_invocation=True)
 
     return return_code, return_archive_fname
 

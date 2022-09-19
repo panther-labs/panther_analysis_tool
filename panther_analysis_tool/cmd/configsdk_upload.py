@@ -2,8 +2,8 @@ import argparse
 import logging
 import os
 import runpy
-from typing import Final
 import sys
+from typing import Final, Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient, \
     ConfigSDKBulkUploadParams, BackendError
@@ -13,7 +13,7 @@ def run(
         backend: BackendClient,
         args: argparse.Namespace,
         indirect_invocation: bool = False
-) -> int:
+) -> Tuple[int, str]:
     """Packages and uploads all policies and rules from the Config SDK-based module at
     ./panther_content, if it exists, into a Panther deployment.
 
@@ -35,17 +35,13 @@ def run(
             # If this is run automatically at the end of the standard upload command,
             # this isn't an error that should cause the invocation to return 1.
             logging.debug(err_message)
-            return 0
+            return 0, ""
         logging.error(err_message)
-        return 1
+        return 1, ""
 
     if not args.api_token:
         logging.error("Config SDK based uploads are only possible using the public API")
-        return 1
-
-    if args.out or args.path or args.ignore_files or args.filter or args.filter_inverted:
-        logging.warning("configsdk upload subcommand does not support args, including: "
-                        "filter, filter_inverted, ignore_files, out, path")
+        return 1, ""
 
     panther_config_cache_path: Final = os.path.join(".panther", "panther-config-cache")
 
@@ -63,7 +59,7 @@ def run(
 
     if not os.path.exists(panther_config_cache_path):
         logging.error("panther_content did not generate %s", panther_config_cache_path)
-        return 1
+        return 1, ""
 
     with open(panther_config_cache_path) as config_cache_file:
         try:
@@ -72,7 +68,7 @@ def run(
             ))
         except BackendError as exc:
             logging.error(exc)
-            return 1
+            return 1, ""
 
     logging.info("Config SDK module upload succeeded")
     logging.info(
@@ -82,4 +78,4 @@ def run(
         result.data.rules.total,
     )
 
-    return 0
+    return 0, ""
