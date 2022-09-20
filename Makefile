@@ -41,6 +41,7 @@ integration:
 	cd panther-analysis && pipenv lock
 	cd panther-analysis && pipenv requirements | grep -v 'panther-analysis-tool==' > requirements.ci.txt
 	cd panther-analysis && pipenv install -r requirements.ci.txt
+	cd panther-analysis && pipenv install -e ..
 	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
 
 pypi:
