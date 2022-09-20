@@ -43,6 +43,7 @@ integration:
 	cd panther-analysis && pipenv install -r requirements.ci.txt
 	cd panther-analysis && pipenv install -e ..
 	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
+	rm -rf panther-analysis
 
 pypi:
 	pipenv run python3 setup.py sdist
