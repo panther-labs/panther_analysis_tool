@@ -16,7 +16,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
+import base64
 import logging
 
 import os
@@ -40,9 +40,10 @@ from .client import (
     DeleteSavedQueriesResponse,
     ListSchemasParams,
     ListManagedSchemasResponse,
-    BulkUploadResponse, BulkUploadStatistics, ManagedSchema, UpdateManagedSchemaParams, UpdateManagedSchemaResponse,
-    BackendError
-    )
+    BulkUploadResponse, BulkUploadStatistics, ManagedSchema, UpdateManagedSchemaParams,
+    UpdateManagedSchemaResponse,
+    BackendError, ConfigSDKBulkUploadParams, ConfigSDKBulkUploadResponse
+)
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,9 @@ class PublicAPIRequests:
 
     def delete_saved_queries(self) -> DocumentNode:
         return self._load("delete_saved_queries")
+
+    def configsdk_upload_mutation(self) -> DocumentNode:
+        return self._load("sdk_upload")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -269,6 +273,46 @@ class PublicAPIClient(Client):
                     revision=schema.get('revision', ''),
                     spec=schema.get('spec', ''),
                     updated_at=schema.get('updatedAt', '')
+                )
+            )
+        )
+
+    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse:
+        gql_params = {
+            "input": {
+                "mode": "CONFIG_SDK",
+                "data": base64.b64encode(params.content.encode('utf-8')).decode('utf-8')
+            }
+        }
+        res = self._execute(self._requests.configsdk_upload_mutation(), gql_params)
+        if res.errors:
+            for err in res.errors:
+                logging.error(err.message)
+            raise BackendError(res.errors)
+
+        if res.data is None:
+            raise BackendError("empty data")
+
+        rule_upload_stats = res.data.get('uploadDetectionEntities', {}).get('rules', {})
+        policy_upload_stats = res.data.get('uploadDetectionEntities', {}).get('policies', {})
+        query_upload_stats = res.data.get('uploadDetectionEntities', {}).get('queries', {})
+        return BackendResponse(
+            status_code=200,
+            data=ConfigSDKBulkUploadResponse(
+                rules=BulkUploadStatistics(
+                    modified=rule_upload_stats.get("modified"),
+                    new=rule_upload_stats.get("new"),
+                    total=rule_upload_stats.get("total")
+                ),
+                policies=BulkUploadStatistics(
+                    modified=policy_upload_stats.get("modified"),
+                    new=policy_upload_stats.get("new"),
+                    total=policy_upload_stats.get("total")
+                ),
+                queries=BulkUploadStatistics(
+                    modified=query_upload_stats.get("modified"),
+                    new=query_upload_stats.get("new"),
+                    total=query_upload_stats.get("total")
                 )
             )
         )

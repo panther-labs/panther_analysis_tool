@@ -1,0 +1,19 @@
+mutation SDKUpload($input: UploadDetectionEntitiesInput!) {
+    uploadDetectionEntities(input: $input) {
+        rules {
+            modified
+            new
+            total
+        }
+        policies {
+            modified
+            new
+            total
+        }
+        queries {
+            modified
+            new
+            total
+        }
+    }
+}

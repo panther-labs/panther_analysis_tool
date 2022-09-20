@@ -100,7 +100,8 @@ from panther_analysis_tool.util import get_client, func_with_backend
 from panther_analysis_tool.cmd import (
     bulk_delete,
     standard_args,
-    check_connection
+    check_connection,
+    configsdk_upload
 )
 
 CONFIG_FILE = ".panther_settings.yml"
@@ -372,7 +373,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
 def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
-    Returns 1 if the analysis tests, validation, or packaging fails.
+    Returns 1 if the analysis tests, validation, packaging, or upload fails.
 
     Args:
         backend: a backend client
@@ -383,8 +384,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     """
 
     return_code, archive = zip_analysis(args)
-    if return_code == 1:
+    if return_code != 0:
         return return_code, ""
+    return_archive_fname = ""
+
     # extract max retries we should handle
     max_retries = 10
     if args.max_retries > 10:
@@ -411,7 +414,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                     )
                 )
 
-                return 0, ""
+                return_code = 0
+                return_archive_fname = ""
+                break
 
             except BackendError as be_err:
 
@@ -425,12 +430,23 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
                 else:
                     logging.warning("Exhausted retries attempting to perform bulk upload.")
-                    return 1, ""
+                    return_code = 1
+                    return_archive_fname = ""
+                    break
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
             except BaseException as err: # pylint: disable=broad-except
                 logging.error(err)
-                return 1, f"{err}"
+                return_code = 1
+                return_archive_fname = f"{err}"
+                break
+
+    if return_code != 0:
+        return return_code, return_archive_fname
+
+    return_code, _ = configsdk_upload.run(backend=backend, args=args, indirect_invocation=True)
+
+    return return_code, return_archive_fname
 
 
 def parse_lookup_table(args: argparse.Namespace) -> dict:
@@ -1659,6 +1675,20 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.for_public_api(check_conn_parser, required=False)
 
     check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
+
+    # -- configsdk command
+
+    configsdk_parser = subparsers.add_parser(
+        "configsdk", help="Perform operations using the new Config SDK exclusively "
+                          "(pass configsdk --help for more)"
+    )
+    standard_args.for_public_api(configsdk_parser, required=True)
+    configsdk_subparsers = configsdk_parser.add_subparsers()
+
+    configsdk_upload_parser = configsdk_subparsers.add_parser(
+        "upload", help="Upload policies and rules from the ./panther_content module"
+    )
+    configsdk_upload_parser.set_defaults(func=func_with_backend(configsdk_upload.run))
 
     return parser
 

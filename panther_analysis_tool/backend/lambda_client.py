@@ -39,7 +39,7 @@ from .client import (
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
     ListManagedSchemasResponse, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse,
+    UpdateManagedSchemaResponse, ConfigSDKBulkUploadParams, ConfigSDKBulkUploadResponse,
 )
 
 
@@ -227,6 +227,9 @@ class LambdaClient(Client):
                 )
             )
         )
+
+    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
+        raise NotImplementedError("Lambda API client does not support ConfigSDK bulk upload")
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:
