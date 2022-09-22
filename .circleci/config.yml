@@ -20,4 +20,4 @@ jobs:
             command: pipenv run -- pip3 install -e .
         - run:
             name: CLI Tests
-            command: make ci && make integration
+            command: make ci
