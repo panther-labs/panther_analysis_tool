@@ -229,7 +229,7 @@ class LambdaClient(Client):
         )
 
     def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
-        raise NotImplementedError("Lambda API client does not support ConfigSDK bulk upload")
+        raise NotImplementedError("Lambda API client does not support bulk upload of panther_config content")
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:
