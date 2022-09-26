@@ -1676,11 +1676,11 @@ def setup_parser() -> argparse.ArgumentParser:
 
     check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
 
-    # -- configsdk command
+    # -- config command
 
     configsdk_parser = subparsers.add_parser(
-        "configsdk", help="Perform operations using the new Config SDK exclusively "
-                          "(pass configsdk --help for more)"
+        "config", help="Perform operations using the new Config SDK exclusively "
+                          "(pass config --help for more)"
     )
     standard_args.for_public_api(configsdk_parser, required=True)
     configsdk_subparsers = configsdk_parser.add_subparsers()
