@@ -28,7 +28,6 @@ ResponseData = TypeVar('ResponseData')
 class BackendError(Exception):
     pass
 
-
 @dataclass(frozen=True)
 class BulkUploadPayload:
     data:    bytes

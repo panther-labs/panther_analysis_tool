@@ -11,7 +11,7 @@ from panther_analysis_tool.backend.client import Client as BackendClient, \
 
 def run(
         backend: BackendClient,
-        args: argparse.Namespace,
+        args: argparse.Namespace,  # pylint: disable=unused-argument
         indirect_invocation: bool = False
 ) -> Tuple[int, str]:
     """Packages and uploads all policies and rules from the Config SDK-based module at
@@ -37,10 +37,6 @@ def run(
             logging.debug(err_message)
             return 0, ""
         logging.error(err_message)
-        return 1, ""
-
-    if not args.api_token:
-        logging.error("Config SDK based uploads are only possible using the public API")
         return 1, ""
 
     panther_config_cache_path: Final = os.path.join(".panther", "panther-config-cache")

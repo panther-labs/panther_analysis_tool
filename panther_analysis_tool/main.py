@@ -1682,7 +1682,8 @@ def setup_parser() -> argparse.ArgumentParser:
         "config", help="Perform operations using the new Config SDK exclusively "
                           "(pass config --help for more)"
     )
-    standard_args.for_public_api(configsdk_parser, required=True)
+    standard_args.for_public_api(configsdk_parser, required=False)
+    standard_args.using_aws_profile(configsdk_parser)
     configsdk_subparsers = configsdk_parser.add_subparsers()
 
     configsdk_upload_parser = configsdk_subparsers.add_parser(
