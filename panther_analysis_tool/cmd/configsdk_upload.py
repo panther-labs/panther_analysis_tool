@@ -1,12 +1,10 @@
 import argparse
 import logging
-import os
-import runpy
-import sys
 from typing import Final, Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient, \
     ConfigSDKBulkUploadParams, BackendError
+from panther_analysis_tool.cmd import config_utils
 
 
 def run(
@@ -28,37 +26,21 @@ def run(
         Returns:
             Return code
         """
-
-    if not os.path.exists(os.path.join("panther_content", "__main__.py")):
-        err_message = "Did not find a Config SDK based module at ./panther_content"
-        if indirect_invocation:
-            # If this is run automatically at the end of the standard upload command,
-            # this isn't an error that should cause the invocation to return 1.
-            logging.debug(err_message)
-            return 0, ""
-        logging.error(err_message)
-        return 1, ""
-
     if not args.api_token:
         logging.error("Config SDK based uploads are only possible using the public API")
         return 1, ""
 
-    panther_config_cache_path: Final = os.path.join(".panther", "panther-config-cache")
+    panther_config_cache_path: Final = config_utils.get_config_cache_path()
 
     try:
-        os.remove(panther_config_cache_path)
-    except FileNotFoundError:
-        pass
-
-    path_had_cwd = os.getcwd() in sys.path
-    if not path_had_cwd:
-        sys.path.append(os.getcwd())
-    runpy.run_module("panther_content")
-    if not path_had_cwd:
-        sys.path.remove(os.getcwd())
-
-    if not os.path.exists(panther_config_cache_path):
-        logging.error("panther_content did not generate %s", panther_config_cache_path)
+        config_utils.run_config_module(panther_config_cache_path)
+    except FileNotFoundError as e:
+        if indirect_invocation:
+            # If this is run automatically at the end of the standard upload command,
+            # this isn't an error that should cause the invocation to return 1.
+            logging.debug(e)
+            return 0, ""
+        logging.error(e)
         return 1, ""
 
     with open(panther_config_cache_path) as config_cache_file:
