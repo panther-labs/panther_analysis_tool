@@ -1,5 +1,6 @@
 import argparse
 import base64
+import enum
 import json
 import logging
 import traceback
@@ -8,6 +9,13 @@ from functools import reduce
 from typing import Tuple, Final, Dict, List, Any
 
 from panther_analysis_tool.cmd import config_utils
+
+
+class DetectionType(enum.Enum):
+    UNKNOWN = 1
+    RULE = 2
+    POLICY = 3
+    SCHEDULED_RULE = 4
 
 
 class Filter:
@@ -35,24 +43,28 @@ class UnitTest:
         self.expect_match: bool = bool(_deep_get(test, ['d', 'expect_match']))
         # TODO: mocks?
 
-    def get_prg(self, filters: List[Filter]) -> str:
+    def get_prg(self, filters: List[Filter], detection_type: DetectionType) -> str:
         # TODO policy prg needs to be the opposite
         prg = '_filters = [] \n\n'
         for filt in filters:
             prg += f'{filt.get_code()} \n\n'
             prg += f'_filters.append({filt.get_name()}) \n\n'
-        prg += f'''
-def _execute(event):
-    global _filters
-    for f in _filters:
-        if f(event) == False:
-            return False
-    return True
 
-_event = {self.data}
+        # flip the return vals if it is a policy
+        fail_return_val = False
+        if detection_type is DetectionType.POLICY:
+            fail_return_val = True
+        pass_return_val = not fail_return_val
 
-_result = _execute(_event)
-'''
+        prg += 'def _execute(event):\n'
+        prg += '    global _filters\n'
+        prg += '    for f in _filters:\n'
+        prg += f'        if f(event) == {fail_return_val}:\n'
+        prg += f'            return {fail_return_val}\n'
+        prg += f'    return {pass_return_val}\n\n'
+        prg += f'_event = {self.data}\n\n'
+        prg += '_result = _execute(_event)\n'
+
         return prg
 
 
@@ -99,6 +111,8 @@ class Detection:
     _PATH_TO_ENABLED: Final = ['val', 'd', 'enabled']
 
     def __init__(self, detection: Dict):
+        self.detection_type = _detection_key_to_type(detection['key'])
+
         tests = _deep_get(detection, self._PATH_TO_UNIT_TESTS, [])
         self.unit_tests: List[UnitTest] = [UnitTest(t) for t in _to_list(tests)]
 
@@ -132,8 +146,8 @@ def run(args: argparse.Namespace) -> Tuple[int, list]:
         logging.info('Running Unit Tests for Panther Content\n')
 
         config_utils.run_config_module(panther_config_cache_path)
-        detections = config_utils.load_intermediate_config_cache(panther_config_cache_path)
-        detections = [Detection(d) for d in detections]
+        detection_intermediates: List[Dict] = config_utils.load_intermediate_config_cache(panther_config_cache_path)
+        detections: List[Detection] = [Detection(d) for d in detection_intermediates]
         detections = _filter_detections(args, detections)
         _run_unit_tests(detections)
     except FileNotFoundError as e:
@@ -154,7 +168,7 @@ def _filter_detections(args: argparse.Namespace, detections: List[Detection]) ->
 
         # filter out using filter arg TODO
 
-        # filter using enabled only arg 
+        # filter using enabled only arg
         if args.skip_disabled_tests and d.disabled():
             continue
 
@@ -171,8 +185,8 @@ def _run_unit_tests(detections: List[Detection]) -> None:
             continue
 
         for u in d.unit_tests:
-            prg = u.get_prg(d.filters)
-            locs = {}
+            prg = u.get_prg(d.filters, d.detection_type)
+            locs: Dict[str, str] = {}
             exec(prg, {}, locs)
             result = locs['_result']
 
@@ -180,6 +194,11 @@ def _run_unit_tests(detections: List[Detection]) -> None:
                 u.fail_reason = f'Expected match to be {u.expect_match} but got {result}'
                 print(f'    [FAIL] {u.name}: {u.fail_reason}')
                 _TEST_SUMMARY.add_failure(d.id, u)
+
+                if d.detection_type is DetectionType.POLICY \
+                        and u.name == 'check for yo test' \
+                        and d.id == 'policy.with.one.test1':
+                    print(prg)
             else:
                 print(f'    [PASS] {u.name}')
                 _TEST_SUMMARY.test_passed()
@@ -190,9 +209,20 @@ def _run_unit_tests(detections: List[Detection]) -> None:
 
 
 def _deep_get(d: Dict, path: List[str], default: Any = None) -> Any:
-    result = reduce(lambda val, key: val.get(key) if val else None, path, d)
+    result = reduce(lambda val, key: val.get(key) if val else None, path, d)  # type: ignore
     return result if result is not None else default
 
 
 def _to_list(l: Any) -> List:
     return l if type(l) is list else [l]
+
+
+def _detection_key_to_type(key: str) -> DetectionType:
+    if 'rule' in key:
+        return DetectionType.RULE
+    elif 'policy' in key:
+        return DetectionType.POLICY
+    elif 'scheduled-rule' in key:
+        return DetectionType.SCHEDULED_RULE
+    else:
+        return DetectionType.UNKNOWN
