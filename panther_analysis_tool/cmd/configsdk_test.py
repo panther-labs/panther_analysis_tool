@@ -72,20 +72,19 @@ class TestSummary:
         self.pass_count += 1
 
     def summary(self) -> str:
-        summary = f"""--------------------------
-Panther CLI Test Summary
-    Passed: {self.pass_count}
-    Failed: {self.fail_count}
-    Total:  {self.total_count()}
+        summary = '--------------------------\nPanther CLI Test Summary\n'
+        summary += f'\tPassed: {self.pass_count}\n'
+        summary += f'\tFailed: {self.fail_count}\n'
+        summary += f'\tTotal:  {self.total_count()}\n\n'
 
---------------------------
-Failed Tests Summary
-"""
-        for detection_name, failures in self.failed_tests.items():
-            summary += f'   {detection_name}\n'
-            for unit_test in failures:
-                summary += f'       {unit_test.name} ({unit_test.origin})\n'
-                summary += f'            {unit_test.fail_reason}\n\n'
+        if len(self.failed_tests) > 0:
+            summary += '--------------------------\nFailed Tests Summary\n'
+
+            for detection_name, failures in self.failed_tests.items():
+                summary += f'   {detection_name}\n'
+                for unit_test in failures:
+                    summary += f'       {unit_test.name} ({unit_test.origin})\n'
+                    summary += f'            {unit_test.fail_reason}\n\n'
         return summary
 
 
@@ -97,6 +96,7 @@ class Detection:
     _PATH_TO_FILTERS: Final = ['val', 'd', 'filters']
     _PATH_TO_RULE_ID: Final = ['val', 'd', 'rule_id']
     _PATH_TO_POLICY_ID: Final = ['val', 'd', 'policy_id']
+    _PATH_TO_ENABLED: Final = ['val', 'd', 'enabled']
 
     def __init__(self, detection: Dict):
         tests = _deep_get(detection, self._PATH_TO_UNIT_TESTS, [])
@@ -108,8 +108,13 @@ class Detection:
         self.id = _deep_get(detection, self._PATH_TO_RULE_ID,
                             _deep_get(detection, self._PATH_TO_POLICY_ID))
 
+        self.enabled = _deep_get(detection, self._PATH_TO_ENABLED, False)
+
     def has_unit_tests(self) -> bool:
         return len(self.unit_tests) > 0
+
+    def disabled(self) -> bool:
+        return not self.enabled
 
 
 def run(args: argparse.Namespace) -> Tuple[int, list]:
@@ -129,7 +134,7 @@ def run(args: argparse.Namespace) -> Tuple[int, list]:
         config_utils.run_config_module(panther_config_cache_path)
         detections = config_utils.load_intermediate_config_cache(panther_config_cache_path)
         detections = [Detection(d) for d in detections]
-        detections = _filter_detections(detections)
+        detections = _filter_detections(args, detections)
         _run_unit_tests(detections)
     except FileNotFoundError as e:
         logging.error(e)
@@ -140,16 +145,20 @@ def run(args: argparse.Namespace) -> Tuple[int, list]:
     return 0, []
 
 
-def _filter_detections(detections: List[Detection]) -> List[Detection]:
+def _filter_detections(args: argparse.Namespace, detections: List[Detection]) -> List[Detection]:
     filtered = []
     for d in detections:
         # filter out detections with no unit tests
-        if d.has_unit_tests():
-            filtered.append(d)
+        if not d.has_unit_tests():
+            continue
 
         # filter out using filter arg TODO
 
-        # filter using enabled only arg TODO
+        # filter using enabled only arg 
+        if args.skip_disabled_tests and d.disabled():
+            continue
+
+        filtered.append(d)
 
     return filtered
 

@@ -1696,7 +1696,7 @@ def setup_parser() -> argparse.ArgumentParser:
     # test_parser.add_argument(path_name, **path_arg)
     # test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     # test_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    # configsdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    configsdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     # configsdk_test_parser.add_argument(available_destination_name, **available_destination_arg)
     configsdk_test_parser.set_defaults(func=configsdk_test.run)
 
