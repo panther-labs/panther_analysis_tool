@@ -225,7 +225,7 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
         for u in d.unit_tests:
             prg = u.get_prg(d.filters, d.detection_type)
             locs: Dict[str, str] = {}
-            exec(prg, {}, locs)
+            exec(prg, {}, locs)  # nosec B102
             result = locs['_result']
 
             if result != u.expect_match:
