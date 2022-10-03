@@ -47,9 +47,9 @@ class UnitTest:
             prg += f'_filters.append({filt.get_name()}) \n\n'
 
         # flip the return vals if it is a policy
-        match_val = True
+        match_val = False
         if detection_type is DetectionType.POLICY:
-            match_val = False
+            match_val = True
         no_match_val = not match_val
 
         prg += 'def _execute(event):\n'
@@ -84,8 +84,8 @@ class Detection:
         filts = _deep_get(detection, self._PATH_TO_FILTERS, [])
         self.filters: List[Filter] = [Filter(f) for f in _to_list(filts)]
 
-        self.id = _deep_get(detection, self._PATH_TO_RULE_ID,
-                            _deep_get(detection, self._PATH_TO_POLICY_ID, 'No ID found'))
+        self.detection_id = _deep_get(detection, self._PATH_TO_RULE_ID,
+                                      _deep_get(detection, self._PATH_TO_POLICY_ID, 'No ID found'))
 
         self.enabled = _deep_get(detection, self._PATH_TO_ENABLED, False)
 
@@ -169,13 +169,13 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
         logging.info('Running Unit Tests for Panther Content\n')
         tests_failed = _run_unit_tests(detections, args.minimum_tests)
         return int(not tests_failed), []
-    except FileNotFoundError as e:
+    except FileNotFoundError as err:
         if indirect_invocation:
             # If this is run automatically at the end of the standard test command,
             # this isn't an error that should cause the invocation to return 1.
-            logging.debug(e)
+            logging.debug(err)
             return 0, []
-        logging.error(e)
+        logging.error(err)
         return 1, []
 
 
@@ -190,18 +190,18 @@ def _filter_detections(args: argparse.Namespace, detections: List[Detection]) ->
         A list of detections to be unit tested.
     """
     filtered = []
-    for d in detections:
+    for detection in detections:
         # filter out detections with no unit tests
-        if not d.has_unit_tests():
+        if not detection.has_unit_tests():
             continue
 
         # filter out using filter arg TODO
 
         # filter using enabled only arg
-        if args.skip_disabled_tests and d.disabled():
+        if args.skip_disabled_tests and detection.disabled():
             continue
 
-        filtered.append(d)
+        filtered.append(detection)
 
     return filtered
 
@@ -216,42 +216,44 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
     Returns:
         True if at least one unit test failed, False if all tests pass.
     """
-    for d in detections:
-        print(d.id)
-        if len(d.filters) == 0:
+    for detection in detections:
+        print(detection.detection_id)
+        if len(detection.filters) == 0:
             print('    Detection had no filters to test')
             continue
 
-        for u in d.unit_tests:
-            prg = u.get_prg(d.filters, d.detection_type)
+        for unit_test in detection.unit_tests:
+            prg = unit_test.get_prg(detection.filters, detection.detection_type)
             locs: Dict[str, str] = {}
-            exec(prg, {}, locs)  # nosec B102
+            exec(prg, {}, locs)  # nosec B102 pylint: disabled=W0122
             result = locs['_result']
 
-            if result != u.expect_match:
-                reason = f'Expected match to be {u.expect_match} but got {result}'
-                u.add_fail_reason(reason)
-                print(f'    [FAIL] {u.name}: {reason}')
-                _TEST_SUMMARY.add_failure(d.id, u)
+            if result != unit_test.expect_match:
+                reason = f'Expected match to be {unit_test.expect_match} but got {result}'
+                unit_test.add_fail_reason(reason)
+                print(f'    [FAIL] {unit_test.name}: {reason}')
+                _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
             else:
-                print(f'    [PASS] {u.name}')
+                print(f'    [PASS] {unit_test.name}')
                 _TEST_SUMMARY.test_passed()
 
         has_pass_and_fail_tests = False
         if min_tests >= 2:
-            has_pass_and_fail_tests = d.has_pass_and_fail_tests()
+            has_pass_and_fail_tests = detection.has_pass_and_fail_tests()
 
-        n_tests = len(d.unit_tests)
+        n_tests = len(detection.unit_tests)
         if n_tests < min_tests or (min_tests >= 2 and not has_pass_and_fail_tests):
             # create a fake unit test to represent the minimum tests failure
-            u = UnitTest({})
-            u.name = 'minimum required tests'
-            u.origin = d.origin  # origin will be the origin of the detection
+            unit_test = UnitTest({})
+            unit_test.name = 'minimum required tests'
+            unit_test.origin = detection.origin  # origin will be the origin of the detection
             if n_tests < min_tests:
-                u.add_fail_reason(f'Insufficient test coverage, {min_tests} tests required but only {n_tests} found')
+                unit_test.add_fail_reason(
+                    f'Insufficient test coverage, {min_tests} tests required but only {n_tests} found')
             if min_tests >= 2 and not has_pass_and_fail_tests:
-                u.add_fail_reason('Insufficient test coverage: expected at least one passing and one failing test')
-            _TEST_SUMMARY.add_failure(d.id, u)
+                unit_test.add_fail_reason(
+                    'Insufficient test coverage: expected at least one passing and one failing test')
+            _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
 
         print()  # print blank line in between tests
 
@@ -259,13 +261,13 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
     return _TEST_SUMMARY.tests_failed()
 
 
-def _deep_get(d: Dict, path: List[str], default: Any = None) -> Any:
-    result = reduce(lambda val, key: val.get(key) if val else None, path, d)  # type: ignore
+def _deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
+    result = reduce(lambda val, key: val.get(key) if val else None, path, obj)  # type: ignore
     return result if result is not None else default
 
 
-def _to_list(l: Any) -> List:
-    return l if type(l) is list else [l]
+def _to_list(listish: Any) -> List:
+    return listish if type(listish) is list else [listish]
 
 
 def _detection_key_to_type(key: str) -> DetectionType:

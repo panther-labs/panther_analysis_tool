@@ -871,9 +871,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     #  otherwise, run config format too
     if invalid_specs:
         return 1, invalid_specs
-    else:
-        code, invalids = configsdk_test.run(args)
-        return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
+
+    code, invalids = configsdk_test.run(args)
+    return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
 
 
 def setup_global_helpers(global_analysis: List[Any]) -> None:
