@@ -41,11 +41,6 @@ def run(
         logging.error(err_message)
         return 1, ""
 
-    try:
-        os.remove(panther_config_cache_path)
-    except FileNotFoundError:
-        pass
-
     with open(panther_config_cache_path) as config_cache_file:
         try:
             result = backend.configsdk_bulk_upload(params=ConfigSDKBulkUploadParams(

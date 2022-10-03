@@ -108,7 +108,7 @@ class Detection:
 
 
 class TestSummary:
-    def __init__(self):
+    def __init__(self) -> None:
         self.failed_tests: Dict[str, List[UnitTest]] = defaultdict(list)  # detection id to list of unit tests
         self.fail_count = 0
         self.pass_count = 0
