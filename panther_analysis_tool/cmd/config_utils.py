@@ -42,4 +42,4 @@ def load_intermediate_config_cache(panther_config_cache_path: str) -> List[Dict]
         raise FileNotFoundError(f'No file exists with path {panther_config_cache_path}')
 
     with jsonlines.open(panther_config_cache_path) as reader:
-        return [obj for obj in reader]
+        return [obj for obj in reader]  # pylint: disable=R1721

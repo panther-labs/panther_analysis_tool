@@ -267,7 +267,7 @@ def _deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
 
 
 def _to_list(listish: Any) -> List:
-    return listish if type(listish) is list else [listish]
+    return listish if isinstance(listish, list) else [listish]
 
 
 def _detection_key_to_type(key: str) -> DetectionType:
