@@ -148,11 +148,13 @@ class TestSummary:
 _TEST_SUMMARY = TestSummary()
 
 
-def run(args: argparse.Namespace) -> Tuple[int, list]:
+def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[int, list]:
     """Runs unit tests for config sdk detections.
 
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
+        indirect_invocation: True if this function is being invoked as part of
+                                 another command (probably the legacy test command)
 
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
@@ -168,6 +170,11 @@ def run(args: argparse.Namespace) -> Tuple[int, list]:
         tests_failed = _run_unit_tests(detections, args.minimum_tests)
         return int(not tests_failed), []
     except FileNotFoundError as e:
+        if indirect_invocation:
+            # If this is run automatically at the end of the standard test command,
+            # this isn't an error that should cause the invocation to return 1.
+            logging.debug(e)
+            return 0, []
         logging.error(e)
         return 1, []
 
