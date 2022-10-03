@@ -1681,27 +1681,26 @@ def setup_parser() -> argparse.ArgumentParser:
 
     check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
 
-    # -- configsdk command
+    # -- config command
 
     configsdk_parser = subparsers.add_parser(
-        "configsdk", help="Perform operations using the new Config SDK exclusively "
-                          "(pass configsdk --help for more)"
+        "config", help="Perform operations using the new Config SDK exclusively "
+                       "(pass config --help for more)"
     )
+    standard_args.for_public_api(configsdk_parser, required=False)
+    standard_args.using_aws_profile(configsdk_parser)
     configsdk_subparsers = configsdk_parser.add_subparsers()
 
     configsdk_upload_parser = configsdk_subparsers.add_parser(
         "upload", help="Upload policies and rules from the ./panther_content module"
     )
-    standard_args.for_public_api(configsdk_upload_parser, required=True)
     configsdk_upload_parser.set_defaults(func=func_with_backend(configsdk_upload.run))
 
     configsdk_test_parser = configsdk_subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
-    # configsdk_test_parser.add_argument(filter_name, **filter_arg)
     configsdk_test_parser.add_argument(min_test_name, **min_test_arg)
     configsdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    # configsdk_test_parser.add_argument(available_destination_name, **available_destination_arg)
     configsdk_test_parser.set_defaults(func=configsdk_test.run)
 
     return parser

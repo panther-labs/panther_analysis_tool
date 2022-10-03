@@ -16,10 +16,11 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
+import base64
 import os
 import json
 import logging
+import typing
 
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
@@ -42,21 +43,27 @@ from .client import (
     UpdateManagedSchemaResponse, ConfigSDKBulkUploadParams, ConfigSDKBulkUploadResponse,
 )
 
-
 LAMBDA_CLIENT_NAME = "lambda"
 AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
 
 
+def decode_body(res: BackendResponse) -> typing.Any:
+    try:
+        return json.loads(res.data['body'])
+    except json.decoder.JSONDecodeError as decode_error:
+        raise Exception(res.data['body']) from decode_error
+
+
 @dataclass(frozen=True)
 class LambdaClientOpts:
-    user_id:         str
-    aws_profile:     Optional[str]
+    user_id: str
+    aws_profile: Optional[str]
     datalake_lambda: str
 
 
 class LambdaClient(Client):
-    _user_id:         str
-    _lambda_client:   boto3.client
+    _user_id: str
+    _lambda_client: boto3.client
     _datalake_lambda: str
 
     def __init__(self, opts: LambdaClientOpts):
@@ -92,7 +99,7 @@ class LambdaClient(Client):
             }),
         ))
 
-        body = json.loads(res.data['body'])
+        body = decode_body(res)
 
         default_stats = dict(total=0, new=0, modified=0)
 
@@ -126,7 +133,7 @@ class LambdaClient(Client):
             }),
         ))
 
-        body = json.loads(res.data['body'])
+        body = decode_body(res)
 
         return BackendResponse(
             status_code=res.status_code,
@@ -151,7 +158,7 @@ class LambdaClient(Client):
             }),
         ))
 
-        body = json.loads(res.data['body'])
+        body = decode_body(res)
 
         return BackendResponse(
             status_code=res.status_code,
@@ -188,11 +195,11 @@ class LambdaClient(Client):
             ))
 
         return BackendResponse(
-                status_code=200,
-                data=ListManagedSchemasResponse(
-                    schemas=schemas
-                )
+            status_code=200,
+            data=ListManagedSchemasResponse(
+                schemas=schemas
             )
+        )
 
     def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
         res = self._parse_response(self._lambda_client.invoke(
@@ -211,7 +218,7 @@ class LambdaClient(Client):
         if res.data.get("error") is not None:
             raise BackendError(res.data.get("error"))
 
-        schema=res.data.get('result', {})
+        schema = res.data.get('result', {})
         return BackendResponse(
             status_code=200,
             data=UpdateManagedSchemaResponse(
@@ -229,7 +236,28 @@ class LambdaClient(Client):
         )
 
     def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
-        raise NotImplementedError("Lambda API client does not support ConfigSDK bulk upload")
+        res = self._parse_response(self._lambda_client.invoke(
+            FunctionName="panther-analysis-api",
+            InvocationType="RequestResponse",
+            LogType="None",
+            Payload=self._serialize_request({
+                "sdkUpload": {
+                    "data": base64.b64encode(params.content.encode('utf-8')).decode('utf-8'),
+                    "userId": self._user_id,
+                },
+            }),
+        ))
+        body = decode_body(res)
+        default_stats = dict(total=0, new=0, modified=0)
+
+        return BackendResponse(
+            status_code=res.status_code,
+            data=ConfigSDKBulkUploadResponse(
+                rules=BulkUploadStatistics(**body.get('rules', default_stats)),
+                policies=BulkUploadStatistics(**body.get('policies', default_stats)),
+                queries=BulkUploadStatistics(**body.get('queries', default_stats)),
+            )
+        )
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:
