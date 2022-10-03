@@ -25,7 +25,7 @@ def run_config_module(panther_config_cache_path: str) -> None:
 
     if not os.path.exists(panther_config_cache_path):
         logging.error("panther_content did not generate %s", panther_config_cache_path)
-        raise FileNotFoundError("panther_content did not generate %s", panther_config_cache_path)
+        raise FileNotFoundError(f'panther_content did not generate {panther_config_cache_path}')
 
 
 def get_config_cache_path() -> str:

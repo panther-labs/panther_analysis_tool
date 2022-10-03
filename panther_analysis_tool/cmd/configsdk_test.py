@@ -21,9 +21,9 @@ class Filter:
     _PATH_TO_FILTER_SRC: Final = ['d', 'func', 'src']
     _PATH_TO_FILTER_NAME: Final = ['d', 'func', 'name']
 
-    def __init__(self, filter: Dict):
-        self.src = _deep_get(filter, self._PATH_TO_FILTER_SRC, 'No source found')
-        self.name = _deep_get(filter, self._PATH_TO_FILTER_NAME, 'No name found')
+    def __init__(self, _filter: Dict):
+        self.src = _deep_get(_filter, self._PATH_TO_FILTER_SRC, 'No source found')
+        self.name = _deep_get(_filter, self._PATH_TO_FILTER_NAME, 'No name found')
 
     def get_code(self) -> str:
         return base64.standard_b64decode(self.src).decode('utf8')
@@ -96,10 +96,10 @@ class Detection:
 
     def has_pass_and_fail_tests(self) -> bool:
         pass_test, fail_test = False, False
-        for u in self.unit_tests:
-            if u.expect_match:
+        for unit_test in self.unit_tests:
+            if unit_test.expect_match:
                 pass_test = True
-            if not u.expect_match:
+            if not unit_test.expect_match:
                 fail_test = True
         return pass_test and fail_test
 
@@ -225,7 +225,7 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
         for unit_test in detection.unit_tests:
             prg = unit_test.get_prg(detection.filters, detection.detection_type)
             locs: Dict[str, str] = {}
-            exec(prg, {}, locs)  # nosec B102 pylint: disabled=W0122
+            exec(prg, {}, locs)  # nosec B102 pylint: disable=W0122
             result = locs['_result']
 
             if result != unit_test.expect_match:
@@ -273,9 +273,8 @@ def _to_list(listish: Any) -> List:
 def _detection_key_to_type(key: str) -> DetectionType:
     if 'rule' in key:
         return DetectionType.RULE
-    elif 'policy' in key:
+    if 'policy' in key:
         return DetectionType.POLICY
-    elif 'scheduled-rule' in key:
+    if 'scheduled-rule' in key:
         return DetectionType.SCHEDULED_RULE
-    else:
-        return DetectionType.UNKNOWN
+    return DetectionType.UNKNOWN
