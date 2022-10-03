@@ -3,7 +3,6 @@ import base64
 import enum
 import json
 import logging
-import traceback
 from collections import defaultdict
 from functools import reduce
 from typing import Tuple, Final, Dict, List, Any
@@ -142,6 +141,9 @@ class TestSummary:
                     summary += '\n'  # new line between tests
         return summary
 
+    def tests_failed(self) -> bool:
+        return self.fail_count > 0
+
 
 _TEST_SUMMARY = TestSummary()
 
@@ -158,23 +160,28 @@ def run(args: argparse.Namespace) -> Tuple[int, list]:
     panther_config_cache_path: Final = config_utils.get_config_cache_path()
 
     try:
-        logging.info('Running Unit Tests for Panther Content\n')
-
         config_utils.run_config_module(panther_config_cache_path)
         detection_intermediates: List[Dict] = config_utils.load_intermediate_config_cache(panther_config_cache_path)
         detections: List[Detection] = [Detection(d) for d in detection_intermediates]
         detections = _filter_detections(args, detections)
-        _run_unit_tests(detections, args.minimum_tests)
+        logging.info('Running Unit Tests for Panther Content\n')
+        tests_failed = _run_unit_tests(detections, args.minimum_tests)
+        return int(not tests_failed), []
     except FileNotFoundError as e:
         logging.error(e)
         return 1, []
-    except:  # DEBUG
-        traceback.print_exc()
-
-    return 0, []
 
 
 def _filter_detections(args: argparse.Namespace, detections: List[Detection]) -> List[Detection]:
+    """Filters out the detections to be tested by using the command line args.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+        detections: The list of detections that need to be filtered for testing.
+
+    Returns:
+        A list of detections to be unit tested.
+    """
     filtered = []
     for d in detections:
         # filter out detections with no unit tests
@@ -192,7 +199,16 @@ def _filter_detections(args: argparse.Namespace, detections: List[Detection]) ->
     return filtered
 
 
-def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> None:
+def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
+    """Runs the unit tests for the given detections, printing out test results and a summary.
+
+    Args:
+        detections: The list of detections to be unit tested.
+        min_tests: The minimum number of unit tests each detection needs to have.
+
+    Returns:
+        True if at least one unit test failed, False if all tests pass.
+    """
     for d in detections:
         print(d.id)
         if len(d.filters) == 0:
@@ -233,6 +249,7 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> None:
         print()  # print blank line in between tests
 
     print(_TEST_SUMMARY.summary())
+    return _TEST_SUMMARY.tests_failed()
 
 
 def _deep_get(d: Dict, path: List[str], default: Any = None) -> Any:
