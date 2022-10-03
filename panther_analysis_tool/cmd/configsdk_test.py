@@ -48,17 +48,17 @@ class UnitTest:
             prg += f'_filters.append({filt.get_name()}) \n\n'
 
         # flip the return vals if it is a policy
-        fail_return_val = False
+        match_val = True
         if detection_type is DetectionType.POLICY:
-            fail_return_val = True
-        pass_return_val = not fail_return_val
+            match_val = False
+        no_match_val = not match_val
 
         prg += 'def _execute(event):\n'
         prg += '    global _filters\n'
         prg += '    for f in _filters:\n'
-        prg += f'        if f(event) == {fail_return_val}:\n'
-        prg += f'            return {fail_return_val}\n'
-        prg += f'    return {pass_return_val}\n\n'
+        prg += f'        if f(event) == {match_val}:\n'
+        prg += f'            return {match_val}\n'
+        prg += f'    return {no_match_val}\n\n'
         prg += f'_event = {self.data}\n\n'
         prg += '_result = _execute(_event)\n'
 
