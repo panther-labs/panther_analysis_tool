@@ -872,7 +872,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     if invalid_specs:
         return 1, invalid_specs
 
-    code, invalids = configsdk_test.run(args)
+    code, invalids = configsdk_test.run(args, indirect_invocation=True)
     return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
 
 
