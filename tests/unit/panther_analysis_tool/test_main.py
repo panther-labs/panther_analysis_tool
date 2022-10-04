@@ -17,29 +17,28 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from datetime import datetime
 import io
 import json
 import os
 import shutil
-
-from pyfakefs.fake_filesystem_unittest import TestCase, Pause
+from datetime import datetime
 from unittest import mock
 
-from schema import SchemaWrongKeyError
 from nose.tools import assert_equal, assert_is_instance, assert_true
+from panther_core.data_model import _DATAMODEL_FOLDER
+from pyfakefs.fake_filesystem_unittest import TestCase, Pause
+from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
-
-from panther_core.data_model import _DATAMODEL_FOLDER
-from panther_analysis_tool.backend.client import BackendResponse, BackendError
+from panther_analysis_tool.backend.client import BackendError
 from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
 
 print('Using fixtures path:', FIXTURES_PATH)
+
 
 def _mock_invoke(**_kwargs):  # pylint: disable=C0103
     return {
@@ -49,6 +48,7 @@ def _mock_invoke(**_kwargs):  # pylint: disable=C0103
         }).encode("utf-8")),
         "StatusCode": 400,
     }
+
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
@@ -77,22 +77,25 @@ class TestPantherAnalysisTool(TestCase):
                 os.remove(os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1]))
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignore_files=[]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH], ignore_files=[]):
             if spec_filename.endswith('example_policy.json'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
 
     def test_ignored_files_are_not_loaded(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignore_files=["./example_ignored.yml"]):
-            assert_true(loaded_spec !="example_ignored.yml")
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],
+                                                                        ignore_files=["./example_ignored.yml"]):
+            assert_true(loaded_spec != "example_ignored.yml")
 
     def test_multiple_ignored_files_are_not_loaded(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignore_files=["./example_ignored.yml", "./example_ignored_multi.yml"]):
-            assert_true(loaded_spec !="example_ignored.yml" and loaded_spec != "example_ignored_multi.yml")
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],
+                                                                        ignore_files=["./example_ignored.yml",
+                                                                                      "./example_ignored_multi.yml"]):
+            assert_true(loaded_spec != "example_ignored.yml" and loaded_spec != "example_ignored_multi.yml")
 
     def test_config_file_is_read_and_overrides_cli(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH], ignore_files=[]):
-            assert_true(loaded_spec !="example_ignored.yml" and loaded_spec != "example_ignored_multi.yml")
+            assert_true(loaded_spec != "example_ignored.yml" and loaded_spec != "example_ignored_multi.yml")
 
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH], ignore_files=[]):
@@ -102,7 +105,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_valid_pack_spec(self):
         pack_loaded = False
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH],ignore_files=[]):
+        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs([DETECTIONS_FIXTURES_PATH], ignore_files=[]):
             if spec_filename.endswith('sample-pack.yml'):
                 assert_is_instance(loaded_spec, dict)
                 assert_true(loaded_spec != {})
@@ -126,7 +129,7 @@ class TestPantherAnalysisTool(TestCase):
         test_str = "Will not match"
         exc = SchemaWrongKeyError(test_str)
         err = pat.handle_wrong_key_error(exc, sample_keys)
-        assert_equal(str(err),  expected_output.format("UNKNOWN_KEY", sample_keys))
+        assert_equal(str(err), expected_output.format("UNKNOWN_KEY", sample_keys))
 
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}'.split())
@@ -159,7 +162,8 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(len(invalid_specs), 0)
 
     def test_scheduled_rules_from_folder(self):
-        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules'.split())
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -198,7 +202,8 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(len(invalid_specs), 0)
 
     def test_parse_filters(self):
-        args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical Enabled=true'.split())
+        args = pat.setup_parser().parse_args(
+            f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical Enabled=true'.split())
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         assert_true('AnalysisType' in args.filter.keys())
         assert_true('policy' in args.filter['AnalysisType'])
@@ -346,7 +351,7 @@ class TestPantherAnalysisTool(TestCase):
             self.fs.create_dir('tmp/')
         except OSError:
             pass
-        args = pat.setup_parser().\
+        args = pat.setup_parser(). \
             parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
 
         return_code, out_filename = pat.zip_analysis(args)
@@ -384,10 +389,11 @@ class TestPantherAnalysisTool(TestCase):
 
         # fails max of 10 times on default
         with mock.patch('time.sleep', return_value=None) as time_mock:
-            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT,
+                                     info=mock.DEFAULT) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(logging_mocks['debug'].call_count, 20)
+                assert_equal(logging_mocks['debug'].call_count, 21)
                 assert_equal(logging_mocks['warning'].call_count, 1)
                 # test + zip + upload messages
                 assert_equal(logging_mocks['info'].call_count, 3)
@@ -397,10 +403,11 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1'.split())
         with mock.patch('time.sleep', return_value=None) as time_mock:
-            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT,
+                                     info=mock.DEFAULT) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(logging_mocks['debug'].call_count, 0)
+                assert_equal(logging_mocks['debug'].call_count, 1)
                 assert_equal(logging_mocks['warning'].call_count, 2)
                 assert_equal(logging_mocks['info'].call_count, 3)
                 assert_equal(time_mock.call_count, 0)
@@ -409,10 +416,11 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f'--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100'.split())
         with mock.patch('time.sleep', return_value=None) as time_mock:
-            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT) as logging_mocks:
+            with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT,
+                                     info=mock.DEFAULT) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(logging_mocks['debug'].call_count, 20)
+                assert_equal(logging_mocks['debug'].call_count, 21)
                 # warning about max and final error
                 assert_equal(logging_mocks['warning'].call_count, 2)
                 assert_equal(logging_mocks['info'].call_count, 3)
