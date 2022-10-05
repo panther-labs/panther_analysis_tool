@@ -36,7 +36,6 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
-
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -47,11 +46,22 @@ from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-from gql.transport.aiohttp import log as aiohttp_logger
 import botocore
 import requests
 import schema
 from dynaconf import Dynaconf, Validator
+from gql.transport.aiohttp import log as aiohttp_logger
+from panther_core.data_model import DataModel
+from panther_core.enriched_event import PantherEvent
+from panther_core.exceptions import UnknownDestinationError
+from panther_core.policy import TYPE_POLICY, Policy
+from panther_core.rule import Detection, Rule
+from panther_core.testing import (
+    TestCaseEvaluator,
+    TestExpectations,
+    TestResult,
+    TestSpecification,
+)
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -65,24 +75,18 @@ from schema import (
     SchemaWrongKeyError,
 )
 
-from panther_core.data_model import DataModel
-from panther_core.enriched_event import PantherEvent
-from panther_core.exceptions import UnknownDestinationError
-from panther_core.policy import TYPE_POLICY, Policy
-from panther_core.rule import Detection, Rule
-from panther_core.testing import (
-    TestCaseEvaluator,
-    TestExpectations,
-    TestResult,
-    TestSpecification,
-)
-
 from panther_analysis_tool.backend.client import (
     BackendError,
     Client as BackendClient,
     BulkUploadParams,
 )
-
+from panther_analysis_tool.cmd import (
+    bulk_delete,
+    standard_args,
+    check_connection,
+    configsdk_upload,
+    configsdk_test,
+)
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
@@ -95,14 +99,7 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
-
 from panther_analysis_tool.util import get_client, func_with_backend
-from panther_analysis_tool.cmd import (
-    bulk_delete,
-    standard_args,
-    check_connection,
-    configsdk_upload
-)
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -408,11 +405,11 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
                 logging.info("Upload success.")
                 logging.info("API Response:\n%s",
-                    json.dumps(
-                        asdict(response.data),
-                        indent=4
-                    )
-                )
+                             json.dumps(
+                                 asdict(response.data),
+                                 indent=4
+                             )
+                             )
 
                 return_code = 0
                 return_archive_fname = ""
@@ -435,7 +432,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                     break
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
-            except BaseException as err: # pylint: disable=broad-except
+            except BaseException as err:  # pylint: disable=broad-except
                 logging.error(err)
                 return_code = 1
                 return_archive_fname = f"{err}"
@@ -869,7 +866,14 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     cleanup_global_helpers(specs[GLOBAL])
 
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
-    return int(bool(failed_tests or invalid_specs)), invalid_specs
+
+    #  if the classic format was invalid, just exit
+    #  otherwise, run config format too
+    if invalid_specs:
+        return 1, invalid_specs
+
+    code, invalids = configsdk_test.run(args, indirect_invocation=True)
+    return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
 
 
 def setup_global_helpers(global_analysis: List[Any]) -> None:
@@ -1647,7 +1651,8 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.using_aws_profile(test_lookup_table_parser)
 
     test_lookup_table_parser.add_argument("--path",
-                                          type=str, help="The relative path to a lookup table input file.", default=".", required=True)
+                                          type=str, help="The relative path to a lookup table input file.", default=".",
+                                          required=True)
 
     test_lookup_table_parser.set_defaults(func=test_lookup_table)
 
@@ -1680,7 +1685,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     configsdk_parser = subparsers.add_parser(
         "config", help="Perform operations using the new Config SDK exclusively "
-                          "(pass config --help for more)"
+                       "(pass config --help for more)"
     )
     standard_args.for_public_api(configsdk_parser, required=False)
     standard_args.using_aws_profile(configsdk_parser)
@@ -1690,6 +1695,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "upload", help="Upload policies and rules from the ./panther_content module"
     )
     configsdk_upload_parser.set_defaults(func=func_with_backend(configsdk_upload.run))
+
+    configsdk_test_parser = configsdk_subparsers.add_parser(
+        "test", help="Validate analysis specifications and run policy and rule tests."
+    )
+    configsdk_test_parser.add_argument(min_test_name, **min_test_arg)
+    configsdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    configsdk_test_parser.set_defaults(func=configsdk_test.run)
 
     return parser
 
@@ -1730,9 +1742,9 @@ def dynaconf_argparse_merge(
     for k in argparse_dict:
         arg_name = k.replace('_', '-')
         if isinstance(argparse_dict[k], bool):
-            aux_parser.add_argument('--'+arg_name, action="store_true")
+            aux_parser.add_argument('--' + arg_name, action="store_true")
         else:
-            aux_parser.add_argument('--'+arg_name)
+            aux_parser.add_argument('--' + arg_name)
     # cli_args only contains args that were passed in the command line
     cli_args, _ = aux_parser.parse_known_args()
     for key, value in config_file_settings.items():
@@ -1796,7 +1808,6 @@ def run() -> None:
     )
     if not args.debug:
         aiohttp_logger.setLevel(logging.WARNING)
-
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)

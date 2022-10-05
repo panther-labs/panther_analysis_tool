@@ -1,12 +1,10 @@
 import argparse
 import logging
-import os
-import runpy
-import sys
 from typing import Final, Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient, \
     ConfigSDKBulkUploadParams, BackendError
+from panther_analysis_tool.cmd import config_utils
 
 
 def run(
@@ -29,7 +27,11 @@ def run(
             Return code
         """
 
-    if not os.path.exists(os.path.join("panther_content", "__main__.py")):
+    panther_config_cache_path: Final = config_utils.get_config_cache_path()
+
+    try:
+        config_utils.run_config_module(panther_config_cache_path)
+    except FileNotFoundError:
         err_message = "Did not find a Config SDK based module at ./panther_content"
         if indirect_invocation:
             # If this is run automatically at the end of the standard upload command,
@@ -37,24 +39,6 @@ def run(
             logging.debug(err_message)
             return 0, ""
         logging.error(err_message)
-        return 1, ""
-
-    panther_config_cache_path: Final = os.path.join(".panther", "panther-config-cache")
-
-    try:
-        os.remove(panther_config_cache_path)
-    except FileNotFoundError:
-        pass
-
-    path_had_cwd = os.getcwd() in sys.path
-    if not path_had_cwd:
-        sys.path.append(os.getcwd())
-    runpy.run_module("panther_content")
-    if not path_had_cwd:
-        sys.path.remove(os.getcwd())
-
-    if not os.path.exists(panther_config_cache_path):
-        logging.error("panther_content did not generate %s", panther_config_cache_path)
         return 1, ""
 
     with open(panther_config_cache_path) as config_cache_file:
