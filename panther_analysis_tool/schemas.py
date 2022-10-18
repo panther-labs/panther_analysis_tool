@@ -49,6 +49,7 @@ LOG_TYPE_REGEX = Regex(
     r"|Juniper\.Postgres|Juniper\.Security|Lacework\.AlertDetails|Lacework\.CloudCompliance|"
     r"Lacework\.Events|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit\.Exchange"
     r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
+    r"MicrosoftGraph\.SecurityAlert|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
