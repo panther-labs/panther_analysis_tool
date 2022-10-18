@@ -25,7 +25,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='panther_analysis_tool',
-    version='0.16.0',
+    version='0.16.1',
     packages=find_packages(),
     license='AGPL-3.0',
     description=
@@ -33,7 +33,7 @@ setup(
     author='Panther Labs Inc',
     author_email='pypi@runpanther.io',
     url='https://github.com/panther-labs/panther_analysis_tool',
-    download_url='https://github.com/panther-labs/panther_analysis_tool/archive/v0.16.0.tar.gz',
+    download_url='https://github.com/panther-labs/panther_analysis_tool/archive/v0.16.1.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=install_requires,
