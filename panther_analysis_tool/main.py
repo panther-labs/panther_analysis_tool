@@ -351,7 +351,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
                 load_analysis_specs(
-                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, LUTS_LOCATION], args.ignore_files
+                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
                 )
         ):
             if file_name not in files:
