@@ -351,7 +351,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
                 load_analysis_specs(
-                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION, LUTS_LOCATION], args.ignore_files
+                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
                 )
         ):
             if file_name not in files:
@@ -1479,7 +1479,7 @@ def setup_parser() -> argparse.ArgumentParser:
                     + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.16.1")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.16.2")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
