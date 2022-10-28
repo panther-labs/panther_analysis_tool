@@ -794,8 +794,6 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             "." + HELPERS_LOCATION,
             DATA_MODEL_LOCATION,
             "." + DATA_MODEL_LOCATION,
-            LUTS_LOCATION,
-            "." + LUTS_LOCATION,
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -1087,10 +1085,6 @@ def filter_analysis(
             continue
         if fnmatch(dir_name, DATA_MODEL_PATH_PATTERN):
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
-            continue
-        if fnmatch(dir_name, LUTS_PATH_PATTERN):
-            logging.debug("auto-adding lookup table file %s", os.path.join(file_name))
             filtered_analysis.append((file_name, dir_name, analysis_spec))
             continue
         match = True
