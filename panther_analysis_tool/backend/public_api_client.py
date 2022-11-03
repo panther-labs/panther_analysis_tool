@@ -42,7 +42,7 @@ from .client import (
     ListManagedSchemasResponse,
     BulkUploadResponse, BulkUploadStatistics, ManagedSchema, UpdateManagedSchemaParams,
     UpdateManagedSchemaResponse,
-    BackendError, ConfigSDKBulkUploadParams, ConfigSDKBulkUploadResponse
+    BackendError, PantherSDKBulkUploadParams, PantherSDKBulkUploadResponse
 )
 
 
@@ -77,7 +77,7 @@ class PublicAPIRequests:
     def delete_saved_queries(self) -> DocumentNode:
         return self._load("delete_saved_queries")
 
-    def configsdk_upload_mutation(self) -> DocumentNode:
+    def panthersdk_upload_mutation(self) -> DocumentNode:
         return self._load("sdk_upload")
 
     def _load(self, name: str) -> DocumentNode:
@@ -277,14 +277,14 @@ class PublicAPIClient(Client):
             )
         )
 
-    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse:
+    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse:
         gql_params = {
             "input": {
                 "mode": "CONFIG_SDK",
                 "data": base64.b64encode(params.content.encode('utf-8')).decode('utf-8')
             }
         }
-        res = self._execute(self._requests.configsdk_upload_mutation(), gql_params)
+        res = self._execute(self._requests.panthersdk_upload_mutation(), gql_params)
         if res.errors:
             for err in res.errors:
                 logging.error(err.message)
@@ -298,7 +298,7 @@ class PublicAPIClient(Client):
         query_upload_stats = res.data.get('uploadDetectionEntities', {}).get('queries', {})
         return BackendResponse(
             status_code=200,
-            data=ConfigSDKBulkUploadResponse(
+            data=PantherSDKBulkUploadResponse(
                 rules=BulkUploadStatistics(
                     modified=rule_upload_stats.get("modified"),
                     new=rule_upload_stats.get("new"),

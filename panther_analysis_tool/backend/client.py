@@ -134,12 +134,12 @@ class UpdateManagedSchemaResponse:
 
 
 @dataclass(frozen=True)
-class ConfigSDKBulkUploadParams:
+class PantherSDKBulkUploadParams:
     content: str
 
 
 @dataclass(frozen=True)
-class ConfigSDKBulkUploadResponse:
+class PantherSDKBulkUploadResponse:
     rules: BulkUploadStatistics
     policies: BulkUploadStatistics
     queries: BulkUploadStatistics
@@ -172,5 +172,5 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
+    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass

@@ -7,7 +7,7 @@ from collections import defaultdict
 from functools import reduce
 from typing import Tuple, Final, Dict, List, Any
 
-from panther_analysis_tool.cmd import config_utils
+from panther_analysis_tool.cmd import panthersdk_utils
 
 
 class DetectionType(enum.Enum):
@@ -149,7 +149,7 @@ _TEST_SUMMARY = TestSummary()
 
 
 def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[int, list]:
-    """Runs unit tests for config sdk detections.
+    """Runs unit tests for Panther SDK detections.
 
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
@@ -159,11 +159,11 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    panther_config_cache_path: Final = config_utils.get_config_cache_path()
+    panther_sdk_cache_path: Final = panthersdk_utils.get_sdk_cache_path()
 
     try:
-        config_utils.run_config_module(panther_config_cache_path)
-        detection_intermediates: List[Dict] = config_utils.load_intermediate_config_cache(panther_config_cache_path)
+        panthersdk_utils.run_sdk_module(panther_sdk_cache_path)
+        detection_intermediates: List[Dict] = panthersdk_utils.load_intermediate_sdk_cache(panther_sdk_cache_path)
         detections: List[Detection] = [Detection(d) for d in detection_intermediates]
         detections = _filter_detections(args, detections)
         logging.info('Running Unit Tests for Panther Content\n')

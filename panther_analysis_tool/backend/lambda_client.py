@@ -40,7 +40,7 @@ from .client import (
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
     ListManagedSchemasResponse, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse, ConfigSDKBulkUploadParams, ConfigSDKBulkUploadResponse,
+    UpdateManagedSchemaResponse, PantherSDKBulkUploadParams, PantherSDKBulkUploadResponse,
 )
 
 LAMBDA_CLIENT_NAME = "lambda"
@@ -235,7 +235,7 @@ class LambdaClient(Client):
             )
         )
 
-    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
+    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[PantherSDKBulkUploadResponse]:
         res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
@@ -252,7 +252,7 @@ class LambdaClient(Client):
 
         return BackendResponse(
             status_code=res.status_code,
-            data=ConfigSDKBulkUploadResponse(
+            data=PantherSDKBulkUploadResponse(
                 rules=BulkUploadStatistics(**body.get('rules', default_stats)),
                 policies=BulkUploadStatistics(**body.get('policies', default_stats)),
                 queries=BulkUploadStatistics(**body.get('queries', default_stats)),
