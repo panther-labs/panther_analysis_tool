@@ -2,3 +2,4 @@ include requirements.txt
 include panther_analysis_tool/log_schemas/__init__.py
 include panther_analysis_tool/log_schemas/user_defined.py
 include panther_analysis_tool/backend/graphql/*.graphql
+include VERSION
