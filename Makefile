@@ -9,6 +9,9 @@ help:
 .PHONY: ci
 ci: lint test integration
 
+.PHONY: install-pipenv
+install-pipenv:
+	pip install pipenv
 
 .PHONY: deps
 deps: ## Install dependencies (including dev dependencies) using pipenv
