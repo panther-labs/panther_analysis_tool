@@ -1,0 +1,25 @@
+on:
+  push:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - name: Setup Python
+        uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
+        with:
+          python-version: 3.9.15
+      - name: Install pipenv
+        run: make install-pipenv
+      - name: Setup Virtual Environment
+        run: make venv
+      - name: Install Core Utilities
+        run: make install
+      - name: Install Dependencies
+        run: make deps
+      - name: Install Panther CLI
+        run: pipenv run -- pip3 install -e .
+      - name: Run CLI Tests
+        run: make ci
