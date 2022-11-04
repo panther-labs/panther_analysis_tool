@@ -1,8 +1,6 @@
 from pathlib import Path
 from setuptools import setup, find_packages
-
-this_directory = Path(__file__).parent
-version = (this_directory / "VERSION").read_text().strip()
+from panther_analysis_tool.version import __version__ as version 
 
 install_requires = [
     'gql',

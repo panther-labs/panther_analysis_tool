@@ -25,6 +25,7 @@ import json
 import logging
 import mimetypes
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess  # nosec
@@ -32,6 +33,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from .version import __version__ as version
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -1473,7 +1475,7 @@ def setup_parser() -> argparse.ArgumentParser:
                     + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.16.3")
+    parser.add_argument("--version", action="version", version=f"panther_analysis_tool {version}")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
