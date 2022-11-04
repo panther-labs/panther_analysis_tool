@@ -64,4 +64,4 @@ coverage.xml
 # Editor/IDE
 .vim/
 .idea
-
+.vscode

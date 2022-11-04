@@ -10,7 +10,7 @@ from panther_analysis_tool.backend.client import (
     DeleteSavedQueriesParams,
     ListSchemasParams,
     UpdateManagedSchemaParams,
-    ConfigSDKBulkUploadParams,
+    PantherSDKBulkUploadParams,
 )
 
 
@@ -33,5 +33,5 @@ class MockBackend(BackendClient):
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[Any]:
         pass
 
-    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[Any]:
+    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[Any]:
         pass

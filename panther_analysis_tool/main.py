@@ -84,8 +84,8 @@ from panther_analysis_tool.cmd import (
     bulk_delete,
     standard_args,
     check_connection,
-    configsdk_upload,
-    configsdk_test,
+    panthersdk_upload,
+    panthersdk_test,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
@@ -441,7 +441,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     if return_code != 0:
         return return_code, return_archive_fname
 
-    return_code, _ = configsdk_upload.run(backend=backend, args=args, indirect_invocation=True)
+    return_code, _ = panthersdk_upload.run(backend=backend, args=args, indirect_invocation=True)
 
     return return_code, return_archive_fname
 
@@ -866,11 +866,11 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
 
     #  if the classic format was invalid, just exit
-    #  otherwise, run config format too
+    #  otherwise, run sdk too
     if invalid_specs:
         return 1, invalid_specs
 
-    code, invalids = configsdk_test.run(args, indirect_invocation=True)
+    code, invalids = panthersdk_test.run(args, indirect_invocation=True)
     return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
 
 
@@ -1675,27 +1675,27 @@ def setup_parser() -> argparse.ArgumentParser:
 
     check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
 
-    # -- config command
+    # -- sdk command
 
-    configsdk_parser = subparsers.add_parser(
-        "config", help="Perform operations using the new Config SDK exclusively "
-                       "(pass config --help for more)"
+    panthersdk_parser = subparsers.add_parser(
+        "sdk", help="Perform operations using the Panther SDK exclusively "
+                       "(pass sdk --help for more)"
     )
-    standard_args.for_public_api(configsdk_parser, required=False)
-    standard_args.using_aws_profile(configsdk_parser)
-    configsdk_subparsers = configsdk_parser.add_subparsers()
+    standard_args.for_public_api(panthersdk_parser, required=False)
+    standard_args.using_aws_profile(panthersdk_parser)
+    panthersdk_subparsers = panthersdk_parser.add_subparsers()
 
-    configsdk_upload_parser = configsdk_subparsers.add_parser(
-        "upload", help="Upload policies and rules from the ./panther_content module"
+    panthersdk_upload_parser = panthersdk_subparsers.add_parser(
+        "upload", help="Upload policies and rules generated from your Panther content"
     )
-    configsdk_upload_parser.set_defaults(func=func_with_backend(configsdk_upload.run))
+    panthersdk_upload_parser.set_defaults(func=func_with_backend(panthersdk_upload.run))
 
-    configsdk_test_parser = configsdk_subparsers.add_parser(
+    panthersdk_test_parser = panthersdk_subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
-    configsdk_test_parser.add_argument(min_test_name, **min_test_arg)
-    configsdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    configsdk_test_parser.set_defaults(func=configsdk_test.run)
+    panthersdk_test_parser.add_argument(min_test_name, **min_test_arg)
+    panthersdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    panthersdk_test_parser.set_defaults(func=panthersdk_test.run)
 
     return parser
 
