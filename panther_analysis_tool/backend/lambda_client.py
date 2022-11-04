@@ -17,30 +17,34 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import base64
-import os
 import json
 import logging
+import os
 import typing
-
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 import boto3
 
 from .client import (
-    Client,
+    BackendCheckResponse,
     BackendError,
     BackendResponse,
     BulkUploadParams,
     BulkUploadResponse,
     BulkUploadStatistics,
-    BackendCheckResponse,
+    Client,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    ListManagedSchemasResponse, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse, PantherSDKBulkUploadParams, PantherSDKBulkUploadResponse,
+    ListManagedSchemasResponse,
+    ListSchemasParams,
+    ManagedSchema,
+    PantherSDKBulkUploadParams,
+    PantherSDKBulkUploadResponse,
+    UpdateManagedSchemaParams,
+    UpdateManagedSchemaResponse,
 )
 
 LAMBDA_CLIENT_NAME = "lambda"
@@ -49,9 +53,9 @@ AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
 
 def decode_body(res: BackendResponse) -> typing.Any:
     try:
-        return json.loads(res.data['body'])
+        return json.loads(res.data["body"])
     except json.decoder.JSONDecodeError as decode_error:
-        raise Exception(res.data['body']) from decode_error
+        raise Exception(res.data["body"]) from decode_error
 
 
 @dataclass(frozen=True)
@@ -87,17 +91,21 @@ class LambdaClient(Client):
         return BackendCheckResponse(success=True, message="not implemented")
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
-        res = self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=self._serialize_request({
-                "bulkUpload": {
-                    "data": params.encoded_bytes(),
-                    "userId": self._user_id,
-                },
-            }),
-        ))
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-analysis-api",
+                InvocationType="RequestResponse",
+                LogType="None",
+                Payload=self._serialize_request(
+                    {
+                        "bulkUpload": {
+                            "data": params.encoded_bytes(),
+                            "userId": self._user_id,
+                        },
+                    }
+                ),
+            )
+        )
 
         body = decode_body(res)
 
@@ -106,57 +114,69 @@ class LambdaClient(Client):
         return BackendResponse(
             status_code=res.status_code,
             data=BulkUploadResponse(
-                rules=BulkUploadStatistics(**body.get('rules', default_stats)),
-                policies=BulkUploadStatistics(**body.get('policies', default_stats)),
-                data_models=BulkUploadStatistics(**body.get('dataModels', default_stats)),
-                lookup_tables=BulkUploadStatistics(**body.get('lookupTables', default_stats)),
-                global_helpers=BulkUploadStatistics(**body.get('globalHelpers', default_stats))
-            )
+                rules=BulkUploadStatistics(**body.get("rules", default_stats)),
+                policies=BulkUploadStatistics(**body.get("policies", default_stats)),
+                data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
+                lookup_tables=BulkUploadStatistics(**body.get("lookupTables", default_stats)),
+                global_helpers=BulkUploadStatistics(**body.get("globalHelpers", default_stats)),
+            ),
         )
 
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
+    def delete_detections(
+        self, params: DeleteDetectionsParams
+    ) -> BackendResponse[DeleteDetectionsResponse]:
         entries = []
         for id_to_delete in params.ids:
             entries.append({"id": id_to_delete})
 
-        res = self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=self._serialize_request({
-                "deleteDetections": {
-                    "dryRun": params.dry_run,
-                    "userId": self._user_id,
-                    "entries": entries,
-                    "includeSavedQueries": params.include_saved_queries,
-                }
-            }),
-        ))
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-analysis-api",
+                InvocationType="RequestResponse",
+                LogType="None",
+                Payload=self._serialize_request(
+                    {
+                        "deleteDetections": {
+                            "dryRun": params.dry_run,
+                            "userId": self._user_id,
+                            "entries": entries,
+                            "includeSavedQueries": params.include_saved_queries,
+                        }
+                    }
+                ),
+            )
+        )
 
         body = decode_body(res)
 
         return BackendResponse(
             status_code=res.status_code,
             data=DeleteDetectionsResponse(
-                ids=body.get('ids') or [],
-                saved_query_names=body.get('savedQueryNames') or [],
-            )
+                ids=body.get("ids") or [],
+                saved_query_names=body.get("savedQueryNames") or [],
+            ),
         )
 
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
-        res = self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=self._serialize_request({
-                "deleteSavedQueriesByName": {
-                    "names": params.names,
-                    "dryRun": params.dry_run,
-                    "userId": self._user_id,
-                    "includeDetections": params.include_detections,
-                }
-            }),
-        ))
+    def delete_saved_queries(
+        self, params: DeleteSavedQueriesParams
+    ) -> BackendResponse[DeleteSavedQueriesResponse]:
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-analysis-api",
+                InvocationType="RequestResponse",
+                LogType="None",
+                Payload=self._serialize_request(
+                    {
+                        "deleteSavedQueriesByName": {
+                            "names": params.names,
+                            "dryRun": params.dry_run,
+                            "userId": self._user_id,
+                            "includeDetections": params.include_detections,
+                        }
+                    }
+                ),
+            )
+        )
 
         body = decode_body(res)
 
@@ -165,98 +185,111 @@ class LambdaClient(Client):
             data=DeleteSavedQueriesResponse(
                 names=body.get("names", []),
                 detection_ids=body.get("detectionIds", []),
-            )
+            ),
         )
 
-    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
-        res = self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-logtypes-api",
-            InvocationType="RequestResponse",
-            Payload=self._serialize_request({
-                "ListSchemas": {
-                    "isManaged": params.is_managed
-                },
-            }),
-        ))
+    def list_managed_schemas(
+        self, params: ListSchemasParams
+    ) -> BackendResponse[ListManagedSchemasResponse]:
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-logtypes-api",
+                InvocationType="RequestResponse",
+                Payload=self._serialize_request(
+                    {
+                        "ListSchemas": {"isManaged": params.is_managed},
+                    }
+                ),
+            )
+        )
         if res.data.get("error") is not None:
             raise BackendError(res.data.get("error"))
 
         schemas = []
-        for result in res.data['results']:
-            schemas.append(ManagedSchema(
-                created_at=result.get('createdAt', ''),
-                description=result.get('description', ''),
-                is_managed=result.get('isManaged', False),
-                name=result.get('name', ''),
-                reference_url=result.get('referenceURL', ''),
-                revision=result.get('revision', ''),
-                spec=result.get('spec', ''),
-                updated_at=result.get('updatedAt', '')
-            ))
-
-        return BackendResponse(
-            status_code=200,
-            data=ListManagedSchemasResponse(
-                schemas=schemas
+        for result in res.data["results"]:
+            schemas.append(
+                ManagedSchema(
+                    created_at=result.get("createdAt", ""),
+                    description=result.get("description", ""),
+                    is_managed=result.get("isManaged", False),
+                    name=result.get("name", ""),
+                    reference_url=result.get("referenceURL", ""),
+                    revision=result.get("revision", ""),
+                    spec=result.get("spec", ""),
+                    updated_at=result.get("updatedAt", ""),
+                )
             )
-        )
+
+        return BackendResponse(status_code=200, data=ListManagedSchemasResponse(schemas=schemas))
 
     def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
-        res = self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-logtypes-api",
-            InvocationType="RequestResponse",
-            Payload=self._serialize_request({
-                "PutUserSchema": {
-                    "description": params.description,
-                    "name": params.name,
-                    "reference_url": params.reference_url,
-                    "revision": params.revision,
-                    "spec": params.spec
-                }
-            }),
-        ))
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-logtypes-api",
+                InvocationType="RequestResponse",
+                Payload=self._serialize_request(
+                    {
+                        "PutUserSchema": {
+                            "description": params.description,
+                            "name": params.name,
+                            "reference_url": params.reference_url,
+                            "revision": params.revision,
+                            "spec": params.spec,
+                        }
+                    }
+                ),
+            )
+        )
         if res.data.get("error") is not None:
             raise BackendError(res.data.get("error"))
 
-        schema = res.data.get('result', {})
+        schema = res.data.get("result", {})
         return BackendResponse(
             status_code=200,
             data=UpdateManagedSchemaResponse(
                 schema=ManagedSchema(
-                    created_at=schema.get('createdAt', ''),
-                    description=schema.get('description', ''),
-                    is_managed=schema.get('isManaged', False),
-                    name=schema.get('name', ''),
-                    reference_url=schema.get('referenceURL', ''),
-                    revision=schema.get('revision', ''),
-                    spec=schema.get('spec', ''),
-                    updated_at=schema.get('updatedAt', '')
+                    created_at=schema.get("createdAt", ""),
+                    description=schema.get("description", ""),
+                    is_managed=schema.get("isManaged", False),
+                    name=schema.get("name", ""),
+                    reference_url=schema.get("referenceURL", ""),
+                    revision=schema.get("revision", ""),
+                    spec=schema.get("spec", ""),
+                    updated_at=schema.get("updatedAt", ""),
                 )
-            )
+            ),
         )
 
-    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[PantherSDKBulkUploadResponse]:
-        res = self._parse_response(self._lambda_client.invoke(
-            FunctionName="panther-analysis-api",
-            InvocationType="RequestResponse",
-            LogType="None",
-            Payload=self._serialize_request({
-                "sdkUpload": {
-                    "data": base64.b64encode(params.content.encode('utf-8')).decode('utf-8'),
-                    "userId": self._user_id,
-                },
-            }),
-        ))
+    def panthersdk_bulk_upload(
+        self, params: PantherSDKBulkUploadParams
+    ) -> BackendResponse[PantherSDKBulkUploadResponse]:
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-analysis-api",
+                InvocationType="RequestResponse",
+                LogType="None",
+                Payload=self._serialize_request(
+                    {
+                        "sdkUpload": {
+                            "data": base64.b64encode(params.content.encode("utf-8")).decode(
+                                "utf-8"
+                            ),
+                            "userId": self._user_id,
+                        },
+                    }
+                ),
+            )
+        )
         body = decode_body(res)
         default_stats = dict(total=0, new=0, modified=0)
 
         return BackendResponse(
             status_code=res.status_code,
             data=PantherSDKBulkUploadResponse(
-                rules=BulkUploadStatistics(**body.get('rules', default_stats)),
-                policies=BulkUploadStatistics(**body.get('policies', default_stats)),
-                queries=BulkUploadStatistics(**body.get('queries', default_stats)),
-            )
+                rules=BulkUploadStatistics(**body.get("rules", default_stats)),
+                policies=BulkUploadStatistics(**body.get("policies", default_stats)),
+                queries=BulkUploadStatistics(**body.get("queries", default_stats)),
+            ),
         )
 
     @staticmethod
@@ -275,7 +308,7 @@ class LambdaClient(Client):
 
         if status_code > 299 or response.get("FunctionError") == "Unhandled":
             logging.warning("backend error received: %s", payload)
-            raise BackendError(payload.get('errorMessage', 'unknown error'))
+            raise BackendError(payload.get("errorMessage", "unknown error"))
 
         return BackendResponse(
             data=payload,

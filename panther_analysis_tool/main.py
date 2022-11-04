@@ -25,7 +25,6 @@ import json
 import logging
 import mimetypes
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess  # nosec
@@ -33,11 +32,11 @@ import sys
 import tempfile
 import time
 import zipfile
-from .version import __version__ as version
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
+
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -77,17 +76,14 @@ from schema import (
     SchemaWrongKeyError,
 )
 
-from panther_analysis_tool.backend.client import (
-    BackendError,
-    Client as BackendClient,
-    BulkUploadParams,
-)
+from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.cmd import (
     bulk_delete,
-    standard_args,
     check_connection,
-    panthersdk_upload,
     panthersdk_test,
+    panthersdk_upload,
+    standard_args,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
@@ -101,7 +97,9 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.util import get_client, func_with_backend
+from panther_analysis_tool.util import func_with_backend, get_client
+
+from .version import __version__ as version
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -210,7 +208,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 
 def load_analysis_specs(
-        directories: List[str], ignore_files: List[str]
+    directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
@@ -232,9 +230,9 @@ def load_analysis_specs(
         for relative_path, _, file_list in os.walk(directory):
             # Skip hidden folders
             if (
-                    relative_path.split("/")[-1].startswith(".")
-                    and relative_path != "./"
-                    and relative_path != "."
+                relative_path.split("/")[-1].startswith(".")
+                and relative_path != "./"
+                and relative_path != "."
             ):
                 continue
             # setup yaml object
@@ -245,18 +243,18 @@ def load_analysis_specs(
             # when relative_path is the current dir
             if directory in [".", "./"] and relative_path not in [".", "./"]:
                 if not any(
-                        (
-                                fnmatch(relative_path, path_pattern)
-                                for path_pattern in (
-                                DATA_MODEL_PATH_PATTERN,
-                                HELPERS_PATH_PATTERN,
-                                LUTS_PATH_PATTERN,
-                                RULES_PATH_PATTERN,
-                                PACKS_PATH_PATTERN,
-                                POLICIES_PATH_PATTERN,
-                                QUERIES_PATH_PATTERN,
+                    (
+                        fnmatch(relative_path, path_pattern)
+                        for path_pattern in (
+                            DATA_MODEL_PATH_PATTERN,
+                            HELPERS_PATH_PATTERN,
+                            LUTS_PATH_PATTERN,
+                            RULES_PATH_PATTERN,
+                            PACKS_PATH_PATTERN,
+                            POLICIES_PATH_PATTERN,
+                            QUERIES_PATH_PATTERN,
                         )
-                        )
+                    )
                 ):
                     logging.debug("Skipping path %s", relative_path)
                     continue
@@ -352,9 +350,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         analysis = []
         files: Set[str] = set()
         for (file_name, f_path, spec, _) in list(
-                load_analysis_specs(
-                    [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
-                )
+            load_analysis_specs(
+                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
+            )
         ):
             if file_name not in files:
                 analysis.append((file_name, f_path, spec))
@@ -406,12 +404,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                 response = backend.bulk_upload(upload_params)
 
                 logging.info("Upload success.")
-                logging.info("API Response:\n%s",
-                             json.dumps(
-                                 asdict(response.data),
-                                 indent=4
-                             )
-                             )
+                logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
 
                 return_code = 0
                 return_archive_fname = ""
@@ -424,7 +417,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                     retry_count += 1
 
                     # typical bulk upload takes 30 seconds, allow any currently running one to complete
-                    logging.debug("Will retry upload in 30 seconds. Retries remaining: %s", max_retries - retry_count)
+                    logging.debug(
+                        "Will retry upload in 30 seconds. Retries remaining: %s",
+                        max_retries - retry_count,
+                    )
                     time.sleep(30)
 
                 else:
@@ -474,12 +470,12 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
             LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             logging.info("Successfully validated the Lookup Table file %s", args.path)
         except (
-                schema.SchemaError,
-                schema.SchemaMissingKeyError,
-                schema.SchemaWrongKeyError,
-                schema.SchemaForbiddenKeyError,
-                schema.SchemaUnexpectedTypeError,
-                schema.SchemaOnlyOneAllowedError,
+            schema.SchemaError,
+            schema.SchemaMissingKeyError,
+            schema.SchemaWrongKeyError,
+            schema.SchemaForbiddenKeyError,
+            schema.SchemaUnexpectedTypeError,
+            schema.SchemaOnlyOneAllowedError,
         ) as err:
             logging.error("Invalid schema in the Lookup Table spec file %s", input_file)
             logging.error(err)
@@ -686,7 +682,7 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 def clone_github(
-        owner: str, repo: str, branch: str, path: str, access_token: str
+    owner: str, repo: str, branch: str, path: str, access_token: str
 ) -> Tuple[int, str]:
     repo_url = (
         f"https://{access_token}@github.com/{owner}/{repo}"
@@ -792,10 +788,10 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # Try the parent directory as well
     for directory in (
-            HELPERS_LOCATION,
-            "." + HELPERS_LOCATION,
-            DATA_MODEL_LOCATION,
-            "." + DATA_MODEL_LOCATION,
+        HELPERS_LOCATION,
+        "." + HELPERS_LOCATION,
+        DATA_MODEL_LOCATION,
+        "." + DATA_MODEL_LOCATION,
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -960,12 +956,12 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
 
 
 def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
-        log_type_to_data_model: Dict[str, DataModel],
-        analysis: List[Any],
-        minimum_tests: int,
-        skip_disabled_tests: bool,
-        destinations_by_name: Dict[str, FakeDestination],
-        ignore_exception_types: List[Type[Exception]],
+    log_type_to_data_model: Dict[str, DataModel],
+    analysis: List[Any],
+    minimum_tests: int,
+    skip_disabled_tests: bool,
+    destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -1021,13 +1017,13 @@ def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
     for analysis_type in analysis_specs:
         for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
             analysis_id = (
-                    analysis_spec.get("PolicyID")
-                    or analysis_spec.get("RuleID")
-                    or analysis_spec.get("DataModelID")
-                    or analysis_spec.get("GlobalID")
-                    or analysis_spec.get("PackID")
-                    or analysis_spec.get("QueryName")
-                    or analysis_spec["LookupName"]
+                analysis_spec.get("PolicyID")
+                or analysis_spec.get("RuleID")
+                or analysis_spec.get("DataModelID")
+                or analysis_spec.get("GlobalID")
+                or analysis_spec.get("PackID")
+                or analysis_spec.get("QueryName")
+                or analysis_spec["LookupName"]
             )
             id_to_detection[analysis_id] = analysis_spec
     for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
@@ -1048,7 +1044,7 @@ def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
 
 
 def print_summary(
-        test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
+    test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
@@ -1074,7 +1070,7 @@ def print_summary(
 
 
 def filter_analysis(
-        analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
+    analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
 ) -> List[Any]:
     if filters is None:
         return analysis
@@ -1111,7 +1107,7 @@ def filter_analysis(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-        specs: List[Tuple[str, str, Any, Any]]
+    specs: List[Tuple[str, str, Any, Any]]
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -1171,9 +1167,9 @@ def classify_analysis(
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
-                SchemaMissingKeyError,
-                SchemaForbiddenKeyError,
-                SchemaUnexpectedTypeError,
+            SchemaMissingKeyError,
+            SchemaForbiddenKeyError,
+            SchemaUnexpectedTypeError,
         ) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
@@ -1251,13 +1247,13 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 
 def run_tests(  # pylint: disable=too-many-arguments
-        analysis: Dict[str, Any],
-        analysis_data_models: Dict[str, DataModel],
-        detection: Detection,
-        failed_tests: DefaultDict[str, list],
-        minimum_tests: int,
-        destinations_by_name: Dict[str, FakeDestination],
-        ignore_exception_types: List[Type[Exception]],
+    analysis: Dict[str, Any],
+    analysis_data_models: Dict[str, DataModel],
+    detection: Detection,
+    failed_tests: DefaultDict[str, list],
+    minimum_tests: int,
+    destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection.detection_id].append(
@@ -1281,8 +1277,8 @@ def run_tests(  # pylint: disable=too-many-arguments
     )
 
     if minimum_tests > 1 and not (
-            [x for x in analysis["Tests"] if x["ExpectedResult"]]
-            and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
+        [x for x in analysis["Tests"] if x["ExpectedResult"]]
+        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
     ):
         failed_tests[detection.detection_id].append(
             "Insufficient test coverage: expected at least one positive and one negative test"
@@ -1292,12 +1288,12 @@ def run_tests(  # pylint: disable=too-many-arguments
 
 
 def _run_tests(  # pylint: disable=too-many-arguments
-        analysis_data_models: Dict[str, DataModel],
-        detection: Detection,
-        tests: List[Dict[str, Any]],
-        failed_tests: DefaultDict[str, list],
-        destinations_by_name: Dict[str, FakeDestination],
-        ignore_exception_types: List[Type[Exception]],
+    analysis_data_models: Dict[str, DataModel],
+    detection: Detection,
+    tests: List[Dict[str, Any]],
+    failed_tests: DefaultDict[str, list],
+    destinations_by_name: Dict[str, FakeDestination],
+    ignore_exception_types: List[Type[Exception]],
 ) -> DefaultDict[str, list]:
     for unit_test in tests:
         try:
@@ -1350,7 +1346,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
 
 def _print_test_result(
-        detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
+    detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
 ) -> None:
     status_pass = "PASS"  # nosec
     status_fail = "FAIL"
@@ -1409,8 +1405,8 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": 0,
         "type": int,
         "help": "The minimum number of tests in order for a detection to be considered passing. "
-                + "If a number greater than 1 is specified, at least one True and one False test is "
-                + "required.",
+        + "If a number greater than 1 is specified, at least one True and one False test is "
+        + "required.",
         "required": False,
     }
     out_name = "--out"
@@ -1454,7 +1450,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "dest": "ignore_files",
         "nargs": "+",
         "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
-                + "space separated. Example ./foo.yaml ./bar/baz.yaml",
+        + "space separated. Example ./foo.yaml ./bar/baz.yaml",
         "type": str,
         "default": [],
     }
@@ -1465,14 +1461,14 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "action": "append",
         "help": "A destination name that may be returned by the destinations function. "
-                "Repeat the argument to define more than one name.",
+        "Repeat the argument to define more than one name.",
     }
 
     # -- root parser
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
-                    + "managing Panther policies and rules.",
+        + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
     parser.add_argument("--version", action="version", version=f"panther_analysis_tool {version}")
@@ -1484,8 +1480,8 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser = subparsers.add_parser(
         "release",
         help="Create release assets for repository containing panther detections. "
-             + "Generates a file called panther-analysis-all.zip and optionally generates "
-             + "panther-analysis-all.sig",
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig",
     )
 
     standard_args.for_public_api(release_parser, required=False)
@@ -1521,8 +1517,8 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser = subparsers.add_parser(
         "publish",
         help="Publishes a new release, generates the release assets, and uploads them. "
-             + "Generates a file called panther-analysis-all.zip and optionally generates "
-             + "panther-analysis-all.sig",
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig",
     )
     publish_parser.add_argument(
         "--body",
@@ -1616,11 +1612,25 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.for_public_api(delete_parser, required=False)
     standard_args.using_aws_profile(delete_parser)
 
-    delete_parser.add_argument("--analysis-id", help="Space separated list of Detection IDs",
-                               required=False, dest="analysis_id", type=str, default=[], nargs="+")
+    delete_parser.add_argument(
+        "--analysis-id",
+        help="Space separated list of Detection IDs",
+        required=False,
+        dest="analysis_id",
+        type=str,
+        default=[],
+        nargs="+",
+    )
 
-    delete_parser.add_argument("--query-id", help="Space separated list of Saved Queries",
-                               required=False, dest="query_id", nargs="+", type=str, default=[])
+    delete_parser.add_argument(
+        "--query-id",
+        help="Space separated list of Saved Queries",
+        required=False,
+        dest="query_id",
+        nargs="+",
+        type=str,
+        default=[],
+    )
 
     delete_parser.set_defaults(func=func_with_backend(bulk_delete.run))
 
@@ -1646,9 +1656,13 @@ def setup_parser() -> argparse.ArgumentParser:
 
     standard_args.using_aws_profile(test_lookup_table_parser)
 
-    test_lookup_table_parser.add_argument("--path",
-                                          type=str, help="The relative path to a lookup table input file.", default=".",
-                                          required=True)
+    test_lookup_table_parser.add_argument(
+        "--path",
+        type=str,
+        help="The relative path to a lookup table input file.",
+        default=".",
+        required=True,
+    )
 
     test_lookup_table_parser.set_defaults(func=test_lookup_table)
 
@@ -1680,8 +1694,8 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- sdk command
 
     panthersdk_parser = subparsers.add_parser(
-        "sdk", help="Perform operations using the Panther SDK exclusively "
-                       "(pass sdk --help for more)"
+        "sdk",
+        help="Perform operations using the Panther SDK exclusively " "(pass sdk --help for more)",
     )
     standard_args.for_public_api(panthersdk_parser, required=False)
     standard_args.using_aws_profile(panthersdk_parser)
@@ -1723,7 +1737,7 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("GITHUB_TAG", is_type_of=str),
             Validator("FILTER", is_type_of=dict),
             Validator("API_TOKEN", is_type_of=str),
-            Validator("API_HOST", is_type_of=str)
+            Validator("API_HOST", is_type_of=str),
         ],
     )
     # Dynaconf stores its keys in ALL CAPS
@@ -1731,16 +1745,16 @@ def setup_dynaconf() -> Dict[str, Any]:
 
 
 def dynaconf_argparse_merge(
-        argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
+    argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
 ) -> None:
     # Set up another parser w/ no defaults
     aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
     for k in argparse_dict:
-        arg_name = k.replace('_', '-')
+        arg_name = k.replace("_", "-")
         if isinstance(argparse_dict[k], bool):
-            aux_parser.add_argument('--' + arg_name, action="store_true")
+            aux_parser.add_argument("--" + arg_name, action="store_true")
         else:
-            aux_parser.add_argument('--' + arg_name)
+            aux_parser.add_argument("--" + arg_name)
     # cli_args only contains args that were passed in the command line
     cli_args, _ = aux_parser.parse_known_args()
     for key, value in config_file_settings.items():
@@ -1763,15 +1777,15 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             split[0] = split[0][:-1]  # Remove the trailing "!"
         key = split[0]
         if not any(
-                (
-                        key
-                        in (
-                                list(GLOBAL_SCHEMA.schema.keys())
-                                + list(POLICY_SCHEMA.schema.keys())
-                                + list(RULE_SCHEMA.schema.keys())
-                        )
-                        for key in (key, Optional(key))
+            (
+                key
+                in (
+                    list(GLOBAL_SCHEMA.schema.keys())
+                    + list(POLICY_SCHEMA.schema.keys())
+                    + list(RULE_SCHEMA.schema.keys())
                 )
+                for key in (key, Optional(key))
+            )
         ):
             logging.warning("Filter key %s is not a valid filter field, skipping", key)
             continue
@@ -1812,9 +1826,7 @@ def run() -> None:
 
     for key in os.environ:
         if key.startswith("PANTHER_"):
-            logging.info(
-                "Found Environment Variables prefixed with 'PANTHER'."
-            )
+            logging.info("Found Environment Variables prefixed with 'PANTHER'.")
             break
     if os.path.exists(CONFIG_FILE):
         logging.info(

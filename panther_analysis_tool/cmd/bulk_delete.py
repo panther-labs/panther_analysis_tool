@@ -19,8 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import logging
-from typing import Tuple, List
-from panther_analysis_tool.backend.client import Client as BackendClient, DeleteDetectionsParams, DeleteSavedQueriesParams
+from typing import List, Tuple
+
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import (
+    DeleteDetectionsParams,
+    DeleteSavedQueriesParams,
+)
 
 
 def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
@@ -88,7 +93,9 @@ def _delete_detections_dry_run(backend: BackendClient, ids: List[str]) -> Tuple[
     if len(ids) == 0:
         return 0, ""
 
-    res = backend.delete_detections(DeleteDetectionsParams(dry_run=True, ids=ids, include_saved_queries=True))
+    res = backend.delete_detections(
+        DeleteDetectionsParams(dry_run=True, ids=ids, include_saved_queries=True)
+    )
 
     if res.status_code != 200:
         logging.error("Error connecting to backend.")
@@ -114,7 +121,9 @@ def _delete_queries_dry_run(backend: BackendClient, names: List[str]) -> Tuple[i
     if len(names) == 0:
         return 0, ""
 
-    res = backend.delete_saved_queries(DeleteSavedQueriesParams(dry_run=True, names=names, include_detections=True))
+    res = backend.delete_saved_queries(
+        DeleteSavedQueriesParams(dry_run=True, names=names, include_detections=True)
+    )
 
     if res.status_code != 200:
         logging.error("Error connecting to backend.")
@@ -140,11 +149,13 @@ def _delete_detections(backend: BackendClient, ids: List[str]) -> Tuple[int, str
     if len(ids) == 0:
         return 0, ""
 
-    delete_detections_res = backend.delete_detections(DeleteDetectionsParams(
-        ids=ids,
-        dry_run=False,
-        include_saved_queries=True,
-    ))
+    delete_detections_res = backend.delete_detections(
+        DeleteDetectionsParams(
+            ids=ids,
+            dry_run=False,
+            include_saved_queries=True,
+        )
+    )
 
     if delete_detections_res.status_code != 200:
         logging.error("Error deleting detections")
@@ -160,11 +171,13 @@ def _delete_detections(backend: BackendClient, ids: List[str]) -> Tuple[int, str
 
 
 def _delete_queries(backend: BackendClient, names: List[str]) -> Tuple[int, str]:
-    delete_queries_res = backend.delete_saved_queries(DeleteSavedQueriesParams(
-        names=names,
-        dry_run=False,
-        include_detections=True,
-    ))
+    delete_queries_res = backend.delete_saved_queries(
+        DeleteSavedQueriesParams(
+            names=names,
+            dry_run=False,
+            include_detections=True,
+        )
+    )
 
     if delete_queries_res.status_code != 200:
         logging.error("Error deleting saved queries")

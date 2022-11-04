@@ -28,12 +28,16 @@ from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
 
+from panther_analysis_tool.backend.client import BackendError, BackendResponse
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
-    Client as BackendClient, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams, BackendResponse, BackendError
+    ListSchemasParams,
+    ManagedSchema,
+    UpdateManagedSchemaParams,
 )
 
-
 logger = logging.getLogger(__file__)
+
 
 @dataclass
 class UploaderResult:
@@ -59,6 +63,7 @@ class ProcessedFile:
     raw: str = ""
     # The deserialized schema
     yaml: Optional[Dict[str, Any]] = None
+
 
 class Uploader:
     _SCHEMA_NAME_PREFIX = "Custom."
@@ -159,10 +164,7 @@ class Uploader:
                     result.existed = existed
                     result.backend_response = response
                 except BackendError as exc:
-                    result.error = (
-                        f"failure to update schema {name}: "
-                        f'message={exc}'
-                    )
+                    result.error = f"failure to update schema {name}: " f"message={exc}"
             results.append(result)
         return results
 

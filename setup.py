@@ -1,4 +1,3 @@
-from pathlib import Path
 from setuptools import setup, find_packages
 from panther_analysis_tool.version import __version__ as version 
 
