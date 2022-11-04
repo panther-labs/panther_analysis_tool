@@ -168,7 +168,7 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
         detections = _filter_detections(args, detections)
         logging.info('Running Unit Tests for Panther Content\n')
         tests_failed = _run_unit_tests(detections, args.minimum_tests)
-        return int(not tests_failed), []
+        return int(tests_failed), []
     except FileNotFoundError as err:
         if indirect_invocation:
             # If this is run automatically at the end of the standard test command,
