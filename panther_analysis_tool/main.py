@@ -1678,7 +1678,7 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- sdk command
 
     panthersdk_parser = subparsers.add_parser(
-        "sdk", help="Perform operations using the new sdk SDK exclusively "
+        "sdk", help="Perform operations using the Panther SDK exclusively "
                        "(pass sdk --help for more)"
     )
     standard_args.for_public_api(panthersdk_parser, required=False)

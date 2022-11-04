@@ -2,7 +2,7 @@ from pathlib import Path
 from setuptools import setup, find_packages
 
 this_directory = Path(__file__).parent
-version = (this_directory / "VERSION").read_text()
+version = (this_directory / "VERSION").read_text().strip()
 
 install_requires = [
     'gql',
