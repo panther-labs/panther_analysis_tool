@@ -17,13 +17,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import base64
-import os
 import json
 import logging
+import os
 import typing
-
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Dict, Any, Optional
 
 import boto3
 
@@ -41,6 +40,8 @@ from .client import (
     DeleteSavedQueriesResponse,
     ListManagedSchemasResponse, ListSchemasParams, ManagedSchema, UpdateManagedSchemaParams,
     UpdateManagedSchemaResponse, PantherSDKBulkUploadParams, PantherSDKBulkUploadResponse,
+    backend_response_failed,
+    parse_error_from_backend,
 )
 
 LAMBDA_CLIENT_NAME = "lambda"
@@ -98,6 +99,11 @@ class LambdaClient(Client):
                 },
             }),
         ))
+
+        if backend_response_failed(res):
+            err = BackendError(parse_error_from_backend(res))
+            err.permanent = True
+            raise err
 
         body = decode_body(res)
 
@@ -235,7 +241,8 @@ class LambdaClient(Client):
             )
         )
 
-    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[PantherSDKBulkUploadResponse]:
+    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[
+        PantherSDKBulkUploadResponse]:
         res = self._parse_response(self._lambda_client.invoke(
             FunctionName="panther-analysis-api",
             InvocationType="RequestResponse",
@@ -247,6 +254,7 @@ class LambdaClient(Client):
                 },
             }),
         ))
+
         body = decode_body(res)
         default_stats = dict(total=0, new=0, modified=0)
 

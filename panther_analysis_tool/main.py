@@ -416,6 +416,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                 break
 
             except BackendError as be_err:
+                if be_err.permanent is True:
+                    logging.error(f"failed to upload to backend: {be_err}")
+                    return_code = 1
+                    break
 
                 if max_retries - retry_count > 0:
                     logging.debug("Failed to upload to Panther: %s.", be_err)
@@ -1679,7 +1683,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     panthersdk_parser = subparsers.add_parser(
         "sdk", help="Perform operations using the Panther SDK exclusively "
-                       "(pass sdk --help for more)"
+                    "(pass sdk --help for more)"
     )
     standard_args.for_public_api(panthersdk_parser, required=False)
     standard_args.using_aws_profile(panthersdk_parser)

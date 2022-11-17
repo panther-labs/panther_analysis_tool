@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import base64
 import logging
-
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -235,11 +234,11 @@ class PublicAPIClient(Client):
             schemas.append(schema)
 
         return BackendResponse(
-                status_code=200,
-                data=ListManagedSchemasResponse(
-                    schemas=schemas
-                )
+            status_code=200,
+            data=ListManagedSchemasResponse(
+                schemas=schemas
             )
+        )
 
     def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
         gql_params = {
@@ -285,6 +284,7 @@ class PublicAPIClient(Client):
             }
         }
         res = self._execute(self._requests.panthersdk_upload_mutation(), gql_params)
+
         if res.errors:
             for err in res.errors:
                 logging.error(err.message)
