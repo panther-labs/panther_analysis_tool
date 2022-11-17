@@ -151,7 +151,7 @@ class PublicAPIClient(Client):
         )
 
     def delete_saved_queries(
-            self, params: DeleteSavedQueriesParams
+        self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         query = self._requests.delete_saved_queries()
         delete_params = {
@@ -180,7 +180,7 @@ class PublicAPIClient(Client):
         )
 
     def delete_detections(
-            self, params: DeleteDetectionsParams
+        self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         gql_params = {
             "input": {
@@ -210,7 +210,7 @@ class PublicAPIClient(Client):
         )
 
     def list_managed_schemas(
-            self, params: ListSchemasParams
+        self, params: ListSchemasParams
     ) -> BackendResponse[ListManagedSchemasResponse]:
         gql_params = {
             "input": {
@@ -321,9 +321,9 @@ class PublicAPIClient(Client):
         )
 
     def _execute(
-            self,
-            request: DocumentNode,
-            variable_values: Optional[Dict[str, Any]] = None,
+        self,
+        request: DocumentNode,
+        variable_values: Optional[Dict[str, Any]] = None,
     ) -> ExecutionResult:
         return self._gql_client.execute(
             request, variable_values=variable_values, get_execution_result=True

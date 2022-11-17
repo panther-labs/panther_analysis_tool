@@ -129,7 +129,7 @@ class LambdaClient(Client):
         )
 
     def delete_detections(
-            self, params: DeleteDetectionsParams
+        self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         entries = []
         for id_to_delete in params.ids:
@@ -164,7 +164,7 @@ class LambdaClient(Client):
         )
 
     def delete_saved_queries(
-            self, params: DeleteSavedQueriesParams
+        self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
@@ -195,7 +195,7 @@ class LambdaClient(Client):
         )
 
     def list_managed_schemas(
-            self, params: ListSchemasParams
+        self, params: ListSchemasParams
     ) -> BackendResponse[ListManagedSchemasResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
@@ -267,7 +267,7 @@ class LambdaClient(Client):
         )
 
     def panthersdk_bulk_upload(
-            self, params: PantherSDKBulkUploadParams
+        self, params: PantherSDKBulkUploadParams
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         resp = self._parse_response(
             self._lambda_client.invoke(
