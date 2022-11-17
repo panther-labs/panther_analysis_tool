@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import base64
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Generic, List, TypeVar, Union
@@ -187,36 +186,3 @@ class Client(ABC):
 
 def backend_response_failed(resp: Union[BackendResponse, dict]) -> bool:
     return resp.status_code >= 400 or resp.data["statusCode"] >= 400
-
-
-def parse_error_from_backend(resp: Union[BackendResponse, dict]) -> str:
-    """ Parses an error out of an error message from the backend
-
-    Args:
-        resp: Union[BackendResponse, dict]
-
-    ex from bulk upload over lambda role:
-        BackendResponse(data={'statusCode': 400, 'headers': {}, 'multiValueHeaders': {}, 'body': '{"issues":[{"path":"temp.yml","errorMessage":"duplicate detection id: AWS.WAF.Disassociation"}]}'}, status_code=200)
-    ex from bulk upload over api key:
-        {'message': '{"issues":[{"path":"aws_waf_disassociation.yml","errorMessage":"duplicate detection id: AWS.WAF.Disassociation"}]}', 'path': ['uploadDetectionEntities'], 'extensions': {'reportable': False, 'statusCode': 400}}
-    """
-
-    def issue_to_str(issue: dict) -> str:
-        if "errorMessage" in issue:
-            ret = f"found {issue['errorMessage']}"
-            if "path" in issue:
-                ret += f" (in {issue['path']})"
-            return ret
-        return json.dumps(issue)
-
-    if "body" in resp.data:
-        body = json.loads(resp.data["body"])
-        if "issues" in body:
-            return "; ".join(issue_to_str(i) for i in body["issues"])
-
-    if "message" in resp:
-        body = json.loads(resp["message"])
-        if "issues" in body:
-            return "; ".join(issue_to_str(i) for i in body["issues"])
-
-    return "unable to parse error"
