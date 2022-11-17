@@ -23,8 +23,6 @@ jobs:
         run: pipenv run -- pip3 install -e .
       - name: Run CLI Tests
         run: make ci
-      - name: Format
-        run: make fmt
 
   fmt:
     runs-on: ubuntu-latest
