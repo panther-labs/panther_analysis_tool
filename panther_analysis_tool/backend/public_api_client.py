@@ -131,12 +131,6 @@ class PublicAPIClient(Client):
         default_stats = dict(total=0, new=0, modified=0)
         res = self._execute(query, variable_values=upload_params)
 
-        logging.error(f"fheijifw {res}")
-        # if backend_response_failed(res):
-        #     err = BackendError(parse_error_from_backend(res))
-        #     err.permanent = True
-        #     raise err
-
         if res.errors:
             raise BackendError(res.errors)
 

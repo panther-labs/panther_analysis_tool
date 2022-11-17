@@ -269,7 +269,7 @@ class LambdaClient(Client):
     def panthersdk_bulk_upload(
             self, params: PantherSDKBulkUploadParams
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
-        res = self._parse_response(
+        resp = self._parse_response(
             self._lambda_client.invoke(
                 FunctionName="panther-analysis-api",
                 InvocationType="RequestResponse",
@@ -287,11 +287,16 @@ class LambdaClient(Client):
             )
         )
 
-        body = decode_body(res)
+        if backend_response_failed(resp):
+            err = BackendError(resp.data)
+            err.permanent = True
+            raise err
+
+        body = decode_body(resp)
         default_stats = dict(total=0, new=0, modified=0)
 
         return BackendResponse(
-            status_code=res.status_code,
+            status_code=resp.status_code,
             data=PantherSDKBulkUploadResponse(
                 rules=BulkUploadStatistics(**body.get("rules", default_stats)),
                 policies=BulkUploadStatistics(**body.get("policies", default_stats)),
