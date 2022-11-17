@@ -2,7 +2,7 @@ import logging
 import os
 import runpy
 import sys
-from typing import List, Dict
+from typing import Dict, List
 
 import jsonlines
 
@@ -25,7 +25,7 @@ def run_sdk_module(panther_sdk_cache_path: str) -> None:
 
     if not os.path.exists(panther_sdk_cache_path):
         logging.error("panther_content did not generate %s", panther_sdk_cache_path)
-        raise FileNotFoundError(f'panther_content did not generate {panther_sdk_cache_path}')
+        raise FileNotFoundError(f"panther_content did not generate {panther_sdk_cache_path}")
 
 
 def get_sdk_cache_path() -> str:
@@ -39,7 +39,7 @@ def load_intermediate_sdk_cache(panther_sdk_cache_path: str) -> List[Dict]:
         A list of the intermediate json as dicts.
     """
     if not os.path.exists(panther_sdk_cache_path):
-        raise FileNotFoundError(f'No file exists with path {panther_sdk_cache_path}')
+        raise FileNotFoundError(f"No file exists with path {panther_sdk_cache_path}")
 
     with jsonlines.open(panther_sdk_cache_path) as reader:
         return [obj for obj in reader]  # pylint: disable=R1721

@@ -21,9 +21,9 @@ import base64
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, TypeVar, Generic
+from typing import Any, Generic, List, TypeVar
 
-ResponseData = TypeVar('ResponseData')
+ResponseData = TypeVar("ResponseData")
 
 
 class BackendError(Exception):
@@ -148,7 +148,6 @@ class PantherSDKBulkUploadResponse:
 
 
 class Client(ABC):
-
     @abstractmethod
     def check(self) -> BackendCheckResponse:
         pass
@@ -158,15 +157,21 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
+    def delete_saved_queries(
+        self, params: DeleteSavedQueriesParams
+    ) -> BackendResponse[DeleteSavedQueriesResponse]:
         pass
 
     @abstractmethod
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
+    def delete_detections(
+        self, params: DeleteDetectionsParams
+    ) -> BackendResponse[DeleteDetectionsResponse]:
         pass
 
     @abstractmethod
-    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+    def list_managed_schemas(
+        self, params: ListSchemasParams
+    ) -> BackendResponse[ListManagedSchemasResponse]:
         pass
 
     @abstractmethod
@@ -174,8 +179,9 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[
-        PantherSDKBulkUploadResponse]:
+    def panthersdk_bulk_upload(
+        self, params: PantherSDKBulkUploadParams
+    ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
 
 
