@@ -26,7 +26,7 @@ ResponseData = TypeVar("ResponseData")
 
 
 class BackendError(Exception):
-    pass
+    permanent: bool = False
 
 
 @dataclass(frozen=True)
@@ -182,3 +182,7 @@ class Client(ABC):
         self, params: PantherSDKBulkUploadParams
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
+
+
+def backend_response_failed(resp: BackendResponse) -> bool:
+    return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400

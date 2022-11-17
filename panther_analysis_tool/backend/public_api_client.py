@@ -287,6 +287,7 @@ class PublicAPIClient(Client):
             }
         }
         res = self._execute(self._requests.panthersdk_upload_mutation(), gql_params)
+
         if res.errors:
             for err in res.errors:
                 logging.error(err.message)

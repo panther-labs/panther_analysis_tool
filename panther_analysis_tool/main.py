@@ -409,6 +409,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
                 break
 
             except BackendError as be_err:
+                if be_err.permanent is True:
+                    logging.error("failed to upload to backend: %s", be_err)
+                    return_code = 1
+                    break
 
                 if max_retries - retry_count > 0:
                     logging.debug("Failed to upload to Panther: %s.", be_err)
@@ -429,9 +433,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
             except BaseException as err:  # pylint: disable=broad-except
-                logging.error(err)
+                logging.error("failed to upload to backend: %s", err)
                 return_code = 1
-                return_archive_fname = f"{err}"
+                return_archive_fname = ""
                 break
 
     if return_code != 0:
@@ -1469,7 +1473,7 @@ def setup_parser() -> argparse.ArgumentParser:
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
-    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.16.3")
+    parser.add_argument("--version", action="version", version="panther_analysis_tool 0.17.1")
     parser.add_argument("--debug", action="store_true", dest="debug")
     subparsers = parser.add_subparsers()
 
