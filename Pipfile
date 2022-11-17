@@ -5,7 +5,7 @@ verify_ssl = true
 
 [dev-packages]
 bandit = "==1.7.0"
-black = "==20.8b1"
+black = "==22.10.0"
 isort = "==5.8.0"
 mypy = "==0.812"
 panther-core = "==0.0.10"

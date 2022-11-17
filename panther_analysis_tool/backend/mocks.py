@@ -1,16 +1,18 @@
 from typing import Any
 
 from panther_analysis_tool.backend.client import (
-    Client as BackendClient,
+    BackendCheckResponse,
     BackendResponse,
     BulkUploadParams,
     BulkUploadResponse,
-    BackendCheckResponse,
+)
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
     ListSchemasParams,
-    UpdateManagedSchemaParams,
     PantherSDKBulkUploadParams,
+    UpdateManagedSchemaParams,
 )
 
 

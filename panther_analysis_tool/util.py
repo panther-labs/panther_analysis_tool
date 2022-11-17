@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import logging
 import os
-
 from importlib import util as import_util
 from pathlib import Path
 from typing import Any, Callable, Tuple
@@ -28,8 +27,11 @@ from typing import Any, Callable, Tuple
 import boto3
 
 from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.public_api_client import PublicAPIClient, PublicAPIClientOptions
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
+from panther_analysis_tool.backend.public_api_client import (
+    PublicAPIClient,
+    PublicAPIClientOptions,
+)
 
 
 def allowed_char(char: str) -> bool:
@@ -76,7 +78,9 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
     return client
 
 
-def func_with_backend(func: Callable[[BackendClient, argparse.Namespace], Any]) -> Callable[[argparse.Namespace], Tuple[int, str]]:
+def func_with_backend(
+    func: Callable[[BackendClient, argparse.Namespace], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
 
@@ -87,15 +91,19 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
     user_id = "00000000-0000-4000-8000-000000000000"
 
     if args.api_token:
-        return PublicAPIClient(PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host))
+        return PublicAPIClient(
+            PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host)
+        )
 
     datalake_lambda = get_datalake_lambda(args)
 
-    return LambdaClient(LambdaClientOpts(
-        user_id=user_id,
-        aws_profile=args.aws_profile,
-        datalake_lambda=datalake_lambda,
-    ))
+    return LambdaClient(
+        LambdaClientOpts(
+            user_id=user_id,
+            aws_profile=args.aws_profile,
+            datalake_lambda=datalake_lambda,
+        )
+    )
 
 
 def get_datalake_lambda(args: argparse.Namespace) -> str:
