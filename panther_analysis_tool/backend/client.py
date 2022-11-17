@@ -21,7 +21,7 @@ import base64
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Generic, List, TypeVar
+from typing import Any, Generic, List, TypeVar, Union
 
 ResponseData = TypeVar("ResponseData")
 
@@ -158,19 +158,19 @@ class Client(ABC):
 
     @abstractmethod
     def delete_saved_queries(
-        self, params: DeleteSavedQueriesParams
+            self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         pass
 
     @abstractmethod
     def delete_detections(
-        self, params: DeleteDetectionsParams
+            self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         pass
 
     @abstractmethod
     def list_managed_schemas(
-        self, params: ListSchemasParams
+            self, params: ListSchemasParams
     ) -> BackendResponse[ListManagedSchemasResponse]:
         pass
 
@@ -180,16 +180,27 @@ class Client(ABC):
 
     @abstractmethod
     def panthersdk_bulk_upload(
-        self, params: PantherSDKBulkUploadParams
+            self, params: PantherSDKBulkUploadParams
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
 
 
-def backend_response_failed(resp: BackendResponse) -> bool:
+def backend_response_failed(resp: Union[BackendResponse, dict]) -> bool:
     return resp.status_code >= 400 or resp.data["statusCode"] >= 400
 
 
-def parse_error_from_backend(resp: BackendResponse) -> str:
+def parse_error_from_backend(resp: Union[BackendResponse, dict]) -> str:
+    """ Parses an error out of an error message from the backend
+
+    Args:
+        resp: Union[BackendResponse, dict]
+
+    ex from bulk upload over lambda role:
+        BackendResponse(data={'statusCode': 400, 'headers': {}, 'multiValueHeaders': {}, 'body': '{"issues":[{"path":"temp.yml","errorMessage":"duplicate detection id: AWS.WAF.Disassociation"}]}'}, status_code=200)
+    ex from bulk upload over api key:
+        {'message': '{"issues":[{"path":"aws_waf_disassociation.yml","errorMessage":"duplicate detection id: AWS.WAF.Disassociation"}]}', 'path': ['uploadDetectionEntities'], 'extensions': {'reportable': False, 'statusCode': 400}}
+    """
+
     def issue_to_str(issue: dict) -> str:
         if "errorMessage" in issue:
             ret = f"found {issue['errorMessage']}"
@@ -200,6 +211,11 @@ def parse_error_from_backend(resp: BackendResponse) -> str:
 
     if "body" in resp.data:
         body = json.loads(resp.data["body"])
+        if "issues" in body:
+            return "; ".join(issue_to_str(i) for i in body["issues"])
+
+    if "message" in resp:
+        body = json.loads(resp["message"])
         if "issues" in body:
             return "; ".join(issue_to_str(i) for i in body["issues"])
 

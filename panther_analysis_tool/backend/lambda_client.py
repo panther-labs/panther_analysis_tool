@@ -46,7 +46,6 @@ from .client import (
     UpdateManagedSchemaParams,
     UpdateManagedSchemaResponse,
     backend_response_failed,
-    parse_error_from_backend,
 )
 
 LAMBDA_CLIENT_NAME = "lambda"
@@ -93,7 +92,7 @@ class LambdaClient(Client):
         return BackendCheckResponse(success=True, message="not implemented")
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
-        res = self._parse_response(
+        resp = self._parse_response(
             self._lambda_client.invoke(
                 FunctionName="panther-analysis-api",
                 InvocationType="RequestResponse",
@@ -109,17 +108,17 @@ class LambdaClient(Client):
             )
         )
 
-        if backend_response_failed(res):
-            err = BackendError(parse_error_from_backend(res))
+        if backend_response_failed(resp):
+            err = BackendError(resp.data)
             err.permanent = True
             raise err
 
-        body = decode_body(res)
+        body = decode_body(resp)
 
         default_stats = dict(total=0, new=0, modified=0)
 
         return BackendResponse(
-            status_code=res.status_code,
+            status_code=resp.status_code,
             data=BulkUploadResponse(
                 rules=BulkUploadStatistics(**body.get("rules", default_stats)),
                 policies=BulkUploadStatistics(**body.get("policies", default_stats)),
@@ -130,7 +129,7 @@ class LambdaClient(Client):
         )
 
     def delete_detections(
-        self, params: DeleteDetectionsParams
+            self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         entries = []
         for id_to_delete in params.ids:
@@ -165,7 +164,7 @@ class LambdaClient(Client):
         )
 
     def delete_saved_queries(
-        self, params: DeleteSavedQueriesParams
+            self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
@@ -196,7 +195,7 @@ class LambdaClient(Client):
         )
 
     def list_managed_schemas(
-        self, params: ListSchemasParams
+            self, params: ListSchemasParams
     ) -> BackendResponse[ListManagedSchemasResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
@@ -268,7 +267,7 @@ class LambdaClient(Client):
         )
 
     def panthersdk_bulk_upload(
-        self, params: PantherSDKBulkUploadParams
+            self, params: PantherSDKBulkUploadParams
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
