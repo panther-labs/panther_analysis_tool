@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 from panther_core.data_model import E_NO_DATA_MODEL_FOUND, DataModel
 from panther_core.exceptions import PantherError
+
 from .immutable import ImmutableCaseInsensitiveDict, json_encoder
 
 

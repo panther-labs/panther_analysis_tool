@@ -19,8 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import logging
-
 from typing import Tuple
+
 from panther_analysis_tool.backend.client import Client as BackendClient
 
 

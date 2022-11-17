@@ -2,15 +2,16 @@ import argparse
 import logging
 from typing import Final, Tuple
 
-from panther_analysis_tool.backend.client import Client as BackendClient, \
-    PantherSDKBulkUploadParams, BackendError
+from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import PantherSDKBulkUploadParams
 from panther_analysis_tool.cmd import panthersdk_utils
 
 
 def run(
-        backend: BackendClient,
-        args: argparse.Namespace,  # pylint: disable=unused-argument
-        indirect_invocation: bool = False
+    backend: BackendClient,
+    args: argparse.Namespace,  # pylint: disable=unused-argument
+    indirect_invocation: bool = False,
 ) -> Tuple[int, str]:
     """Packages and uploads all policies and rules from the Panther SDK-based module at
     ./panther_content, if it exists, into a Panther deployment.
@@ -25,7 +26,7 @@ def run(
 
         Returns:
             Return code
-        """
+    """
 
     panther_sdk_cache_path: Final = panthersdk_utils.get_sdk_cache_path()
 
@@ -43,9 +44,9 @@ def run(
 
     with open(panther_sdk_cache_path) as sdk_cache_file:
         try:
-            result = backend.panthersdk_bulk_upload(params=PantherSDKBulkUploadParams(
-                content=sdk_cache_file.read()
-            ))
+            result = backend.panthersdk_bulk_upload(
+                params=PantherSDKBulkUploadParams(content=sdk_cache_file.read())
+            )
         except BackendError as exc:
             logging.error(exc)
             return 1, ""
