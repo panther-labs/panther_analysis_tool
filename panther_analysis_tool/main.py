@@ -435,7 +435,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
             except BaseException as err:  # pylint: disable=broad-except
                 logging.error(f"failed to upload to backend: {err}")
                 return_code = 1
-                # return_archive_fname = f"{err}"
+                return_archive_fname = ""
                 break
 
     if return_code != 0:

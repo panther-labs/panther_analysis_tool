@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Generic, List, TypeVar, Union
+from typing import Any, Generic, List, TypeVar
 
 ResponseData = TypeVar("ResponseData")
 
@@ -184,5 +184,5 @@ class Client(ABC):
         pass
 
 
-def backend_response_failed(resp: Union[BackendResponse, dict]) -> bool:
-    return resp.status_code >= 400 or resp.data["statusCode"] >= 400  # type: ignore
+def backend_response_failed(resp: BackendResponse) -> bool:
+    return resp.status_code >= 400 or resp.data["statusCode"] >= 400
