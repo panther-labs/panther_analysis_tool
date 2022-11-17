@@ -157,19 +157,19 @@ class Client(ABC):
 
     @abstractmethod
     def delete_saved_queries(
-            self, params: DeleteSavedQueriesParams
+        self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         pass
 
     @abstractmethod
     def delete_detections(
-            self, params: DeleteDetectionsParams
+        self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         pass
 
     @abstractmethod
     def list_managed_schemas(
-            self, params: ListSchemasParams
+        self, params: ListSchemasParams
     ) -> BackendResponse[ListManagedSchemasResponse]:
         pass
 
@@ -179,7 +179,7 @@ class Client(ABC):
 
     @abstractmethod
     def panthersdk_bulk_upload(
-            self, params: PantherSDKBulkUploadParams
+        self, params: PantherSDKBulkUploadParams
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
 
