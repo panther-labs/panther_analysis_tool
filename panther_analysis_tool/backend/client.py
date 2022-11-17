@@ -185,4 +185,4 @@ class Client(ABC):
 
 
 def backend_response_failed(resp: BackendResponse) -> bool:
-    return resp.status_code >= 400 or resp.data["statusCode"] >= 400
+    return resp.status_code >= 400 or resp.data.get("statusCode") >= 400

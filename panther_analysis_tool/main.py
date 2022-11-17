@@ -410,7 +410,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
             except BackendError as be_err:
                 if be_err.permanent is True:
-                    logging.error(f"failed to upload to backend: {be_err}")
+                    logging.error("failed to upload to backend: %s", be_err)
                     return_code = 1
                     break
 
@@ -433,7 +433,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
             except BaseException as err:  # pylint: disable=broad-except
-                logging.error(f"failed to upload to backend: {err}")
+                logging.error("failed to upload to backend: %s", err)
                 return_code = 1
                 return_archive_fname = ""
                 break
