@@ -9,10 +9,6 @@
   <a href="https://docs.runpanther.io/quick-start">Quick Start</a>
 </p>
 
-<p align="center">
-  <a href="https://circleci.com/gh/panther-labs/panther_analysis_tool"><img src="https://circleci.com/gh/panther-labs/panther_analysis_tool.svg?style=svg" alt="CircleCI"/></a>
-</p>
-
 ---
 
 `panther_analysis_tool` is a Python CLI for testing, packaging, and deploying Panther Detections defined in code. See the [Panther documentation](https://docs.runpanther.io/quick-start) for more details on Panther.
@@ -25,6 +21,13 @@ Install simply with pip:
 $ pip3 install panther_analysis_tool
 ```
 
+If you would rather use the `panther_analysis_tool` outside of the virtual environment, install it  directly:
+
+```bash
+$ make deps
+$ pip3 install -e .
+```
+
 ## Build From Source
 
 If you'd prefer instead to run from source for development reasons, first setup your environment:
@@ -32,20 +35,6 @@ If you'd prefer instead to run from source for development reasons, first setup 
 ```bash
 $ make install
 $ pipenv run -- pip3 install -e .
-```
-## Updating Versions
-
-There exists a utility script to update the version number in relevant files if a new release is being created:
-
-```bash
-cd bin/
-./version_bump.py 0.10.9  #replace with the new version you are releasing
-```
-If you would rather use the `panther_analysis_tool` outside of the virtual environment, install it  directly:
-
-```bash
-$ make deps
-$ pip3 install -e .
 ```
 
 # Commands and Usage

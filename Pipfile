@@ -14,6 +14,7 @@ pyfakefs = "==4.4.0"
 nose = "==1.3.7"
 PyYAML = "==5.4.1"
 coverage = "==6.4.2"
+twine = "*"
 
 [packages]
 boto3 = "==1.21.42"
