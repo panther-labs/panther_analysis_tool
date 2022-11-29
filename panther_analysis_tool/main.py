@@ -43,7 +43,7 @@ from datetime import datetime
 from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from fnmatch import fnmatch
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, Iterator, List, Set, Tuple, Type, Final
+from typing import Any, DefaultDict, Dict, Final, Iterator, List, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -98,7 +98,6 @@ from panther_analysis_tool.schemas import (
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import func_with_backend, get_client
-
 
 VERSION_STRING: Final = "panther_analysis_tool 0.17.2"
 
