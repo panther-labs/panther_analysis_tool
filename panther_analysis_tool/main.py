@@ -100,7 +100,7 @@ from panther_analysis_tool.schemas import (
 from panther_analysis_tool.util import func_with_backend, get_client
 
 
-VERSION_STRING: Final = "panther_analysis_tool 0.17.1"
+VERSION_STRING: Final = "panther_analysis_tool 0.17.2"
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
