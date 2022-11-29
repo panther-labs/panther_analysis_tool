@@ -30,8 +30,8 @@ RESOURCE_TYPE_REGEX = Regex(
 )
 # pylint: disable=line-too-long
 LOG_TYPE_REGEX = Regex(
-    r"^(Apache\.AccessCombined|Amazon\.EKS|Apache\.AccessCommon|Asana\.Audit"
-    r"|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
+    r"^(Apache\.AccessCombined|Amazon\.EKS\.Audit|Amazon\.EKS\.Authenticator|Apache\.AccessCommon"
+    r"|Asana\.Audit|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
     r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
     r"|AWS\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
     r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
