@@ -247,6 +247,20 @@ Note that options in the configuration file override options passed on the comma
 
 We welcome all contributions! Please read the [contributing guidelines](https://github.com/panther-labs/panther-analysis/blob/master/CONTRIBUTING.md) before submitting pull requests. [Instructions for opening a pull request](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) from your fork of the repo can be found on Github.
 
+## Local Development
+
+To work on the panther_analysis_tool locally you will need two repos ready: this one and a repo with your panther analysis content to test PAT on.
+
+From your panther analysis content repo run
+```
+pipenv install --editable ../relative/path/to/panther_analysis_tool
+```
+
+Then you can test your changes to PAT by running 
+```
+pipenv run panther_analysis_tool <cmd>
+```
+
 ## License
 
 This repository is licensed under the AGPL-3.0 [license](https://github.com/panther-labs/panther-analysis/blob/master/LICENSE).
