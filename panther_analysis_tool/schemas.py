@@ -30,8 +30,8 @@ RESOURCE_TYPE_REGEX = Regex(
 )
 # pylint: disable=line-too-long
 LOG_TYPE_REGEX = Regex(
-    r"^(Apache\.AccessCombined|Apache\.AccessCommon|Asana\.Audit"
-    r"|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
+    r"^(Apache\.AccessCombined|Amazon\.EKS\.Audit|Amazon\.EKS\.Authenticator|Apache\.AccessCommon"
+    r"|Asana\.Audit|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
     r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
     r"|AWS\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
     r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
@@ -49,13 +49,15 @@ LOG_TYPE_REGEX = Regex(
     r"|Juniper\.Postgres|Juniper\.Security|Lacework\.AlertDetails|Lacework\.CloudCompliance|"
     r"Lacework\.Events|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit\.Exchange"
     r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
+    r"MicrosoftGraph\.SecurityAlert|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
     r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata"
     r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
-    r"\.AuditLog|Zoom\.Activity|Zoom\.Operation|"
-    r"Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
+    r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
+    r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility"
+    r"|Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
 )
 
 TYPE_SCHEMA = Schema(
