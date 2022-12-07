@@ -2,17 +2,18 @@ import argparse
 import logging
 from typing import Final, Tuple
 
-from panther_analysis_tool.backend.client import Client as BackendClient, \
-    ConfigSDKBulkUploadParams, BackendError
-from panther_analysis_tool.cmd import config_utils
+from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import PantherSDKBulkUploadParams
+from panther_analysis_tool.cmd import panthersdk_utils
 
 
 def run(
-        backend: BackendClient,
-        args: argparse.Namespace,  # pylint: disable=unused-argument
-        indirect_invocation: bool = False
+    backend: BackendClient,
+    args: argparse.Namespace,  # pylint: disable=unused-argument
+    indirect_invocation: bool = False,
 ) -> Tuple[int, str]:
-    """Packages and uploads all policies and rules from the Config SDK-based module at
+    """Packages and uploads all policies and rules from the Panther SDK-based module at
     ./panther_content, if it exists, into a Panther deployment.
 
         Returns 1 if the packaging or upload fails.
@@ -25,14 +26,14 @@ def run(
 
         Returns:
             Return code
-        """
+    """
 
-    panther_config_cache_path: Final = config_utils.get_config_cache_path()
+    panther_sdk_cache_path: Final = panthersdk_utils.get_sdk_cache_path()
 
     try:
-        config_utils.run_config_module(panther_config_cache_path)
+        panthersdk_utils.run_sdk_module(panther_sdk_cache_path)
     except FileNotFoundError:
-        err_message = "Did not find a Config SDK based module at ./panther_content"
+        err_message = "Did not find a Panther SDK based module at ./panther_content"
         if indirect_invocation:
             # If this is run automatically at the end of the standard upload command,
             # this isn't an error that should cause the invocation to return 1.
@@ -41,16 +42,16 @@ def run(
         logging.error(err_message)
         return 1, ""
 
-    with open(panther_config_cache_path) as config_cache_file:
+    with open(panther_sdk_cache_path) as sdk_cache_file:
         try:
-            result = backend.configsdk_bulk_upload(params=ConfigSDKBulkUploadParams(
-                content=config_cache_file.read()
-            ))
+            result = backend.panthersdk_bulk_upload(
+                params=PantherSDKBulkUploadParams(content=sdk_cache_file.read())
+            )
         except BackendError as exc:
             logging.error(exc)
             return 1, ""
 
-    logging.info("Config SDK module upload succeeded")
+    logging.info("Panther SDK module upload succeeded")
     logging.info(
         "(Rules: %d new; %d modified; %d total)",
         result.data.rules.new,

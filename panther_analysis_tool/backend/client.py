@@ -20,23 +20,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, TypeVar, Generic
+from typing import Any, Generic, List, TypeVar
 
-ResponseData = TypeVar('ResponseData')
+ResponseData = TypeVar("ResponseData")
 
 
 class BackendError(Exception):
-    pass
+    permanent: bool = False
+
 
 @dataclass(frozen=True)
 class BulkUploadPayload:
-    data:    bytes
+    data: bytes
     user_id: str
 
 
 @dataclass(frozen=True)
 class BackendResponse(Generic[ResponseData]):
-    data:        ResponseData
+    data: ResponseData
     status_code: int
 
 
@@ -134,19 +135,18 @@ class UpdateManagedSchemaResponse:
 
 
 @dataclass(frozen=True)
-class ConfigSDKBulkUploadParams:
+class PantherSDKBulkUploadParams:
     content: str
 
 
 @dataclass(frozen=True)
-class ConfigSDKBulkUploadResponse:
+class PantherSDKBulkUploadResponse:
     rules: BulkUploadStatistics
     policies: BulkUploadStatistics
     queries: BulkUploadStatistics
 
 
 class Client(ABC):
-
     @abstractmethod
     def check(self) -> BackendCheckResponse:
         pass
@@ -156,15 +156,21 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[DeleteSavedQueriesResponse]:
+    def delete_saved_queries(
+        self, params: DeleteSavedQueriesParams
+    ) -> BackendResponse[DeleteSavedQueriesResponse]:
         pass
 
     @abstractmethod
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[DeleteDetectionsResponse]:
+    def delete_detections(
+        self, params: DeleteDetectionsParams
+    ) -> BackendResponse[DeleteDetectionsResponse]:
         pass
 
     @abstractmethod
-    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[ListManagedSchemasResponse]:
+    def list_managed_schemas(
+        self, params: ListSchemasParams
+    ) -> BackendResponse[ListManagedSchemasResponse]:
         pass
 
     @abstractmethod
@@ -172,5 +178,11 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def configsdk_bulk_upload(self, params: ConfigSDKBulkUploadParams) -> BackendResponse[ConfigSDKBulkUploadResponse]:
+    def panthersdk_bulk_upload(
+        self, params: PantherSDKBulkUploadParams
+    ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
+
+
+def backend_response_failed(resp: BackendResponse) -> bool:
+    return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400

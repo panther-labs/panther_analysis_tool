@@ -1,4 +1,8 @@
+from pathlib import Path
 from setuptools import setup, find_packages
+
+this_directory = Path(__file__).parent
+PAT_VERSION = (this_directory / "VERSION").read_text().strip()
 
 install_requires = [
     'gql',
@@ -25,7 +29,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='panther_analysis_tool',
-    version='0.16.0',
+    version=PAT_VERSION,
     packages=find_packages(),
     license='AGPL-3.0',
     description=
@@ -33,7 +37,7 @@ setup(
     author='Panther Labs Inc',
     author_email='pypi@runpanther.io',
     url='https://github.com/panther-labs/panther_analysis_tool',
-    download_url='https://github.com/panther-labs/panther_analysis_tool/archive/v0.16.0.tar.gz',
+    download_url=f'https://github.com/panther-labs/panther_analysis_tool/archive/v{PAT_VERSION}.tar.gz',
     keywords=['Security', 'CLI'],
     scripts=['bin/panther_analysis_tool'],
     install_requires=install_requires,

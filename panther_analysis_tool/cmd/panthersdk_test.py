@@ -5,9 +5,9 @@ import json
 import logging
 from collections import defaultdict
 from functools import reduce
-from typing import Tuple, Final, Dict, List, Any
+from typing import Any, Dict, Final, List, Tuple
 
-from panther_analysis_tool.cmd import config_utils
+from panther_analysis_tool.cmd import panthersdk_utils
 
 
 class DetectionType(enum.Enum):
@@ -18,15 +18,15 @@ class DetectionType(enum.Enum):
 
 
 class Filter:
-    _PATH_TO_FILTER_SRC: Final = ['d', 'func', 'src']
-    _PATH_TO_FILTER_NAME: Final = ['d', 'func', 'name']
+    _PATH_TO_FILTER_SRC: Final = ["d", "func", "src"]
+    _PATH_TO_FILTER_NAME: Final = ["d", "func", "name"]
 
     def __init__(self, _filter: Dict):
-        self.src = _deep_get(_filter, self._PATH_TO_FILTER_SRC, 'No source found')
-        self.name = _deep_get(_filter, self._PATH_TO_FILTER_NAME, 'No name found')
+        self.src = _deep_get(_filter, self._PATH_TO_FILTER_SRC, "No source found")
+        self.name = _deep_get(_filter, self._PATH_TO_FILTER_NAME, "No name found")
 
     def get_code(self) -> str:
-        return base64.standard_b64decode(self.src).decode('utf8')
+        return base64.standard_b64decode(self.src).decode("utf8")
 
     def get_name(self) -> str:
         return self.name
@@ -34,17 +34,17 @@ class Filter:
 
 class UnitTest:
     def __init__(self, test: Dict):
-        self.origin: str = _deep_get(test, ['o', 'name'], 'No origin found')
-        self.data: Dict = json.loads(_deep_get(test, ['d', 'data'], '{}'))
-        self.name: str = _deep_get(test, ['d', 'name'], 'No name found')
-        self.expect_match: bool = bool(_deep_get(test, ['d', 'expect_match'], True))
+        self.origin: str = _deep_get(test, ["o", "name"], "No origin found")
+        self.data: Dict = json.loads(_deep_get(test, ["d", "data"], "{}"))
+        self.name: str = _deep_get(test, ["d", "name"], "No name found")
+        self.expect_match: bool = bool(_deep_get(test, ["d", "expect_match"], True))
         self.fail_reasons: List[str] = []  # only used if test failed
 
     def get_prg(self, filters: List[Filter], detection_type: DetectionType) -> str:
-        prg = '_filters = [] \n\n'
+        prg = "_filters = [] \n\n"
         for filt in filters:
-            prg += f'{filt.get_code()} \n\n'
-            prg += f'_filters.append({filt.get_name()}) \n\n'
+            prg += f"{filt.get_code()} \n\n"
+            prg += f"_filters.append({filt.get_name()}) \n\n"
 
         # flip the return vals if it is a policy
         match_val = False
@@ -52,14 +52,14 @@ class UnitTest:
             match_val = True
         no_match_val = not match_val
 
-        prg += 'def _execute(event):\n'
-        prg += '    global _filters\n'
-        prg += '    for f in _filters:\n'
-        prg += f'        if f(event) == {match_val}:\n'
-        prg += f'            return {match_val}\n'
-        prg += f'    return {no_match_val}\n\n'
-        prg += f'_event = {self.data}\n\n'
-        prg += '_result = _execute(_event)\n'
+        prg += "def _execute(event):\n"
+        prg += "    global _filters\n"
+        prg += "    for f in _filters:\n"
+        prg += f"        if f(event) == {match_val}:\n"
+        prg += f"            return {match_val}\n"
+        prg += f"    return {no_match_val}\n\n"
+        prg += f"_event = {self.data}\n\n"
+        prg += "_result = _execute(_event)\n"
 
         return prg
 
@@ -68,15 +68,15 @@ class UnitTest:
 
 
 class Detection:
-    _PATH_TO_UNIT_TESTS: Final = ['val', 'd', 'unit_tests']
-    _PATH_TO_FILTERS: Final = ['val', 'd', 'filters']
-    _PATH_TO_RULE_ID: Final = ['val', 'd', 'rule_id']
-    _PATH_TO_POLICY_ID: Final = ['val', 'd', 'policy_id']
-    _PATH_TO_ENABLED: Final = ['val', 'd', 'enabled']
-    _PATH_TO_ORIGIN: Final = ['val', 'o', 'name']
+    _PATH_TO_UNIT_TESTS: Final = ["val", "d", "unit_tests"]
+    _PATH_TO_FILTERS: Final = ["val", "d", "filters"]
+    _PATH_TO_RULE_ID: Final = ["val", "d", "rule_id"]
+    _PATH_TO_POLICY_ID: Final = ["val", "d", "policy_id"]
+    _PATH_TO_ENABLED: Final = ["val", "d", "enabled"]
+    _PATH_TO_ORIGIN: Final = ["val", "o", "name"]
 
     def __init__(self, detection: Dict):
-        self.detection_type = _detection_key_to_type(detection['key'])
+        self.detection_type = _detection_key_to_type(detection["key"])
 
         tests = _deep_get(detection, self._PATH_TO_UNIT_TESTS, [])
         self.unit_tests: List[UnitTest] = [UnitTest(t) for t in _to_list(tests)]
@@ -84,12 +84,15 @@ class Detection:
         filts = _deep_get(detection, self._PATH_TO_FILTERS, [])
         self.filters: List[Filter] = [Filter(f) for f in _to_list(filts)]
 
-        self.detection_id = _deep_get(detection, self._PATH_TO_RULE_ID,
-                                      _deep_get(detection, self._PATH_TO_POLICY_ID, 'No ID found'))
+        self.detection_id = _deep_get(
+            detection,
+            self._PATH_TO_RULE_ID,
+            _deep_get(detection, self._PATH_TO_POLICY_ID, "No ID found"),
+        )
 
         self.enabled = _deep_get(detection, self._PATH_TO_ENABLED, False)
 
-        self.origin = _deep_get(detection, self._PATH_TO_ORIGIN, 'No origin found')
+        self.origin = _deep_get(detection, self._PATH_TO_ORIGIN, "No origin found")
 
     def has_unit_tests(self) -> bool:
         return len(self.unit_tests) > 0
@@ -109,7 +112,9 @@ class Detection:
 
 class TestSummary:
     def __init__(self) -> None:
-        self.failed_tests: Dict[str, List[UnitTest]] = defaultdict(list)  # detection id to list of unit tests
+        self.failed_tests: Dict[str, List[UnitTest]] = defaultdict(
+            list
+        )  # detection id to list of unit tests
         self.fail_count = 0
         self.pass_count = 0
 
@@ -124,21 +129,21 @@ class TestSummary:
         self.pass_count += 1
 
     def summary(self) -> str:
-        summary = '--------------------------\nPanther CLI Test Summary\n'
-        summary += f'    Passed: {self.pass_count}\n'
-        summary += f'    Failed: {self.fail_count}\n'
-        summary += f'    Total:  {self.total_count()}\n\n'
+        summary = "--------------------------\nPanther CLI Test Summary\n"
+        summary += f"    Passed: {self.pass_count}\n"
+        summary += f"    Failed: {self.fail_count}\n"
+        summary += f"    Total:  {self.total_count()}\n\n"
 
         if len(self.failed_tests) > 0:
-            summary += '--------------------------\nFailed Tests Summary\n'
+            summary += "--------------------------\nFailed Tests Summary\n"
 
             for detection_id, failures in self.failed_tests.items():
-                summary += f'   {detection_id}\n'
+                summary += f"   {detection_id}\n"
                 for unit_test in failures:
-                    summary += f'       {unit_test.name} ({unit_test.origin})\n'
+                    summary += f"       {unit_test.name} ({unit_test.origin})\n"
                     for reason in unit_test.fail_reasons:
-                        summary += f'            {reason}\n'
-                    summary += '\n'  # new line between tests
+                        summary += f"            {reason}\n"
+                    summary += "\n"  # new line between tests
         return summary
 
     def tests_failed(self) -> bool:
@@ -149,7 +154,7 @@ _TEST_SUMMARY = TestSummary()
 
 
 def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[int, list]:
-    """Runs unit tests for config sdk detections.
+    """Runs unit tests for Panther SDK detections.
 
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
@@ -159,16 +164,18 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    panther_config_cache_path: Final = config_utils.get_config_cache_path()
+    panther_sdk_cache_path: Final = panthersdk_utils.get_sdk_cache_path()
 
     try:
-        config_utils.run_config_module(panther_config_cache_path)
-        detection_intermediates: List[Dict] = config_utils.load_intermediate_config_cache(panther_config_cache_path)
+        panthersdk_utils.run_sdk_module(panther_sdk_cache_path)
+        detection_intermediates: List[Dict] = panthersdk_utils.load_intermediate_sdk_cache(
+            panther_sdk_cache_path
+        )
         detections: List[Detection] = [Detection(d) for d in detection_intermediates]
         detections = _filter_detections(args, detections)
-        logging.info('Running Unit Tests for Panther Content\n')
+        logging.info("Running Unit Tests for Panther Content\n")
         tests_failed = _run_unit_tests(detections, args.minimum_tests)
-        return int(not tests_failed), []
+        return int(tests_failed), []
     except FileNotFoundError as err:
         if indirect_invocation:
             # If this is run automatically at the end of the standard test command,
@@ -219,22 +226,22 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
     for detection in detections:
         print(detection.detection_id)
         if len(detection.filters) == 0:
-            print('    Detection had no filters to test')
+            print("    Detection had no filters to test")
             continue
 
         for unit_test in detection.unit_tests:
             prg = unit_test.get_prg(detection.filters, detection.detection_type)
             locs: Dict[str, str] = {}
             exec(prg, {}, locs)  # nosec B102 pylint: disable=W0122
-            result = locs['_result']
+            result = locs["_result"]
 
             if result != unit_test.expect_match:
-                reason = f'Expected match to be {unit_test.expect_match} but got {result}'
+                reason = f"Expected match to be {unit_test.expect_match} but got {result}"
                 unit_test.add_fail_reason(reason)
-                print(f'    [FAIL] {unit_test.name}: {reason}')
+                print(f"    [FAIL] {unit_test.name}: {reason}")
                 _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
             else:
-                print(f'    [PASS] {unit_test.name}')
+                print(f"    [PASS] {unit_test.name}")
                 _TEST_SUMMARY.test_passed()
 
         has_pass_and_fail_tests = False
@@ -245,14 +252,16 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
         if n_tests < min_tests or (min_tests >= 2 and not has_pass_and_fail_tests):
             # create a fake unit test to represent the minimum tests failure
             unit_test = UnitTest({})
-            unit_test.name = 'minimum required tests'
+            unit_test.name = "minimum required tests"
             unit_test.origin = detection.origin  # origin will be the origin of the detection
             if n_tests < min_tests:
                 unit_test.add_fail_reason(
-                    f'Insufficient test coverage, {min_tests} tests required but only {n_tests} found')
+                    f"Insufficient test coverage, {min_tests} tests required but only {n_tests} found"
+                )
             if min_tests >= 2 and not has_pass_and_fail_tests:
                 unit_test.add_fail_reason(
-                    'Insufficient test coverage: expected at least one passing and one failing test')
+                    "Insufficient test coverage: expected at least one passing and one failing test"
+                )
             _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
 
         print()  # print blank line in between tests
@@ -271,10 +280,10 @@ def _to_list(listish: Any) -> List:
 
 
 def _detection_key_to_type(key: str) -> DetectionType:
-    if 'rule' in key:
+    if "rule" in key:
         return DetectionType.RULE
-    if 'policy' in key:
+    if "policy" in key:
         return DetectionType.POLICY
-    if 'scheduled-rule' in key:
+    if "scheduled-rule" in key:
         return DetectionType.SCHEDULED_RULE
     return DetectionType.UNKNOWN
