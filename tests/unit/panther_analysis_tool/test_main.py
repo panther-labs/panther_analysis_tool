@@ -361,6 +361,25 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
         assert_true(out_filename.endswith('.zip'))
 
+    def test_zip_analysis_chunks(self):
+        # Note: This is a workaround for CI
+        try:
+            self.fs.create_dir('tmp/')
+        except OSError:
+            pass
+        args = pat.setup_parser(). \
+            parse_args(f'upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/ --chunk'.split())
+
+        results = pat.zip_analysis_chunks(args)
+        for out_filename in results:
+            _ = out_filename
+            assert_true(out_filename.startswith("tmp/"))
+            statinfo = os.stat(out_filename)
+            assert_true(statinfo.st_size > 0)
+            assert_true(out_filename.endswith('.zip'))
+
+        assert_equal(3, len(results))
+
     def test_generate_release_assets(self):
         # Note: This is a workaround for CI
         try:
