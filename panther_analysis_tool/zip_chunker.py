@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from typing import Set, List, Dict, Any
 
-from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs
+from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs, to_relative_path
 from panther_analysis_tool.constants import HELPERS_LOCATION, DATA_MODEL_LOCATION
 
 
@@ -125,9 +125,9 @@ def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkF
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         for chunk in chunk_files:
             if chunk.matches_file(analysis_spec_filename, analysis_spec):
-                chunk.add_file(analysis_spec_filename)
+                chunk.add_file(to_relative_path(analysis_spec_filename))
                 # datamodels may not have python body
                 if "Filename" in analysis_spec:
-                    chunk.add_file(os.path.join(dir_name, analysis_spec["Filename"]))
+                    chunk.add_file(to_relative_path(os.path.join(dir_name, analysis_spec["Filename"])))
 
     return chunk_files

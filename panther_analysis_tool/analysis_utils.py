@@ -126,3 +126,8 @@ def load_analysis_specs(
                             yield spec_filename, relative_path, json.load(spec_file_obj), None
                         except ValueError as err:
                             yield spec_filename, relative_path, None, err
+
+
+def to_relative_path(filename: str) -> str:
+    cwd = os.getcwd()
+    return os.path.relpath(filename, cwd)
