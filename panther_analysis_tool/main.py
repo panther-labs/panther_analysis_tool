@@ -227,7 +227,7 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
                 output_path,
             )
             os.makedirs(output_path)
-        filename = output_path.rstrip("/") + "/" + filename
+        filename = f"{output_path.rstrip('/')}/{filename}"
 
     return filename
 
