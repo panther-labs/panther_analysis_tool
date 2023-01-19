@@ -209,7 +209,7 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
         logging.error("something went wrong")
         return []
     for idx, chunk in enumerate(chunks):
-        filename = f"panther-analysis-{current_time}-chunk-{idx}.zip".format()
+        filename = f"panther-analysis-{current_time}-batch-{idx+1}.zip".format()
         filename = add_path_to_filename(args.out, filename)
         filenames.append(filename)
         with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as zip_out:
@@ -280,16 +280,17 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         A tuple of return code and the archive filename.
     """
 
-    if args.chunk:
+    if args.batch:
         if not args.skip_tests:
             return_code, _ = test_analysis(args)
             if return_code != 0:
                 return return_code, ""
 
         for idx, archive in enumerate(zip_analysis_chunks(args)):
-            logging.info("Uploading chunk %d...", idx)
+            batch_idx = idx + 1
+            logging.info("Uploading Batch %d...", batch_idx)
             upload_zip(backend, args, archive)
-            logging.info("Uploaded chunk %d", idx)
+            logging.info("Uploaded Batch %d", batch_idx)
 
         return 0, ""
 
@@ -1277,8 +1278,8 @@ def _print_test_result(
 def setup_parser() -> argparse.ArgumentParser:
     # pylint: disable=too-many-statements,too-many-locals
     # setup dictionary of named args for some common arguments across commands
-    chunk_uploads_name = "--chunk"
-    chunk_uploads_arg: Dict[str, Any] = {
+    batch_uploads_name = "--batch"
+    batch_uploads_arg: Dict[str, Any] = {
         "action": "store_true",
         "default": False,
         "required": False,
@@ -1481,7 +1482,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
-    upload_parser.add_argument(chunk_uploads_name, **chunk_uploads_arg)
+    upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
     upload_parser.set_defaults(func=func_with_backend(upload_analysis))
 
     # -- delete command

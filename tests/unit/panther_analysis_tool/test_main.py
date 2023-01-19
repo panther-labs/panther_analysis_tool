@@ -368,7 +368,7 @@ class TestPantherAnalysisTool(TestCase):
         except OSError:
             pass
         args = pat.setup_parser(). \
-            parse_args(f'upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/ --chunk'.split())
+            parse_args(f'upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/ --batch'.split())
 
         results = pat.zip_analysis_chunks(args)
         for out_filename in results:
