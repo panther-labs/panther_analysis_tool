@@ -10,12 +10,23 @@ from panther_analysis_tool.constants import HELPERS_LOCATION, DATA_MODEL_LOCATIO
 
 @dataclass
 class ZipChunk:
-    """Patterns are Unix shell style:
+    """
+    ZipChunk allows you to select which files should go into a given chunk
+      - you can set patterns and types; this will match both cases
+      - you can set patterns or types; this will match whichever value is set
+
+
+    Patterns are Unix shell style:
 
         *       matches everything
         ?       matches any single character
         [seq]   matches any character in seq
         [!seq]  matches any char not in seq
+
+        Note: if a pattern such as */folder is used ./folder/hey.txt will not match
+        You will need a pattern that does */folder/* to match
+
+    Types are the types we expect in AnalysisType of a given yaml
     """
     patterns: List[str]
     types: Set[str] = ()  # type: ignore

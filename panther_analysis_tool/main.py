@@ -82,11 +82,10 @@ from panther_analysis_tool.cmd import (
     panthersdk_upload,
     standard_args,
 )
-from panther_analysis_tool.destination import FakeDestination
-from panther_analysis_tool.constants import LOOKUP_TABLE, LUTS_PATH_PATTERN, QUERY, SCHEDULED_RULE, DATAMODEL, RULE, \
-    POLICY, PACK, DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN, RULES_PATH_PATTERN, POLICIES_PATH_PATTERN, \
-    PACKS_PATH_PATTERN, QUERIES_PATH_PATTERN, DETECTION, GLOBAL, SCHEMAS, HELPERS_LOCATION, DATA_MODEL_LOCATION, \
+from panther_analysis_tool.constants import LOOKUP_TABLE, QUERY, SCHEDULED_RULE, DATAMODEL, RULE, \
+    POLICY, PACK, DETECTION, GLOBAL, SCHEMAS, HELPERS_LOCATION, DATA_MODEL_LOCATION, \
     TMP_HELPER_MODULE_LOCATION, SET_FIELDS, VERSION_STRING, CONFIG_FILE
+from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import TYPE_SCHEMA, GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA, LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import func_with_backend, get_client
@@ -175,20 +174,19 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
 
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
     zip_chunks = [
+        # note: all the files we care about have an AnalysisType field in their yml
+        # so we can ignore file patterns and leave them empty
         ZipChunk(
-            patterns=[
-                DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN, RULES_PATH_PATTERN,
-                POLICIES_PATH_PATTERN, PACKS_PATH_PATTERN
-            ],
+            patterns=[],
             types=(DATAMODEL, RULE, POLICY, PACK, GLOBAL)  # type: ignore
         ),
         ZipChunk(
-            patterns=[QUERIES_PATH_PATTERN, RULES_PATH_PATTERN],
+            patterns=[],
             types=(QUERY, SCHEDULED_RULE)  # type: ignore
         ),
         ZipChunk(
-            patterns=[LUTS_PATH_PATTERN],
-            types=(LOOKUP_TABLE)  # type: ignore
+            patterns=[],
+            types=LOOKUP_TABLE  # type: ignore
         )
     ]
 
