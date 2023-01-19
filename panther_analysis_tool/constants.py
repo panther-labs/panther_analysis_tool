@@ -1,10 +1,8 @@
 import os
 import tempfile
-from typing import Final, Dict
+from typing import Dict, Final
 
-from schema import (
-    Schema,
-)
+from schema import Schema
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,

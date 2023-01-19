@@ -2,10 +2,14 @@ import argparse
 import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
-from typing import Set, List, Dict, Any
+from typing import Any, Dict, List, Set
 
-from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs, to_relative_path
-from panther_analysis_tool.constants import HELPERS_LOCATION, DATA_MODEL_LOCATION
+from panther_analysis_tool.analysis_utils import (
+    filter_analysis,
+    load_analysis_specs,
+    to_relative_path,
+)
+from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
 
 
 @dataclass
@@ -28,6 +32,7 @@ class ZipChunk:
 
     Types are the types we expect in AnalysisType of a given yaml
     """
+
     patterns: List[str]
     types: Set[str] = ()  # type: ignore
 
@@ -62,7 +67,7 @@ class ZipArgs:
             path=args.path,
             ignore_files=args.ignore_files,
             filters=filters,  # type: ignore
-            filters_inverted=filters_inverted
+            filters_inverted=filters_inverted,
         )
 
 
@@ -113,9 +118,7 @@ def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkF
     files: Set[str] = set()
 
     for (file_name, f_path, spec, _) in list(
-            load_analysis_specs(
-                [args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files
-            )
+        load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files)
     ):
         if file_name not in files:
             analysis.append((file_name, f_path, spec))
@@ -128,6 +131,8 @@ def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkF
                 chunk.add_file(to_relative_path(analysis_spec_filename))
                 # datamodels may not have python body
                 if "Filename" in analysis_spec:
-                    chunk.add_file(to_relative_path(os.path.join(dir_name, analysis_spec["Filename"])))
+                    chunk.add_file(
+                        to_relative_path(os.path.join(dir_name, analysis_spec["Filename"]))
+                    )
 
     return chunk_files

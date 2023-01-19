@@ -2,14 +2,21 @@ import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import List, Iterator, Tuple, Any, Dict
+from typing import Any, Dict, Iterator, List, Tuple
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.constants import DATA_MODEL_PATH_PATTERN, HELPERS_PATH_PATTERN, LUTS_PATH_PATTERN, \
-    PACKS_PATH_PATTERN, POLICIES_PATH_PATTERN, RULES_PATH_PATTERN, QUERIES_PATH_PATTERN
+from panther_analysis_tool.constants import (
+    DATA_MODEL_PATH_PATTERN,
+    HELPERS_PATH_PATTERN,
+    LUTS_PATH_PATTERN,
+    PACKS_PATH_PATTERN,
+    POLICIES_PATH_PATTERN,
+    QUERIES_PATH_PATTERN,
+    RULES_PATH_PATTERN,
+)
 
 
 def filter_analysis(
@@ -46,6 +53,7 @@ def filter_analysis(
             filtered_analysis.append((file_name, dir_name, analysis_spec))
 
     return filtered_analysis
+
 
 def load_analysis_specs(
     directories: List[str], ignore_files: List[str]
