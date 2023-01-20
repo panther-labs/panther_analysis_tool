@@ -7,7 +7,8 @@ fields:
     description: Event timestamp
     required: true
     type: timestamp
-    timeFormat: rfc3339
+    timeFormats: 
+     - rfc3339
     isEventTime: true
   - name: method
     description: The HTTP method used for the request
