@@ -50,6 +50,7 @@ from .client import (
     UpdateManagedSchemaParams,
     UpdateManagedSchemaResponse,
 )
+from .errors import is_upload_in_progress_error
 
 
 @dataclass(frozen=True)
@@ -137,7 +138,7 @@ class PublicAPIClient(Client):
             err.permanent = True
             if e.errors and len(e.errors) > 0:
                 err = BackendError(e.errors)
-                if "another upload" in e.errors[0].get("message", ""):
+                if is_upload_in_progress_error(e.errors[0]):
                     err.permanent = False
             raise err from e
 

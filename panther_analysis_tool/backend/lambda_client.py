@@ -47,6 +47,7 @@ from .client import (
     UpdateManagedSchemaResponse,
     backend_response_failed,
 )
+from .errors import is_upload_in_progress_error
 
 LAMBDA_CLIENT_NAME = "lambda"
 AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
@@ -112,7 +113,7 @@ class LambdaClient(Client):
             err = BackendError(resp.data)
 
             err.permanent = True
-            if "another upload" in resp.data.get("body", ""):
+            if is_upload_in_progress_error(resp.data):
                 err.permanent = False
 
             raise err
