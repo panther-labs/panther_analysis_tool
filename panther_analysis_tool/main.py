@@ -289,7 +289,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         for idx, archive in enumerate(zip_analysis_chunks(args)):
             batch_idx = idx + 1
             logging.info("Uploading Batch %d...", batch_idx)
-            upload_zip(backend, args, archive)
+            return_code, _ = upload_zip(backend, args, archive)
+            if return_code != 0:
+                return return_code, ""
             logging.info("Uploaded Batch %d", batch_idx)
 
         return 0, ""
