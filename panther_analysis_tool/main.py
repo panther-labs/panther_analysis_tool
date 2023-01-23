@@ -198,16 +198,16 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     zip_chunks = [
         # note: all the files we care about have an AnalysisType field in their yml
         # so we can ignore file patterns and leave them empty
-        ZipChunk(patterns=[], types=(DATAMODEL, RULE, POLICY, PACK, GLOBAL)),  # type: ignore
-        ZipChunk(patterns=[], types=(QUERY, SCHEDULED_RULE)),  # type: ignore
-        ZipChunk(patterns=[], types=LOOKUP_TABLE),  # type: ignore
+        ZipChunk(patterns=[], types=(DATAMODEL, GLOBAL)),  # type: ignore
+        ZipChunk(patterns=[], types=RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=POLICY, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=QUERY, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=SCHEDULED_RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=LOOKUP_TABLE, max_size=100),  # type: ignore
     ]
 
     filenames = []
     chunks = analysis_chunks(ZipArgs.from_args(args), zip_chunks)
-    if len(chunks) != len(zip_chunks):
-        logging.error("something went wrong")
-        return []
     for idx, chunk in enumerate(chunks):
         filename = f"panther-analysis-{current_time}-batch-{idx+1}.zip".format()
         filename = add_path_to_filename(args.out, filename)
@@ -258,7 +258,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
     typed_args = ZipArgs.from_args(args)
     chunks = analysis_chunks(typed_args)
     if len(chunks) != 1:
-        logging.error("something went wrong")
+        logging.error("something went wrong zipping batches.")
         return 1, ""
     with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as zip_out:
         for name in chunks[0].files:
@@ -289,7 +289,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         for idx, archive in enumerate(zip_analysis_chunks(args)):
             batch_idx = idx + 1
             logging.info("Uploading Batch %d...", batch_idx)
-            upload_zip(backend, args, archive)
+            return_code, _ = upload_zip(backend, args, archive)
+            if return_code != 0:
+                return return_code, ""
             logging.info("Uploaded Batch %d", batch_idx)
 
         return 0, ""

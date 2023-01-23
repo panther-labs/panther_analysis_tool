@@ -2,7 +2,7 @@ import argparse
 import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, Generator, List, Optional, Set
 
 from panther_analysis_tool.analysis_utils import (
     filter_analysis,
@@ -35,6 +35,7 @@ class ZipChunk:
 
     patterns: List[str]
     types: Set[str] = ()  # type: ignore
+    max_size: Optional[int] = None
 
     @classmethod
     def from_patterns(cls, patterns: List[str]) -> Any:
@@ -71,20 +72,39 @@ class ZipArgs:
         )
 
 
+def chunk_list(lst: List[Any], limit: int) -> Generator[List[Any], None, None]:
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), limit):
+        yield lst[i : i + limit]
+
+
 class ChunkFiles:
     chunk: ZipChunk
     files: List[str]
+    primary_files: List[str]
+    related_files: Dict[str, str]
     added_files: Dict[str, bool]
 
     def __init__(self, chunk: ZipChunk):
         self.chunk = chunk
         self.files = []
+        self.primary_files = []
+        self.related_files = {}
         self.added_files = {}
 
-    def add_file(self, filename: str) -> None:
+    def add_file(self, filename: str, parent: Optional[str] = None) -> None:
         if self.added_files.get(filename) is None:
             self.added_files[filename] = True
             self.files.append(filename)
+            if parent is None:
+                self.primary_files.append(filename)
+            else:
+                self.related_files[parent] = filename
+
+    def can_chunk_further(self) -> bool:
+        if self.chunk.max_size is None:
+            return False
+        return len(self.added_files) > self.chunk.max_size
 
     def matches_file(self, filename: str, spec: Dict[str, Any] = None) -> bool:
         if len(self.chunk.types) > 0 and spec is not None and "AnalysisType" in spec:
@@ -99,6 +119,23 @@ class ChunkFiles:
                 return True
 
         return False
+
+
+def create_additional_chunks_if_needed(chunk_files: List[ChunkFiles]) -> List[ChunkFiles]:
+    results: List[ChunkFiles] = []
+    for chunked in chunk_files:
+        if not chunked.can_chunk_further():
+            results.append(chunked)
+            continue
+        for files in chunk_list(chunked.primary_files, chunked.chunk.max_size):  # type: ignore
+            chunk = ChunkFiles(chunk=chunked.chunk)
+            for file in files:
+                chunk.add_file(file)
+                related_file = chunked.related_files.get(file)
+                if related_file is not None:
+                    chunk.add_file(related_file)
+            results.append(chunk)
+    return results
 
 
 def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkFiles]:
@@ -126,13 +163,14 @@ def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkF
             files.add("./" + file_name)
     analysis = filter_analysis(analysis, args.filters, args.filters_inverted)
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
+        main_file = to_relative_path(analysis_spec_filename)
         for chunk in chunk_files:
             if chunk.matches_file(analysis_spec_filename, analysis_spec):
-                chunk.add_file(to_relative_path(analysis_spec_filename))
+                chunk.add_file(main_file)
                 # datamodels may not have python body
                 if "Filename" in analysis_spec:
                     chunk.add_file(
-                        to_relative_path(os.path.join(dir_name, analysis_spec["Filename"]))
+                        to_relative_path(os.path.join(dir_name, analysis_spec["Filename"])),
+                        parent=main_file,
                     )
-
-    return chunk_files
+    return create_additional_chunks_if_needed(chunk_files)
