@@ -372,13 +372,12 @@ class TestPantherAnalysisTool(TestCase):
 
         results = pat.zip_analysis_chunks(args)
         for out_filename in results:
-            _ = out_filename
             assert_true(out_filename.startswith("tmp/"))
             statinfo = os.stat(out_filename)
             assert_true(statinfo.st_size > 0)
             assert_true(out_filename.endswith('.zip'))
 
-        assert_equal(3, len(results))
+        assert_equal(6, len(results))
 
     def test_generate_release_assets(self):
         # Note: This is a workaround for CI
