@@ -110,7 +110,11 @@ class LambdaClient(Client):
 
         if backend_response_failed(resp):
             err = BackendError(resp.data)
+
             err.permanent = True
+            if "another upload" in resp.data.get("body", ""):
+                err.permanent = False
+
             raise err
 
         body = decode_body(resp)

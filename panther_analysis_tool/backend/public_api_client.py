@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 from gql import Client as GraphQLClient
 from gql import gql
 from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
 from .client import (
@@ -129,7 +130,16 @@ class PublicAPIClient(Client):
         query = self._requests.bulk_upload_mutation()
         upload_params = {"input": {"data": params.encoded_bytes()}}
         default_stats = dict(total=0, new=0, modified=0)
-        res = self._execute(query, variable_values=upload_params)
+        try:
+            res = self._execute(query, variable_values=upload_params)
+        except TransportQueryError as e:  # pylint: disable=C0103
+            err = BackendError(e)
+            err.permanent = True
+            if e.errors and len(e.errors) > 0:
+                err = BackendError(e.errors)
+                if "another upload" in e.errors[0].get("message", ""):
+                    err.permanent = False
+            raise err from e
 
         if res.errors:
             raise BackendError(res.errors)
