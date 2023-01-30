@@ -3,11 +3,16 @@ import os
 import runpy
 import sys
 from collections import defaultdict
-from typing import List, Dict, Union
+from typing import Dict, List, Union
 
 from jsonlines import jsonlines
 
-from panther_analysis_tool.panthersdk.models import Detection, DataModel, SdkContentType, panther_sdk_key_to_type
+from panther_analysis_tool.panthersdk.models import (
+    DataModel,
+    Detection,
+    SdkContentType,
+    panther_sdk_key_to_type,
+)
 
 
 def run_sdk_module(panther_sdk_cache_path: str) -> None:
@@ -48,7 +53,9 @@ def load_intermediate_sdk_cache(panther_sdk_cache_path: str) -> List[Dict]:
         return [obj for obj in reader]  # pylint: disable=R1721
 
 
-def unmarshal_sdk_intermediates(intermediates: List[Dict]) -> Dict[str, List[Union[Detection, DataModel]]]:
+def unmarshal_sdk_intermediates(
+    intermediates: List[Dict],
+) -> Dict[str, List[Union[Detection, DataModel]]]:
     sdk_content = defaultdict(list)
 
     for intermediate in intermediates:

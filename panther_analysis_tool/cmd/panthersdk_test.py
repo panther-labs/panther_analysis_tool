@@ -67,7 +67,9 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
         detection_intermediates: List[Dict] = panthersdk.load_intermediate_sdk_cache(
             panther_sdk_cache_path
         )
-        detections: List[panthersdk.Detection] = [panthersdk.Detection(d) for d in detection_intermediates]
+        detections: List[panthersdk.Detection] = [
+            panthersdk.Detection(d) for d in detection_intermediates
+        ]
         detections = _filter_detections(args, detections)
         logging.info("Running Unit Tests for Panther Content\n")
         tests_failed = _run_unit_tests(detections, args.minimum_tests)
@@ -82,7 +84,9 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
         return 1, []
 
 
-def _filter_detections(args: argparse.Namespace, detections: List[panthersdk.Detection]) -> List[panthersdk.Detection]:
+def _filter_detections(
+    args: argparse.Namespace, detections: List[panthersdk.Detection]
+) -> List[panthersdk.Detection]:
     """Filters out the detections to be tested by using the command line args.
 
     Args:

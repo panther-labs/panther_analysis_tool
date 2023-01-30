@@ -1,7 +1,7 @@
 import base64
 import enum
 import json
-from typing import Dict, List, Final, Any
+from typing import Any, Dict, Final, List
 
 import panther_core.data_model
 
@@ -75,12 +75,14 @@ class DataModel:
         return "\n\n\n".join([m.func.get_code() for m in self.mappings if not m.using_path()])
 
     def to_panther_core_data_model(self) -> panther_core.data_model.DataModel:
-        return panther_core.data_model.DataModel({
-            "id": self.id,
-            "versionId": "",
-            "mappings": [m.to_panther_core_mapping() for m in self.mappings],
-            "body": self.module_body(),
-        })
+        return panther_core.data_model.DataModel(
+            {
+                "id": self.id,
+                "versionId": "",
+                "mappings": [m.to_panther_core_mapping() for m in self.mappings],
+                "body": self.module_body(),
+            }
+        )
 
 
 class Filter:
