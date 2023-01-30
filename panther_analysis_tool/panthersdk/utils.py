@@ -2,9 +2,12 @@ import logging
 import os
 import runpy
 import sys
-from typing import Dict, List
+from collections import defaultdict
+from typing import List, Dict, Union
 
-import jsonlines
+from jsonlines import jsonlines
+
+from panther_analysis_tool.panthersdk.models import Detection, DataModel, SdkContentType, panther_sdk_key_to_type
 
 
 def run_sdk_module(panther_sdk_cache_path: str) -> None:
@@ -43,3 +46,20 @@ def load_intermediate_sdk_cache(panther_sdk_cache_path: str) -> List[Dict]:
 
     with jsonlines.open(panther_sdk_cache_path) as reader:
         return [obj for obj in reader]  # pylint: disable=R1721
+
+
+def unmarshal_sdk_intermediates(intermediates: List[Dict]) -> Dict[str, List[Union[Detection, DataModel]]]:
+    sdk_content = defaultdict(list)
+
+    for intermediate in intermediates:
+        sdk_type = panther_sdk_key_to_type(intermediate.get("key"))
+        if sdk_type is SdkContentType.RULE:
+            sdk_content["detections"].append(Detection(intermediate))
+        if sdk_type is SdkContentType.SCHEDULED_RULE:
+            sdk_content["detections"].append(Detection(intermediate))
+        if sdk_type is SdkContentType.POLICY:
+            sdk_content["detections"].append(Detection(intermediate))
+        if sdk_type is SdkContentType.DATA_MODEL:
+            sdk_content["data_models"].append(DataModel(intermediate))
+
+    return sdk_content

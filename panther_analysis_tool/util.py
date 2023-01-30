@@ -20,9 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import logging
 import os
+from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Tuple, Dict, List
 
 import boto3
 
@@ -79,7 +80,7 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
 
 
 def func_with_backend(
-    func: Callable[[BackendClient, argparse.Namespace], Any]
+        func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
@@ -115,3 +116,26 @@ def get_datalake_lambda(args: argparse.Namespace) -> str:
 
 def set_env(key: str, value: str) -> None:
     os.environ[key] = value
+
+
+def convert_keys_to_lowercase(mapping: Dict[str, Any]) -> Dict[str, Any]:
+    """A helper function for converting top-level dictionary keys to lowercase.
+    Converting keys to lowercase maintains compatibility with how the backend
+    behaves.
+
+    Args:
+        mapping: The dictionary.
+
+    Returns:
+        A new dictionary with each key converted with str.lower()
+    """
+    return {k.lower(): v for k, v in mapping.items()}
+
+
+def deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
+    result = reduce(lambda val, key: val.get(key) if val else None, path, obj)  # type: ignore
+    return result if result is not None else default
+
+
+def to_list(listish: Any) -> List:
+    return listish if hasattr(listish, "__iter__") else [listish]
