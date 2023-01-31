@@ -1,9 +1,12 @@
 import base64
+import dataclasses
 import enum
 import json
-from typing import Dict, List, Final, Any
+from typing import Dict, List, Final, Any, Union
 
 import panther_core.data_model
+import panther_core.policy
+import panther_core.rule
 
 from panther_analysis_tool import util as pat_utils
 
@@ -52,8 +55,11 @@ class DataModelMapping:
             return self.name.lower()
         return self.name
 
+    def get_func_name(self):
+        return self.func.get_name() if not self.using_path() else None
+
     def to_panther_core_mapping(self) -> Dict[str, Any]:
-        return {"name": self.get_name(lowercase=True), "path": self.path, "method": self.func}
+        return {"name": self.get_name(lowercase=True), "path": self.path, "method": self.get_func_name()}
 
 
 class DataModel:
@@ -104,29 +110,6 @@ class UnitTest:
         self.expect_match: bool = bool(pat_utils.deep_get(test, ["d", "expect_match"], True))
         self.fail_reasons: List[str] = []  # only used if test failed
 
-    def get_prg(self, filters: List[Filter], detection_type: SdkContentType) -> str:
-        prg = "_filters = [] \n\n"
-        for filt in filters:
-            prg += f"{filt.get_code()} \n\n"
-            prg += f"_filters.append({filt.get_name()}) \n\n"
-
-        # flip the return vals if it is a policy
-        match_val = False
-        if detection_type is SdkContentType.POLICY:
-            match_val = True
-        no_match_val = not match_val
-
-        prg += "def _execute(event):\n"
-        prg += "    global _filters\n"
-        prg += "    for f in _filters:\n"
-        prg += f"        if f(event) == {match_val}:\n"
-        prg += f"            return {match_val}\n"
-        prg += f"    return {no_match_val}\n\n"
-        prg += f"_event = {self.data}\n\n"
-        prg += "_result = _execute(_event)\n"
-
-        return prg
-
     def add_fail_reason(self, reason: str) -> None:
         self.fail_reasons.append(reason)
 
@@ -172,6 +155,46 @@ class Detection:
 
     def disabled(self) -> bool:
         return not self.enabled
+
+    def module_body(self) -> str:
+        prg = "_filters = [] \n\n"
+        for filt in self.filters:
+            prg += f"{filt.get_code()} \n\n"
+            prg += f"_filters.append({filt.get_name()}) \n\n"
+
+        match_val = False  # flip the return vals if it is a policy
+        matcher_func_name = "rule"
+        if self.detection_type is SdkContentType.POLICY:
+            match_val = True
+            matcher_func_name = "policy"
+
+        prg += f"def {matcher_func_name}(event):\n"
+        prg += "    global _filters\n"
+        prg += "    for f in _filters:\n"
+        prg += f"        if f(event) == {match_val}:\n"
+        prg += f"            return {match_val}\n"
+        prg += f"    return {not match_val}\n"
+
+        return prg
+
+    def to_panther_core_config(self) -> Dict[str, Any]:
+        return {
+            "id": self.detection_id,
+            "versionId": "",
+            "body": self.module_body(),
+            "analysisType": self.detection_type.name,
+        }
+
+    def to_panther_core_detection(self) -> Union[panther_core.rule.Rule, panther_core.policy.Policy]:
+        if self.detection_type is SdkContentType.POLICY:
+            return panther_core.policy.Policy(self.to_panther_core_config())
+        return panther_core.rule.Rule(self.to_panther_core_config())
+
+
+@dataclasses.dataclass
+class SdkContent:
+    detections: List[Detection] = dataclasses.field(default_factory=list)
+    data_models: List[DataModel] = dataclasses.field(default_factory=list)
 
 
 def panther_sdk_key_to_type(key: str) -> SdkContentType:

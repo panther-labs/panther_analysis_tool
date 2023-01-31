@@ -3,6 +3,8 @@ import logging
 from collections import defaultdict
 from typing import Dict, Final, List, Tuple
 
+import panther_core.rule
+
 from panther_analysis_tool import panthersdk
 
 
@@ -64,13 +66,13 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
 
     try:
         panthersdk.run_sdk_module(panther_sdk_cache_path)
-        detection_intermediates: List[Dict] = panthersdk.load_intermediate_sdk_cache(
+        intermediates = panthersdk.load_intermediate_sdk_cache(
             panther_sdk_cache_path
         )
-        detections: List[panthersdk.Detection] = [panthersdk.Detection(d) for d in detection_intermediates]
-        detections = _filter_detections(args, detections)
+        sdk_content = panthersdk.unmarshal_sdk_intermediates(intermediates)
+        detections = _filter_detections(args, sdk_content.detections)
         logging.info("Running Unit Tests for Panther Content\n")
-        tests_failed = _run_unit_tests(detections, args.minimum_tests)
+        tests_failed = _run_unit_tests(detections, sdk_content.data_models, args.minimum_tests)
         return int(tests_failed), []
     except FileNotFoundError as err:
         if indirect_invocation:
@@ -109,7 +111,8 @@ def _filter_detections(args: argparse.Namespace, detections: List[panthersdk.Det
     return filtered
 
 
-def _run_unit_tests(detections: List[panthersdk.Detection], min_tests: int = 0) -> bool:
+def _run_unit_tests(detections: List[panthersdk.Detection], data_models: List[panthersdk.DataModel],
+                    min_tests: int = 0) -> bool:
     """Runs the unit tests for the given detections, printing out test results and a summary.
 
     Args:
@@ -119,6 +122,11 @@ def _run_unit_tests(detections: List[panthersdk.Detection], min_tests: int = 0) 
     Returns:
         True if at least one unit test failed, False if all tests pass.
     """
+    event_log_type_field_key = "p_log_type"
+
+    # organize data models by log_type
+    data_models_by_log_type = {dm.log_type: dm.to_panther_core_data_model() for dm in data_models}
+
     for detection in detections:
         print(detection.detection_id)
         if len(detection.filters) == 0:
@@ -126,12 +134,17 @@ def _run_unit_tests(detections: List[panthersdk.Detection], min_tests: int = 0) 
             continue
 
         for unit_test in detection.unit_tests:
-            prg = unit_test.get_prg(detection.filters, detection.detection_type)
-            locs: Dict[str, str] = {}
-            exec(prg, {}, locs)  # nosec B102 pylint: disable=W0122
-            result = locs["_result"]
+            log_type = unit_test.data.get(event_log_type_field_key)  # get the log type from the test event
+            pe = panther_core.PantherEvent(unit_test.data, data_models_by_log_type.get(log_type))
+            detection_result = detection.to_panther_core_detection().run(pe, outputs={}, outputs_names={})
+            result = detection_result.detection_output
 
-            if result != unit_test.expect_match:
+            if detection_result.detection_exception:
+                unit_test.add_fail_reason(str(detection_result.detection_exception))
+                print(f"    [FAIL] {unit_test.name}: An exception occured while running the unit test: "
+                      f"{str(detection_result.detection_exception)}")
+                _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
+            elif result != unit_test.expect_match:
                 reason = f"Expected match to be {unit_test.expect_match} but got {result}"
                 unit_test.add_fail_reason(reason)
                 print(f"    [FAIL] {unit_test.name}: {reason}")
