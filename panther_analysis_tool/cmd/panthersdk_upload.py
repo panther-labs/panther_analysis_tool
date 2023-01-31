@@ -9,9 +9,9 @@ from panther_analysis_tool.backend.client import PantherSDKBulkUploadParams
 
 
 def run(
-        backend: BackendClient,
-        args: argparse.Namespace,  # pylint: disable=unused-argument
-        indirect_invocation: bool = False,
+    backend: BackendClient,
+    args: argparse.Namespace,  # pylint: disable=unused-argument
+    indirect_invocation: bool = False,
 ) -> Tuple[int, str]:
     """Packages and uploads all policies and rules from the Panther SDK-based module at
     ./panther_content, if it exists, into a Panther deployment.

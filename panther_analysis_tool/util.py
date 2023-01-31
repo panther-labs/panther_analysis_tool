@@ -23,7 +23,7 @@ import os
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable, Tuple, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
 import boto3
 
@@ -80,7 +80,7 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
 
 
 def func_with_backend(
-        func: Callable[[BackendClient, argparse.Namespace], Any]
+    func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
