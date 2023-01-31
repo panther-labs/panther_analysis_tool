@@ -1,7 +1,7 @@
 import argparse
 import logging
 from collections import defaultdict
-from typing import Dict, Final, List, Tuple
+from typing import Dict, Final, List, Optional, Tuple
 
 import panther_core.rule
 
@@ -125,14 +125,15 @@ def _run_unit_tests(
     Returns:
         True if at least one unit test failed, False if all tests pass.
     """
-    event_log_type_field_key = "p_log_type"
 
     # organize data models by log_type
     data_models_by_log_type = {}
     for data_model in data_models:
         if data_model.log_type in data_models_by_log_type:
             logging.error(
-                f"Conflicting Data Model ({data_model.data_model_id}) for LogType {data_model.log_type}"
+                "Conflicting Data Model (%s) for LogType %s",
+                data_model.data_model_id,
+                data_model.log_type,
             )
 
             return True  # data model conflicting is considered failing
@@ -145,13 +146,13 @@ def _run_unit_tests(
             continue
 
         for unit_test in detection.unit_tests:
-            log_type = unit_test.data.get(
-                event_log_type_field_key
-            )  # get the log type from the test event
-            data_model = data_models_by_log_type.get(log_type)
-            event = panther_core.PantherEvent(unit_test.data, data_model)  # pylint: disable=E1101
+            logs_data_model: Optional[panthersdk.DataModel] = data_models_by_log_type.get(
+                unit_test.data.get("p_log_type")  # get the log type from the test event
+            )
             detection_result = detection.to_panther_core_detection().run(
-                event, outputs={}, outputs_names={}
+                panther_core.PantherEvent(unit_test.data, logs_data_model),  # pylint: disable=E1101
+                outputs={},
+                outputs_names={},
             )
             result = detection_result.detection_output
 
