@@ -66,9 +66,7 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
 
     try:
         panthersdk.run_sdk_module(panther_sdk_cache_path)
-        intermediates = panthersdk.load_intermediate_sdk_cache(
-            panther_sdk_cache_path
-        )
+        intermediates = panthersdk.load_intermediate_sdk_cache(panther_sdk_cache_path)
         sdk_content = panthersdk.unmarshal_sdk_intermediates(intermediates)
         detections = _filter_detections(args, sdk_content.detections)
         logging.info("Running Unit Tests for Panther Content\n")
@@ -84,7 +82,9 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
         return 1, []
 
 
-def _filter_detections(args: argparse.Namespace, detections: List[panthersdk.Detection]) -> List[panthersdk.Detection]:
+def _filter_detections(
+    args: argparse.Namespace, detections: List[panthersdk.Detection]
+) -> List[panthersdk.Detection]:
     """Filters out the detections to be tested by using the command line args.
 
     Args:
@@ -111,8 +111,11 @@ def _filter_detections(args: argparse.Namespace, detections: List[panthersdk.Det
     return filtered
 
 
-def _run_unit_tests(detections: List[panthersdk.Detection], data_models: List[panthersdk.DataModel],
-                    min_tests: int = 0) -> bool:
+def _run_unit_tests(
+    detections: List[panthersdk.Detection],
+    data_models: List[panthersdk.DataModel],
+    min_tests: int = 0,
+) -> bool:
     """Runs the unit tests for the given detections, printing out test results and a summary.
 
     Args:
@@ -134,15 +137,22 @@ def _run_unit_tests(detections: List[panthersdk.Detection], data_models: List[pa
             continue
 
         for unit_test in detection.unit_tests:
-            log_type = unit_test.data.get(event_log_type_field_key)  # get the log type from the test event
-            pe = panther_core.PantherEvent(unit_test.data, data_models_by_log_type.get(log_type))
-            detection_result = detection.to_panther_core_detection().run(pe, outputs={}, outputs_names={})
+            log_type = unit_test.data.get(
+                event_log_type_field_key
+            )  # get the log type from the test event
+            data_model = data_models_by_log_type.get(log_type)
+            event = panther_core.PantherEvent(unit_test.data, data_model)  # pylint: disable=E1101
+            detection_result = detection.to_panther_core_detection().run(
+                event, outputs={}, outputs_names={}
+            )
             result = detection_result.detection_output
 
             if detection_result.detection_exception:
                 unit_test.add_fail_reason(str(detection_result.detection_exception))
-                print(f"    [FAIL] {unit_test.name}: An exception occured while running the unit test: "
-                      f"{str(detection_result.detection_exception)}")
+                print(
+                    f"    [FAIL] {unit_test.name}: An exception occured while running the unit test: "
+                    f"{str(detection_result.detection_exception)}"
+                )
                 _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
             elif result != unit_test.expect_match:
                 reason = f"Expected match to be {unit_test.expect_match} but got {result}"

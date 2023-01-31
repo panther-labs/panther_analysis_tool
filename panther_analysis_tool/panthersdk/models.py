@@ -2,7 +2,7 @@ import base64
 import dataclasses
 import enum
 import json
-from typing import Dict, List, Final, Any, Union
+from typing import Any, Dict, Final, List, Optional, Union
 
 import panther_core.data_model
 import panther_core.policy
@@ -43,7 +43,7 @@ class DataModelMapping:
     def __init__(self, _mapping: Dict):
         self.name: str = pat_utils.deep_get(_mapping, self._PATH_TO_NAME, "no name found")
         self.path: str = pat_utils.deep_get(_mapping, self._PATH_TO_PATH) or ""
-        _func = pat_utils.deep_get(_mapping, self._PATH_TO_FUNC) or None
+        _func = pat_utils.deep_get(_mapping, self._PATH_TO_FUNC) or {}
         if not self.using_path():
             self.func = PythonFunc(_func)
 
@@ -55,11 +55,15 @@ class DataModelMapping:
             return self.name.lower()
         return self.name
 
-    def get_func_name(self):
+    def get_func_name(self) -> Optional[str]:
         return self.func.get_name() if not self.using_path() else None
 
     def to_panther_core_mapping(self) -> Dict[str, Any]:
-        return {"name": self.get_name(lowercase=True), "path": self.path, "method": self.get_func_name()}
+        return {
+            "name": self.get_name(lowercase=True),
+            "path": self.path,
+            "method": self.get_func_name(),
+        }
 
 
 class DataModel:
@@ -74,19 +78,21 @@ class DataModel:
         _mappings = pat_utils.deep_get(_data_model, self._PATH_TO_MAPPINGS, [])
         self.mappings = [DataModelMapping(m) for m in _mappings]
         self.name = pat_utils.deep_get(_data_model, self._PATH_TO_NAME, "no name found")
-        self.id = pat_utils.deep_get(_data_model, self._PATH_TO_ID, "no id found")
+        self.data_model_id = pat_utils.deep_get(_data_model, self._PATH_TO_ID, "no id found")
         self.enabled = bool(pat_utils.deep_get(_data_model, self._PATH_TO_ENABLED, False))
 
     def module_body(self) -> str:
         return "\n\n\n".join([m.func.get_code() for m in self.mappings if not m.using_path()])
 
     def to_panther_core_data_model(self) -> panther_core.data_model.DataModel:
-        return panther_core.data_model.DataModel({
-            "id": self.id,
-            "versionId": "",
-            "mappings": [m.to_panther_core_mapping() for m in self.mappings],
-            "body": self.module_body(),
-        })
+        return panther_core.data_model.DataModel(
+            {
+                "id": self.data_model_id,
+                "versionId": "",
+                "mappings": [m.to_panther_core_mapping() for m in self.mappings],
+                "body": self.module_body(),
+            }
+        )
 
 
 class Filter:
@@ -122,8 +128,8 @@ class Detection:
     _PATH_TO_ENABLED: Final = ["val", "d", "enabled"]
     _PATH_TO_ORIGIN: Final = ["val", "o", "name"]
 
-    def __init__(self, detection: Dict):
-        self.detection_type = panther_sdk_key_to_type(detection.get("key"))
+    def __init__(self, detection: Dict) -> None:
+        self.detection_type = panther_sdk_key_to_type(detection.get("key") or "")
 
         tests = pat_utils.deep_get(detection, self._PATH_TO_UNIT_TESTS, [])
         self.unit_tests: List[UnitTest] = [UnitTest(t) for t in pat_utils.to_list(tests)]
@@ -185,7 +191,9 @@ class Detection:
             "analysisType": self.detection_type.name,
         }
 
-    def to_panther_core_detection(self) -> Union[panther_core.rule.Rule, panther_core.policy.Policy]:
+    def to_panther_core_detection(
+        self,
+    ) -> Union[panther_core.rule.Rule, panther_core.policy.Policy]:
         if self.detection_type is SdkContentType.POLICY:
             return panther_core.policy.Policy(self.to_panther_core_config())
         return panther_core.rule.Rule(self.to_panther_core_config())
