@@ -310,6 +310,7 @@ class PublicAPIClient(Client):
         rule_upload_stats = res.data.get("uploadDetectionEntities", {}).get("rules", {})
         policy_upload_stats = res.data.get("uploadDetectionEntities", {}).get("policies", {})
         query_upload_stats = res.data.get("uploadDetectionEntities", {}).get("queries", {})
+        data_models_upload_stats = res.data.get("uploadDetectionEntities", {}).get("dataModels", {})
         return BackendResponse(
             status_code=200,
             data=PantherSDKBulkUploadResponse(
@@ -327,6 +328,11 @@ class PublicAPIClient(Client):
                     modified=query_upload_stats.get("modified"),
                     new=query_upload_stats.get("new"),
                     total=query_upload_stats.get("total"),
+                ),
+                data_models=BulkUploadStatistics(
+                    modified=data_models_upload_stats.get("modified"),
+                    new=data_models_upload_stats.get("new"),
+                    total=data_models_upload_stats.get("total"),
                 ),
             ),
         )

@@ -83,7 +83,7 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
 
 
 def _filter_detections(
-        args: argparse.Namespace, detections: List[panthersdk.Detection]
+    args: argparse.Namespace, detections: List[panthersdk.Detection]
 ) -> List[panthersdk.Detection]:
     """Filters out the detections to be tested by using the command line args.
 
@@ -112,9 +112,9 @@ def _filter_detections(
 
 
 def _run_unit_tests(
-        detections: List[panthersdk.Detection],
-        data_models: List[panthersdk.DataModel],
-        min_tests: int = 0,
+    detections: List[panthersdk.Detection],
+    data_models: List[panthersdk.DataModel],
+    min_tests: int = 0,
 ) -> bool:
     """Runs the unit tests for the given detections, printing out test results and a summary.
 
@@ -132,7 +132,8 @@ def _run_unit_tests(
     for data_model in data_models:
         if data_model.log_type in data_models_by_log_type:
             logging.error(
-                f"Conflicting Data Model ({data_model.data_model_id}) for LogType {data_model.log_type}")
+                f"Conflicting Data Model ({data_model.data_model_id}) for LogType {data_model.log_type}"
+            )
 
             return True  # data model conflicting is considered failing
         data_models_by_log_type[data_model.log_type] = data_model.to_panther_core_data_model()

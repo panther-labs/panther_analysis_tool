@@ -306,6 +306,7 @@ class LambdaClient(Client):
                 rules=BulkUploadStatistics(**body.get("rules", default_stats)),
                 policies=BulkUploadStatistics(**body.get("policies", default_stats)),
                 queries=BulkUploadStatistics(**body.get("queries", default_stats)),
+                data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
             ),
         )
 

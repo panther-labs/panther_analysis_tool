@@ -70,5 +70,11 @@ def run(
         result.data.queries.modified,
         result.data.queries.total,
     )
+    logging.info(
+        "(Data Models: %d new; %d modified; %d total)",
+        result.data.data_models.new,
+        result.data.data_models.modified,
+        result.data.data_models.total,
+    )
 
     return 0, ""

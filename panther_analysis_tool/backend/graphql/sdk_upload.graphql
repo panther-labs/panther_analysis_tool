@@ -15,5 +15,10 @@ mutation SDKUpload($input: UploadDetectionEntitiesInput!) {
             new
             total
         }
+        dataModels {
+            modified
+            new
+            total
+        }
     }
 }
