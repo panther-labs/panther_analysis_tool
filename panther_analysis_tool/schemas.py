@@ -35,7 +35,7 @@ LOG_TYPE_REGEX = Regex(
     r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
     r"|AWS\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
     r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
-    r"Proxy|Cloudflare\.Firewall|Cloudflare\.HttpRequest|Cloudflare\.Spectrum|Crowdstrike\.FDREvent|"
+    r"Proxy|Cloudflare\.Audit|Cloudflare\.Firewall|Cloudflare\.HttpRequest|Cloudflare\.Spectrum|Crowdstrike\.FDREvent|"
     r"Crowdstrike\.ActivityAudit|Crowdstrike\.AIDMaster|Crowdstrike\.AppInfo|Crowdstrike\.CriticalFile"
     r"|Crowdstrike\.DNSRequest|Crowdstrike\.DetectionSummary|Crowdstrike\.GroupIdentity|"
     r"Crowdstrike\.ManagedAssets|Crowdstrike\.NetworkConnect|Crowdstrike\.NetworkListen|"
