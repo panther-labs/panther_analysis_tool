@@ -73,6 +73,7 @@ from schema import (
     SchemaWrongKeyError,
 )
 
+from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -110,7 +111,6 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.util import func_with_backend, get_client
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 
 # interpret datetime as str, the backend uses the default behavior for json.loads, which
@@ -177,20 +177,6 @@ def datetime_converted(obj: Any) -> Any:
     return obj
 
 
-def _convert_keys_to_lowercase(mapping: Dict[str, Any]) -> Dict[str, Any]:
-    """A helper function for converting top-level dictionary keys to lowercase.
-    Converting keys to lowercase maintains compatibility with how the backend
-    behaves.
-
-    Args:
-        mapping: The dictionary.
-
-    Returns:
-        A new dictionary with each key converted with str.lower()
-    """
-    return {k.lower(): v for k, v in mapping.items()}
-
-
 def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     logging.info("Zipping analysis items in %s to %s", args.path, args.out)
 
@@ -209,7 +195,7 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     filenames = []
     chunks = analysis_chunks(ZipArgs.from_args(args), zip_chunks)
     for idx, chunk in enumerate(chunks):
-        filename = f"panther-analysis-{current_time}-batch-{idx+1}.zip".format()
+        filename = f"panther-analysis-{current_time}-batch-{idx + 1}.zip".format()
         filename = add_path_to_filename(args.out, filename)
         filenames.append(filename)
         with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as zip_out:
@@ -435,7 +421,7 @@ def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
 
-    client = get_client(args.aws_profile, "lambda")
+    client = pat_utils.get_client(args.aws_profile, "lambda")
 
     logging.info("Fetching updates")
     response = client.invoke(
@@ -540,7 +526,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
         # Then generate the sha512 sum of the zip file
         archive_hash = generate_hash(release_file)
 
-        client = get_client(args.aws_profile, "kms")
+        client = pat_utils.get_client(args.aws_profile, "kms")
         try:
             response = client.sign(
                 KeyId=args.kms_key,
@@ -853,7 +839,8 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
             params = {
                 "id": analysis_id,
                 "mappings": [
-                    _convert_keys_to_lowercase(mapping) for mapping in analysis_spec["Mappings"]
+                    pat_utils.convert_keys_to_lowercase(mapping)
+                    for mapping in analysis_spec["Mappings"]
                 ],
                 "versionId": "",
             }
@@ -1485,7 +1472,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
-    upload_parser.set_defaults(func=func_with_backend(upload_analysis))
+    upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
 
     # -- delete command
 
@@ -1528,7 +1515,7 @@ def setup_parser() -> argparse.ArgumentParser:
         default=[],
     )
 
-    delete_parser.set_defaults(func=func_with_backend(bulk_delete.run))
+    delete_parser.set_defaults(func=pat_utils.func_with_backend(bulk_delete.run))
 
     # -- update custom schemas command
 
@@ -1542,7 +1529,9 @@ def setup_parser() -> argparse.ArgumentParser:
     custom_schemas_path_arg = path_arg.copy()
     custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
-    update_custom_schemas_parser.set_defaults(func=func_with_backend(update_custom_schemas))
+    update_custom_schemas_parser.set_defaults(
+        func=pat_utils.func_with_backend(update_custom_schemas)
+    )
 
     # -- test lookup command
 
@@ -1585,7 +1574,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     standard_args.for_public_api(check_conn_parser, required=False)
 
-    check_conn_parser.set_defaults(func=func_with_backend(check_connection.run))
+    check_conn_parser.set_defaults(func=pat_utils.func_with_backend(check_connection.run))
 
     # -- sdk command
 
@@ -1600,7 +1589,7 @@ def setup_parser() -> argparse.ArgumentParser:
     panthersdk_upload_parser = panthersdk_subparsers.add_parser(
         "upload", help="Upload policies and rules generated from your Panther content"
     )
-    panthersdk_upload_parser.set_defaults(func=func_with_backend(panthersdk_upload.run))
+    panthersdk_upload_parser.set_defaults(func=pat_utils.func_with_backend(panthersdk_upload.run))
 
     panthersdk_test_parser = panthersdk_subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."

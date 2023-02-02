@@ -2,10 +2,10 @@ import argparse
 import logging
 from typing import Final, Tuple
 
+from panther_analysis_tool import panthersdk
 from panther_analysis_tool.backend.client import BackendError
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import PantherSDKBulkUploadParams
-from panther_analysis_tool.cmd import panthersdk_utils
 
 
 def run(
@@ -28,10 +28,10 @@ def run(
             Return code
     """
 
-    panther_sdk_cache_path: Final = panthersdk_utils.get_sdk_cache_path()
+    panther_sdk_cache_path: Final = panthersdk.get_sdk_cache_path()
 
     try:
-        panthersdk_utils.run_sdk_module(panther_sdk_cache_path)
+        panthersdk.run_sdk_module(panther_sdk_cache_path)
     except FileNotFoundError:
         err_message = "Did not find a Panther SDK based module at ./panther_content"
         if indirect_invocation:
@@ -69,6 +69,12 @@ def run(
         result.data.queries.new,
         result.data.queries.modified,
         result.data.queries.total,
+    )
+    logging.info(
+        "(Data Models: %d new; %d modified; %d total)",
+        result.data.data_models.new,
+        result.data.data_models.modified,
+        result.data.data_models.total,
     )
 
     return 0, ""

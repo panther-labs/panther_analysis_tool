@@ -1,118 +1,16 @@
 import argparse
-import base64
-import enum
-import json
 import logging
 from collections import defaultdict
-from functools import reduce
-from typing import Any, Dict, Final, List, Tuple
+from typing import Dict, Final, List, Optional, Tuple
 
-from panther_analysis_tool.cmd import panthersdk_utils
+import panther_core.rule
 
-
-class DetectionType(enum.Enum):
-    UNKNOWN = 1
-    RULE = 2
-    POLICY = 3
-    SCHEDULED_RULE = 4
-
-
-class Filter:
-    _PATH_TO_FILTER_SRC: Final = ["d", "func", "src"]
-    _PATH_TO_FILTER_NAME: Final = ["d", "func", "name"]
-
-    def __init__(self, _filter: Dict):
-        self.src = _deep_get(_filter, self._PATH_TO_FILTER_SRC, "No source found")
-        self.name = _deep_get(_filter, self._PATH_TO_FILTER_NAME, "No name found")
-
-    def get_code(self) -> str:
-        return base64.standard_b64decode(self.src).decode("utf8")
-
-    def get_name(self) -> str:
-        return self.name
-
-
-class UnitTest:
-    def __init__(self, test: Dict):
-        self.origin: str = _deep_get(test, ["o", "name"], "No origin found")
-        self.data: Dict = json.loads(_deep_get(test, ["d", "data"], "{}"))
-        self.name: str = _deep_get(test, ["d", "name"], "No name found")
-        self.expect_match: bool = bool(_deep_get(test, ["d", "expect_match"], True))
-        self.fail_reasons: List[str] = []  # only used if test failed
-
-    def get_prg(self, filters: List[Filter], detection_type: DetectionType) -> str:
-        prg = "_filters = [] \n\n"
-        for filt in filters:
-            prg += f"{filt.get_code()} \n\n"
-            prg += f"_filters.append({filt.get_name()}) \n\n"
-
-        # flip the return vals if it is a policy
-        match_val = False
-        if detection_type is DetectionType.POLICY:
-            match_val = True
-        no_match_val = not match_val
-
-        prg += "def _execute(event):\n"
-        prg += "    global _filters\n"
-        prg += "    for f in _filters:\n"
-        prg += f"        if f(event) == {match_val}:\n"
-        prg += f"            return {match_val}\n"
-        prg += f"    return {no_match_val}\n\n"
-        prg += f"_event = {self.data}\n\n"
-        prg += "_result = _execute(_event)\n"
-
-        return prg
-
-    def add_fail_reason(self, reason: str) -> None:
-        self.fail_reasons.append(reason)
-
-
-class Detection:
-    _PATH_TO_UNIT_TESTS: Final = ["val", "d", "unit_tests"]
-    _PATH_TO_FILTERS: Final = ["val", "d", "filters"]
-    _PATH_TO_RULE_ID: Final = ["val", "d", "rule_id"]
-    _PATH_TO_POLICY_ID: Final = ["val", "d", "policy_id"]
-    _PATH_TO_ENABLED: Final = ["val", "d", "enabled"]
-    _PATH_TO_ORIGIN: Final = ["val", "o", "name"]
-
-    def __init__(self, detection: Dict):
-        self.detection_type = _detection_key_to_type(detection["key"])
-
-        tests = _deep_get(detection, self._PATH_TO_UNIT_TESTS, [])
-        self.unit_tests: List[UnitTest] = [UnitTest(t) for t in _to_list(tests)]
-
-        filts = _deep_get(detection, self._PATH_TO_FILTERS, [])
-        self.filters: List[Filter] = [Filter(f) for f in _to_list(filts)]
-
-        self.detection_id = _deep_get(
-            detection,
-            self._PATH_TO_RULE_ID,
-            _deep_get(detection, self._PATH_TO_POLICY_ID, "No ID found"),
-        )
-
-        self.enabled = _deep_get(detection, self._PATH_TO_ENABLED, False)
-
-        self.origin = _deep_get(detection, self._PATH_TO_ORIGIN, "No origin found")
-
-    def has_unit_tests(self) -> bool:
-        return len(self.unit_tests) > 0
-
-    def has_pass_and_fail_tests(self) -> bool:
-        pass_test, fail_test = False, False
-        for unit_test in self.unit_tests:
-            if unit_test.expect_match:
-                pass_test = True
-            if not unit_test.expect_match:
-                fail_test = True
-        return pass_test and fail_test
-
-    def disabled(self) -> bool:
-        return not self.enabled
+from panther_analysis_tool import panthersdk
 
 
 class TestSummary:
     def __init__(self) -> None:
-        self.failed_tests: Dict[str, List[UnitTest]] = defaultdict(
+        self.failed_tests: Dict[str, List[panthersdk.UnitTest]] = defaultdict(
             list
         )  # detection id to list of unit tests
         self.fail_count = 0
@@ -121,7 +19,7 @@ class TestSummary:
     def total_count(self) -> int:
         return self.pass_count + self.fail_count
 
-    def add_failure(self, detection_id: str, test: UnitTest) -> None:
+    def add_failure(self, detection_id: str, test: panthersdk.UnitTest) -> None:
         self.failed_tests[detection_id].append(test)
         self.fail_count += 1
 
@@ -164,17 +62,15 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    panther_sdk_cache_path: Final = panthersdk_utils.get_sdk_cache_path()
+    panther_sdk_cache_path: Final = panthersdk.get_sdk_cache_path()
 
     try:
-        panthersdk_utils.run_sdk_module(panther_sdk_cache_path)
-        detection_intermediates: List[Dict] = panthersdk_utils.load_intermediate_sdk_cache(
-            panther_sdk_cache_path
-        )
-        detections: List[Detection] = [Detection(d) for d in detection_intermediates]
-        detections = _filter_detections(args, detections)
+        panthersdk.run_sdk_module(panther_sdk_cache_path)
+        intermediates = panthersdk.load_intermediate_sdk_cache(panther_sdk_cache_path)
+        sdk_content = panthersdk.unmarshal_sdk_intermediates(intermediates)
+        detections = _filter_detections(args, sdk_content.detections)
         logging.info("Running Unit Tests for Panther Content\n")
-        tests_failed = _run_unit_tests(detections, args.minimum_tests)
+        tests_failed = _run_unit_tests(detections, sdk_content.data_models, args.minimum_tests)
         return int(tests_failed), []
     except FileNotFoundError as err:
         if indirect_invocation:
@@ -186,7 +82,9 @@ def run(args: argparse.Namespace, indirect_invocation: bool = False) -> Tuple[in
         return 1, []
 
 
-def _filter_detections(args: argparse.Namespace, detections: List[Detection]) -> List[Detection]:
+def _filter_detections(
+    args: argparse.Namespace, detections: List[panthersdk.Detection]
+) -> List[panthersdk.Detection]:
     """Filters out the detections to be tested by using the command line args.
 
     Args:
@@ -213,7 +111,11 @@ def _filter_detections(args: argparse.Namespace, detections: List[Detection]) ->
     return filtered
 
 
-def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
+def _run_unit_tests(
+    detections: List[panthersdk.Detection],
+    data_models: List[panthersdk.DataModel],
+    min_tests: int = 0,
+) -> bool:
     """Runs the unit tests for the given detections, printing out test results and a summary.
 
     Args:
@@ -223,6 +125,20 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
     Returns:
         True if at least one unit test failed, False if all tests pass.
     """
+
+    # organize data models by log_type
+    data_models_by_log_type = {}
+    for data_model in data_models:
+        if data_model.log_type in data_models_by_log_type:
+            logging.error(
+                "Conflicting Data Model (%s) for LogType %s",
+                data_model.data_model_id,
+                data_model.log_type,
+            )
+
+            return True  # data model conflicting is considered failing
+        data_models_by_log_type[data_model.log_type] = data_model.to_panther_core_data_model()
+
     for detection in detections:
         print(detection.detection_id)
         if len(detection.filters) == 0:
@@ -230,12 +146,24 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
             continue
 
         for unit_test in detection.unit_tests:
-            prg = unit_test.get_prg(detection.filters, detection.detection_type)
-            locs: Dict[str, str] = {}
-            exec(prg, {}, locs)  # nosec B102 pylint: disable=W0122
-            result = locs["_result"]
+            logs_data_model: Optional[panthersdk.DataModel] = data_models_by_log_type.get(
+                unit_test.data.get("p_log_type")  # get the log type from the test event
+            )
+            detection_result = detection.to_panther_core_detection().run(
+                panther_core.PantherEvent(unit_test.data, logs_data_model),  # pylint: disable=E1101
+                outputs={},
+                outputs_names={},
+            )
+            result = detection_result.detection_output
 
-            if result != unit_test.expect_match:
+            if detection_result.detection_exception:
+                unit_test.add_fail_reason(str(detection_result.detection_exception))
+                print(
+                    f"    [FAIL] {unit_test.name}: An exception occured while running the unit test: "
+                    f"{str(detection_result.detection_exception)}"
+                )
+                _TEST_SUMMARY.add_failure(detection.detection_id, unit_test)
+            elif result != unit_test.expect_match:
                 reason = f"Expected match to be {unit_test.expect_match} but got {result}"
                 unit_test.add_fail_reason(reason)
                 print(f"    [FAIL] {unit_test.name}: {reason}")
@@ -251,7 +179,7 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
         n_tests = len(detection.unit_tests)
         if n_tests < min_tests or (min_tests >= 2 and not has_pass_and_fail_tests):
             # create a fake unit test to represent the minimum tests failure
-            unit_test = UnitTest({})
+            unit_test = panthersdk.UnitTest({})
             unit_test.name = "minimum required tests"
             unit_test.origin = detection.origin  # origin will be the origin of the detection
             if n_tests < min_tests:
@@ -268,22 +196,3 @@ def _run_unit_tests(detections: List[Detection], min_tests: int = 0) -> bool:
 
     print(_TEST_SUMMARY.summary())
     return _TEST_SUMMARY.tests_failed()
-
-
-def _deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
-    result = reduce(lambda val, key: val.get(key) if val else None, path, obj)  # type: ignore
-    return result if result is not None else default
-
-
-def _to_list(listish: Any) -> List:
-    return listish if isinstance(listish, list) else [listish]
-
-
-def _detection_key_to_type(key: str) -> DetectionType:
-    if "rule" in key:
-        return DetectionType.RULE
-    if "policy" in key:
-        return DetectionType.POLICY
-    if "scheduled-rule" in key:
-        return DetectionType.SCHEDULED_RULE
-    return DetectionType.UNKNOWN

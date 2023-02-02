@@ -144,6 +144,7 @@ class PantherSDKBulkUploadResponse:
     rules: BulkUploadStatistics
     policies: BulkUploadStatistics
     queries: BulkUploadStatistics
+    data_models: BulkUploadStatistics
 
 
 class Client(ABC):
