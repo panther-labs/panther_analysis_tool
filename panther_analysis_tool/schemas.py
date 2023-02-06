@@ -212,6 +212,7 @@ LOOKUP_TABLE_SCHEMA = Schema(
                 "RoleARN": str,
                 "ObjectPath": str,
                 Optional("PeriodMinutes"): int,
+                Optional("AlarmPeriodMinutes"): int,
                 Optional("ObjectKMSKey"): str,
             },
         ),
