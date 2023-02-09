@@ -380,8 +380,10 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
             LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             if "Refresh" in lookup_spec:
                 if "AlarmPeriodMinutes" in lookup_spec["Refresh"]:
-                    if lookup_spec["Refresh"]["AlarmPeriodMinutes"] >= 1440:
-                        logging.error("AlarmPeriodMinutes must be less than 1 day (1440 minutes)")
+                    if lookup_spec["Refresh"]["AlarmPeriodMinutes"] > 1440:
+                        logging.error(
+                            "AlarmPeriodMinutes must not greater than 1 day (1440 minutes)"
+                        )
                         return {}
             logging.info("Successfully validated the Lookup Table file %s", args.path)
         except (
