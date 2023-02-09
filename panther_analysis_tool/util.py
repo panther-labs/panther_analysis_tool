@@ -80,7 +80,7 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
 
 
 def func_with_backend(
-        func: Callable[[BackendClient, argparse.Namespace], Any]
+    func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
