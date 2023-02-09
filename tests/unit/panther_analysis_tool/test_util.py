@@ -8,7 +8,9 @@ class TestToList(unittest.TestCase):
         tests = [
             [1, [1]],
             ["fe", ["fe"]],
-            [{"hi": 6}, [{"hi": 6}]]
+            [{"hi": 6}, [{"hi": 6}]],
+            [{"hi", "bye"}, [{"hi", "bye"}]],
+            [("tu", "ple"), [("tu", "ple")]],
         ]
 
         for test in tests:
@@ -21,7 +23,9 @@ class TestToList(unittest.TestCase):
             [[1], [1]],
             [["fe"], ["fe"]],
             [[{"hi": 6}], [{"hi": 6}]],
-            [[1, "hi"], [1, "hi"]]
+            [[1, "hi"], [1, "hi"]],
+            [[{"hi", "bye"}], [{"hi", "bye"}]],
+            [[("tu", "ple")], [("tu", "ple")]],
         ]
 
         for test in tests:
