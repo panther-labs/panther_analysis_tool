@@ -80,7 +80,7 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
 
 
 def func_with_backend(
-    func: Callable[[BackendClient, argparse.Namespace], Any]
+        func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
@@ -138,4 +138,4 @@ def deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
 
 
 def to_list(listish: Any) -> List:
-    return listish if hasattr(listish, "__iter__") else [listish]
+    return listish if isinstance(listish, list) else [listish]
