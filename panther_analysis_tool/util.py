@@ -138,4 +138,5 @@ def deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
 
 
 def to_list(listish: Any) -> List:
+    """Make a single instance a list or keep a list a list."""
     return listish if isinstance(listish, list) else [listish]
