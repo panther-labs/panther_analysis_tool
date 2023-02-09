@@ -53,10 +53,10 @@ LOG_TYPE_REGEX = Regex(
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
-    r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Sophos\.Central|Suricata"
+    r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Snyk\.OrgAudit|Snyk\.GroupAudit|Sophos\.Central|Suricata"
     r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
-    r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility"
+    r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility|SentinelOne\.DeepVisibilityV2"
     r"|Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
 )
 
