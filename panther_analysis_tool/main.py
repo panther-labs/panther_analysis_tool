@@ -791,8 +791,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
         for outcome in ['passed', 'errored']:
-            for ruleId, test_result_packages in sorted(getattr(all_test_results, outcome).items()):
-                print(ruleId)
+            sorted_results = sorted(getattr(all_test_results, outcome).items())
+            for detection_id, test_result_packages in sorted_results:
+                print(detection_id)
                 for test_result_package in test_result_packages:
                     _print_test_result(*test_result_package)
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
@@ -925,7 +926,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                 )
             )
 
-        print(detection.detection_id)
+        if not all_test_results:
+            print(detection.detection_id)
 
         # if there is a setup exception, no need to run tests
         if detection.setup_exception:
