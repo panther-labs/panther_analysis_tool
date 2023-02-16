@@ -945,7 +945,9 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             ignore_exception_types,
             all_test_results,
         )
-        print("")
+
+        if not all_test_results:
+            print("")
     return failed_tests, invalid_specs
 
 
