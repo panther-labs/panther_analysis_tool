@@ -799,6 +799,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
                     print(detection_id)
                 for test_result_package in test_result_packages:
                     _print_test_result(*test_result_package)
+                    print("")
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
 
     #  if the classic format was invalid, just exit
