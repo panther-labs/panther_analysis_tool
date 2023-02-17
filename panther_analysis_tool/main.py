@@ -1391,9 +1391,10 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     sort_test_results_name = "--sort-test-results"
     sort_test_results_arg: Dict[str, Any] = {
+        "action": "strore_true",
         "required": False,
         "default": False,
-        "type": strtobool,
+        "dest": "sort_test_results",
         "help": "Print detection test results first by passed/errored outcome, and then by rule ID"
     }
 
