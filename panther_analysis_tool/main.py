@@ -793,7 +793,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         for outcome in ['passed', 'errored']:
             sorted_results = sorted(getattr(all_test_results, outcome).items())
             for detection_id, test_result_packages in sorted_results:
-                print(detection_id)
+                if test_result_packages:
+                    print(detection_id)
                 for test_result_package in test_result_packages:
                     _print_test_result(*test_result_package)
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
@@ -945,7 +946,9 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             ignore_exception_types,
             all_test_results,
         )
-        print("")
+
+        if not all_test_results:
+            print("")
     return failed_tests, invalid_specs
 
 
