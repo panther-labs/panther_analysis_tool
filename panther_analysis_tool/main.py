@@ -30,6 +30,7 @@ import shutil
 import subprocess  # nosec
 import sys
 import time
+import typing  # 'from typing import Optional' conflicts with 'from schema import Optional', below
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
@@ -899,7 +900,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
-    all_test_results: TestResultsContainer=None,
+    all_test_results: typing.Optional[TestResultsContainer] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -1160,7 +1161,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
-    all_test_results: TestResultsContainer,
+    all_test_results: typing.Optional[TestResultsContainer],
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection.detection_id].append(
@@ -1202,8 +1203,8 @@ def _run_tests(  # pylint: disable=too-many-arguments
     failed_tests: DefaultDict[str, list],
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
-    all_test_results: TestResultsContainer,
-) -> DefaultDict[str, list]:  
+    all_test_results: typing.Optional[TestResultsContainer],
+) -> DefaultDict[str, list]:
     status_passed = 'passed'
     status_errored = 'errored'
     for unit_test in tests:
@@ -1250,13 +1251,13 @@ def _run_tests(  # pylint: disable=too-many-arguments
         test_result = TestCaseEvaluator(spec, result).interpret(
             ignore_exception_types=ignore_exception_types
         )
-        
+
         result_info = (detection, test_result, failed_tests)
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored
             stored_test_results = getattr(all_test_results, test_result_str)
             if test_result.detectionId not in stored_test_results:
-              stored_test_results[test_result.detectionId] = []
+                stored_test_results[test_result.detectionId] = []
             stored_test_results[test_result.detectionId].append(result_info)
         else:
             _print_test_result(*result_info)
@@ -1395,7 +1396,8 @@ def setup_parser() -> argparse.ArgumentParser:
         "required": False,
         "default": False,
         "dest": "sort_test_results",
-        "help": "Print detection test results first by passed/errored outcome, and then by rule ID"
+        "help": "Sort test results by whether the test passed or failed (passing tests first), "
+                "then by rule ID"
     }
 
     # -- root parser
@@ -1430,6 +1432,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_test_name, **skip_test_arg)
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
+    release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     # -- test command
@@ -1524,6 +1527,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
+    upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
     upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
 
@@ -1617,6 +1621,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
+    zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     # -- check-connection command
