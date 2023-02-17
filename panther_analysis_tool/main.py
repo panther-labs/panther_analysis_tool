@@ -142,8 +142,10 @@ class AnalysisContainsDuplicatesException(Exception):
 @dataclass
 class TestResultsContainer:
     """A container for all test results"""
+
     passed: dict
     errored: dict
+
 
 def load_module(filename: str) -> Tuple[Any, Any]:
     """Loads the analysis function module from a file.
@@ -767,9 +769,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
 
-    all_test_results = None if not bool(args.sort_test_results) else TestResultsContainer(
-        passed = {},
-        errored = {}
+    all_test_results = (
+        None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
@@ -791,7 +792,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     cleanup_global_helpers(specs[GLOBAL])
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
-        for outcome in ['passed', 'errored']:
+        for outcome in ["passed", "errored"]:
             sorted_results = sorted(getattr(all_test_results, outcome).items())
             for detection_id, test_result_packages in sorted_results:
                 if test_result_packages:
@@ -1205,8 +1206,8 @@ def _run_tests(  # pylint: disable=too-many-arguments
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer],
 ) -> DefaultDict[str, list]:
-    status_passed = 'passed'
-    status_errored = 'errored'
+    status_passed = "passed"
+    status_errored = "errored"
     for unit_test in tests:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
@@ -1397,7 +1398,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": False,
         "dest": "sort_test_results",
         "help": "Sort test results by whether the test passed or failed (passing tests first), "
-                "then by rule ID"
+        "then by rule ID",
     }
 
     # -- root parser
