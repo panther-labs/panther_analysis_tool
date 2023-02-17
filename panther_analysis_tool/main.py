@@ -30,10 +30,11 @@ import shutil
 import subprocess  # nosec
 import sys
 import time
+import typing  # 'from typing import Optional' conflicts with 'from schema import Optional', below
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
@@ -136,6 +137,14 @@ class AnalysisContainsDuplicatesException(Exception):
             )
         )
         super().__init__(self.message)
+
+
+@dataclass
+class TestResultsContainer:
+    """A container for all test results"""
+
+    passed: dict
+    errored: dict
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -760,6 +769,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
     invalid_specs.extend(invalid_data_models)
 
+    all_test_results = (
+        None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
+    )
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
         log_type_to_data_model,
@@ -768,6 +780,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
+        all_test_results=all_test_results,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -778,6 +791,14 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # cleanup tmp global dir
     cleanup_global_helpers(specs[GLOBAL])
 
+    if all_test_results and (all_test_results.passed or all_test_results.errored):
+        for outcome in ["passed", "errored"]:
+            sorted_results = sorted(getattr(all_test_results, outcome).items())
+            for detection_id, test_result_packages in sorted_results:
+                if test_result_packages:
+                    print(detection_id)
+                for test_result_package in test_result_packages:
+                    _print_test_result(*test_result_package)
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
 
     #  if the classic format was invalid, just exit
@@ -880,6 +901,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
+    all_test_results: typing.Optional[TestResultsContainer] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -907,7 +929,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                 )
             )
 
-        print(detection.detection_id)
+        if not all_test_results:
+            print(detection.detection_id)
 
         # if there is a setup exception, no need to run tests
         if detection.setup_exception:
@@ -923,8 +946,11 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             minimum_tests,
             destinations_by_name,
             ignore_exception_types,
+            all_test_results,
         )
-        print("")
+
+        if not all_test_results:
+            print("")
     return failed_tests, invalid_specs
 
 
@@ -1136,6 +1162,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
+    all_test_results: typing.Optional[TestResultsContainer],
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection.detection_id].append(
@@ -1156,6 +1183,7 @@ def run_tests(  # pylint: disable=too-many-arguments
         failed_tests,
         destinations_by_name,
         ignore_exception_types,
+        all_test_results,
     )
 
     if minimum_tests > 1 and not (
@@ -1176,7 +1204,10 @@ def _run_tests(  # pylint: disable=too-many-arguments
     failed_tests: DefaultDict[str, list],
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
+    all_test_results: typing.Optional[TestResultsContainer],
 ) -> DefaultDict[str, list]:
+    status_passed = "passed"
+    status_errored = "errored"
     for unit_test in tests:
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
@@ -1222,7 +1253,15 @@ def _run_tests(  # pylint: disable=too-many-arguments
             ignore_exception_types=ignore_exception_types
         )
 
-        _print_test_result(detection, test_result, failed_tests)
+        result_info = (detection, test_result, failed_tests)
+        if all_test_results:
+            test_result_str = status_passed if test_result.passed else status_errored
+            stored_test_results = getattr(all_test_results, test_result_str)
+            if test_result.detectionId not in stored_test_results:
+                stored_test_results[test_result.detectionId] = []
+            stored_test_results[test_result.detectionId].append(result_info)
+        else:
+            _print_test_result(*result_info)
 
     return failed_tests
 
@@ -1352,6 +1391,15 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "A destination name that may be returned by the destinations function. "
         "Repeat the argument to define more than one name.",
     }
+    sort_test_results_name = "--sort-test-results"
+    sort_test_results_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "required": False,
+        "default": False,
+        "dest": "sort_test_results",
+        "help": "Sort test results by whether the test passed or failed (passing tests first), "
+        "then by rule ID",
+    }
 
     # -- root parser
 
@@ -1385,6 +1433,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_test_name, **skip_test_arg)
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
+    release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     # -- test command
@@ -1399,6 +1448,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(ignore_files_name, **ignore_files_arg)
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     test_parser.add_argument(available_destination_name, **available_destination_arg)
+    test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     test_parser.set_defaults(func=test_analysis)
 
     # -- publish command
@@ -1478,6 +1528,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
+    upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
     upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
 
@@ -1571,6 +1622,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_test_name, **skip_test_arg)
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
+    zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     # -- check-connection command
