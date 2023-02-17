@@ -41,7 +41,7 @@ LOG_TYPE_REGEX = Regex(
     r"Crowdstrike\.ManagedAssets|Crowdstrike\.NetworkConnect|Crowdstrike\.NetworkListen|"
     r"Crowdstrike\.NotManagedAssets|Crowdstrike\.ProcessRollup2|Crowdstrike\.Process"
     r"Rollup2Stats|Crowdstrike\.SyntheticProcessRollup2|Crowdstrike\.Unknown|Crowdstrike"
-    r"\.UserIdentity|Crowdstrike\.UserInfo|Crowdstrike\.UserLogonLogoff|Duo\.Administrator|Duo"
+    r"\.UserIdentity|Crowdstrike\.UserInfo|Crowdstrike\.UserLogonLogoff|Dropbox\.TeamEvent|Duo\.Administrator|Duo"
     r"\.Authentication|Duo\.OfflineEnrollment|Duo\.Telephony|Fastly\.Access|Fluentd\.Syslog3164"
     r"|Fluentd\.Syslog5424|GCP\.AuditLog|GitHub\.Audit|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions"
     r"|GitLab\.Git|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\."
