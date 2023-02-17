@@ -1391,7 +1391,7 @@ def setup_parser() -> argparse.ArgumentParser:
     }
     sort_test_results_name = "--sort-test-results"
     sort_test_results_arg: Dict[str, Any] = {
-        "action": "strore_true",
+        "action": "store_true",
         "required": False,
         "default": False,
         "dest": "sort_test_results",
