@@ -19,8 +19,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import base64
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import logging
 import mimetypes
@@ -140,11 +142,19 @@ class AnalysisContainsDuplicatesException(Exception):
 
 
 @dataclass
+class TestResultContainer:
+    detection: Detection
+    result: TestResult
+    failed_tests: DefaultDict[str, list]
+    output: str
+
+
+@dataclass
 class TestResultsContainer:
     """A container for all test results"""
 
-    passed: dict
-    errored: dict
+    passed: Dict[str, List[TestResultContainer]]
+    errored: Dict[str, List[TestResultContainer]]
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -798,7 +808,14 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
                 if test_result_packages:
                     print(detection_id)
                 for test_result_package in test_result_packages:
-                    _print_test_result(*test_result_package)
+                    if len(test_result_package.output) > 0:
+                        print(test_result_package.output)
+                    _print_test_result(
+                        detection=test_result_package.detection,
+                        test_result=test_result_package.result,
+                        failed_tests=test_result_package.failed_tests,
+                    )
+                    print("")
     print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
 
     #  if the classic format was invalid, just exit
@@ -1209,6 +1226,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
     status_passed = "passed"
     status_errored = "errored"
     for unit_test in tests:
+        test_output = ""
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
@@ -1223,11 +1241,18 @@ def _run_tests(  # pylint: disable=too-many-arguments
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
-            if mock_methods:
-                with patch.multiple(detection.module, **mock_methods):
+            test_output_buf = io.StringIO()
+            with contextlib.redirect_stdout(test_output_buf), contextlib.redirect_stderr(
+                test_output_buf
+            ):
+                if mock_methods:
+                    with patch.multiple(detection.module, **mock_methods):
+                        result = detection.run(
+                            test_case, {}, destinations_by_name, batch_mode=False
+                        )
+                else:
                     result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
-            else:
-                result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
+            test_output = test_output_buf.getvalue()
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
             logging.debug(str(err), exc_info=err)
@@ -1239,6 +1264,10 @@ def _run_tests(  # pylint: disable=too-many-arguments
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
             continue
+        finally:
+            if len(test_output) > 0 and not all_test_results:
+                # not buffering results for later sorting; print any output from tests here:
+                print(test_output)
 
         # print results
         spec = TestSpecification(
@@ -1253,15 +1282,21 @@ def _run_tests(  # pylint: disable=too-many-arguments
             ignore_exception_types=ignore_exception_types
         )
 
-        result_info = (detection, test_result, failed_tests)
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored
             stored_test_results = getattr(all_test_results, test_result_str)
             if test_result.detectionId not in stored_test_results:
                 stored_test_results[test_result.detectionId] = []
-            stored_test_results[test_result.detectionId].append(result_info)
+            stored_test_results[test_result.detectionId].append(
+                TestResultContainer(
+                    detection=detection,
+                    result=test_result,
+                    failed_tests=failed_tests,
+                    output=test_output,
+                )
+            )
         else:
-            _print_test_result(*result_info)
+            _print_test_result(detection, test_result, failed_tests)
 
     return failed_tests
 
