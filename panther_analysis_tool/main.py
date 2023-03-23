@@ -337,7 +337,7 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
 
             except BackendError as be_err:
                 if be_err.permanent is True:
-                    logging.error("failed to upload to backend: %s", be_err)
+                    logging.error("Failed to upload to backend: %s", be_err)
                     return_code = 1
                     break
 
@@ -353,10 +353,8 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
                     time.sleep(30)
 
                 else:
-                    logging.warning(
-                        "Exhausted retries attempting to perform bulk upload. Last error: %s",
-                        be_err,
-                    )
+                    logging.warning("Exhausted retries attempting to perform bulk upload.")
+                    logging.error("Failed to upload to backend: %s", be_err)
                     return_code = 1
                     return_archive_fname = ""
                     break
