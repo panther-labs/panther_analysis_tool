@@ -154,6 +154,7 @@ class PublicAPIClient(Client):
             status_code=200,
             data=BulkUploadResponse(
                 rules=BulkUploadStatistics(**data.get("rules", default_stats)),
+                queries=BulkUploadStatistics(**data.get("queries", default_stats)),
                 policies=BulkUploadStatistics(**data.get("policies", default_stats)),
                 data_models=BulkUploadStatistics(**data.get("dataModels", default_stats)),
                 lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
