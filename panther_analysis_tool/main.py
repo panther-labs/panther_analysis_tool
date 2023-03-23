@@ -353,8 +353,10 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
                     time.sleep(30)
 
                 else:
-                    logging.warning("Exhausted retries attempting to perform bulk upload. Last error: %s",
-                                    be_err)
+                    logging.warning(
+                        "Exhausted retries attempting to perform bulk upload. Last error: %s",
+                        be_err,
+                    )
                     return_code = 1
                     return_archive_fname = ""
                     break
