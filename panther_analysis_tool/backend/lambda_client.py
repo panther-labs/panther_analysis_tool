@@ -126,6 +126,7 @@ class LambdaClient(Client):
             status_code=resp.status_code,
             data=BulkUploadResponse(
                 rules=BulkUploadStatistics(**body.get("rules", default_stats)),
+                queries=BulkUploadStatistics(**body.get("queries", default_stats)),
                 policies=BulkUploadStatistics(**body.get("policies", default_stats)),
                 data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
                 lookup_tables=BulkUploadStatistics(**body.get("lookupTables", default_stats)),
@@ -304,8 +305,8 @@ class LambdaClient(Client):
             status_code=resp.status_code,
             data=PantherSDKBulkUploadResponse(
                 rules=BulkUploadStatistics(**body.get("rules", default_stats)),
-                policies=BulkUploadStatistics(**body.get("policies", default_stats)),
                 queries=BulkUploadStatistics(**body.get("queries", default_stats)),
+                policies=BulkUploadStatistics(**body.get("policies", default_stats)),
                 data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
             ),
         )

@@ -93,6 +93,7 @@ class BulkUploadStatistics:
 @dataclass(frozen=True)
 class BulkUploadResponse:
     rules: BulkUploadStatistics
+    queries: BulkUploadStatistics
     policies: BulkUploadStatistics
     data_models: BulkUploadStatistics
     lookup_tables: BulkUploadStatistics
