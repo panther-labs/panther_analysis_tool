@@ -81,6 +81,12 @@ TYPE_SCHEMA = Schema(
     ignore_extra_keys=True,
 )
 
+MOCK_SCHEMA = Schema({
+    "objectName": str,
+    # best effort to detect str: because of the ruamel bool constructor, boolean strings are converted to bools
+    "returnValue": Or(str, bool),
+})
+
 DATA_MODEL_SCHEMA = Schema(
     {
         "AnalysisType": Or("datamodel"),
@@ -149,7 +155,7 @@ POLICY_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Resource": object,
-                Optional("Mocks"): object,
+                Optional("Mocks"): [MOCK_SCHEMA],
             }
         ],
     },
@@ -183,7 +189,7 @@ RULE_SCHEMA = Schema(
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
                 "Log": object,
-                Optional("Mocks"): object,
+                Optional("Mocks"): [MOCK_SCHEMA],
             }
         ],
     },
