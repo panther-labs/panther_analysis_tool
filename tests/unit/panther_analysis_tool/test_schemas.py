@@ -18,4 +18,4 @@ class TestPATSchemas(unittest.TestCase):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "False"})
 
         with self.assertRaises(SchemaError):
-            LOG_TYPE_REGEX.validate({"objectName": "hello", "returnValue": ["Testing a string"]})
+            LOG_TYPE_REGEX.validate({"objectName": "hello", "returnValue": ["Testing a non-string"]})

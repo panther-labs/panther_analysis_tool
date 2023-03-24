@@ -81,11 +81,13 @@ TYPE_SCHEMA = Schema(
     ignore_extra_keys=True,
 )
 
-MOCK_SCHEMA = Schema({
-    "objectName": str,
-    # best effort to detect str: because of the ruamel bool constructor, boolean strings are converted to bools
-    "returnValue": Or(str, bool),
-})
+MOCK_SCHEMA = Schema(
+    {
+        "objectName": str,
+        # best effort to detect str: because of the ruamel bool constructor, boolean strings are converted to bools
+        "returnValue": Or(str, bool),
+    }
+)
 
 DATA_MODEL_SCHEMA = Schema(
     {
