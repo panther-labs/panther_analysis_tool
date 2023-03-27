@@ -38,6 +38,6 @@ Tests:
         },
         {
           "objectName": "date",
-          "returnValue": ["example_date_return_value"]
+          "returnValue": "['example_date_return_value']"
         }
       ]
