@@ -4,7 +4,7 @@ from typing import Dict, Final
 
 from schema import Schema
 
-from panther_analysis_tool.schemas import (
+from panther_analysis_tool.schemas.schemas import (
     DATA_MODEL_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,

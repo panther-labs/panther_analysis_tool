@@ -17,7 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from schema import And, Optional, Or, Regex, Schema
+from schema import And, Optional, Or, Regex, Schema, SchemaError, Use
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
 RESOURCE_TYPE_REGEX = Regex(
@@ -204,10 +204,10 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
         Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
-        "Schedule": {
+        "Schedule": QueryScheduleSchema({
             Or("CronExpression", "RateMinutes"): Or(str, int),
-            "TimeoutMinutes": int,
-        },
+           "TimeoutMinutes": int,
+        }),
         Optional("Description"): str,
         Optional("Tags"): [str],
     },
@@ -239,3 +239,5 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+
