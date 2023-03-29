@@ -32,17 +32,22 @@ class TestPATSchemas(unittest.TestCase):
         sample_query["Schedule"] = {"RateMinutes": 10, "TimeoutMinutes": 5}
         SCHEDULED_QUERY_SCHEMA.validate(sample_query)
         with self.assertRaises(SchemaError):
+            # timeout must be <= rate
             sample_query["Schedule"] = {"RateMinutes": 5, "TimeoutMinutes": 10}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
         with self.assertRaises(SchemaError):
+            # not a valid rate type
             sample_query["Schedule"] = {"RateMinutes": "not an int", "TimeoutMinutes": 10}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
         with self.assertRaises(SchemaError):
+            # not a valid timeout type
             sample_query["Schedule"] = {"RateMinutes": 10, "TimeoutMinutes": "not an int"}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
         with self.assertRaises(SchemaError):
+            # can't have both cron and rate
             sample_query["Schedule"] = {"RateMinutes": 10, "TimeoutMinutes": 10, "CronExpression": "* * * * *"}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
         with self.assertRaises(SchemaError):
+            # can't have rate <= 1
             sample_query["Schedule"] = {"RateMinutes": 1, "TimeoutMinutes": 1}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
