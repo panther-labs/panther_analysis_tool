@@ -107,7 +107,7 @@ from panther_analysis_tool.constants import (
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.schemas.schemas import (
+from panther_analysis_tool.schemas import (
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
