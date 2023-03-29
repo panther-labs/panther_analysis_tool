@@ -72,3 +72,7 @@ class TestPATSchemas(unittest.TestCase):
             # can't have rate <= 1
             sample_query["Schedule"] = {"RateMinutes": 1, "TimeoutMinutes": 1}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
+        with self.assertRaises(SchemaError):
+            # TimeoutMinutes must be set
+            sample_query["Schedule"] = {"RateMinutes": 1}
+            SCHEDULED_QUERY_SCHEMA.validate(sample_query)
