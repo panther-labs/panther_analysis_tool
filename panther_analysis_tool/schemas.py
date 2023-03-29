@@ -16,8 +16,28 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from typing import Any, Dict
 
-from schema import And, Optional, Or, Regex, Schema
+from schema import And, Optional, Or, Regex, Schema, SchemaError
+
+
+class QueryScheduleSchema(Schema):
+    # pylint: disable=arguments-differ
+    def validate(
+        self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
+    ) -> Dict[str, Any]:
+        super().validate(data, _is_query_schedule_schema=False)
+        if _is_query_schedule_schema:
+            rate, timeout = data.get("RateMinutes"), data.get("TimeoutMinutes")
+            if rate is not None:
+                # validate rate minutes >1m
+                if rate <= 1:
+                    raise SchemaError("RateMinutes must be > 1")
+                # validate rate minutes >= timeout
+                if rate < timeout:
+                    raise SchemaError("RateMinutes must be >= TimeoutMinutes")
+        return data
+
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
 RESOURCE_TYPE_REGEX = Regex(
@@ -98,7 +118,7 @@ DATA_MODEL_SCHEMA = Schema(
         "Mappings": [
             {
                 "Name": str,
-                Or("Method", "Path"): str,
+                Or("Method", "Path", only_one=True): str,
             }
         ],
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
@@ -170,7 +190,7 @@ RULE_SCHEMA = Schema(
         "Enabled": bool,
         "Filename": str,
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("LogTypes", "ScheduledQueries"): And([str], [LOG_TYPE_REGEX]),
+        Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
@@ -204,10 +224,12 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
         Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
-        "Schedule": {
-            Or("CronExpression", "RateMinutes"): Or(str, int),
-            "TimeoutMinutes": int,
-        },
+        "Schedule": QueryScheduleSchema(
+            {
+                Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
+                "TimeoutMinutes": int,
+            }
+        ),
         Optional("Description"): str,
         Optional("Tags"): [str],
     },

@@ -11,5 +11,5 @@ Tags:
   - some
   - meme
 Schedule:
-  RateMinutes: 180
-  TimeoutMinutes: 1
+  RateMinutes: 10
+  TimeoutMinutes: 10
