@@ -1,6 +1,7 @@
 import os
 import tempfile
 from typing import Dict, Final
+
 from schema import Schema
 
 from panther_analysis_tool.schemas import (

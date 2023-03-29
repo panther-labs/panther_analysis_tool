@@ -17,12 +17,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from schema import And, Optional, Or, Regex, Schema, SchemaError, Use
 from typing import Any, Dict
 
-class QueryScheduleSchema(Schema):
+from schema import And, Optional, Or, Regex, Schema, SchemaError, Use
 
-    def validate(self, data: Dict[str, Any], _is_query_schedule_schema: bool = True) -> Dict[str, Any]:
+
+class QueryScheduleSchema(Schema):
+    def validate(
+        self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
+    ) -> Dict[str, Any]:
         super(QueryScheduleSchema, self).validate(data, _is_query_schedule_schema=False)
         if _is_query_schedule_schema:
             rate, timeout = data.get("RateMinutes"), data.get("TimeoutMinutes")
@@ -34,6 +37,7 @@ class QueryScheduleSchema(Schema):
                 if rate < timeout:
                     raise SchemaError("RateMinutes must be >= TimeoutMinutes")
         return data
+
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
 RESOURCE_TYPE_REGEX = Regex(
@@ -220,10 +224,12 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
         Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
-        "Schedule": QueryScheduleSchema({
-            Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
-           "TimeoutMinutes": int,
-        }),
+        "Schedule": QueryScheduleSchema(
+            {
+                Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
+                "TimeoutMinutes": int,
+            }
+        ),
         Optional("Description"): str,
         Optional("Tags"): [str],
     },
@@ -255,5 +261,3 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
-
-
