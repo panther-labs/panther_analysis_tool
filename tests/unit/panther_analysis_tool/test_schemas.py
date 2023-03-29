@@ -2,7 +2,12 @@ import unittest
 
 from schema import SchemaError
 
-from panther_analysis_tool.schemas import LOG_TYPE_REGEX, MOCK_SCHEMA, SCHEDULED_QUERY_SCHEMA
+from panther_analysis_tool.schemas import (
+    DATA_MODEL_SCHEMA,
+    LOG_TYPE_REGEX,
+    MOCK_SCHEMA,
+    SCHEDULED_QUERY_SCHEMA
+)
 
 
 class TestPATSchemas(unittest.TestCase):
@@ -19,6 +24,22 @@ class TestPATSchemas(unittest.TestCase):
 
         with self.assertRaises(SchemaError):
             LOG_TYPE_REGEX.validate({"objectName": "hello", "returnValue": ["Testing a non-string"]})
+
+    def test_data_model_path(self):
+        sample_datamodel = {
+            "DataModelID": "my.datamodel.id",
+            "AnalysisType": "datamodel",
+            "LogTypes": ["Amazon.EKS.Audit"],
+            "Enabled": False,
+        }
+        sample_datamodel["Mappings"] = [{"Name": "hello", "Path": "world"}]
+        DATA_MODEL_SCHEMA.validate(sample_datamodel)
+        sample_datamodel["Mappings"] = [{"Name": "hello", "Method": "world"}]
+        DATA_MODEL_SCHEMA.validate(sample_datamodel)
+
+        with self.assertRaises(SchemaError):
+            sample_datamodel["Mappings"] = [{"Name": "hello", "Path": "world", "Method": "foo"}]
+            DATA_MODEL_SCHEMA.validate(sample_datamodel)
 
     def test_query_rateminutes(self):
         sample_query = {
