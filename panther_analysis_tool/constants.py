@@ -14,7 +14,7 @@ from panther_analysis_tool.schemas import (
     SCHEDULED_QUERY_SCHEMA,
 )
 
-VERSION_STRING: Final = "panther_analysis_tool 0.19.12"
+VERSION_STRING: Final = "panther_analysis_tool 0.20.0"
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"

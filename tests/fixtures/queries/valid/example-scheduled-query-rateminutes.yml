@@ -1,5 +1,5 @@
 AnalysisType: scheduled_query
-QueryName: ScheduledQuery_Example
+QueryName: ScheduledQuery_Example_RateMinutes
 Description: Example for a scheduled query for PAT
 Enabled: true
 Query:
@@ -7,7 +7,7 @@ Query:
    user_name,
    reported_client_type,
    COUNT(event_id) AS counts
-   FROM datalake.account_usage.login_history
+   FROM datalake.public.login_history
    WHERE
     DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
    AND
@@ -19,7 +19,7 @@ SnowflakeQuery:
    user_name,
    reported_client_type,
    COUNT(event_id) AS counts
-   FROM datalake.account_usage.login_history
+   FROM datalake.public.login_history
    WHERE
     DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
    AND
@@ -27,9 +27,8 @@ SnowflakeQuery:
    GROUP BY reported_client_type, user_name
    HAVING counts >= 3"
 Tags:
-  Datalake
+  [Datalake,]
 Schedule:
-  CronExpression: "0 0 29 2 *"
-  RateMinutes: 0
+  RateMinutes: 20
   TimeoutMinutes: 2
 
