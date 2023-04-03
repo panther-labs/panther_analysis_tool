@@ -27,7 +27,7 @@ SnowflakeQuery:
    GROUP BY reported_client_type, user_name
    HAVING counts >= 3"
 Tags:
-  [Datalake,]
+  - Datalake
 Schedule:
   CronExpression: "0 0 29 2 *"
   TimeoutMinutes: 2

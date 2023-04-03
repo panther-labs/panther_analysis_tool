@@ -1194,11 +1194,13 @@ def contains_invalid_table_names(analysis_spec: Any, analysis_id: str) -> List[s
             logging.info("Failed to parse query for scheduled query %s", analysis_id)
         for table in tables:
             components = table.split(".")
-            if len(components) != 3 or not (
-                components[1] == "public"
-                or (components[0] == "snowflake" and components[1] == "account_usage")
-            ):
+            if len(components) != 3:
                 invalid_table_names.append(table)
+            else:
+                is_public_table = components[1] == "public"
+                is_snowflake_account_usage_table = components[0] == "snowflake" and components[1] == "account_usage"
+                if not is_public_table and not is_snowflake_account_usage_table:
+                    invalid_table_names.append(table)
     else:
         logging.info("No query found for scheduled query %s", analysis_id)
     return invalid_table_names

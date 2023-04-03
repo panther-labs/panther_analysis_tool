@@ -27,7 +27,7 @@ SnowflakeQuery:
    GROUP BY reported_client_type, user_name
    HAVING counts >= 3"
 Tags:
-  [Datalake,]
+  - Datalake
 Schedule:
   RateMinutes: 20
   TimeoutMinutes: 2
