@@ -459,3 +459,17 @@ class TestPantherAnalysisTool(TestCase):
                                              '--available-destination Pagerduty'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
+
+    def test_invalid_query(self):
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid'.split())
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 4)
+
+    def test_invalid_query_passes_when_unchecked(self):
+        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names'.split())
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)

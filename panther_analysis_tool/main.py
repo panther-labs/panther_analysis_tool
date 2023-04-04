@@ -101,7 +101,6 @@ from panther_analysis_tool.constants import (
     RULE,
     SCHEDULED_RULE,
     SCHEMAS,
-    SET_FIELDS,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
 )
@@ -113,6 +112,10 @@ from panther_analysis_tool.schemas import (
     POLICY_SCHEMA,
     RULE_SCHEMA,
     TYPE_SCHEMA,
+)
+from panther_analysis_tool.validation import (
+    contains_invalid_field_set,
+    contains_invalid_table_names,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 
@@ -136,6 +139,19 @@ class AnalysisContainsDuplicatesException(Exception):
         self.message = (
             "Specification file for [{}] contains fields with duplicate values: [{}]".format(
                 analysis_id, ", ".join(x for x in invalid_fields)
+            )
+        )
+        super().__init__(self.message)
+
+
+# Exception for invalid Panther Snowflake table names
+class AnalysisContainsInvalidTableNamesException(Exception):
+    def __init__(self, analysis_id: str, invalid_table_names: List[str]):
+        self.message = (
+            "Specification file for [{}] contains invalid Panther table names: [{}]. "
+            "Try using a fully qualified table name such as 'panther_logs.public.log_type' "
+            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables.".format(
+                analysis_id, ", ".join(x for x in invalid_table_names)
             )
         )
         super().__init__(self.message)
@@ -740,7 +756,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files=ignored_files))
+        list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
+        ignore_table_names=args.ignore_table_names,
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -1033,7 +1050,7 @@ def print_summary(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]]
+    specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -1080,6 +1097,12 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
+            if analysis_type == QUERY and not ignore_table_names:
+                invalid_table_names = contains_invalid_table_names(analysis_spec, analysis_id)
+                if invalid_table_names:
+                    raise AnalysisContainsInvalidTableNamesException(
+                        analysis_id, invalid_table_names
+                    )
             analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
@@ -1139,25 +1162,6 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     if analysis_type in [RULE, SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
-
-
-def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
-    """Checks if the fields that Panther expects as sets have duplicates, returns True if invalid.
-
-    :param analysis_spec: Loaded YAML specification file
-    :return: bool - whether or not the specifications file is valid where False denotes valid.
-    """
-    invalid_fields = []
-    for field in SET_FIELDS:
-        if field not in analysis_spec:
-            continue
-        # Handle special case where we need to test for lowercase tags
-        if field == "Tags":
-            if len(analysis_spec[field]) != len(set(x.lower() for x in analysis_spec[field])):
-                invalid_fields.append("LowerTags")
-        if len(analysis_spec[field]) != len(set(analysis_spec[field])):
-            invalid_fields.append(field)
-    return invalid_fields
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
@@ -1436,6 +1440,15 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "Sort test results by whether the test passed or failed (passing tests first), "
         "then by rule ID",
     }
+    ignore_table_names_name = "--ignore-table-names"
+    ignore_table_names_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "default": False,
+        "dest": "ignore_table_names",
+        "required": False,
+        "help": "Allows skipping of table names from schema validation. Useful when querying "
+        "non-Panther or non-Snowflake tables",
+    }
 
     # -- root parser
 
@@ -1470,6 +1483,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
     release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    release_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     # -- test command
@@ -1485,6 +1499,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.set_defaults(func=test_analysis)
 
     # -- publish command
@@ -1566,6 +1581,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
+    upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
 
     # -- delete command
@@ -1659,6 +1675,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     # -- check-connection command

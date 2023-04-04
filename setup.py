@@ -14,6 +14,7 @@ install_requires = [
     'ruamel.yaml',
     'schema',
     'semver',
+    'sql_metadata',
     'panther_core',
     'typing-extensions',
     'jsonlines',
