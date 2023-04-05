@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple
 
 import boto3
+import requests
+from packaging import version
 
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
@@ -33,6 +35,7 @@ from panther_analysis_tool.backend.public_api_client import (
     PublicAPIClient,
     PublicAPIClientOptions,
 )
+from panther_analysis_tool.constants import PACKAGE_NAME, VERSION_STRING
 
 
 def allowed_char(char: str) -> bool:
@@ -45,6 +48,19 @@ def id_to_path(directory: str, object_id: str) -> str:
     safe_id = "".join(x if allowed_char(x) else "_" for x in object_id)
     path = os.path.join(directory, safe_id + ".py")
     return path
+
+
+def is_latest() -> bool:
+    try:
+        response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json")
+        latest_version = response.json().get("info", {}).get("version", "")
+        if response.status_code == 200:
+            return version.parse(VERSION_STRING) >= version.parse(latest_version)
+    except Exception:  # pylint: disable=broad-except
+        logging.debug("Unable to determine latest version", exc_info=True)
+    # if we run into any issues connecting or parsing the version,
+    # we should just skip the check
+    return True
 
 
 def import_file_as_module(path: str, object_id: str) -> Any:

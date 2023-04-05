@@ -96,6 +96,7 @@ from panther_analysis_tool.constants import (
     HELPERS_LOCATION,
     LOOKUP_TABLE,
     PACK,
+    PACKAGE_NAME,
     POLICY,
     QUERY,
     RULE,
@@ -1815,6 +1816,13 @@ def run() -> None:
     )
     if not args.debug:
         aiohttp_logger.setLevel(logging.WARNING)
+
+    if not pat_utils.is_latest():
+        logging.warning(
+            "A new version of %s is available. To upgrade, run:\n pip install %s --upgrade\n",
+            PACKAGE_NAME,
+            PACKAGE_NAME,
+        )
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
