@@ -39,7 +39,7 @@ class TestToList(unittest.TestCase):
 class Version(unittest.TestCase):
 
     @responses.activate
-    @mock.patch("panther_analysis_tool.constants.VERSION_STRING", "0.1.1")
+    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
     def test_version_success(self) -> None:
         sample_response = {
             "info": {
@@ -55,7 +55,7 @@ class Version(unittest.TestCase):
         self.assertTrue(latest)
 
     @responses.activate
-    @mock.patch("panther_analysis_tool.constants.VERSION_STRING", "0.0.1")
+    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.0.1")
     def test_version_success(self) -> None:
         sample_response = {
             "info": {
