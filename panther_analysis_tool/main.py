@@ -1806,23 +1806,26 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
 
 def run() -> None:
+    # setup logger and print version info as necessary
+    logging.basicConfig(
+        format="[%(levelname)s]: %(message)s",
+        level=logging.INFO,
+    )
+    if not pat_utils.is_latest():
+        logging.warning(
+            "A new version of %s is available. To upgrade, run:\n pip3 install %s --upgrade\n",
+            PACKAGE_NAME,
+            PACKAGE_NAME,
+        )
+
     parser = setup_parser()
     # if no args are passed, print the help output
     args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
 
-    logging.basicConfig(
-        format="[%(levelname)s]: %(message)s",
-        level=logging.DEBUG if args.debug else logging.INFO,
-    )
-    if not args.debug:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
         aiohttp_logger.setLevel(logging.WARNING)
-
-    if not pat_utils.is_latest():
-        logging.warning(
-            "A new version of %s is available. To upgrade, run:\n pip install %s --upgrade\n",
-            PACKAGE_NAME,
-            PACKAGE_NAME,
-        )
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)
