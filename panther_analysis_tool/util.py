@@ -59,7 +59,7 @@ def is_latest() -> bool:
     except Exception:  # pylint: disable=broad-except
         logging.debug("Unable to determine latest version", exc_info=True)
     # if we run into any issues connecting or parsing the version,
-    # we should just skip the check
+    # we should just return True
     return True
 
 
