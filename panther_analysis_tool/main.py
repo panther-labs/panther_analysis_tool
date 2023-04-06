@@ -1813,8 +1813,11 @@ def run() -> None:
     )
     if not pat_utils.is_latest():
         logging.warning(
-            "A new version of %s is available. To upgrade, run:\n\tpip3 install %s --upgrade\n",
+            "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
+            "pip3 install %s --upgrade\n",
             PACKAGE_NAME,
+            VERSION_STRING,
+            pat_utils.get_latest_version(),
             PACKAGE_NAME,
         )
 

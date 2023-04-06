@@ -37,6 +37,8 @@ from panther_analysis_tool.backend.public_api_client import (
 )
 from panther_analysis_tool.constants import PACKAGE_NAME, VERSION_STRING
 
+UNKNOWN_VERSION = "unknown"
+
 
 def allowed_char(char: str) -> bool:
     """Return true if the character is part of a valid ID."""
@@ -50,11 +52,20 @@ def id_to_path(directory: str, object_id: str) -> str:
     return path
 
 
-def is_latest() -> bool:
+def get_latest_version() -> str:
     try:
         response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json")
-        latest_version = response.json().get("info", {}).get("version", "")
         if response.status_code == 200:
+            return response.json().get("info", {}).get("version", UNKNOWN_VERSION)
+    except Exception:  # pylint: disable=broad-except
+        logging.debug("Unable to determine latest version", exc_info=True)
+    return UNKNOWN_VERSION
+
+
+def is_latest() -> bool:
+    try:
+        latest_version = get_latest_version()
+        if latest_version != UNKNOWN_VERSION:
             return version.parse(VERSION_STRING) >= version.parse(latest_version)
     except Exception:  # pylint: disable=broad-except
         logging.debug("Unable to determine latest version", exc_info=True)

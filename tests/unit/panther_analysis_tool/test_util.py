@@ -36,11 +36,11 @@ class TestToList(unittest.TestCase):
             res = pat_utils.to_list(inp)
             self.assertEqual(exp, res)
 
+
 class Version(unittest.TestCase):
 
     @responses.activate
-    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
-    def test_version_success(self) -> None:
+    def test_get_version_success(self) -> None:
         sample_response = {
             "info": {
                 "version": "0.1.1",
@@ -49,45 +49,62 @@ class Version(unittest.TestCase):
         responses.get('https://pypi.org/pypi/panther_analysis_tool/json',
                       json=sample_response, status=200)
 
-        latest = pat_utils.is_latest()
+        version = pat_utils.get_latest_version()
         self.assertTrue(len(responses.calls) == 1)
         self.assertTrue(responses.calls[0].request.url == 'https://pypi.org/pypi/panther_analysis_tool/json')
-        self.assertTrue(latest)
+        self.assertEqual(version, "0.1.1")
 
     @responses.activate
-    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.0.1")
-    def test_version_success(self) -> None:
+    def test_get_version_empty(self) -> None:
+        responses.get('https://pypi.org/pypi/panther_analysis_tool/json',
+                      json={"info": {}}, status=200)
+
+        version = pat_utils.get_latest_version()
+        self.assertTrue(len(responses.calls) == 1)
+        self.assertTrue(responses.calls[0].request.url == 'https://pypi.org/pypi/panther_analysis_tool/json')
+        self.assertEqual(version, pat_utils.UNKNOWN_VERSION)
+
+    @responses.activate
+    def test_get_version_not_success(self) -> None:
         sample_response = {
             "info": {
                 "version": "0.1.1",
             },
         }
         responses.get('https://pypi.org/pypi/panther_analysis_tool/json',
-                      json=sample_response, status=200)
+                      json=sample_response, status=400)
 
-        latest = pat_utils.is_latest()
+        version = pat_utils.get_latest_version()
         self.assertTrue(len(responses.calls) == 1)
         self.assertTrue(responses.calls[0].request.url == 'https://pypi.org/pypi/panther_analysis_tool/json')
-        self.assertFalse(latest)
+        self.assertEqual(version, pat_utils.UNKNOWN_VERSION)
+
 
     @responses.activate
-    def test_version_non_200(self) -> None:
-        responses.get('https://pypi.org/pypi/panther_analysis_tool/json',
-                      json={"doesn't": "matter"}, status=400)
-        self.assertTrue(pat_utils.is_latest())
-
-    @responses.activate
-    def test_version_does_not_parse(self) -> None:
-        sample_response = {
-            "info": {
-                "version": "not_a_valid_version",
-            },
-        }
-        responses.get('https://pypi.org/pypi/panther_analysis_tool/json',
-                      json=sample_response, status=200)
-        self.assertTrue(pat_utils.is_latest())
-
-    @responses.activate
-    def test_connection_exception(self) -> None:
+    def test_get_version_exception(self) -> None:
         responses.get('https://pypi.org/pypi/panther_analysis_tool/json', body=Exception("uh-ohs"))
+        version = pat_utils.get_latest_version()
+        self.assertEqual(version, pat_utils.UNKNOWN_VERSION)
+
+    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
+    @mock.patch("panther_analysis_tool.util.get_latest_version")
+    def test_is_latest(self, mock_get_version) -> None:
+        mock_get_version.return_value = "0.1.1"
+        self.assertTrue(pat_utils.is_latest())
+
+    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.0.1")
+    @mock.patch("panther_analysis_tool.util.get_latest_version")
+    def test_is_not_latest(self, mock_get_version) -> None:
+        mock_get_version.return_value = "0.1.1"
+        self.assertFalse(pat_utils.is_latest())
+
+    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
+    @mock.patch("panther_analysis_tool.util.get_latest_version")
+    def test_latest_unknown_version(self, mock_get_version) -> None:
+        mock_get_version.return_value = pat_utils.UNKNOWN_VERSION
+        self.assertTrue(pat_utils.is_latest())
+
+    @mock.patch("panther_analysis_tool.util.get_latest_version")
+    def test_version_does_not_parse(self, mock_get_version) -> None:
+        mock_get_version.return_value = "invalid-version"
         self.assertTrue(pat_utils.is_latest())
