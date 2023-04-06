@@ -86,24 +86,16 @@ class Version(unittest.TestCase):
         self.assertEqual(version, pat_utils.UNKNOWN_VERSION)
 
     @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
-    @mock.patch("panther_analysis_tool.util.get_latest_version")
-    def test_is_latest(self, mock_get_version) -> None:
-        mock_get_version.return_value = "0.1.1"
-        self.assertTrue(pat_utils.is_latest())
-
-    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.0.1")
-    @mock.patch("panther_analysis_tool.util.get_latest_version")
-    def test_is_not_latest(self, mock_get_version) -> None:
-        mock_get_version.return_value = "0.1.1"
-        self.assertFalse(pat_utils.is_latest())
+    def test_is_latest(self, ) -> None:
+        self.assertTrue(pat_utils.is_latest("0.1.1"))
 
     @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
-    @mock.patch("panther_analysis_tool.util.get_latest_version")
-    def test_latest_unknown_version(self, mock_get_version) -> None:
-        mock_get_version.return_value = pat_utils.UNKNOWN_VERSION
-        self.assertTrue(pat_utils.is_latest())
+    def test_is_not_latest(self) -> None:
+        self.assertFalse(pat_utils.is_latest("0.2.0"))
 
-    @mock.patch("panther_analysis_tool.util.get_latest_version")
-    def test_version_does_not_parse(self, mock_get_version) -> None:
-        mock_get_version.return_value = "invalid-version"
-        self.assertTrue(pat_utils.is_latest())
+    @mock.patch("panther_analysis_tool.util.VERSION_STRING", "0.1.1")
+    def test_latest_unknown_version(self) -> None:
+        self.assertTrue(pat_utils.is_latest(pat_utils.UNKNOWN_VERSION))
+
+    def test_version_does_not_parse(self) -> None:
+        self.assertTrue(pat_utils.is_latest("invalid-version"))

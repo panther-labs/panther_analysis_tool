@@ -62,11 +62,9 @@ def get_latest_version() -> str:
     return UNKNOWN_VERSION
 
 
-def is_latest() -> bool:
+def is_latest(test_version: str) -> bool:
     try:
-        latest_version = get_latest_version()
-        if latest_version != UNKNOWN_VERSION:
-            return version.parse(VERSION_STRING) >= version.parse(latest_version)
+        return version.parse(VERSION_STRING) >= version.parse(test_version)
     except Exception:  # pylint: disable=broad-except
         logging.debug("Unable to determine latest version", exc_info=True)
     # if we run into any issues connecting or parsing the version,
