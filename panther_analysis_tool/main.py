@@ -96,6 +96,7 @@ from panther_analysis_tool.constants import (
     HELPERS_LOCATION,
     LOOKUP_TABLE,
     PACK,
+    PACKAGE_NAME,
     POLICY,
     QUERY,
     RULE,
@@ -1805,15 +1806,29 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
 
 def run() -> None:
+    # setup logger and print version info as necessary
+    logging.basicConfig(
+        format="[%(levelname)s]: %(message)s",
+        level=logging.INFO,
+    )
+    latest = pat_utils.get_latest_version()
+    if not pat_utils.is_latest(latest):
+        logging.warning(
+            "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
+            "pip3 install %s --upgrade\n",
+            PACKAGE_NAME,
+            VERSION_STRING,
+            latest,
+            PACKAGE_NAME,
+        )
+
     parser = setup_parser()
     # if no args are passed, print the help output
     args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
 
-    logging.basicConfig(
-        format="[%(levelname)s]: %(message)s",
-        level=logging.DEBUG if args.debug else logging.INFO,
-    )
-    if not args.debug:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
         aiohttp_logger.setLevel(logging.WARNING)
 
     if getattr(args, "filter", None) is not None:
