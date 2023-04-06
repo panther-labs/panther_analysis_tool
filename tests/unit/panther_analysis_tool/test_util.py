@@ -79,7 +79,6 @@ class Version(unittest.TestCase):
         self.assertTrue(responses.calls[0].request.url == 'https://pypi.org/pypi/panther_analysis_tool/json')
         self.assertEqual(version, pat_utils.UNKNOWN_VERSION)
 
-
     @responses.activate
     def test_get_version_exception(self) -> None:
         responses.get('https://pypi.org/pypi/panther_analysis_tool/json', body=Exception("uh-ohs"))
