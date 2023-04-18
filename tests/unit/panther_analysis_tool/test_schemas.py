@@ -92,3 +92,17 @@ class TestPATSchemas(unittest.TestCase):
             "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
             "ResourceTypes": ["AWS.DynamoDB.Table"], "OnlyUseBaseRiskScore": True
         })
+
+    def test_missing_rba_flag(self):
+        RULE_SCHEMA.validate({
+            "AnalysisType": "rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["Custom.OhSnap"]
+        })
+        RULE_SCHEMA.validate({
+            "AnalysisType": "scheduled_rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["AWS.ALB"]
+        })
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+            "ResourceTypes": ["AWS.DynamoDB.Table"]
+        })
