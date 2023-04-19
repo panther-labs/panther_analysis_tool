@@ -114,9 +114,11 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     TYPE_SCHEMA,
 )
+from panther_analysis_tool.util import convert_unicode
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
     contains_invalid_table_names,
+    validate_packs,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 
@@ -266,8 +268,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, _ = test_analysis(args)
+        return_code, invalid_specs = test_analysis(args)
         if return_code != 0:
+            logging.error(invalid_specs)
             return return_code, ""
 
     logging.info("Zipping analysis items in %s to %s", args.path, args.out)
@@ -304,8 +307,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
     if args.batch:
         if not args.skip_tests:
-            return_code, _ = test_analysis(args)
+            return_code, invalid_specs = test_analysis(args)
             if return_code != 0:
+                logging.error(invalid_specs)
                 return return_code, ""
 
         for idx, archive in enumerate(zip_analysis_chunks(args)):
@@ -354,12 +358,12 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
 
             except BackendError as be_err:
                 if be_err.permanent is True:
-                    logging.error("Failed to upload to backend: %s", be_err)
+                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
                     return_code = 1
                     break
 
                 if max_retries - retry_count > 0:
-                    logging.debug("Failed to upload to Panther: %s.", be_err)
+                    logging.debug("Failed to upload to Panther: %s.", convert_unicode(be_err))
                     retry_count += 1
 
                     # typical bulk upload takes 30 seconds, allow any currently running one to complete
@@ -371,7 +375,7 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
 
                 else:
                     logging.warning("Exhausted retries attempting to perform bulk upload.")
-                    logging.error("Failed to upload to backend: %s", be_err)
+                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
                     return_code = 1
                     return_archive_fname = ""
                     break
@@ -988,39 +992,6 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
         if not all_test_results:
             print("")
     return failed_tests, invalid_specs
-
-
-def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
-    invalid_specs = []
-    # first, setup dictionary of id to detection item
-    id_to_detection = {}
-    for analysis_type in analysis_specs:
-        for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
-            analysis_id = (
-                analysis_spec.get("PolicyID")
-                or analysis_spec.get("RuleID")
-                or analysis_spec.get("DataModelID")
-                or analysis_spec.get("GlobalID")
-                or analysis_spec.get("PackID")
-                or analysis_spec.get("QueryName")
-                or analysis_spec["LookupName"]
-            )
-            id_to_detection[analysis_id] = analysis_spec
-    for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
-        # validate each id in the pack def exists
-        pack_invalid_ids = []
-        for analysis_id in analysis_spec.get("PackDefinition", {}).get("IDs", []):
-            if analysis_id not in id_to_detection:
-                pack_invalid_ids.append(analysis_id)
-        if pack_invalid_ids:
-            invalid_specs.append(
-                (
-                    analysis_spec_filename,
-                    f"pack ({analysis_spec['PackID']}) definition includes item(s)"
-                    f" that do no exist ({', '.join(pack_invalid_ids)})",
-                )
-            )
-    return invalid_specs
 
 
 def print_summary(
@@ -1808,7 +1779,7 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 def run() -> None:
     # setup logger and print version info as necessary
     logging.basicConfig(
-        format="[%(levelname)s]: %(message)s",
+        format="[%(levelname)s][%(name)s]: %(message)s",
         level=logging.INFO,
     )
     latest = pat_utils.get_latest_version()
@@ -1830,6 +1801,10 @@ def run() -> None:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         aiohttp_logger.setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)

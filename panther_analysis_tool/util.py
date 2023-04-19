@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import logging
 import os
+import re
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
@@ -165,3 +166,10 @@ def deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
 def to_list(listish: Any) -> List:
     """Make a single instance a list or keep a list a list."""
     return listish if isinstance(listish, list) else [listish]
+
+
+def convert_unicode(obj: Any) -> str:
+    """Swap unicode 4 byte strings with arbitrary numbers of leading slashes with the actual character
+    e.g. \\\\u003c => <"""
+    string_to_convert = str(obj)
+    return re.sub(r'\\*\\u([0-9a-f]{4})', lambda m: chr(int(m.group(1), 16)), string_to_convert)

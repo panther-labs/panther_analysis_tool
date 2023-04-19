@@ -16,7 +16,6 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
 import io
 import json
 import os
@@ -413,8 +412,9 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks['debug'].call_count, 21)
                 assert_equal(logging_mocks['warning'].call_count, 1)
-                # test + zip + upload messages
-                assert_equal(logging_mocks['info'].call_count, 3)
+                # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
+                # which can be removed by pausing the fake file system
+                assert_equal(logging_mocks['info'].call_count, 6)
                 assert_equal(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
@@ -427,7 +427,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks['debug'].call_count, 1)
                 assert_equal(logging_mocks['warning'].call_count, 2)
-                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(logging_mocks['info'].call_count, 6)
                 assert_equal(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
@@ -441,7 +441,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(logging_mocks['debug'].call_count, 21)
                 # warning about max and final error
                 assert_equal(logging_mocks['warning'].call_count, 2)
-                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(logging_mocks['info'].call_count, 6)
                 assert_equal(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
@@ -461,15 +461,19 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
 
     def test_invalid_query(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid'.split())
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(args)
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
 
     def test_invalid_query_passes_when_unchecked(self):
-        args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names'.split())
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(args)
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
