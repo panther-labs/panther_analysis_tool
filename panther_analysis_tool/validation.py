@@ -1,8 +1,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlfluff import parse
 from nested_lookup import nested_lookup
+from sqlfluff import parse
 
 from panther_analysis_tool.constants import PACK, SET_FIELDS
 
