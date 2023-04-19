@@ -29,6 +29,7 @@ ruamel.yaml.clib==0.2.7
 s3transfer==0.5.2
 schema==0.7.5
 semver==2.13.0
+setuptools==65.5.1
 six==1.16.0
 sqlfluff==2.0.5
 typing-extensions==4.3.0
