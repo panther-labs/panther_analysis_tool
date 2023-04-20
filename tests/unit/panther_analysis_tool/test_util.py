@@ -4,6 +4,7 @@ from unittest import mock
 
 import panther_analysis_tool.constants
 from panther_analysis_tool import util as pat_utils
+from panther_analysis_tool.util import convert_unicode
 
 
 class TestToList(unittest.TestCase):
@@ -99,3 +100,26 @@ class Version(unittest.TestCase):
 
     def test_version_does_not_parse(self) -> None:
         self.assertTrue(pat_utils.is_latest("invalid-version"))
+
+
+class TestConvertUnicode(unittest.TestCase):
+    def test_typical_error_response(self):
+        error_str = """
+        {'statusCode': 400,
+         'headers': {},
+          'multiValueHeaders': {},
+           'body': '{"issues":[{
+           "path":"ipinfo_asn.yml",
+           "errorMessage":"failed to save lut \\\\"too_many-minutes\\\\": alarm period minutes must be \\\\u003c= 1440"
+           }]}'}
+        """
+        expected_str = """
+        {'statusCode': 400,
+         'headers': {},
+          'multiValueHeaders': {},
+           'body': '{"issues":[{
+           "path":"ipinfo_asn.yml",
+           "errorMessage":"failed to save lut \\\\"too_many-minutes\\\\": alarm period minutes must be <= 1440"
+           }]}'}
+        """
+        self.assertEqual(convert_unicode(error_str), expected_str)
