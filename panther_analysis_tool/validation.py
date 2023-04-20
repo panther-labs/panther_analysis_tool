@@ -48,7 +48,7 @@ def contains_invalid_table_names(analysis_spec: Any, analysis_id: str) -> List[s
             try:
                 for name_component in table:
                     table_name += list(name_component.values())[0].lower()
-            except Exception: # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 # Intentionally broad exception catch:
                 # We want to fall back on original behavior if this third-party parser cannot tell us the table names
                 logging.info("Failed to retrieve table name for table %s", table)
