@@ -1,0 +1,34 @@
+AnalysisType: scheduled_query
+QueryName: ScheduledQuery_Example_4
+Description: Example for a scheduled query for PAT
+Enabled: true
+Query:
+  "SELECT 
+   user_name,
+   reported_client_type,
+   COUNT(event_id) AS counts
+   FROM datalake.public
+   WHERE
+    DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
+   AND
+   error_code IS NOT NULL
+   GROUP BY reported_client_type, user_name
+   HAVING counts >= 3"
+SnowflakeQuery:
+  "SELECT 
+   user_name,
+   reported_client_type,
+   COUNT(event_id) AS counts
+   FROM datalake.public
+   WHERE
+    DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
+   AND
+   error_code IS NOT NULL
+   GROUP BY reported_client_type, user_name
+   HAVING counts >= 3"
+Tags:
+  - Datalake
+Schedule:
+  RateMinutes: 20
+  TimeoutMinutes: 2
+

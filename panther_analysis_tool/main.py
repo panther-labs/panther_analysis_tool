@@ -96,12 +96,12 @@ from panther_analysis_tool.constants import (
     HELPERS_LOCATION,
     LOOKUP_TABLE,
     PACK,
+    PACKAGE_NAME,
     POLICY,
     QUERY,
     RULE,
     SCHEDULED_RULE,
     SCHEMAS,
-    SET_FIELDS,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
 )
@@ -113,6 +113,12 @@ from panther_analysis_tool.schemas import (
     POLICY_SCHEMA,
     RULE_SCHEMA,
     TYPE_SCHEMA,
+)
+from panther_analysis_tool.util import convert_unicode
+from panther_analysis_tool.validation import (
+    contains_invalid_field_set,
+    contains_invalid_table_names,
+    validate_packs,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 
@@ -136,6 +142,19 @@ class AnalysisContainsDuplicatesException(Exception):
         self.message = (
             "Specification file for [{}] contains fields with duplicate values: [{}]".format(
                 analysis_id, ", ".join(x for x in invalid_fields)
+            )
+        )
+        super().__init__(self.message)
+
+
+# Exception for invalid Panther Snowflake table names
+class AnalysisContainsInvalidTableNamesException(Exception):
+    def __init__(self, analysis_id: str, invalid_table_names: List[str]):
+        self.message = (
+            "Specification file for [{}] contains invalid Panther table names: [{}]. "
+            "Try using a fully qualified table name such as 'panther_logs.public.log_type' "
+            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables.".format(
+                analysis_id, ", ".join(x for x in invalid_table_names)
             )
         )
         super().__init__(self.message)
@@ -249,8 +268,9 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, _ = test_analysis(args)
+        return_code, invalid_specs = test_analysis(args)
         if return_code != 0:
+            logging.error(invalid_specs)
             return return_code, ""
 
     logging.info("Zipping analysis items in %s to %s", args.path, args.out)
@@ -287,8 +307,9 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
     if args.batch:
         if not args.skip_tests:
-            return_code, _ = test_analysis(args)
+            return_code, invalid_specs = test_analysis(args)
             if return_code != 0:
+                logging.error(invalid_specs)
                 return return_code, ""
 
         for idx, archive in enumerate(zip_analysis_chunks(args)):
@@ -337,12 +358,12 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
 
             except BackendError as be_err:
                 if be_err.permanent is True:
-                    logging.error("Failed to upload to backend: %s", be_err)
+                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
                     return_code = 1
                     break
 
                 if max_retries - retry_count > 0:
-                    logging.debug("Failed to upload to Panther: %s.", be_err)
+                    logging.debug("Failed to upload to Panther: %s.", convert_unicode(be_err))
                     retry_count += 1
 
                     # typical bulk upload takes 30 seconds, allow any currently running one to complete
@@ -354,7 +375,7 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
 
                 else:
                     logging.warning("Exhausted retries attempting to perform bulk upload.")
-                    logging.error("Failed to upload to backend: %s", be_err)
+                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
                     return_code = 1
                     return_archive_fname = ""
                     break
@@ -740,7 +761,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files=ignored_files))
+        list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
+        ignore_table_names=args.ignore_table_names,
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -972,39 +994,6 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     return failed_tests, invalid_specs
 
 
-def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
-    invalid_specs = []
-    # first, setup dictionary of id to detection item
-    id_to_detection = {}
-    for analysis_type in analysis_specs:
-        for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
-            analysis_id = (
-                analysis_spec.get("PolicyID")
-                or analysis_spec.get("RuleID")
-                or analysis_spec.get("DataModelID")
-                or analysis_spec.get("GlobalID")
-                or analysis_spec.get("PackID")
-                or analysis_spec.get("QueryName")
-                or analysis_spec["LookupName"]
-            )
-            id_to_detection[analysis_id] = analysis_spec
-    for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
-        # validate each id in the pack def exists
-        pack_invalid_ids = []
-        for analysis_id in analysis_spec.get("PackDefinition", {}).get("IDs", []):
-            if analysis_id not in id_to_detection:
-                pack_invalid_ids.append(analysis_id)
-        if pack_invalid_ids:
-            invalid_specs.append(
-                (
-                    analysis_spec_filename,
-                    f"pack ({analysis_spec['PackID']}) definition includes item(s)"
-                    f" that do no exist ({', '.join(pack_invalid_ids)})",
-                )
-            )
-    return invalid_specs
-
-
 def print_summary(
     test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
 ) -> None:
@@ -1033,7 +1022,7 @@ def print_summary(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]]
+    specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -1080,6 +1069,12 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
+            if analysis_type == QUERY and not ignore_table_names:
+                invalid_table_names = contains_invalid_table_names(analysis_spec, analysis_id)
+                if invalid_table_names:
+                    raise AnalysisContainsInvalidTableNamesException(
+                        analysis_id, invalid_table_names
+                    )
             analysis_ids.append(analysis_id)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
@@ -1139,25 +1134,6 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     if analysis_type in [RULE, SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
-
-
-def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
-    """Checks if the fields that Panther expects as sets have duplicates, returns True if invalid.
-
-    :param analysis_spec: Loaded YAML specification file
-    :return: bool - whether or not the specifications file is valid where False denotes valid.
-    """
-    invalid_fields = []
-    for field in SET_FIELDS:
-        if field not in analysis_spec:
-            continue
-        # Handle special case where we need to test for lowercase tags
-        if field == "Tags":
-            if len(analysis_spec[field]) != len(set(x.lower() for x in analysis_spec[field])):
-                invalid_fields.append("LowerTags")
-        if len(analysis_spec[field]) != len(set(analysis_spec[field])):
-            invalid_fields.append(field)
-    return invalid_fields
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
@@ -1436,6 +1412,15 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "Sort test results by whether the test passed or failed (passing tests first), "
         "then by rule ID",
     }
+    ignore_table_names_name = "--ignore-table-names"
+    ignore_table_names_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "default": False,
+        "dest": "ignore_table_names",
+        "required": False,
+        "help": "Allows skipping of table names from schema validation. Useful when querying "
+        "non-Panther or non-Snowflake tables",
+    }
 
     # -- root parser
 
@@ -1470,6 +1455,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
     release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    release_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     # -- test command
@@ -1485,6 +1471,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.set_defaults(func=test_analysis)
 
     # -- publish command
@@ -1566,6 +1553,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
+    upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
 
     # -- delete command
@@ -1659,6 +1647,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     # -- check-connection command
@@ -1788,16 +1777,34 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
 
 def run() -> None:
+    # setup logger and print version info as necessary
+    logging.basicConfig(
+        format="[%(levelname)s][%(name)s]: %(message)s",
+        level=logging.INFO,
+    )
+    latest = pat_utils.get_latest_version()
+    if not pat_utils.is_latest(latest):
+        logging.warning(
+            "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
+            "pip3 install %s --upgrade\n",
+            PACKAGE_NAME,
+            VERSION_STRING,
+            latest,
+            PACKAGE_NAME,
+        )
+
     parser = setup_parser()
     # if no args are passed, print the help output
     args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
 
-    logging.basicConfig(
-        format="[%(levelname)s]: %(message)s",
-        level=logging.DEBUG if args.debug else logging.INFO,
-    )
-    if not args.debug:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
         aiohttp_logger.setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
 
     if getattr(args, "filter", None) is not None:
         args.filter, args.filter_inverted = parse_filter(args.filter)

@@ -4,6 +4,8 @@ from schema import SchemaError
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
     LOG_TYPE_REGEX,
     MOCK_SCHEMA,
     SCHEDULED_QUERY_SCHEMA
@@ -76,3 +78,31 @@ class TestPATSchemas(unittest.TestCase):
             # TimeoutMinutes must be set
             sample_query["Schedule"] = {"RateMinutes": 1}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
+
+    def test_rba_flag(self):
+        RULE_SCHEMA.validate({
+            "AnalysisType": "rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["Custom.OhSnap"], "OnlyUseBaseRiskScore": True
+        })
+        RULE_SCHEMA.validate({
+            "AnalysisType": "scheduled_rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["AWS.ALB"], "OnlyUseBaseRiskScore": False
+        })
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+            "ResourceTypes": ["AWS.DynamoDB.Table"], "OnlyUseBaseRiskScore": True
+        })
+
+    def test_missing_rba_flag(self):
+        RULE_SCHEMA.validate({
+            "AnalysisType": "rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["Custom.OhSnap"]
+        })
+        RULE_SCHEMA.validate({
+            "AnalysisType": "scheduled_rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["AWS.ALB"]
+        })
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+            "ResourceTypes": ["AWS.DynamoDB.Table"]
+        })

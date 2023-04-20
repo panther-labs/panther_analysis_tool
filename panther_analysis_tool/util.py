@@ -20,12 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import argparse
 import logging
 import os
+import re
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple
 
 import boto3
+import requests
+from packaging import version
 
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
@@ -33,6 +36,9 @@ from panther_analysis_tool.backend.public_api_client import (
     PublicAPIClient,
     PublicAPIClientOptions,
 )
+from panther_analysis_tool.constants import PACKAGE_NAME, VERSION_STRING
+
+UNKNOWN_VERSION = "unknown"
 
 
 def allowed_char(char: str) -> bool:
@@ -45,6 +51,26 @@ def id_to_path(directory: str, object_id: str) -> str:
     safe_id = "".join(x if allowed_char(x) else "_" for x in object_id)
     path = os.path.join(directory, safe_id + ".py")
     return path
+
+
+def get_latest_version() -> str:
+    try:
+        response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json")
+        if response.status_code == 200:
+            return response.json().get("info", {}).get("version", UNKNOWN_VERSION)
+    except Exception:  # pylint: disable=broad-except
+        logging.debug("Unable to determine latest version", exc_info=True)
+    return UNKNOWN_VERSION
+
+
+def is_latest(latest_version: str) -> bool:
+    try:
+        return version.parse(VERSION_STRING) >= version.parse(latest_version)
+    except Exception:  # pylint: disable=broad-except
+        logging.debug("Unable to determine latest version", exc_info=True)
+    # if we run into any issues connecting or parsing the version,
+    # we should just return True
+    return True
 
 
 def import_file_as_module(path: str, object_id: str) -> Any:
@@ -140,3 +166,10 @@ def deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
 def to_list(listish: Any) -> List:
     """Make a single instance a list or keep a list a list."""
     return listish if isinstance(listish, list) else [listish]
+
+
+def convert_unicode(obj: Any) -> str:
+    """Swap unicode 4 byte strings with arbitrary numbers of leading slashes with the actual character
+    e.g. \\\\u003c => <"""
+    string_to_convert = str(obj)
+    return re.sub(r"\\*\\u([0-9a-f]{4})", lambda m: chr(int(m.group(1), 16)), string_to_convert)
