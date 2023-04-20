@@ -82,6 +82,7 @@ LOG_TYPE_REGEX = Regex(
     r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
     r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility|SentinelOne\.DeepVisibilityV2"
+    r"|Tines\.Audit"
     r"|Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
 )
 
