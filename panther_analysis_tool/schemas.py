@@ -202,7 +202,6 @@ RULE_SCHEMA = Schema(
         Optional("Reference"): str,
         Optional("Runbook"): str,
         Optional("SummaryAttributes"): [str],
-        Optional("Suppressions"): [str],
         Optional("Threshold"): int,
         Optional("Tags"): [str],
         Optional("Reports"): {str: list},
