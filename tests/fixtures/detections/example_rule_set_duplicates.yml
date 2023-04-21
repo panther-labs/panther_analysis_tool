@@ -1,6 +1,6 @@
 AnalysisType: rule
 Enabled: true
-Filename: example_set_duplicates.py
+Filename: example_rule_set_duplicates.py
 RuleID: Example.Rule.Set.Duplicates
 LogTypes:
   - AWS.CloudTrail
@@ -19,9 +19,6 @@ SummaryAttributes:
 OutputIds:
   - "1234"
   - "1234"
-Suppressions:
-  - asdf
-  - asdf
 Tests:
   -
     Name: Name to describe our first test.
