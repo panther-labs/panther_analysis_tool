@@ -477,3 +477,21 @@ class TestPantherAnalysisTool(TestCase):
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
+
+    def test_invalid_query_passes_when_table_name_provided(self):
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_invalid_query_fails_when_partial_table_name_provided(self):
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 1)
