@@ -1,9 +1,21 @@
 import unittest
 
-from panther_analysis_tool.validation import contains_invalid_table_names
+from panther_analysis_tool.validation import contains_invalid_table_names, matches_valid_table_name
 
 
 class TestContainsInvalidTableNames(unittest.TestCase):
+    invalid_sql = """SELECT 
+           user_name,
+           reported_client_type,
+           COUNT(event_id) AS counts
+           FROM datalake.account_usage.login_history
+           WHERE
+            DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
+           AND
+           error_code IS NOT NULL
+           GROUP BY reported_client_type, user_name
+           HAVING counts >= 3"""
+
     def test_complex_sql(self):
         sql = """
         WITH login_attempts as (
@@ -49,23 +61,51 @@ class TestContainsInvalidTableNames(unittest.TestCase):
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
 
-        output = contains_invalid_table_names(analysis_spec, analysis_id)
+        output = contains_invalid_table_names(analysis_spec, analysis_id, [])
         self.assertFalse(output)
 
     def test_simple_sql(self):
-        sql = """SELECT 
-               user_name,
-               reported_client_type,
-               COUNT(event_id) AS counts
-               FROM datalake.account_usage.login_history
-               WHERE
-                DATEDIFF(HOUR, event_timestamp, CURRENT_TIMESTAMP) < 24 
-               AND
-               error_code IS NOT NULL
-               GROUP BY reported_client_type, user_name
-               HAVING counts >= 3"""
+        sql = self.invalid_sql
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
 
-        output = contains_invalid_table_names(analysis_spec, analysis_id)
+        output = contains_invalid_table_names(analysis_spec, analysis_id, [])
         self.assertTrue(output)
+
+    def test_with_supplied_valid_table_name(self):
+        sql = self.invalid_sql
+        analysis_spec = {"Query": sql}
+        analysis_id = "analysis_id_1"
+
+        output = contains_invalid_table_names(analysis_spec, analysis_id, ["*.account_usage.*"])
+        self.assertFalse(output)
+
+
+class TestMatchesValidTableName(unittest.TestCase):
+    def test_matches_valid_table_name(self):
+        class TestTableName:
+            def __init__(self, name: str, should_match: bool):
+                self.name = name
+                self.should_match = should_match
+
+        valid_table_names = ["foo.bar.baz", "bar.baz.*", "foo.*bar.baz", "baz.*", "*.foo.*",]
+        test_table_names = [
+            TestTableName("foo.bar.baz", True),
+            TestTableName("foo.dar.baz", False),
+            TestTableName("bar.baz.table_name", True),
+            TestTableName("bar.baz.", True),
+            TestTableName("bar.az.table_name", False),
+            TestTableName("foo.dry_bar.baz", True),
+            TestTableName("foo.barkeep.baz", False),
+            TestTableName("baz.bar.foo", True),
+            TestTableName("baz.public", True),
+            TestTableName("foo.baz.bar", False),
+            TestTableName("bazzy.bar.foo", False),
+            TestTableName("bar.foo.baz", True),
+            TestTableName("foo", False),
+        ]
+        for test_table_name in test_table_names:
+            self.assertEqual(
+                matches_valid_table_name(test_table_name.name, valid_table_names),
+                test_table_name.should_match
+            )

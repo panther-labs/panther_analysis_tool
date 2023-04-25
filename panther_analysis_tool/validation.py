@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 from nested_lookup import nested_lookup
@@ -26,7 +27,7 @@ def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
     return invalid_fields
 
 
-def contains_invalid_table_names(analysis_spec: Any, analysis_id: str) -> List[str]:
+def contains_invalid_table_names(analysis_spec: Any, analysis_id: str, valid_table_names: List[str]) -> List[str]:
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
     if query is not None:
@@ -53,6 +54,8 @@ def contains_invalid_table_names(analysis_spec: Any, analysis_id: str) -> List[s
                 # We want to fall back on original behavior if this third-party parser cannot tell us the table names
                 logging.info("Failed to retrieve table name for table %s", table)
             else:
+                if matches_valid_table_name(table_name, valid_table_names):
+                    continue
                 components = table_name.split(".")
                 if len(components) != 3:
                     invalid_table_names.append(table_name)
@@ -74,6 +77,13 @@ def lookup_snowflake_query(analysis_spec: Any) -> Optional[str]:
         if key in analysis_spec:
             return analysis_spec[key]
     return None
+
+
+def matches_valid_table_name(table_name: str, valid_table_names: List[str]) -> bool:
+    for valid_table_name in valid_table_names:
+        if re.match(valid_table_name.replace(".", "\\.").replace("*", ".*"), table_name) is not None:
+            return True
+    return False
 
 
 def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:

@@ -762,7 +762,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
         list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
-        ignore_table_names=args.ignore_table_names,
+        ignore_table_names=args.ignore_table_names, valid_table_names=args.valid_table_names
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -1022,7 +1022,7 @@ def print_summary(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool
+    specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
 ) -> Tuple[Dict[str, List[Any]], List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -1070,7 +1070,7 @@ def classify_analysis(
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
             if analysis_type == QUERY and not ignore_table_names:
-                invalid_table_names = contains_invalid_table_names(analysis_spec, analysis_id)
+                invalid_table_names = contains_invalid_table_names(analysis_spec, analysis_id, valid_table_names)
                 if invalid_table_names:
                     raise AnalysisContainsInvalidTableNamesException(
                         analysis_id, invalid_table_names
@@ -1418,9 +1418,22 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": False,
         "dest": "ignore_table_names",
         "required": False,
-        "help": "Allows skipping of table names from schema validation. Useful when querying "
+        "help": "Allows skipping of table name validation from schema validation. Useful when querying "
         "non-Panther or non-Snowflake tables",
     }
+    valid_table_names_name = "--valid-table-names"
+    valid_table_names_arg: Dict[str, Any] = {
+        "required": False,
+        "dest": "valid_table_names",
+        "nargs": "+",
+        "help": "Fully qualified table names that should be considered valid during schema validation "
+        + "(in addition to standard Panther/Snowflake tables), space separated. "
+        + "Accepts '*' as wildcard character matching 0 or more characters. "
+        + "Example foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*",
+        "type": str,
+        "default": [],
+    }
+
 
     # -- root parser
 
@@ -1456,6 +1469,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(available_destination_name, **available_destination_arg)
     release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     release_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    release_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     release_parser.set_defaults(func=generate_release_assets)
 
     # -- test command
@@ -1472,6 +1486,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     test_parser.set_defaults(func=test_analysis)
 
     # -- publish command
@@ -1554,6 +1569,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
     upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    upload_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
 
     # -- delete command
@@ -1648,6 +1664,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    zip_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     zip_parser.set_defaults(func=zip_analysis)
 
     # -- check-connection command
