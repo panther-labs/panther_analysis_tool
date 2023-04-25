@@ -27,7 +27,9 @@ def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
     return invalid_fields
 
 
-def contains_invalid_table_names(analysis_spec: Any, analysis_id: str, valid_table_names: List[str]) -> List[str]:
+def contains_invalid_table_names(
+    analysis_spec: Any, analysis_id: str, valid_table_names: List[str]
+) -> List[str]:
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
     if query is not None:
@@ -81,7 +83,10 @@ def lookup_snowflake_query(analysis_spec: Any) -> Optional[str]:
 
 def matches_valid_table_name(table_name: str, valid_table_names: List[str]) -> bool:
     for valid_table_name in valid_table_names:
-        if re.match(valid_table_name.replace(".", "\\.").replace("*", ".*"), table_name) is not None:
+        if (
+            re.match(valid_table_name.replace(".", "\\.").replace("*", ".*"), table_name)
+            is not None
+        ):
             return True
     return False
 

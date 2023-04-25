@@ -762,7 +762,8 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
         list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
-        ignore_table_names=args.ignore_table_names, valid_table_names=args.valid_table_names
+        ignore_table_names=args.ignore_table_names,
+        valid_table_names=args.valid_table_names,
     )
 
     if all((len(specs[key]) == 0 for key in specs)):
@@ -1070,7 +1071,9 @@ def classify_analysis(
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
             if analysis_type == QUERY and not ignore_table_names:
-                invalid_table_names = contains_invalid_table_names(analysis_spec, analysis_id, valid_table_names)
+                invalid_table_names = contains_invalid_table_names(
+                    analysis_spec, analysis_id, valid_table_names
+                )
                 if invalid_table_names:
                     raise AnalysisContainsInvalidTableNamesException(
                         analysis_id, invalid_table_names
@@ -1433,7 +1436,6 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "default": [],
     }
-
 
     # -- root parser
 
