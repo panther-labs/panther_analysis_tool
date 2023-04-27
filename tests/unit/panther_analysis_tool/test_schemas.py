@@ -20,6 +20,28 @@ class TestPATSchemas(unittest.TestCase):
         with self.assertRaises(SchemaError):
             LOG_TYPE_REGEX.validate("Amazon.EKS.Foo")
 
+    def test_logtypes_regex_zeek(self):
+        LOG_TYPE_REGEX.validate("Zeek.CaptureLoss")
+        LOG_TYPE_REGEX.validate("Zeek.Conn")
+        LOG_TYPE_REGEX.validate("Zeek.DHCP")
+        LOG_TYPE_REGEX.validate("Zeek.DNS")
+        LOG_TYPE_REGEX.validate("Zeek.DPD")
+        LOG_TYPE_REGEX.validate("Zeek.Files")
+        LOG_TYPE_REGEX.validate("Zeek.HTTP")
+        LOG_TYPE_REGEX.validate("Zeek.Notice")
+        LOG_TYPE_REGEX.validate("Zeek.NTP")
+        LOG_TYPE_REGEX.validate("Zeek.OCSP")
+        LOG_TYPE_REGEX.validate("Zeek.Reporter")
+        LOG_TYPE_REGEX.validate("Zeek.SIP")
+        LOG_TYPE_REGEX.validate("Zeek.Software")
+        LOG_TYPE_REGEX.validate("Zeek.Ssh")
+        LOG_TYPE_REGEX.validate("Zeek.Ssl")
+        LOG_TYPE_REGEX.validate("Zeek.Stats")
+        LOG_TYPE_REGEX.validate("Zeek.Tunnel")
+        LOG_TYPE_REGEX.validate("Zeek.Weird")
+        LOG_TYPE_REGEX.validate("Zeek.X509")
+
+
     def test_mocks_are_str(self):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "Testing a string"})
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "False"})
