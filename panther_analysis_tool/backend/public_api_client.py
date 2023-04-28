@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import base64
 import logging
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -48,9 +49,10 @@ from .client import (
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
     UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse,
+    UpdateManagedSchemaResponse, PermanentBackendError, to_bulk_upload_response,
 )
-from .errors import is_upload_in_progress_error
+from .errors import is_retryable_error, is_retryable_error_str
+from ..constants import VERSION_STRING
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,12 @@ class PublicAPIRequests:
     def delete_detections_query(self) -> DocumentNode:
         return self._load("delete_detections")
 
+    def async_bulk_upload_mutation(self) -> DocumentNode:
+        return self._load("async_bulk_upload")
+
+    def async_bulk_upload_status_query(self) -> DocumentNode:
+        return self._load("async_bulk_upload_status")
+
     def bulk_upload_mutation(self) -> DocumentNode:
         return self._load("bulk_upload")
 
@@ -86,6 +94,9 @@ class PublicAPIRequests:
 
     def panthersdk_upload_mutation(self) -> DocumentNode:
         return self._load("sdk_upload")
+
+    def introspection_query(self) -> DocumentNode:
+        return self._load("introspection_query")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -127,40 +138,40 @@ class PublicAPIClient(Client):
             success=True, message=f"connected to Panther backend on version: {panther_version}"
         )
 
+    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        query = self._requests.async_bulk_upload_mutation()
+        upload_params = {"input": {"data": params.encoded_bytes(), "patVersion": VERSION_STRING}}
+        res = self._safe_execute(query, variable_values=upload_params)
+        receipt_id = res.data.get("uploadDetectionEntitiesAsync", {}).get("receiptId")  # type: ignore
+        if not receipt_id:
+            raise BackendError("empty data")
+
+        while True:
+            query = self._requests.async_bulk_upload_status_query()
+            params = {"input": receipt_id}  # type: ignore
+            res = self._safe_execute(query, variable_values=params)  # type: ignore
+            result = res.data.get("detectionEntitiesUploadStatus", {})  # type: ignore
+            status = result.get("status", "")
+            error = result.get("error")
+            data = result.get("result")
+            if status == "FAILED":
+                if is_retryable_error_str(error):
+                    raise BackendError(error)
+                raise PermanentBackendError(error)
+            if status == "":
+                raise BackendError("empty data")
+
+            if status == "COMPLETED":
+                return to_bulk_upload_response(data)
+            time.sleep(5)
+
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         query = self._requests.bulk_upload_mutation()
         upload_params = {"input": {"data": params.encoded_bytes()}}
-        default_stats = dict(total=0, new=0, modified=0)
-        try:
-            res = self._execute(query, variable_values=upload_params)
-        except TransportQueryError as e:  # pylint: disable=C0103
-            err = BackendError(e)
-            err.permanent = True
-            if e.errors and len(e.errors) > 0:
-                err = BackendError(e.errors)
-                if is_upload_in_progress_error(e.errors[0]):
-                    err.permanent = False
-            raise err from e
+        res = self._safe_execute(query, variable_values=upload_params)
+        data = res.data.get("uploadDetectionEntities", {})   # type: ignore
 
-        if res.errors:
-            raise BackendError(res.errors)
-
-        if res.data is None:
-            raise BackendError("empty data")
-
-        data = res.data.get("uploadDetectionEntities", {})
-
-        return BackendResponse(
-            status_code=200,
-            data=BulkUploadResponse(
-                rules=BulkUploadStatistics(**data.get("rules", default_stats)),
-                queries=BulkUploadStatistics(**data.get("queries", default_stats)),
-                policies=BulkUploadStatistics(**data.get("policies", default_stats)),
-                data_models=BulkUploadStatistics(**data.get("dataModels", default_stats)),
-                lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
-                global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
-            ),
-        )
+        return to_bulk_upload_response(data)
 
     def delete_saved_queries(
         self, params: DeleteSavedQueriesParams
@@ -338,6 +349,24 @@ class PublicAPIClient(Client):
             ),
         )
 
+    def supports_async_uploads(self) -> bool:
+        res = self._execute(self._requests.introspection_query())
+        if res.errors:
+            return False
+
+        endpoints = ["uploadDetectionEntitiesAsync", "detectionEntitiesUploadStatus"]
+        expected = len(endpoints)
+        seen = 0
+        for graphql_type in res.data.get('__schema', {}).get('types', []):   # type: ignore
+            if (graphql_type['name'] in ["Mutation", "Query"]) and graphql_type['kind'] == 'OBJECT':
+                for endpoint in graphql_type["fields"]:
+                    if endpoint["name"] in endpoints:
+                        seen += 1
+                        if seen == expected:
+                            return True
+
+        return False
+
     def _execute(
         self,
         request: DocumentNode,
@@ -346,6 +375,29 @@ class PublicAPIClient(Client):
         return self._gql_client.execute(
             request, variable_values=variable_values, get_execution_result=True
         )
+
+    def _safe_execute(
+        self,
+        request: DocumentNode,
+        variable_values: Optional[Dict[str, Any]] = None,
+    ) -> ExecutionResult:
+        try:
+            res = self._execute(request, variable_values=variable_values)
+        except TransportQueryError as e:  # pylint: disable=C0103
+            err = PermanentBackendError(e)
+            if e.errors and len(e.errors) > 0:
+                err = PermanentBackendError(e.errors[0])
+                err.permanent = not is_retryable_error(e.errors[0])
+            raise err from e
+
+        if res.errors:
+            raise PermanentBackendError(res.errors)
+
+        if res.data is None:
+            raise BackendError("empty data")
+
+        return res
+
 
 
 _API_URL_PATH = "public/graphql"

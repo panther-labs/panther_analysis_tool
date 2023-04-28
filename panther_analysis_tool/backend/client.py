@@ -29,6 +29,9 @@ class BackendError(Exception):
     permanent: bool = False
 
 
+class PermanentBackendError(BackendError):
+    permanent: bool = True
+
 @dataclass(frozen=True)
 class BulkUploadPayload:
     data: bytes
@@ -154,6 +157,9 @@ class Client(ABC):
         pass
 
     @abstractmethod
+    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        pass
+    @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         pass
 
@@ -185,6 +191,25 @@ class Client(ABC):
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
 
+    @abstractmethod
+    def supports_async_uploads(self) -> bool:
+        pass
+
 
 def backend_response_failed(resp: BackendResponse) -> bool:
     return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400
+
+
+def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
+    default_stats = dict(total=0, new=0, modified=0)
+    return BackendResponse(
+        status_code=200,
+        data=BulkUploadResponse(
+            rules=BulkUploadStatistics(**data.get("rules", default_stats)),
+            queries=BulkUploadStatistics(**data.get("queries", default_stats)),
+            policies=BulkUploadStatistics(**data.get("policies", default_stats)),
+            data_models=BulkUploadStatistics(**data.get("dataModels", default_stats)),
+            lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
+            global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
+        ),
+    )

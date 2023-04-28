@@ -305,7 +305,11 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         A tuple of return code and the archive filename.
     """
 
-    if args.batch:
+    supports_async = backend.supports_async_uploads()
+    if supports_async and args.no_async:
+        supports_async = False
+
+    if args.batch and not supports_async:
         if not args.skip_tests:
             return_code, invalid_specs = test_analysis(args)
             if return_code != 0:
@@ -315,7 +319,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         for idx, archive in enumerate(zip_analysis_chunks(args)):
             batch_idx = idx + 1
             logging.info("Uploading Batch %d...", batch_idx)
-            return_code, _ = upload_zip(backend, args, archive)
+            return_code, _ = upload_zip(backend, args, archive, False)
             if return_code != 0:
                 return return_code, ""
             logging.info("Uploaded Batch %d", batch_idx)
@@ -326,10 +330,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     if return_code != 0:
         return return_code, ""
 
-    return upload_zip(backend, args, archive)
+    return upload_zip(backend, args, archive, supports_async)
 
 
-def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -> Tuple[int, str]:
+def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool) -> Tuple[int, str]:
     return_archive_fname = ""
     # extract max retries we should handle
     max_retries = 10
@@ -347,7 +351,10 @@ def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str) -
 
         while True:
             try:
-                response = backend.bulk_upload(upload_params)
+                if use_async:
+                    response = backend.async_bulk_upload(upload_params)
+                else:
+                    response = backend.bulk_upload(upload_params)
 
                 logging.info("Upload success.")
                 logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
@@ -1556,6 +1563,16 @@ def setup_parser() -> argparse.ArgumentParser:
         required=False,
     )
 
+    no_async_uploads_name = "--no-async"
+    no_async_uploads_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "default": False,
+        "required": False,
+        "help": "When set your upload will be synchronous",
+    }
+
+
+
     standard_args.for_public_api(upload_parser, required=False)
     standard_args.using_aws_profile(upload_parser)
 
@@ -1570,6 +1587,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
+    upload_parser.add_argument(no_async_uploads_name, **no_async_uploads_arg)
     upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     upload_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
