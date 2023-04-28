@@ -44,11 +44,11 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    ListSchemasResponse,
     ListSchemasParams,
-    Schema,
+    ListSchemasResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    Schema,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     PermanentBackendError,
@@ -234,9 +234,7 @@ class PublicAPIClient(Client):
             ),
         )
 
-    def list_schemas(
-        self, params: ListSchemasParams
-    ) -> BackendResponse[ListSchemasResponse]:
+    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[ListSchemasResponse]:
         gql_params = {
             "input": {
                 "isManaged": params.is_managed,

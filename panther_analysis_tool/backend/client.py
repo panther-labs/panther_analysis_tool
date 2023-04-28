@@ -178,9 +178,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def list_schemas(
-        self, params: ListSchemasParams
-    ) -> BackendResponse[ListSchemasResponse]:
+    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[ListSchemasResponse]:
         pass
 
     @abstractmethod
