@@ -79,7 +79,7 @@ class ListSchemasParams:
 
 
 @dataclass(frozen=True)
-class UpdateManagedSchemaParams:
+class UpdateSchemaParams:
     description: str
     name: str
     reference_url: str
@@ -118,7 +118,7 @@ class DeleteDetectionsResponse:
 
 # pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
-class ManagedSchema:
+class Schema:
     created_at: str
     description: str
     is_managed: bool
@@ -130,13 +130,13 @@ class ManagedSchema:
 
 
 @dataclass(frozen=True)
-class ListManagedSchemasResponse:
-    schemas: List[ManagedSchema]
+class ListSchemasResponse:
+    schemas: List[Schema]
 
 
 @dataclass(frozen=True)
-class UpdateManagedSchemaResponse:
-    schema: ManagedSchema
+class UpdateSchemaResponse:
+    schema: Schema
 
 
 @dataclass(frozen=True)
@@ -178,13 +178,13 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def list_managed_schemas(
+    def list_schemas(
         self, params: ListSchemasParams
-    ) -> BackendResponse[ListManagedSchemasResponse]:
+    ) -> BackendResponse[ListSchemasResponse]:
         pass
 
     @abstractmethod
-    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse[Any]:
         pass
 
     @abstractmethod

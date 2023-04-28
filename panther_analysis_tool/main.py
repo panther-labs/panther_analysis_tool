@@ -466,7 +466,7 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 def update_schemas(args: argparse.Namespace) -> Tuple[int, str]:
-    """Updates managed schemas in a Panther deployment.
+    """Updates schemas in a Panther deployment.
     Returns 1 if the update fails.
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.

@@ -44,14 +44,14 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    ListManagedSchemasResponse,
+    ListSchemasResponse,
     ListSchemasParams,
-    ManagedSchema,
+    Schema,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    UpdateSchemaParams,
+    UpdateSchemaResponse,
     PermanentBackendError,
-    UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse,
     to_bulk_upload_response,
 )
 from .errors import is_retryable_error, is_retryable_error_str
@@ -234,9 +234,9 @@ class PublicAPIClient(Client):
             ),
         )
 
-    def list_managed_schemas(
+    def list_schemas(
         self, params: ListSchemasParams
-    ) -> BackendResponse[ListManagedSchemasResponse]:
+    ) -> BackendResponse[ListSchemasResponse]:
         gql_params = {
             "input": {
                 "isManaged": params.is_managed,
@@ -254,7 +254,7 @@ class PublicAPIClient(Client):
         schemas = []
         for edge in res.data.get("schemas", {}).get("edges", []):
             node = edge.get("node", {})
-            schema = ManagedSchema(
+            schema = Schema(
                 created_at=node.get("createdAt", ""),
                 description=node.get("description", ""),
                 is_managed=node.get("isManaged", False),
@@ -266,9 +266,9 @@ class PublicAPIClient(Client):
             )
             schemas.append(schema)
 
-        return BackendResponse(status_code=200, data=ListManagedSchemasResponse(schemas=schemas))
+        return BackendResponse(status_code=200, data=ListSchemasResponse(schemas=schemas))
 
-    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse:
         gql_params = {
             "input": {
                 "description": params.description,
@@ -290,8 +290,8 @@ class PublicAPIClient(Client):
         schema = res.data.get("schema", {})
         return BackendResponse(
             status_code=200,
-            data=UpdateManagedSchemaResponse(
-                schema=ManagedSchema(
+            data=UpdateSchemaResponse(
+                schema=Schema(
                     created_at=schema.get("createdAt", ""),
                     description=schema.get("description", ""),
                     is_managed=schema.get("isManaged", False),

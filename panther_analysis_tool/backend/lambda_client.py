@@ -38,14 +38,14 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    ListManagedSchemasResponse,
+    ListSchemasResponse,
     ListSchemasParams,
-    ManagedSchema,
+    Schema,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    UpdateSchemaParams,
+    UpdateSchemaResponse,
     PermanentBackendError,
-    UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse,
     backend_response_failed,
     to_bulk_upload_response,
 )
@@ -189,9 +189,9 @@ class LambdaClient(Client):
             ),
         )
 
-    def list_managed_schemas(
+    def list_schemas(
         self, params: ListSchemasParams
-    ) -> BackendResponse[ListManagedSchemasResponse]:
+    ) -> BackendResponse[ListSchemasResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
                 FunctionName="panther-logtypes-api",
@@ -209,7 +209,7 @@ class LambdaClient(Client):
         schemas = []
         for result in res.data["results"]:
             schemas.append(
-                ManagedSchema(
+                Schema(
                     created_at=result.get("createdAt", ""),
                     description=result.get("description", ""),
                     is_managed=result.get("isManaged", False),
@@ -221,9 +221,9 @@ class LambdaClient(Client):
                 )
             )
 
-        return BackendResponse(status_code=200, data=ListManagedSchemasResponse(schemas=schemas))
+        return BackendResponse(status_code=200, data=ListSchemasResponse(schemas=schemas))
 
-    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse:
         res = self._parse_response(
             self._lambda_client.invoke(
                 FunctionName="panther-logtypes-api",
@@ -247,8 +247,8 @@ class LambdaClient(Client):
         schema = res.data.get("result", {})
         return BackendResponse(
             status_code=200,
-            data=UpdateManagedSchemaResponse(
-                schema=ManagedSchema(
+            data=UpdateSchemaResponse(
+                schema=Schema(
                     created_at=schema.get("createdAt", ""),
                     description=schema.get("description", ""),
                     is_managed=schema.get("isManaged", False),
