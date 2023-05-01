@@ -17,6 +17,9 @@ from panther_analysis_tool.backend.client import (
 
 
 class MockBackend(BackendClient):
+    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        pass
+
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         pass
 
@@ -36,4 +39,7 @@ class MockBackend(BackendClient):
         pass
 
     def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[Any]:
+        pass
+
+    def supports_async_uploads(self) -> bool:
         pass
