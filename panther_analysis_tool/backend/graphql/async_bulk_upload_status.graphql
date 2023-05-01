@@ -5,22 +5,22 @@ query status($input: ID!) {
         result {
             dataModels {
                 ...UploadStatisticDetails
-                }
-                globalHelpers {
+            }
+            globalHelpers {
                 ...UploadStatisticDetails
-                }
-                lookupTables {
+            }
+            lookupTables {
                 ...UploadStatisticDetails
-                }
-                policies {
+            }
+            policies {
                 ...UploadStatisticDetails
-                }
-                rules {
+            }
+            rules {
                 ...UploadStatisticDetails
-                }
-                queries {
+            }
+            queries {
                 ...UploadStatisticDetails
-                }
+            }
         }
     }
 }

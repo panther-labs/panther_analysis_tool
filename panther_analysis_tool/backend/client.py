@@ -32,6 +32,7 @@ class BackendError(Exception):
 class PermanentBackendError(BackendError):
     permanent: bool = True
 
+
 @dataclass(frozen=True)
 class BulkUploadPayload:
     data: bytes
@@ -159,6 +160,7 @@ class Client(ABC):
     @abstractmethod
     def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         pass
+
     @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         pass

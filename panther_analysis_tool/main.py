@@ -304,12 +304,8 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     Returns:
         A tuple of return code and the archive filename.
     """
-
-    supports_async = backend.supports_async_uploads()
-    if supports_async and args.no_async:
-        supports_async = False
-
-    if args.batch and not supports_async:
+    use_async = (not args.no_async) and backend.supports_async_uploads()
+    if args.batch and not use_async:
         if not args.skip_tests:
             return_code, invalid_specs = test_analysis(args)
             if return_code != 0:
@@ -330,10 +326,12 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     if return_code != 0:
         return return_code, ""
 
-    return upload_zip(backend, args, archive, supports_async)
+    return upload_zip(backend, args, archive, use_async)
 
 
-def upload_zip(backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool) -> Tuple[int, str]:
+def upload_zip(
+    backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
+) -> Tuple[int, str]:
     return_archive_fname = ""
     # extract max retries we should handle
     max_retries = 10
@@ -1570,8 +1568,6 @@ def setup_parser() -> argparse.ArgumentParser:
         "required": False,
         "help": "When set your upload will be synchronous",
     }
-
-
 
     standard_args.for_public_api(upload_parser, required=False)
     standard_args.using_aws_profile(upload_parser)

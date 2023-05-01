@@ -31,6 +31,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
+from ..constants import VERSION_STRING
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -48,11 +49,12 @@ from .client import (
     ManagedSchema,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PermanentBackendError,
     UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse, PermanentBackendError, to_bulk_upload_response,
+    UpdateManagedSchemaResponse,
+    to_bulk_upload_response,
 )
 from .errors import is_retryable_error, is_retryable_error_str
-from ..constants import VERSION_STRING
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,7 @@ class PublicAPIClient(Client):
             raise BackendError("empty data")
 
         while True:
+            time.sleep(2)
             query = self._requests.async_bulk_upload_status_query()
             params = {"input": receipt_id}  # type: ignore
             res = self._safe_execute(query, variable_values=params)  # type: ignore
@@ -159,17 +162,16 @@ class PublicAPIClient(Client):
                     raise BackendError(error)
                 raise PermanentBackendError(error)
             if status == "":
-                raise BackendError("empty data")
+                raise BackendError("no bulk upload status available")
 
             if status == "COMPLETED":
                 return to_bulk_upload_response(data)
-            time.sleep(5)
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         query = self._requests.bulk_upload_mutation()
         upload_params = {"input": {"data": params.encoded_bytes()}}
         res = self._safe_execute(query, variable_values=upload_params)
-        data = res.data.get("uploadDetectionEntities", {})   # type: ignore
+        data = res.data.get("uploadDetectionEntities", {})  # type: ignore
 
         return to_bulk_upload_response(data)
 
@@ -357,8 +359,8 @@ class PublicAPIClient(Client):
         endpoints = ["uploadDetectionEntitiesAsync", "detectionEntitiesUploadStatus"]
         expected = len(endpoints)
         seen = 0
-        for graphql_type in res.data.get('__schema', {}).get('types', []):   # type: ignore
-            if (graphql_type['name'] in ["Mutation", "Query"]) and graphql_type['kind'] == 'OBJECT':
+        for graphql_type in res.data.get("__schema", {}).get("types", []):  # type: ignore
+            if (graphql_type["name"] in ["Mutation", "Query"]) and graphql_type["kind"] == "OBJECT":
                 for endpoint in graphql_type["fields"]:
                     if endpoint["name"] in endpoints:
                         seen += 1
@@ -386,7 +388,7 @@ class PublicAPIClient(Client):
         except TransportQueryError as e:  # pylint: disable=C0103
             err = PermanentBackendError(e)
             if e.errors and len(e.errors) > 0:
-                err = PermanentBackendError(e.errors[0])
+                err = BackendError(e.errors[0])  # type: ignore
                 err.permanent = not is_retryable_error(e.errors[0])
             raise err from e
 
@@ -397,7 +399,6 @@ class PublicAPIClient(Client):
             raise BackendError("empty data")
 
         return res
-
 
 
 _API_URL_PATH = "public/graphql"

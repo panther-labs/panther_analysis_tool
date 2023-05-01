@@ -43,9 +43,11 @@ from .client import (
     ManagedSchema,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PermanentBackendError,
     UpdateManagedSchemaParams,
     UpdateManagedSchemaResponse,
-    backend_response_failed, to_bulk_upload_response, PermanentBackendError,
+    backend_response_failed,
+    to_bulk_upload_response,
 )
 from .errors import is_retryable_error
 
@@ -120,7 +122,6 @@ class LambdaClient(Client):
 
         body = decode_body(resp)
         return to_bulk_upload_response(body)
-
 
     def delete_detections(
         self, params: DeleteDetectionsParams
