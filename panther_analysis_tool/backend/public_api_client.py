@@ -48,10 +48,10 @@ from .client import (
     ListSchemasResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PermanentBackendError,
     Schema,
     UpdateSchemaParams,
     UpdateSchemaResponse,
-    PermanentBackendError,
     to_bulk_upload_response,
 )
 from .errors import is_retryable_error, is_retryable_error_str

@@ -42,10 +42,10 @@ from .client import (
     ListSchemasResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PermanentBackendError,
     Schema,
     UpdateSchemaParams,
     UpdateSchemaResponse,
-    PermanentBackendError,
     backend_response_failed,
     to_bulk_upload_response,
 )
