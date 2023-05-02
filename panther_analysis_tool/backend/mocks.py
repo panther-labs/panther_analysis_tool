@@ -12,7 +12,7 @@ from panther_analysis_tool.backend.client import (
     DeleteSavedQueriesParams,
     ListSchemasParams,
     PantherSDKBulkUploadParams,
-    UpdateManagedSchemaParams,
+    UpdateSchemaParams,
 )
 
 
@@ -26,10 +26,10 @@ class MockBackend(BackendClient):
     def check(self) -> BackendCheckResponse:
         pass
 
-    def list_managed_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]:
+    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]:
         pass
 
-    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse[Any]:
         pass
 
     def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[Any]:

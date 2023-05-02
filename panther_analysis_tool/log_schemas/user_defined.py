@@ -32,8 +32,8 @@ from panther_analysis_tool.backend.client import BackendError, BackendResponse
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     ListSchemasParams,
-    ManagedSchema,
-    UpdateManagedSchemaParams,
+    Schema,
+    UpdateSchemaParams,
 )
 
 logger = logging.getLogger(__file__)
@@ -72,7 +72,7 @@ class Uploader:
     def __init__(self, path: str, backend: BackendClient):
         self._path = path
         self._files: Optional[List[str]] = None
-        self._existing_schemas: Optional[List[ManagedSchema]] = None
+        self._existing_schemas: Optional[List[Schema]] = None
         self._backend = backend
 
     @property
@@ -88,7 +88,7 @@ class Uploader:
         return self._files
 
     @property
-    def existing_schemas(self) -> List[ManagedSchema]:
+    def existing_schemas(self) -> List[Schema]:
         """
         Retrieves and caches in the instance state the list
         of available user-defined schemas.
@@ -97,13 +97,13 @@ class Uploader:
              List of user-defined schema records.
         """
         if self._existing_schemas is None:
-            resp = self._backend.list_managed_schemas(ListSchemasParams(is_managed=False))
+            resp = self._backend.list_schemas(ListSchemasParams(is_managed=False))
             if not resp.status_code == 200:
                 raise RuntimeError("unable to retrieve custom schemas")
             self._existing_schemas = resp.data.schemas
         return self._existing_schemas
 
-    def find_schema(self, name: str) -> Optional[ManagedSchema]:
+    def find_schema(self, name: str) -> Optional[Schema]:
         """
         Find schema by name.
 
@@ -228,8 +228,8 @@ class Uploader:
             reference_url,
             description,
         )
-        response = self._backend.update_managed_schema(
-            params=UpdateManagedSchemaParams(
+        response = self._backend.update_schema(
+            params=UpdateSchemaParams(
                 name=name,
                 spec=processed_file.raw,
                 revision=current_revision,
