@@ -1775,7 +1775,11 @@ def run() -> None:
         if key.startswith("PANTHER_"):
             logging.info("Found Environment Variables prefixed with 'PANTHER'.")
             break
-
+    if os.path.exists(CONFIG_FILE):
+        logging.info(
+            "Found Config File %s . NOTE: COMMAND LINE OPTIONS WILL OVERRIDE SETTINGS IN CONFIG FILE",
+            CONFIG_FILE,
+        )
     config_file_settings = setup_dynaconf()
     dynaconf_argparse_merge(vars(args), config_file_settings)
     if args.debug:
