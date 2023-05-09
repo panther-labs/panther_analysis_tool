@@ -1,6 +1,6 @@
 # Example configuration file for panther_analysis_tool.
 # Copy this file into the root of your test repository and name it .panther_settings.yml
-# Note that options in this file override options passed on the command line
+# Note that options in this file will be overridden by options passed on the command line
 #
 # The API token to use when making changes to Panther
 # api_token: "token"

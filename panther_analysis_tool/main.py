@@ -1777,7 +1777,7 @@ def run() -> None:
             break
     if os.path.exists(CONFIG_FILE):
         logging.info(
-            "Found Config File %s . NOTE: SETTINGS IN CONFIG FILE OVERRIDE COMMAND LINE OPTIONS",
+            "Found Config File %s . NOTE: COMMAND LINE OPTIONS WILL OVERRIDE SETTINGS IN CONFIG FILE",
             CONFIG_FILE,
         )
     config_file_settings = setup_dynaconf()
