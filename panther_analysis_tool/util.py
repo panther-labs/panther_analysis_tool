@@ -175,5 +175,5 @@ def convert_unicode(obj: Any) -> str:
     return re.sub(r"\\*\\u([0-9a-f]{4})", lambda m: chr(int(m.group(1), 16)), string_to_convert)
 
 
-def is_simple_detection(analysis_item: Dict[str, Any]) -> List:
-    return analysis_item.get("Detection") or analysis_item.get("InlineFilter")
+def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
+    return analysis_item.get("Detection") is not None or analysis_item.get("InlineFilter") is not None

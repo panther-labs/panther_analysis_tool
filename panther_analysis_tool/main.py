@@ -1051,7 +1051,7 @@ def classify_analysis(
             invalid_specs.append((analysis_spec_filename, error))
         except jsonschema.exceptions.ValidationError as err:
             error_message = f"{err.json_path}: {err.message}"
-            invalid_specs.append((analysis_spec_filename, error_message))
+            invalid_specs.append((analysis_spec_filename, jsonschema.exceptions.ValidationError(error_message)))
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
