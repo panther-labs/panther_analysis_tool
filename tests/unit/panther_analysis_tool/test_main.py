@@ -500,7 +500,7 @@ class TestPantherAnalysisTool(TestCase):
         with Pause(self.fs):
             args = pat.setup_parser().parse_args(f'test '
                                                  f'--path '
-                                                 f' {FIXTURES_PATH}/simple-detections/valid-analysis '.split())
+                                                 f' {FIXTURES_PATH}/simple-detections/valid '.split())
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_true(len(invalid_specs) == 0)
@@ -509,7 +509,7 @@ class TestPantherAnalysisTool(TestCase):
         with Pause(self.fs):
             args = pat.setup_parser().parse_args(f'test '
                                                  f'--path '
-                                                 f' {FIXTURES_PATH}/simple-detections/invalid-analysis '.split())
+                                                 f' {FIXTURES_PATH}/simple-detections/invalid '.split())
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         self.assertEqual(len(invalid_specs), 2)

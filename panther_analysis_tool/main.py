@@ -1019,11 +1019,7 @@ def classify_analysis(
             analysis_ids.append(analysis_id)
             # extra validation for simple detections based on json schema
             if is_simple_detection(analysis_spec):
-                try:
-                    jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
-                except jsonschema.exceptions.ValidationError as err:
-                    error_message = f"{err.json_path}: {err.message}"
-                    invalid_specs.append((analysis_spec_filename, error_message))
+                jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
@@ -1053,6 +1049,9 @@ def classify_analysis(
             elif "ResourceTypes" in str(err):
                 error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
+        except jsonschema.exceptions.ValidationError as err:
+            error_message = f"{err.json_path}: {err.message}"
+            invalid_specs.append((analysis_spec_filename, error_message))
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
