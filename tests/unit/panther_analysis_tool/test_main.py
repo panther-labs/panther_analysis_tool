@@ -496,21 +496,20 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 1)
 
-
-class TestSimpleDetections(TestCase):
-
     def test_valid_simple_detections(self):
-        args = pat.setup_parser().parse_args(f'test '
-                                             f'--path '
-                                             f' {FIXTURES_PATH}/simple-detections/valid-analysis '.split())
-        return_code, invalid_specs = pat.test_analysis(args)
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test '
+                                                 f'--path '
+                                                 f' {FIXTURES_PATH}/simple-detections/valid-analysis '.split())
+            return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_true(len(invalid_specs) == 0)
 
     def test_invalid_simple_detections(self):
-        args = pat.setup_parser().parse_args(f'test '
-                                             f'--path '
-                                             f' {FIXTURES_PATH}/simple-detections/invalid-analysis '.split())
-        return_code, invalid_specs = pat.test_analysis(args)
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test '
+                                                 f'--path '
+                                                 f' {FIXTURES_PATH}/simple-detections/invalid-analysis '.split())
+            return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         self.assertEqual(len(invalid_specs), 2)
