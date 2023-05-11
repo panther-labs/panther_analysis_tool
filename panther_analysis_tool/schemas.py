@@ -22,6 +22,7 @@ from typing import Any, Dict
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
+
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
     def validate(

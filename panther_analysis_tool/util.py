@@ -142,5 +142,5 @@ def to_list(listish: Any) -> List:
     return listish if isinstance(listish, list) else [listish]
 
 
-def is_simple_detection(analysisDict: Dict[str, Any]) -> List:
-    return analysisDict.get('Detection') or analysisDict.get('InlineFilter')
+def is_simple_detection(analysis_item: Dict[str, Any]) -> List:
+    return analysis_item.get("Detection") or analysis_item.get("InlineFilter")
