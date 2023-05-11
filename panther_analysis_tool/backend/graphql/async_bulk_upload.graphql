@@ -1,0 +1,5 @@
+mutation uploadDetectionEntitiesAsync($input: UploadDetectionEntitiesAsyncInput!) {
+    uploadDetectionEntitiesAsync(input: $input) {
+        receiptId
+    }
+}

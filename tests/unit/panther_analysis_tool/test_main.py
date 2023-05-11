@@ -16,7 +16,6 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
 import io
 import json
 import os
@@ -138,7 +137,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(invalid_specs[0][0],
                      f'{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml')
-        assert_equal(len(invalid_specs), 12)
+        assert_equal(len(invalid_specs), 13)
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(f'test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies'.split())
@@ -251,7 +250,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 9)
 
     def test_invalid_rule_test(self):
         args = pat.setup_parser().parse_args(
@@ -259,7 +258,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 9)
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args(
@@ -267,7 +266,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        assert_equal(len(invalid_specs), 10)
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args(
@@ -275,7 +274,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 9)
 
     def test_with_invalid_mocks(self):
         args = pat.setup_parser().parse_args(
@@ -283,7 +282,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 9)
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args(
@@ -327,7 +326,7 @@ class TestPantherAnalysisTool(TestCase):
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 9)
 
     def test_invalid_resource_type(self):
         args = pat.setup_parser().parse_args(
@@ -335,7 +334,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 8)
+        assert_equal(len(invalid_specs), 9)
 
     def test_invalid_log_type(self):
         args = pat.setup_parser().parse_args(
@@ -343,7 +342,7 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        self.equal = assert_equal(len(invalid_specs), 8)
+        self.equal = assert_equal(len(invalid_specs), 9)
 
     def test_zip_analysis(self):
         # Note: This is a workaround for CI
@@ -413,8 +412,9 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks['debug'].call_count, 21)
                 assert_equal(logging_mocks['warning'].call_count, 1)
-                # test + zip + upload messages
-                assert_equal(logging_mocks['info'].call_count, 3)
+                # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
+                # which can be removed by pausing the fake file system
+                assert_equal(logging_mocks['info'].call_count, 6)
                 assert_equal(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
@@ -427,7 +427,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks['debug'].call_count, 1)
                 assert_equal(logging_mocks['warning'].call_count, 2)
-                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(logging_mocks['info'].call_count, 6)
                 assert_equal(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
@@ -441,7 +441,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(logging_mocks['debug'].call_count, 21)
                 # warning about max and final error
                 assert_equal(logging_mocks['warning'].call_count, 2)
-                assert_equal(logging_mocks['info'].call_count, 3)
+                assert_equal(logging_mocks['info'].call_count, 6)
                 assert_equal(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
@@ -459,6 +459,42 @@ class TestPantherAnalysisTool(TestCase):
                                              '--available-destination Pagerduty'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
+
+    def test_invalid_query(self):
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 4)
+
+    def test_invalid_query_passes_when_unchecked(self):
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_invalid_query_passes_when_table_name_provided(self):
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_invalid_query_fails_when_partial_table_name_provided(self):
+        # sqlfluff doesn't load correctly with the fake file system
+        with Pause(self.fs):
+            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history'.split())
+            args.filter_inverted = {}
+            return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 1)
 
 
 class TestSimpleDetections(TestCase):

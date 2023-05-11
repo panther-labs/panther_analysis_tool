@@ -81,9 +81,11 @@ LOG_TYPE_REGEX = Regex(
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
     r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Snyk\.OrgAudit|Snyk\.GroupAudit|Sophos\.Central|Suricata"
-    r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zeek\.DNS|Zendesk\.Audit|Zendesk"
+    r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zendesk\.Audit|Zendesk"
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
     r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility|SentinelOne\.DeepVisibilityV2"
+    r"|Tines\.Audit"
+    r"|Zeek\.CaptureLoss|Zeek\.Conn|Zeek\.DHCP|Zeek\.DNS|Zeek\.DPD|Zeek\.Files|Zeek\.HTTP|Zeek\.Notice|Zeek\.NTP|Zeek\.OCSP|Zeek\.Reporter|Zeek\.SIP|Zeek\.Software|Zeek\.Ssh|Zeek\.Ssl|Zeek\.Stats|Zeek\.Tunnel|Zeek\.Weird|Zeek\.X509"
     r"|Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
 )
 
@@ -165,6 +167,7 @@ POLICY_SCHEMA = Schema(
         Optional("AutoRemediationParameters"): object,
         Optional("Description"): str,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
         Optional("Reference"): str,
         Optional("Runbook"): str,
@@ -198,11 +201,11 @@ RULE_SCHEMA = Schema(
         Optional("DedupPeriodMinutes"): int,
         Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
         Optional("Reference"): str,
         Optional("Runbook"): str,
         Optional("SummaryAttributes"): [str],
-        Optional("Suppressions"): [str],
         Optional("Threshold"): int,
         Optional("Tags"): [str],
         Optional("Reports"): {str: list},

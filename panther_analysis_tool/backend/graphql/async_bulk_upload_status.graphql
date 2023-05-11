@@ -1,0 +1,32 @@
+query status($input: ID!) {
+    detectionEntitiesUploadStatus(receiptId: $input) {
+        status
+        error
+        result {
+            dataModels {
+                ...UploadStatisticDetails
+            }
+            globalHelpers {
+                ...UploadStatisticDetails
+            }
+            lookupTables {
+                ...UploadStatisticDetails
+            }
+            policies {
+                ...UploadStatisticDetails
+            }
+            rules {
+                ...UploadStatisticDetails
+            }
+            queries {
+                ...UploadStatisticDetails
+            }
+        }
+    }
+}
+
+fragment UploadStatisticDetails on UploadStatistics {
+  modified
+  new
+  total
+}

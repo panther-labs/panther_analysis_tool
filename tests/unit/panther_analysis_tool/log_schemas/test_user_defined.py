@@ -3,8 +3,8 @@ import unittest
 from unittest import mock
 from unittest.mock import MagicMock, create_autospec
 
-from panther_analysis_tool.backend.client import BackendResponse, ListManagedSchemasResponse, ManagedSchema, Client, \
-    UpdateManagedSchemaResponse, UpdateManagedSchemaParams
+from panther_analysis_tool.backend.client import BackendResponse, ListSchemasResponse, Schema, Client, \
+    UpdateSchemaResponse, UpdateSchemaParams
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.log_schemas import user_defined
 
@@ -69,11 +69,11 @@ class TestUploader(unittest.TestCase):
         with open(os.path.join(self.valid_schema_path, 'schema-3.yml')) as f:
             self.valid_schema3 = f.read()
 
-        self.list_managed_schemas_response = BackendResponse(
+        self.list_schemas_response = BackendResponse(
             status_code=200,
-            data=ListManagedSchemasResponse(
+            data=ListSchemasResponse(
                 schemas=[
-                    ManagedSchema(
+                    Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
                         description='A verbose description',
                         is_managed=False,
@@ -83,7 +83,7 @@ class TestUploader(unittest.TestCase):
                         spec=self.valid_schema0,
                         updated_at='2021-05-14T12:05:13.928862479Z'
                     ),
-                    ManagedSchema(
+                    Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
                         description='A verbose description',
                         is_managed=False,
@@ -93,7 +93,7 @@ class TestUploader(unittest.TestCase):
                         spec=self.valid_schema1,
                         updated_at='2021-05-14T12:05:13.928862479Z'
                     ),
-                    ManagedSchema(
+                    Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
                         description='A verbose description',
                         is_managed=False,
@@ -103,7 +103,7 @@ class TestUploader(unittest.TestCase):
                         spec=self.valid_schema2,
                         updated_at='2021-05-14T12:05:13.928862479Z'
                     ),
-                    ManagedSchema(
+                    Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
                         description='A verbose description',
                         is_managed=False,
@@ -116,7 +116,7 @@ class TestUploader(unittest.TestCase):
                 ]
             )
         )
-        self.put_schema_response = lambda: ManagedSchema(
+        self.put_schema_response = lambda: Schema(
             name='Custom.SampleSchema1',
             revision=0,
             updated_at='2021-05-17T10:34:18.192993496Z',
@@ -142,19 +142,19 @@ class TestUploader(unittest.TestCase):
 
     def test_existing_schemas(self):
         backend = MockBackend()
-        backend.list_managed_schemas = mock.MagicMock(
-            return_value=self.list_managed_schemas_response
+        backend.list_schemas = mock.MagicMock(
+            return_value=self.list_schemas_response
         )
         uploader = user_defined.Uploader(self.valid_schema_path, backend)
-        self.assertListEqual(uploader.existing_schemas, self.list_managed_schemas_response.data.schemas)
-        backend.list_managed_schemas.assert_called_once()
+        self.assertListEqual(uploader.existing_schemas, self.list_schemas_response.data.schemas)
+        backend.list_schemas.assert_called_once()
 
     def test_existing_schemas_empty_results_from_backend(self):
         backend = MockBackend()
-        backend.list_managed_schemas = mock.MagicMock(
+        backend.list_schemas = mock.MagicMock(
             return_value=BackendResponse(
                 status_code=200,
-                data=ListManagedSchemasResponse(
+                data=ListSchemasResponse(
                     schemas=[]
                 )
             )
@@ -162,18 +162,18 @@ class TestUploader(unittest.TestCase):
 
         uploader = user_defined.Uploader(self.valid_schema_path, backend)
         self.assertListEqual(uploader.existing_schemas, [])
-        backend.list_managed_schemas.assert_called_once()
+        backend.list_schemas.assert_called_once()
 
     def test_find_schema(self):
         backend = MockBackend()
-        backend.list_managed_schemas = mock.MagicMock(
-            return_value=self.list_managed_schemas_response
+        backend.list_schemas = mock.MagicMock(
+            return_value=self.list_schemas_response
         )
         uploader = user_defined.Uploader(self.valid_schema_path, backend)
         self.assertEqual(uploader.find_schema('Custom.SampleSchema2'),
-                         self.list_managed_schemas_response.data.schemas[2])
+                         self.list_schemas_response.data.schemas[2])
         self.assertIsNone(uploader.find_schema('unknown-schema'))
-        backend.list_managed_schemas.assert_called_once()
+        backend.list_schemas.assert_called_once()
 
     def test_files(self):
         uploader = user_defined.Uploader(self.valid_schema_path, None)
@@ -187,15 +187,15 @@ class TestUploader(unittest.TestCase):
 
     def test_process(self):
         backend = MockBackend()
-        backend.list_managed_schemas = mock.MagicMock(
-            return_value=self.list_managed_schemas_response
+        backend.list_schemas = mock.MagicMock(
+            return_value=self.list_schemas_response
         )
 
         put_schema_responses = []
-        for response in self.list_managed_schemas_response.data.schemas:
+        for response in self.list_schemas_response.data.schemas:
             put_schema_responses.append(
-                UpdateManagedSchemaResponse(
-                    schema=ManagedSchema(
+                UpdateSchemaResponse(
+                    schema=Schema(
                         name=response.name,
                         revision=response.revision + 1,
                         updated_at='2021-05-17T10:34:18.192993496Z',
@@ -208,7 +208,7 @@ class TestUploader(unittest.TestCase):
                 )
             )
 
-        backend.update_managed_schema = mock.MagicMock(
+        backend.update_schema = mock.MagicMock(
             side_effect=put_schema_responses
         )
         uploader = user_defined.Uploader(self.valid_schema_path, backend)
@@ -218,15 +218,15 @@ class TestUploader(unittest.TestCase):
                              ['Custom.AWSAccountIDs', 'Custom.SampleSchema1', 'Custom.SampleSchema2',
                               'Custom.Sample.Schema3'])
 
-        my_mock_call = backend.update_managed_schema.call_count
+        my_mock_call = backend.update_schema.call_count
         self.assertEqual(my_mock_call, 4)
 
         self.assertListEqual([r.existed for r in results], [True, True, True, True])
-        self.assertEqual(backend.update_managed_schema.call_count, 4)
-        backend.update_managed_schema.assert_has_calls(
+        self.assertEqual(backend.update_schema.call_count, 4)
+        backend.update_schema.assert_has_calls(
             [
                 mock.call(
-                    params=UpdateManagedSchemaParams(
+                    params=UpdateSchemaParams(
                         name="Custom.AWSAccountIDs",
                         spec=self.valid_schema0,
                         description='Sample Lookup Table Schema 1',

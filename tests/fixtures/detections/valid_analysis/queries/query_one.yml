@@ -1,7 +1,7 @@
 AnalysisType: scheduled_query
 QueryName: A Test Query
 Enabled: true
-Query: 'SELECT * FROM panther_logs.aws_cloudtrail LIMIT 10'
+Query: 'SELECT * FROM snowflake.account_usage.login_history LIMIT 10'
 Description: Some meme query
 Tags:
   - some

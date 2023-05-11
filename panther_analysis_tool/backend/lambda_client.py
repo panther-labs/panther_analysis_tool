@@ -38,16 +38,18 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    ListManagedSchemasResponse,
     ListSchemasParams,
-    ManagedSchema,
+    ListSchemasResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
-    UpdateManagedSchemaParams,
-    UpdateManagedSchemaResponse,
+    PermanentBackendError,
+    Schema,
+    UpdateSchemaParams,
+    UpdateSchemaResponse,
     backend_response_failed,
+    to_bulk_upload_response,
 )
-from .errors import is_upload_in_progress_error
+from .errors import is_retryable_error
 
 LAMBDA_CLIENT_NAME = "lambda"
 AWS_PROFILE_ENV_KEY = "AWS_PROFILE"
@@ -92,6 +94,9 @@ class LambdaClient(Client):
     def check(self) -> BackendCheckResponse:
         return BackendCheckResponse(success=True, message="not implemented")
 
+    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        raise BaseException("async uploads not supported with lambda client")
+
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         resp = self._parse_response(
             self._lambda_client.invoke(
@@ -110,29 +115,13 @@ class LambdaClient(Client):
         )
 
         if backend_response_failed(resp):
-            err = BackendError(resp.data)
-
-            err.permanent = True
-            if is_upload_in_progress_error(resp.data):
-                err.permanent = False
+            err = PermanentBackendError(resp.data)
+            err.permanent = not is_retryable_error(resp.data)
 
             raise err
 
         body = decode_body(resp)
-
-        default_stats = dict(total=0, new=0, modified=0)
-
-        return BackendResponse(
-            status_code=resp.status_code,
-            data=BulkUploadResponse(
-                rules=BulkUploadStatistics(**body.get("rules", default_stats)),
-                queries=BulkUploadStatistics(**body.get("queries", default_stats)),
-                policies=BulkUploadStatistics(**body.get("policies", default_stats)),
-                data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
-                lookup_tables=BulkUploadStatistics(**body.get("lookupTables", default_stats)),
-                global_helpers=BulkUploadStatistics(**body.get("globalHelpers", default_stats)),
-            ),
-        )
+        return to_bulk_upload_response(body)
 
     def delete_detections(
         self, params: DeleteDetectionsParams
@@ -200,9 +189,7 @@ class LambdaClient(Client):
             ),
         )
 
-    def list_managed_schemas(
-        self, params: ListSchemasParams
-    ) -> BackendResponse[ListManagedSchemasResponse]:
+    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[ListSchemasResponse]:
         res = self._parse_response(
             self._lambda_client.invoke(
                 FunctionName="panther-logtypes-api",
@@ -220,7 +207,7 @@ class LambdaClient(Client):
         schemas = []
         for result in res.data["results"]:
             schemas.append(
-                ManagedSchema(
+                Schema(
                     created_at=result.get("createdAt", ""),
                     description=result.get("description", ""),
                     is_managed=result.get("isManaged", False),
@@ -232,9 +219,9 @@ class LambdaClient(Client):
                 )
             )
 
-        return BackendResponse(status_code=200, data=ListManagedSchemasResponse(schemas=schemas))
+        return BackendResponse(status_code=200, data=ListSchemasResponse(schemas=schemas))
 
-    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse:
         res = self._parse_response(
             self._lambda_client.invoke(
                 FunctionName="panther-logtypes-api",
@@ -258,8 +245,8 @@ class LambdaClient(Client):
         schema = res.data.get("result", {})
         return BackendResponse(
             status_code=200,
-            data=UpdateManagedSchemaResponse(
-                schema=ManagedSchema(
+            data=UpdateSchemaResponse(
+                schema=Schema(
                     created_at=schema.get("createdAt", ""),
                     description=schema.get("description", ""),
                     is_managed=schema.get("isManaged", False),
@@ -333,3 +320,6 @@ class LambdaClient(Client):
             data=payload,
             status_code=status_code,
         )
+
+    def supports_async_uploads(self) -> bool:
+        return False

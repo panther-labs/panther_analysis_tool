@@ -1,6 +1,6 @@
 # Example configuration file for panther_analysis_tool.
 # Copy this file into the root of your test repository and name it .panther_settings.yml
-# Note that options in this file override options passed on the command line
+# Note that options in this file will be overridden by options passed on the command line
 #
 # The API token to use when making changes to Panther
 # api_token: "token"
@@ -48,3 +48,16 @@
 #
 # Filter tests by RuleID and other parameters. This must be passed as a dict with lists as values.
 # filter: {"RuleID":["Standard.UnusualLogin"]}
+#
+# Allows skipping of table name validation from schema validation. Useful when querying 
+# non-Panther or non-Snowflake tables
+# ignore-table-names: False
+#
+# Provide additional fully qualified table names that should be considered valid during schema validation 
+# (in addition to standard Panther/Snowflake tables). Accepts '*' as wildcard character matching 0 or more characters.
+# valid_table_names:
+#   - "foo.bar.baz"
+#   - "bar.baz.*"
+#   - "foo.*bar.baz"
+#   - "baz.*"
+#   - "*.foo.*"

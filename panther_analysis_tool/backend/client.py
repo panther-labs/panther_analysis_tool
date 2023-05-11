@@ -29,6 +29,10 @@ class BackendError(Exception):
     permanent: bool = False
 
 
+class PermanentBackendError(BackendError):
+    permanent: bool = True
+
+
 @dataclass(frozen=True)
 class BulkUploadPayload:
     data: bytes
@@ -75,7 +79,7 @@ class ListSchemasParams:
 
 
 @dataclass(frozen=True)
-class UpdateManagedSchemaParams:
+class UpdateSchemaParams:
     description: str
     name: str
     reference_url: str
@@ -114,7 +118,7 @@ class DeleteDetectionsResponse:
 
 # pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
-class ManagedSchema:
+class Schema:
     created_at: str
     description: str
     is_managed: bool
@@ -126,13 +130,13 @@ class ManagedSchema:
 
 
 @dataclass(frozen=True)
-class ListManagedSchemasResponse:
-    schemas: List[ManagedSchema]
+class ListSchemasResponse:
+    schemas: List[Schema]
 
 
 @dataclass(frozen=True)
-class UpdateManagedSchemaResponse:
-    schema: ManagedSchema
+class UpdateSchemaResponse:
+    schema: Schema
 
 
 @dataclass(frozen=True)
@@ -154,6 +158,10 @@ class Client(ABC):
         pass
 
     @abstractmethod
+    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        pass
+
+    @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         pass
 
@@ -170,13 +178,11 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def list_managed_schemas(
-        self, params: ListSchemasParams
-    ) -> BackendResponse[ListManagedSchemasResponse]:
+    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[ListSchemasResponse]:
         pass
 
     @abstractmethod
-    def update_managed_schema(self, params: UpdateManagedSchemaParams) -> BackendResponse[Any]:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse[Any]:
         pass
 
     @abstractmethod
@@ -185,6 +191,25 @@ class Client(ABC):
     ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
 
+    @abstractmethod
+    def supports_async_uploads(self) -> bool:
+        pass
+
 
 def backend_response_failed(resp: BackendResponse) -> bool:
     return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400
+
+
+def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
+    default_stats = dict(total=0, new=0, modified=0)
+    return BackendResponse(
+        status_code=200,
+        data=BulkUploadResponse(
+            rules=BulkUploadStatistics(**data.get("rules", default_stats)),
+            queries=BulkUploadStatistics(**data.get("queries", default_stats)),
+            policies=BulkUploadStatistics(**data.get("policies", default_stats)),
+            data_models=BulkUploadStatistics(**data.get("dataModels", default_stats)),
+            lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
+            global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
+        ),
+    )

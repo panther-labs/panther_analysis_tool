@@ -1,5 +1,5 @@
 AnalysisType: scheduled_query
-QueryName: ScheduledQuery_Example
+QueryName: ScheduledQuery_Example_1
 Description: Example for a scheduled query for PAT
 Enabled: true
 Query:

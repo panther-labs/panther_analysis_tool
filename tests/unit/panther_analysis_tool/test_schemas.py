@@ -6,6 +6,8 @@ import jsonschema
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
     LOG_TYPE_REGEX,
     MOCK_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
@@ -21,6 +23,28 @@ class TestPATSchemas(unittest.TestCase):
 
         with self.assertRaises(SchemaError):
             LOG_TYPE_REGEX.validate("Amazon.EKS.Foo")
+
+    def test_logtypes_regex_zeek(self):
+        LOG_TYPE_REGEX.validate("Zeek.CaptureLoss")
+        LOG_TYPE_REGEX.validate("Zeek.Conn")
+        LOG_TYPE_REGEX.validate("Zeek.DHCP")
+        LOG_TYPE_REGEX.validate("Zeek.DNS")
+        LOG_TYPE_REGEX.validate("Zeek.DPD")
+        LOG_TYPE_REGEX.validate("Zeek.Files")
+        LOG_TYPE_REGEX.validate("Zeek.HTTP")
+        LOG_TYPE_REGEX.validate("Zeek.Notice")
+        LOG_TYPE_REGEX.validate("Zeek.NTP")
+        LOG_TYPE_REGEX.validate("Zeek.OCSP")
+        LOG_TYPE_REGEX.validate("Zeek.Reporter")
+        LOG_TYPE_REGEX.validate("Zeek.SIP")
+        LOG_TYPE_REGEX.validate("Zeek.Software")
+        LOG_TYPE_REGEX.validate("Zeek.Ssh")
+        LOG_TYPE_REGEX.validate("Zeek.Ssl")
+        LOG_TYPE_REGEX.validate("Zeek.Stats")
+        LOG_TYPE_REGEX.validate("Zeek.Tunnel")
+        LOG_TYPE_REGEX.validate("Zeek.Weird")
+        LOG_TYPE_REGEX.validate("Zeek.X509")
+
 
     def test_mocks_are_str(self):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "Testing a string"})
@@ -80,6 +104,35 @@ class TestPATSchemas(unittest.TestCase):
             # TimeoutMinutes must be set
             sample_query["Schedule"] = {"RateMinutes": 1}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
+
+    def test_rba_flag(self):
+        RULE_SCHEMA.validate({
+            "AnalysisType": "rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["Custom.OhSnap"], "OnlyUseBaseRiskScore": True
+        })
+        RULE_SCHEMA.validate({
+            "AnalysisType": "scheduled_rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["AWS.ALB"], "OnlyUseBaseRiskScore": False
+        })
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+            "ResourceTypes": ["AWS.DynamoDB.Table"], "OnlyUseBaseRiskScore": True
+        })
+
+    def test_missing_rba_flag(self):
+        RULE_SCHEMA.validate({
+            "AnalysisType": "rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["Custom.OhSnap"]
+        })
+        RULE_SCHEMA.validate({
+            "AnalysisType": "scheduled_rule", "Enabled": False, "Filename": "hmm", "RuleID": "h", "Severity": "Info",
+            "LogTypes": ["AWS.ALB"]
+        })
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+            "ResourceTypes": ["AWS.DynamoDB.Table"]
+        })
+
 
 class TestSimpleDetectionSchemas(unittest.TestCase):
 
