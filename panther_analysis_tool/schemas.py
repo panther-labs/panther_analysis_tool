@@ -238,9 +238,6 @@ SCHEDULED_QUERY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
-data = pkgutil.get_data(__name__, "detection_schemas/simple_detection_json_schema.json")
-SIMPLE_DETECTION_SCHEMA = json.loads(data)
-
 LOOKUP_TABLE_SCHEMA = Schema(
     {
         "AnalysisType": Or("lookup_table"),
@@ -266,3 +263,7 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+# load jsonschema files
+data = pkgutil.get_data(__name__, "detection_schemas/simple_detection_json_schema.json")
+SIMPLE_DETECTION_SCHEMA = json.loads(data)

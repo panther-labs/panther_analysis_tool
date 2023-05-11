@@ -352,7 +352,7 @@ class TestPantherAnalysisTool(TestCase):
         except OSError:
             pass
         args = pat.setup_parser(). \
-            parse_args(f'--debug zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
+            parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
 
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))

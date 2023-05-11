@@ -109,5 +109,8 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
     def test_invalid_props(self):
         case = self.get_test_case()
         case['Detection'] = [{"someExtraProperty": "hello!!"}]
+        # should pass regular rule schema validation
+        RULE_SCHEMA.validate(case)
+        # should raise exception for jsonschema validation
         with self.assertRaises(jsonschema.exceptions.ValidationError):
             self.call_validate(case)
