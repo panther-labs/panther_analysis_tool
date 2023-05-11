@@ -1,12 +1,16 @@
 import unittest
 
 from schema import SchemaError
+from typing import Any, Dict
+import jsonschema
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     LOG_TYPE_REGEX,
     MOCK_SCHEMA,
-    SCHEDULED_QUERY_SCHEMA
+    SCHEDULED_QUERY_SCHEMA,
+    RULE_SCHEMA,
+    SIMPLE_DETECTION_SCHEMA,
 )
 
 
@@ -76,3 +80,34 @@ class TestPATSchemas(unittest.TestCase):
             # TimeoutMinutes must be set
             sample_query["Schedule"] = {"RateMinutes": 1}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
+
+class TestSimpleDetectionSchemas(unittest.TestCase):
+
+    def call_validate(self, detection: Dict[str, Any]) -> bool:
+        return jsonschema.validate(detection, SIMPLE_DETECTION_SCHEMA)
+
+    def get_test_case(self) -> Dict[str, Any]:
+        return {
+            "Detection": [],
+            "InlineFilters": [],
+            "AnalysisType": "rule",
+            "Enabled": True,
+            "RuleID": "my-test-id",
+            "Severity": "Info",
+            "LogTypes": ["Custom.Heylo"]
+        }
+
+    def test_top_level_keys(self):
+        RULE_SCHEMA.validate(self.get_test_case())
+        self.call_validate(self.get_test_case())
+
+        with self.assertRaises(SchemaError):
+            case = self.get_test_case()
+            case['Filename'] = 'uh-oh'
+            RULE_SCHEMA.validate(case)
+
+    def test_invalid_props(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"someExtraProperty": "hello!!"}]
+        with self.assertRaises(jsonschema.exceptions.ValidationError):
+            self.call_validate(case)

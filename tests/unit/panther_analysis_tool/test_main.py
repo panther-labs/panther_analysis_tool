@@ -352,7 +352,7 @@ class TestPantherAnalysisTool(TestCase):
         except OSError:
             pass
         args = pat.setup_parser(). \
-            parse_args(f'zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
+            parse_args(f'--debug zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/'.split())
 
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
@@ -459,3 +459,22 @@ class TestPantherAnalysisTool(TestCase):
                                              '--available-destination Pagerduty'.split())
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
+
+
+class TestSimpleDetections(TestCase):
+
+    def test_valid_simple_detections(self):
+        args = pat.setup_parser().parse_args(f'test '
+                                             f'--path '
+                                             f' {FIXTURES_PATH}/simple-detections/valid-analysis '.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_true(len(invalid_specs) == 0)
+
+    def test_invalid_simple_detections(self):
+        args = pat.setup_parser().parse_args(f'test '
+                                             f'--path '
+                                             f' {FIXTURES_PATH}/simple-detections/invalid-analysis '.split())
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)
+        self.assertEqual(len(invalid_specs), 2)
