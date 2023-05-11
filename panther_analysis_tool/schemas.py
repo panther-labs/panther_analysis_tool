@@ -269,5 +269,9 @@ LOOKUP_TABLE_SCHEMA = Schema(
 )  # Prevent user typos on optional fields
 
 # load jsonschema files
-raw_simple_detection_schema = pkgutil.get_data(__name__, "detection_schemas/simple_detection_json_schema.json")
-SIMPLE_DETECTION_SCHEMA = json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
+raw_simple_detection_schema = pkgutil.get_data(
+    __name__, "detection_schemas/simple_detection_json_schema.json"
+)
+SIMPLE_DETECTION_SCHEMA = (
+    json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
+)
