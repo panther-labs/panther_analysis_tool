@@ -21,6 +21,7 @@ deps: ## Install dependencies (including dev dependencies) using pipenv
 deps-update: ## Update dependencies using pipenv
 	pipenv update
 	pipenv lock
+	pipenv requirements > requirements.txt
 
 .PHONY: lint
 lint: ## Lint panther_analysis_tool (mypy, bandit, pylint)
