@@ -887,6 +887,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
+    simple_detections = []
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
@@ -954,9 +955,9 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 def get_simple_detection_as_python(backend: typing.Optional[BackendClient], analysis_spec: Dict[str, Any]) -> str:
     if backend is not None:
         try:
-            params = TranspileToPythonParams(data=analysis_spec["Detection"])
+            params = TranspileToPythonParams(data=[json.dumps(analysis_spec)])
             response = backend.transpile_simple_detection_to_python(params)
-            return response.transpiledPython
+            return response.data.transpiledPython[0] if response.data.transpiledPython else ""
         except BackendError as be_err:
             logging.warning("Error Transpiling Simple Detection (%s) to Python, skipping tests: %s",
                             lookup_analysis_id(analysis_spec, analysis_spec["AnalysisType"]),
@@ -1459,6 +1460,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser = subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
+    standard_args.for_public_api(test_parser, required=False)
     test_parser.add_argument(filter_name, **filter_arg)
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)

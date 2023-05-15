@@ -184,15 +184,15 @@ class PublicAPIClient(Client):
         return to_bulk_upload_response(data)
 
     def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
-        query = self._requests.bulk_upload_mutation()
-        transpile_input = {"input": {"data": params.encoded_bytes()}}
+        query = self._requests.transpile_simple_detection_to_python()
+        transpile_input = {"input": {"data": params.data}}
         res = self._safe_execute(query, variable_values=transpile_input)
         data = res.data.get("transpileSimpleDetectionsToPython", {})  # type: ignore
 
         return BackendResponse(
             status_code=200,
             data=TranspileToPythonResponse(
-                transpiledPython=data.get("transpiledPython") or "",
+                transpiledPython=data.get("transpiledPython") or [],
             ),
         )
 

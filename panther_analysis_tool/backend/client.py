@@ -156,12 +156,12 @@ class PantherSDKBulkUploadResponse:
 
 @dataclass(frozen=True)
 class TranspileToPythonParams:
-    data: str
+    data: List[str]
 
 
 @dataclass(frozen=True)
 class TranspileToPythonResponse:
-    transpiledPython: str
+    transpiledPython: List[str]
 
 
 class Client(ABC):
