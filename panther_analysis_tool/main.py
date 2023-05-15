@@ -44,7 +44,7 @@ from datetime import datetime
 # in the Python Repl.
 from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, List, Tuple, Type
+from typing import Any, DefaultDict, Dict, List, Tuple, Type, Union
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -79,7 +79,12 @@ from schema import (
 
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs
-from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
+from panther_analysis_tool.backend.client import (
+    BackendError,
+    BulkUploadParams,
+    TranspileToPythonParams,
+    TYPE_PUBLIC_API,
+)
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.cmd import (
     bulk_delete,
@@ -258,7 +263,7 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
     return filename
 
 
-def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
+def zip_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClient] = None) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
     Returns 1 if the analysis tests or validation fails.
@@ -270,7 +275,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, invalid_specs = test_analysis(args)
+        return_code, invalid_specs = test_analysis(args, backend)
         if return_code != 0:
             logging.error(invalid_specs)
             return return_code, ""
@@ -309,7 +314,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
         if not args.skip_tests:
-            return_code, invalid_specs = test_analysis(args)
+            return_code, invalid_specs = test_analysis(args, backend)
             if return_code != 0:
                 logging.error(invalid_specs)
                 return return_code, ""
@@ -664,7 +669,7 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 
 
 # pylint: disable=too-many-locals
-def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
+def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClient] = None) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
     Args:
@@ -749,6 +754,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
+        backend=backend,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -877,6 +883,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer] = None,
+    backend: typing.Optional[BackendClient] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -885,9 +892,20 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
-        detection: Optional[Detection] = None
         if is_simple_detection(analysis_spec):
-
+            body = get_simple_detection_as_python(backend, analysis_spec)
+            if body:
+                detection = Rule(
+                    dict(
+                        id=analysis_id,
+                        analysisType=analysis_type,
+                        body=body,
+                        versionId="0000-0000-0000",
+                    )
+                )
+            else:
+                # skip tests when the body is empty
+                continue
         else:
             module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
             detection = Rule(
@@ -931,6 +949,22 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
         if not all_test_results:
             print("")
     return failed_tests, invalid_specs
+
+
+def get_simple_detection_as_python(backend: typing.Optional[BackendClient], analysis_spec: Dict[str, Any]) -> str:
+    if backend is not None:
+        try:
+            params = TranspileToPythonParams(data=analysis_spec["Detection"])
+            response = backend.transpile_simple_detection_to_python(params)
+            return response.transpiledPython
+        except BackendError as be_err:
+            logging.warning("Error Transpiling Simple Detection (%s) to Python, skipping tests: %s",
+                            lookup_analysis_id(analysis_spec, analysis_spec["AnalysisType"]),
+                            be_err)
+    else:
+        logging.info("No backend client provided, skipping tests for simple detection (%s)",
+                     lookup_analysis_id(analysis_spec, analysis_spec["AnalysisType"]))
+    return ""
 
 
 def print_summary(
@@ -1435,7 +1469,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    test_parser.set_defaults(func=test_analysis)
+    test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
 
     # -- publish command
 
@@ -1622,7 +1656,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     zip_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    zip_parser.set_defaults(func=zip_analysis)
+    zip_parser.set_defaults(func=pat_utils.func_with_optional_backend(zip_analysis))
 
     # -- check-connection command
 

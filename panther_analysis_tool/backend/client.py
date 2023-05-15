@@ -24,6 +24,8 @@ from typing import Any, Generic, List, TypeVar
 
 ResponseData = TypeVar("ResponseData")
 
+TYPE_LAMBDA = "LAMBDA"
+TYPE_PUBLIC_API = "PUBLIC_API"
 
 class BackendError(Exception):
     permanent: bool = False
@@ -163,6 +165,12 @@ class TranspileToPythonResponse:
 
 
 class Client(ABC):
+
+    @property
+    @abstractmethod
+    def client_type(self) -> str:
+        pass
+
     @abstractmethod
     def check(self) -> BackendCheckResponse:
         pass
@@ -173,6 +181,10 @@ class Client(ABC):
 
     @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        pass
+
+    @abstractmethod
+    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
         pass
 
     @abstractmethod

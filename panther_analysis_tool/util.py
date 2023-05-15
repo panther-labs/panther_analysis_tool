@@ -24,7 +24,7 @@ import re
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
 import requests
@@ -110,6 +110,24 @@ def func_with_backend(
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(get_backend(args), args)
 
+
+def func_with_optional_backend(
+    func: Callable[[BackendClient, argparse.Namespace], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
+    return lambda args: func(args, get_optional_backend(args))
+
+def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
+    # The UserID is required by Panther for this API call, but we have no way of
+    # acquiring it, and it isn't used for anything. This is a valid UUID used by the
+    # Panther deployment tool to indicate this action was performed automatically.
+    user_id = "00000000-0000-4000-8000-000000000000"
+
+    if args.api_token:
+        return PublicAPIClient(
+            PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host)
+        )
+
+    return None
 
 def get_backend(args: argparse.Namespace) -> BackendClient:
     # The UserID is required by Panther for this API call, but we have no way of

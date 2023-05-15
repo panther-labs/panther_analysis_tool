@@ -46,6 +46,7 @@ from .client import (
     Schema,
     TranspileToPythonParams,
     TranspileToPythonResponse,
+    TYPE_LAMBDA,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     backend_response_failed,
@@ -75,6 +76,7 @@ class LambdaClient(Client):
     _user_id: str
     _lambda_client: boto3.client
     _datalake_lambda: str
+    client_type: str = TYPE_LAMBDA
 
     def __init__(self, opts: LambdaClientOpts):
         self._user_id = opts.user_id
@@ -301,7 +303,7 @@ class LambdaClient(Client):
         )
 
     def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
-        raise BaseException("tranpile simple detections to python is not supported with lambda client")
+        raise BaseException("transpile simple detections to python is not supported with lambda client")
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:
