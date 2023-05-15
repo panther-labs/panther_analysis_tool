@@ -176,6 +176,4 @@ def convert_unicode(obj: Any) -> str:
 
 
 def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
-    return (
-        analysis_item.get("Detection") is not None or analysis_item.get("InlineFilter") is not None
-    )
+    return analysis_item.get("Detection") is not None
