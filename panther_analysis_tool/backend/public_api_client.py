@@ -50,6 +50,8 @@ from .client import (
     PantherSDKBulkUploadResponse,
     PermanentBackendError,
     Schema,
+    TranspileToPythonParams,
+    TranspileToPythonResponse,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     to_bulk_upload_response,
@@ -96,6 +98,9 @@ class PublicAPIRequests:
 
     def panthersdk_upload_mutation(self) -> DocumentNode:
         return self._load("sdk_upload")
+
+    def transpile_simple_detection_to_python(self) -> DocumentNode:
+        return self._load("transpile_sdl")
 
     def introspection_query(self) -> DocumentNode:
         return self._load("introspection_query")
@@ -174,6 +179,19 @@ class PublicAPIClient(Client):
         data = res.data.get("uploadDetectionEntities", {})  # type: ignore
 
         return to_bulk_upload_response(data)
+
+    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
+        query = self._requests.bulk_upload_mutation()
+        transpile_input = {"input": {"data": params.encoded_bytes()}}
+        res = self._safe_execute(query, variable_values=transpile_input)
+        data = res.data.get("transpileSimpleDetectionsToPython", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=TranspileToPythonResponse(
+                transpiledPython=data.get("transpiledPython") or "",
+            ),
+        )
 
     def delete_saved_queries(
         self, params: DeleteSavedQueriesParams

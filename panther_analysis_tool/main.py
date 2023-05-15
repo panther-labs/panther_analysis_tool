@@ -883,23 +883,14 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
-        if is_simple_detection(analysis_spec):
-            # skip tests until supported:
-            # https://app.asana.com/0/1202324455056256/1204324416848366/f
-            continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
-        module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
-        detection: Detection = Rule(
-            dict(
-                id=analysis_id,
-                analysisType=analysis_type,
-                path=module_code_path,
-                versionId="0000-0000-0000",
-            )
-        )
-        if analysis_type == POLICY:
-            detection = Policy(
+        detection: Optional[Detection] = None
+        if is_simple_detection(analysis_spec):
+
+        else:
+            module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
+            detection = Rule(
                 dict(
                     id=analysis_id,
                     analysisType=analysis_type,
@@ -907,6 +898,15 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                     versionId="0000-0000-0000",
                 )
             )
+            if analysis_type == POLICY:
+                detection = Policy(
+                    dict(
+                        id=analysis_id,
+                        analysisType=analysis_type,
+                        path=module_code_path,
+                        versionId="0000-0000-0000",
+                    )
+                )
 
         if not all_test_results:
             print(detection.detection_id)
