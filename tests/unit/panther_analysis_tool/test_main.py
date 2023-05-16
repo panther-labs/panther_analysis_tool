@@ -514,6 +514,7 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 2)
 
+    # This function was generated in whole or in part by GitHub Copilot.
     def test_simple_detection_with_transpile(self):
         with Pause(self.fs):
             file_path = f'{FIXTURES_PATH}/simple-detections/valid'

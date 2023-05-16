@@ -727,7 +727,7 @@ def test_analysis(
 
     # enrich simple detections with transpiled python as necessary
     if specs[SIMPLE_DETECTION]:
-        specs[SIMPLE_DETECTION] = get_simple_detections_as_python(backend, specs[SIMPLE_DETECTION])
+        specs[SIMPLE_DETECTION] = get_simple_detections_as_python(specs[SIMPLE_DETECTION], backend)
 
     ignore_exception_types: List[Type[Exception]] = []
 

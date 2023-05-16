@@ -180,6 +180,7 @@ class PublicAPIClient(Client):
 
         return to_bulk_upload_response(data)
 
+    # This function was generated in whole or in part by GitHub Copilot.
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
     ) -> BackendResponse[TranspileToPythonResponse]:

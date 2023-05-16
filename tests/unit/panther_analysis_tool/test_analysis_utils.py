@@ -16,13 +16,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+# This file was generated in whole or in part by GitHub Copilot.
 
 from unittest import mock, TestCase
-
 
 from panther_analysis_tool.analysis_utils import get_simple_detections_as_python
 from panther_analysis_tool.backend.client import BackendResponse, BackendError, TranspileToPythonResponse
 from panther_analysis_tool.backend.mocks import MockBackend
+
 
 class TestAnalysisUtils(TestCase):
 
@@ -53,7 +54,7 @@ class TestAnalysisUtils(TestCase):
 
     def test_no_backend(self) -> None:
         specs = self.get_specs_for_test()
-        self.assertEqual(get_simple_detections_as_python(None, specs), specs)
+        self.assertEqual(get_simple_detections_as_python(specs), specs)
 
     def test_backend_error(self) -> None:
         specs = self.get_specs_for_test()
@@ -61,7 +62,7 @@ class TestAnalysisUtils(TestCase):
         backend.transpile_simple_detection_to_python = mock.MagicMock(
             side_effect=BackendError("that won't transpile!")
         )
-        self.assertEqual(get_simple_detections_as_python(backend, specs), specs)
+        self.assertEqual(get_simple_detections_as_python(specs, backend), specs)
 
     def test_base_error(self) -> None:
         specs = self.get_specs_for_test()
@@ -69,7 +70,7 @@ class TestAnalysisUtils(TestCase):
         backend.transpile_simple_detection_to_python = mock.MagicMock(
             side_effect=BaseException("uh-oh")
         )
-        self.assertEqual(get_simple_detections_as_python(backend, specs), specs)
+        self.assertEqual(get_simple_detections_as_python(specs, backend), specs)
 
     def test_happy_path(self) -> None:
         specs = self.get_specs_for_test()
@@ -82,6 +83,6 @@ class TestAnalysisUtils(TestCase):
                 status_code=200,
             )
         )
-        output = get_simple_detections_as_python(backend, specs)
+        output = get_simple_detections_as_python(specs, backend)
         for actual in output:
             self.assertEqual(actual[2]["body"], "def rule(event): return True")

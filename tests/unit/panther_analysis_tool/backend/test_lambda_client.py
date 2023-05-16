@@ -82,4 +82,4 @@ class TestLambdaClient(TestCase):
     def test_transpile_to_python(self) -> None:
         with self.assertRaises(BaseException):
             lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
-            lc.transpile_simple_detection_to_python(TranspileToPythonParams(detection=""))
+            lc.transpile_simple_detection_to_python(TranspileToPythonParams(data=[""]))

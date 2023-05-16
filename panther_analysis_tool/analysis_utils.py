@@ -1,3 +1,21 @@
+"""
+Panther Analysis Tool is a command line interface for writing,
+testing, and packaging policies/rules.
+Copyright (C) 2020 Panther Labs Inc
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import json
 import logging
 import os
@@ -143,9 +161,9 @@ def to_relative_path(filename: str) -> str:
     cwd = os.getcwd()
     return os.path.relpath(filename, cwd)
 
-
+# This function was generated in whole or in part by GitHub Copilot.
 def get_simple_detections_as_python(
-    backend: Optional[BackendClient], specs: List[Any]
+    specs: List[Any], backend: Optional[BackendClient] = None
 ) -> List[Any]:
     """Returns simple detections with transpiled Python."""
     enriched_specs = []
