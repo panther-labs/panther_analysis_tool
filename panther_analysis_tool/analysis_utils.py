@@ -161,6 +161,7 @@ def to_relative_path(filename: str) -> str:
     cwd = os.getcwd()
     return os.path.relpath(filename, cwd)
 
+
 # This function was generated in whole or in part by GitHub Copilot.
 def get_simple_detections_as_python(
     specs: List[Any], backend: Optional[BackendClient] = None
