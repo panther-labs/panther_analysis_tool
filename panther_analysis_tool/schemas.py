@@ -16,6 +16,8 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+import json
+import pkgutil
 from typing import Any, Dict
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
@@ -191,12 +193,13 @@ RULE_SCHEMA = Schema(
     {
         "AnalysisType": Or("rule", "scheduled_rule"),
         "Enabled": bool,
-        "Filename": str,
+        Or("Filename", "Detection", only_one=True): Or(str, object),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
         Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
@@ -264,3 +267,11 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+# load jsonschema files
+raw_simple_detection_schema = pkgutil.get_data(
+    __name__, "detection_schemas/simple_detection_json_schema.json"
+)
+SIMPLE_DETECTION_SCHEMA = (
+    json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
+)

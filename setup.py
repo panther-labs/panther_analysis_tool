@@ -10,6 +10,7 @@ install_requires = [
     'boto3',
     'dynaconf',
     'jsonpath-ng',
+    'jsonschema',
     'nested_lookup',
     'packaging',
     'requests',

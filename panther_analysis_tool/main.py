@@ -49,6 +49,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import botocore
+import jsonschema
 import requests
 import schema
 from dynaconf import Dynaconf, Validator
@@ -112,9 +113,10 @@ from panther_analysis_tool.schemas import (
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    SIMPLE_DETECTION_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.util import convert_unicode
+from panther_analysis_tool.util import convert_unicode, is_simple_detection
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
     contains_invalid_table_names,
@@ -881,6 +883,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
+        if is_simple_detection(analysis_spec):
+            # skip tests until supported:
+            # https://app.asana.com/0/1202324455056256/1204324416848366/f
+            continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
         module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
@@ -1011,6 +1017,9 @@ def classify_analysis(
                         analysis_id, invalid_table_names
                     )
             analysis_ids.append(analysis_id)
+            # extra validation for simple detections based on json schema
+            if is_simple_detection(analysis_spec):
+                jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
             # add the validated analysis type to the classified specs
             if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
@@ -1040,6 +1049,11 @@ def classify_analysis(
             elif "ResourceTypes" in str(err):
                 error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
+        except jsonschema.exceptions.ValidationError as err:
+            error_message = f"{err.json_path}: {err.message}"
+            invalid_specs.append(
+                (analysis_spec_filename, jsonschema.exceptions.ValidationError(error_message))
+            )
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
