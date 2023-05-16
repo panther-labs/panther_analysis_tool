@@ -160,10 +160,10 @@ def get_simple_detections_as_python(backend: Optional[BackendClient], specs: Lis
                     spec["body"] = result
                     enriched_specs.append((file_name, dir_name, spec))
             else:
-                logging.warning("Error transpiling simple detections to Python, skipping tests for simple detections.")
+                logging.warning("Error transpiling simple detection(s) to Python, skipping tests for simple detections.")
         except (BackendError, BaseException) as be_err: # pylint: disable=broad-except
             logging.warning(
-                "Error Transpiling Simple Detection(s) to Python, skipping tests for simple detections:  %s",
+                "Error transpiling simple detection(s) to Python, skipping tests for simple detections:  %s",
                 be_err)
     else:
         logging.info("No backend client provided, skipping tests for simple detections.")
