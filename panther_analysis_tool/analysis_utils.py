@@ -2,12 +2,15 @@ import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import Any, Dict, Iterator, List, Tuple, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
+from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import TranspileToPythonParams
 from panther_analysis_tool.constants import (
     DATA_MODEL_PATH_PATTERN,
     HELPERS_PATH_PATTERN,
@@ -16,11 +19,6 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
-    BackendError,
-    TranspileToPythonParams,
 )
 
 
@@ -146,7 +144,9 @@ def to_relative_path(filename: str) -> str:
     return os.path.relpath(filename, cwd)
 
 
-def get_simple_detections_as_python(backend: Optional[BackendClient], specs: List[Any]) -> List[Any]:
+def get_simple_detections_as_python(
+    backend: Optional[BackendClient], specs: List[Any]
+) -> List[Any]:
     """Returns simple detections with transpiled Python."""
     enriched_specs = []
     if backend is not None:
@@ -160,11 +160,14 @@ def get_simple_detections_as_python(backend: Optional[BackendClient], specs: Lis
                     spec["body"] = result
                     enriched_specs.append((file_name, dir_name, spec))
             else:
-                logging.warning("Error transpiling simple detections to Python, skipping tests for simple detections.")
-        except (BackendError, BaseException) as be_err: # pylint: disable=broad-except
+                logging.warning(
+                    "Error transpiling simple detections to Python, skipping tests for simple detections."
+                )
+        except (BackendError, BaseException) as be_err:  # pylint: disable=broad-except
             logging.warning(
                 "Error Transpiling Simple Detection(s) to Python, skipping tests for simple detections:  %s",
-                be_err)
+                be_err,
+            )
     else:
         logging.info("No backend client provided, skipping tests for simple detections.")
     return enriched_specs if enriched_specs else specs

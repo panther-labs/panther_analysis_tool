@@ -78,11 +78,12 @@ from schema import (
 )
 
 from panther_analysis_tool import util as pat_utils
-from panther_analysis_tool.analysis_utils import get_simple_detections_as_python, filter_analysis, load_analysis_specs
-from panther_analysis_tool.backend.client import (
-    BackendError,
-    BulkUploadParams,
+from panther_analysis_tool.analysis_utils import (
+    filter_analysis,
+    get_simple_detections_as_python,
+    load_analysis_specs,
 )
+from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.cmd import (
     bulk_delete,
@@ -262,7 +263,9 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
     return filename
 
 
-def zip_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClient] = None) -> Tuple[int, str]:
+def zip_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
     Returns 1 if the analysis tests or validation fails.
@@ -668,7 +671,9 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 
 
 # pylint: disable=too-many-locals
-def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClient] = None) -> Tuple[int, list]:
+def test_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
     Args:
@@ -782,7 +787,9 @@ def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClie
                         failed_tests=test_result_package.failed_tests,
                     )
                     print("")
-    print_summary(args.path, len(specs[DETECTION] + specs[SIMPLE_DETECTION]), failed_tests, invalid_specs)
+    print_summary(
+        args.path, len(specs[DETECTION] + specs[SIMPLE_DETECTION]), failed_tests, invalid_specs
+    )
 
     #  if the classic format was invalid, just exit
     #  otherwise, run sdk too

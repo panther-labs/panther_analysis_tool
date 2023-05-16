@@ -27,6 +27,7 @@ ResponseData = TypeVar("ResponseData")
 TYPE_LAMBDA = "LAMBDA"
 TYPE_PUBLIC_API = "PUBLIC_API"
 
+
 class BackendError(Exception):
     permanent: bool = False
 
@@ -165,7 +166,6 @@ class TranspileToPythonResponse:
 
 
 class Client(ABC):
-
     @property
     @abstractmethod
     def client_type(self) -> str:
@@ -184,7 +184,9 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
+    def transpile_simple_detection_to_python(
+        self, params: TranspileToPythonParams
+    ) -> BackendResponse[TranspileToPythonResponse]:
         pass
 
     @abstractmethod

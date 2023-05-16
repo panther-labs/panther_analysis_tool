@@ -47,5 +47,7 @@ class MockBackend(BackendClient):
     def supports_async_uploads(self) -> bool:
         pass
 
-    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[Any]:
+    def transpile_simple_detection_to_python(
+        self, params: TranspileToPythonParams
+    ) -> BackendResponse[Any]:
         pass
