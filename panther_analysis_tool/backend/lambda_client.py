@@ -46,7 +46,6 @@ from .client import (
     Schema,
     TranspileToPythonParams,
     TranspileToPythonResponse,
-    TYPE_LAMBDA,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     backend_response_failed,
@@ -76,7 +75,6 @@ class LambdaClient(Client):
     _user_id: str
     _lambda_client: boto3.client
     _datalake_lambda: str
-    client_type: str = TYPE_LAMBDA
 
     def __init__(self, opts: LambdaClientOpts):
         self._user_id = opts.user_id

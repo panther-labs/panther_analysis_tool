@@ -52,7 +52,6 @@ from .client import (
     Schema,
     TranspileToPythonParams,
     TranspileToPythonResponse,
-    TYPE_PUBLIC_API,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     to_bulk_upload_response,
@@ -117,8 +116,6 @@ class PublicAPIClient(Client):
     _user_id: str
     _requests: PublicAPIRequests
     _gql_client: GraphQLClient
-
-    client_type: str = TYPE_PUBLIC_API
 
     def __init__(self, opts: PublicAPIClientOptions):
         self._user_id = opts.user_id

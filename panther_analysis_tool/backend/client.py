@@ -24,8 +24,6 @@ from typing import Any, Generic, List, TypeVar
 
 ResponseData = TypeVar("ResponseData")
 
-TYPE_LAMBDA = "LAMBDA"
-TYPE_PUBLIC_API = "PUBLIC_API"
 
 class BackendError(Exception):
     permanent: bool = False
@@ -165,11 +163,6 @@ class TranspileToPythonResponse:
 
 
 class Client(ABC):
-
-    @property
-    @abstractmethod
-    def client_type(self) -> str:
-        pass
 
     @abstractmethod
     def check(self) -> BackendCheckResponse:
