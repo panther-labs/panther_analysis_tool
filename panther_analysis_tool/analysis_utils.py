@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple, Optional
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
@@ -16,6 +16,11 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+)
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import (
+    BackendError,
+    TranspileToPythonParams,
 )
 
 
@@ -139,3 +144,27 @@ def load_analysis_specs(
 def to_relative_path(filename: str) -> str:
     cwd = os.getcwd()
     return os.path.relpath(filename, cwd)
+
+
+def get_simple_detections_as_python(backend: Optional[BackendClient], specs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Returns simple detections with transpiled Python."""
+    enriched_specs = []
+    if backend is not None:
+        batch = [json.dumps(spec) for _, _, spec in specs]
+        try:
+            params = TranspileToPythonParams(data=batch)
+            response = backend.transpile_simple_detection_to_python(params)
+            if response.status_code == 200:
+                for i, result in enumerate(response.data.transpiledPython):
+                    file_name, dir_name, spec = specs[i]
+                    spec["body"] = result
+                    enriched_specs.append((file_name, dir_name, spec))
+            else:
+                logging.warning("Error transpiling simple detections to Python, skipping tests for simple detections.")
+        except (BackendError, BaseException) as be_err:
+            logging.warning(
+                "Error Transpiling Simple Detection(s) to Python, skipping tests for simple detections:  %s",
+                be_err)
+    else:
+        logging.info("No backend client provided, skipping tests for simple detections.")
+    return enriched_specs if enriched_specs else specs

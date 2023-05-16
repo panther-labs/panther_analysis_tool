@@ -40,6 +40,7 @@ POLICY = "policy"
 QUERY = "scheduled_query"
 RULE = "rule"
 SCHEDULED_RULE = "scheduled_rule"
+SIMPLE_DETECTION = "simple_detection"
 
 RESERVED_FUNCTIONS = (
     "alert_context",

@@ -78,12 +78,10 @@ from schema import (
 )
 
 from panther_analysis_tool import util as pat_utils
-from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs
+from panther_analysis_tool.analysis_utils import get_simple_detections_as_python, filter_analysis, load_analysis_specs
 from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadParams,
-    TranspileToPythonParams,
-    TYPE_PUBLIC_API,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.cmd import (
@@ -108,6 +106,7 @@ from panther_analysis_tool.constants import (
     RULE,
     SCHEDULED_RULE,
     SCHEMAS,
+    SIMPLE_DETECTION,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
 )
@@ -329,7 +328,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
         return 0, ""
 
-    return_code, archive = zip_analysis(args)
+    return_code, archive = zip_analysis(args, backend)
     if return_code != 0:
         return return_code, ""
 
@@ -721,6 +720,11 @@ def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClie
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
+    # enrich simple detections with transpiled python as necessary
+    if specs[SIMPLE_DETECTION]:
+
+        specs[SIMPLE_DETECTION] = get_simple_detections_as_python(backend, specs[SIMPLE_DETECTION])
+
     ignore_exception_types: List[Type[Exception]] = []
 
     available_destinations: List[str] = []
@@ -748,13 +752,12 @@ def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClie
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
         log_type_to_data_model,
-        specs[DETECTION],
+        specs[DETECTION] + specs[SIMPLE_DETECTION],
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
-        backend=backend,
     )
     invalid_specs.extend(invalid_detection)
 
@@ -780,7 +783,7 @@ def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClie
                         failed_tests=test_result_package.failed_tests,
                     )
                     print("")
-    print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
+    print_summary(args.path, len(specs[DETECTION] + specs[SIMPLE_DETECTION]), failed_tests, invalid_specs)
 
     #  if the classic format was invalid, just exit
     #  otherwise, run sdk too
@@ -883,24 +886,21 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer] = None,
-    backend: typing.Optional[BackendClient] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
-    simple_detections = []
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
         if is_simple_detection(analysis_spec):
-            body = get_simple_detection_as_python(backend, analysis_spec)
-            if body:
+            if analysis_spec.get("body"):
                 detection = Rule(
                     dict(
                         id=analysis_id,
                         analysisType=analysis_type,
-                        body=body,
+                        body=analysis_spec["body"],
                         versionId="0000-0000-0000",
                     )
                 )
@@ -952,22 +952,6 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     return failed_tests, invalid_specs
 
 
-def get_simple_detection_as_python(backend: typing.Optional[BackendClient], analysis_spec: Dict[str, Any]) -> str:
-    if backend is not None:
-        try:
-            params = TranspileToPythonParams(data=[json.dumps(analysis_spec)])
-            response = backend.transpile_simple_detection_to_python(params)
-            return response.data.transpiledPython[0] if response.data.transpiledPython else ""
-        except BackendError as be_err:
-            logging.warning("Error Transpiling Simple Detection (%s) to Python, skipping tests: %s",
-                            lookup_analysis_id(analysis_spec, analysis_spec["AnalysisType"]),
-                            be_err)
-    else:
-        logging.info("No backend client provided, skipping tests for simple detection (%s)",
-                     lookup_analysis_id(analysis_spec, analysis_spec["AnalysisType"]))
-    return ""
-
-
 def print_summary(
     test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
 ) -> None:
@@ -1002,7 +986,7 @@ def classify_analysis(
     # types of detections, meta types that can be zipped
     # or uploaded
     classified_specs: Dict[str, List[Any]] = dict()
-    for key in [DATAMODEL, DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
+    for key in [DATAMODEL, DETECTION, SIMPLE_DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
         classified_specs[key] = []
 
     invalid_specs = []
@@ -1055,8 +1039,11 @@ def classify_analysis(
             # extra validation for simple detections based on json schema
             if is_simple_detection(analysis_spec):
                 jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
+                classified_specs[SIMPLE_DETECTION].append(
+                    (analysis_spec_filename, dir_name, analysis_spec)
+                )
             # add the validated analysis type to the classified specs
-            if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
+            elif analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
@@ -1647,6 +1634,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."
     )
+    standard_args.for_public_api(zip_parser, required=False)
     zip_parser.add_argument(filter_name, **filter_arg)
     zip_parser.add_argument(ignore_files_name, **ignore_files_arg)
     zip_parser.add_argument(min_test_name, **min_test_arg)
