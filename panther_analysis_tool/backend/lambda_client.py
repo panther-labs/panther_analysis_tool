@@ -300,8 +300,12 @@ class LambdaClient(Client):
             ),
         )
 
-    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
-        raise BaseException("transpile simple detections to python is not supported with lambda client")
+    def transpile_simple_detection_to_python(
+        self, params: TranspileToPythonParams
+    ) -> BackendResponse[TranspileToPythonResponse]:
+        raise BaseException(
+            "transpile simple detections to python is not supported with lambda client"
+        )
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:

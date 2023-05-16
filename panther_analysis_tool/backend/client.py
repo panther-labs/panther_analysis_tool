@@ -25,6 +25,7 @@ from typing import Any, Generic, List, TypeVar
 ResponseData = TypeVar("ResponseData")
 
 
+
 class BackendError(Exception):
     permanent: bool = False
 
@@ -163,7 +164,6 @@ class TranspileToPythonResponse:
 
 
 class Client(ABC):
-
     @abstractmethod
     def check(self) -> BackendCheckResponse:
         pass
@@ -177,7 +177,9 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[TranspileToPythonResponse]:
+    def transpile_simple_detection_to_python(
+        self, params: TranspileToPythonParams
+    ) -> BackendResponse[TranspileToPythonResponse]:
         pass
 
     @abstractmethod
