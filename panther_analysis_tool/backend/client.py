@@ -25,7 +25,6 @@ from typing import Any, Generic, List, TypeVar
 ResponseData = TypeVar("ResponseData")
 
 
-
 class BackendError(Exception):
     permanent: bool = False
 
