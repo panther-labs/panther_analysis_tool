@@ -161,7 +161,7 @@ class TranspileToPythonParams:
 
 @dataclass(frozen=True)
 class TranspileToPythonResponse:
-    transpiledPython: List[str]
+    transpiled_python: List[str]
 
 
 class Client(ABC):

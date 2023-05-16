@@ -44,7 +44,7 @@ from datetime import datetime
 # in the Python Repl.
 from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, List, Tuple, Type, Union
+from typing import Any, DefaultDict, Dict, List, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -722,7 +722,6 @@ def test_analysis(args: argparse.Namespace, backend: typing.Optional[BackendClie
 
     # enrich simple detections with transpiled python as necessary
     if specs[SIMPLE_DETECTION]:
-
         specs[SIMPLE_DETECTION] = get_simple_detections_as_python(backend, specs[SIMPLE_DETECTION])
 
     ignore_exception_types: List[Type[Exception]] = []

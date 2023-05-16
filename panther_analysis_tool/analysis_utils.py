@@ -146,7 +146,7 @@ def to_relative_path(filename: str) -> str:
     return os.path.relpath(filename, cwd)
 
 
-def get_simple_detections_as_python(backend: Optional[BackendClient], specs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def get_simple_detections_as_python(backend: Optional[BackendClient], specs: List[Any]) -> List[Any]:
     """Returns simple detections with transpiled Python."""
     enriched_specs = []
     if backend is not None:
@@ -155,13 +155,13 @@ def get_simple_detections_as_python(backend: Optional[BackendClient], specs: Lis
             params = TranspileToPythonParams(data=batch)
             response = backend.transpile_simple_detection_to_python(params)
             if response.status_code == 200:
-                for i, result in enumerate(response.data.transpiledPython):
+                for i, result in enumerate(response.data.transpiled_python):
                     file_name, dir_name, spec = specs[i]
                     spec["body"] = result
                     enriched_specs.append((file_name, dir_name, spec))
             else:
                 logging.warning("Error transpiling simple detections to Python, skipping tests for simple detections.")
-        except (BackendError, BaseException) as be_err:
+        except (BackendError, BaseException) as be_err: # pylint: disable=broad-except
             logging.warning(
                 "Error Transpiling Simple Detection(s) to Python, skipping tests for simple detections:  %s",
                 be_err)

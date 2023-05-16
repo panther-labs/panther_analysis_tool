@@ -192,7 +192,7 @@ class PublicAPIClient(Client):
         return BackendResponse(
             status_code=200,
             data=TranspileToPythonResponse(
-                transpiledPython=data.get("transpiledPython") or [],
+                transpiled_python=data.get("transpiledPython") or [],
             ),
         )
 

@@ -77,7 +77,7 @@ class TestAnalysisUtils(TestCase):
         backend.transpile_simple_detection_to_python = mock.MagicMock(
             return_value=BackendResponse(
                 data=TranspileToPythonResponse(
-                    transpiledPython=["def rule(event): return True" for _ in range(len(specs))],
+                    transpiled_python=["def rule(event): return True" for _ in range(len(specs))],
                 ),
                 status_code=200,
             )

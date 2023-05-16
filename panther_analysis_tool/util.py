@@ -112,9 +112,10 @@ def func_with_backend(
 
 
 def func_with_optional_backend(
-    func: Callable[[BackendClient, argparse.Namespace], Any]
+    func: Callable[[argparse.Namespace, Optional[BackendClient]], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     return lambda args: func(args, get_optional_backend(args))
+
 
 def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
     # The UserID is required by Panther for this API call, but we have no way of
@@ -128,6 +129,7 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
         )
 
     return None
+
 
 def get_backend(args: argparse.Namespace) -> BackendClient:
     # The UserID is required by Panther for this API call, but we have no way of
