@@ -78,7 +78,11 @@ from schema import (
 )
 
 from panther_analysis_tool import util as pat_utils
-from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs
+from panther_analysis_tool.analysis_utils import (
+    filter_analysis,
+    get_simple_detections_as_python,
+    load_analysis_specs,
+)
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.cmd import (
@@ -103,6 +107,7 @@ from panther_analysis_tool.constants import (
     RULE,
     SCHEDULED_RULE,
     SCHEMAS,
+    SIMPLE_DETECTION,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
 )
@@ -258,7 +263,9 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
     return filename
 
 
-def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
+def zip_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
     Returns 1 if the analysis tests or validation fails.
@@ -270,7 +277,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, invalid_specs = test_analysis(args)
+        return_code, invalid_specs = test_analysis(args, backend)
         if return_code != 0:
             logging.error(invalid_specs)
             return return_code, ""
@@ -309,7 +316,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
         if not args.skip_tests:
-            return_code, invalid_specs = test_analysis(args)
+            return_code, invalid_specs = test_analysis(args, backend)
             if return_code != 0:
                 logging.error(invalid_specs)
                 return return_code, ""
@@ -324,7 +331,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
         return 0, ""
 
-    return_code, archive = zip_analysis(args)
+    return_code, archive = zip_analysis(args, backend)
     if return_code != 0:
         return return_code, ""
 
@@ -664,7 +671,9 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 
 
 # pylint: disable=too-many-locals
-def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
+def test_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
     Args:
@@ -716,6 +725,10 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
+    # enrich simple detections with transpiled python as necessary
+    if specs[SIMPLE_DETECTION]:
+        specs[SIMPLE_DETECTION] = get_simple_detections_as_python(specs[SIMPLE_DETECTION], backend)
+
     ignore_exception_types: List[Type[Exception]] = []
 
     available_destinations: List[str] = []
@@ -743,7 +756,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # then, import rules and policies; run tests
     failed_tests, invalid_detection = setup_run_tests(
         log_type_to_data_model,
-        specs[DETECTION],
+        specs[DETECTION] + specs[SIMPLE_DETECTION],
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
@@ -774,7 +787,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
                         failed_tests=test_result_package.failed_tests,
                     )
                     print("")
-    print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
+    print_summary(
+        args.path, len(specs[DETECTION] + specs[SIMPLE_DETECTION]), failed_tests, invalid_specs
+    )
 
     #  if the classic format was invalid, just exit
     #  otherwise, run sdk too
@@ -883,23 +898,24 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     for analysis_spec_filename, dir_name, analysis_spec in analysis:
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
-        if is_simple_detection(analysis_spec):
-            # skip tests until supported:
-            # https://app.asana.com/0/1202324455056256/1204324416848366/f
-            continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
-        module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
-        detection: Detection = Rule(
-            dict(
-                id=analysis_id,
-                analysisType=analysis_type,
-                path=module_code_path,
-                versionId="0000-0000-0000",
-            )
-        )
-        if analysis_type == POLICY:
-            detection = Policy(
+        if is_simple_detection(analysis_spec):
+            if analysis_spec.get("body"):
+                detection = Rule(
+                    dict(
+                        id=analysis_id,
+                        analysisType=analysis_type,
+                        body=analysis_spec["body"],
+                        versionId="0000-0000-0000",
+                    )
+                )
+            else:
+                # skip tests when the body is empty
+                continue
+        else:
+            module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
+            detection = Rule(
                 dict(
                     id=analysis_id,
                     analysisType=analysis_type,
@@ -907,6 +923,15 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                     versionId="0000-0000-0000",
                 )
             )
+            if analysis_type == POLICY:
+                detection = Policy(
+                    dict(
+                        id=analysis_id,
+                        analysisType=analysis_type,
+                        path=module_code_path,
+                        versionId="0000-0000-0000",
+                    )
+                )
 
         if not all_test_results:
             print(detection.detection_id)
@@ -967,7 +992,7 @@ def classify_analysis(
     # types of detections, meta types that can be zipped
     # or uploaded
     classified_specs: Dict[str, List[Any]] = dict()
-    for key in [DATAMODEL, DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
+    for key in [DATAMODEL, DETECTION, SIMPLE_DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
         classified_specs[key] = []
 
     invalid_specs = []
@@ -1020,8 +1045,11 @@ def classify_analysis(
             # extra validation for simple detections based on json schema
             if is_simple_detection(analysis_spec):
                 jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
+                classified_specs[SIMPLE_DETECTION].append(
+                    (analysis_spec_filename, dir_name, analysis_spec)
+                )
             # add the validated analysis type to the classified specs
-            if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
+            elif analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
                     (analysis_spec_filename, dir_name, analysis_spec)
                 )
@@ -1425,6 +1453,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser = subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
+    standard_args.for_public_api(test_parser, required=False)
     test_parser.add_argument(filter_name, **filter_arg)
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)
@@ -1435,7 +1464,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    test_parser.set_defaults(func=test_analysis)
+    test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
 
     # -- publish command
 
@@ -1611,6 +1640,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."
     )
+    standard_args.for_public_api(zip_parser, required=False)
     zip_parser.add_argument(filter_name, **filter_arg)
     zip_parser.add_argument(ignore_files_name, **ignore_files_arg)
     zip_parser.add_argument(min_test_name, **min_test_arg)
@@ -1622,7 +1652,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     zip_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    zip_parser.set_defaults(func=zip_analysis)
+    zip_parser.set_defaults(func=pat_utils.func_with_optional_backend(zip_analysis))
 
     # -- check-connection command
 

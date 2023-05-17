@@ -1,0 +1,5 @@
+mutation TranspileSimpleDetectionsToPython($input: TranspileSimpleDetectionsToPythonInput!) {
+    transpileSimpleDetectionsToPython(input: $input) {
+        transpiledPython
+    }
+}

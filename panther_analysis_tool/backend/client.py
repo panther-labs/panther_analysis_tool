@@ -152,6 +152,16 @@ class PantherSDKBulkUploadResponse:
     data_models: BulkUploadStatistics
 
 
+@dataclass(frozen=True)
+class TranspileToPythonParams:
+    data: List[str]
+
+
+@dataclass(frozen=True)
+class TranspileToPythonResponse:
+    transpiled_python: List[str]
+
+
 class Client(ABC):
     @abstractmethod
     def check(self) -> BackendCheckResponse:
@@ -163,6 +173,12 @@ class Client(ABC):
 
     @abstractmethod
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        pass
+
+    @abstractmethod
+    def transpile_simple_detection_to_python(
+        self, params: TranspileToPythonParams
+    ) -> BackendResponse[TranspileToPythonResponse]:
         pass
 
     @abstractmethod

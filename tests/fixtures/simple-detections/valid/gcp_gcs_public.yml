@@ -30,22 +30,11 @@ Detection:
       - serviceData
       - policyDelta
       - bindingDeltas
-    Condition: AnyElement
-    Expressions:
-      - Key: action
-        Condition: Equals
-        Value: ADD
-      - Key: member
-        Condition: IsIn
-        Values:
-          - allUsers
-          - allAuthenticatedUsers
-      - Key: role
-        Condition: IsIn
-        Values:
-          - 'roles/storage.objectAdmin'
-          - 'roles/storage.objectViewer'
-          - 'roles/storage.admin'
+    Condition: IsIn
+    Values:
+      - 'roles/storage.objectAdmin'
+      - 'roles/storage.objectViewer'
+      - 'roles/storage.admin'
 
 Tests:
   - Name: GCS AllUsers Read Permission
@@ -81,14 +70,7 @@ Tests:
                 '@type': 'type.googleapis.com/google.iam.v1.logging.AuditData',
                 'policyDelta':
                   {
-                    'bindingDeltas':
-                      [
-                        {
-                          'action': 'ADD',
-                          'role': 'roles/storage.objectViewer',
-                          'member': 'allUsers',
-                        },
-                      ],
+                    'bindingDeltas': "roles/storage.objectAdmin",
                   },
               },
             'resourceLocation': { 'currentLocations': ['us'] },

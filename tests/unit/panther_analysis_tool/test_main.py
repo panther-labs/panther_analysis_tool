@@ -30,7 +30,7 @@ from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
-from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import BackendError, BackendResponse, TranspileToPythonResponse
 from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -503,7 +503,7 @@ class TestPantherAnalysisTool(TestCase):
                                                  f' {FIXTURES_PATH}/simple-detections/valid '.split())
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
-        assert_true(len(invalid_specs) == 0)
+        assert_equal(len(invalid_specs), 0)
 
     def test_invalid_simple_detections(self):
         with Pause(self.fs):
@@ -512,4 +512,26 @@ class TestPantherAnalysisTool(TestCase):
                                                  f' {FIXTURES_PATH}/simple-detections/invalid '.split())
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        self.assertEqual(len(invalid_specs), 2)
+        assert_equal(len(invalid_specs), 2)
+
+    # This function was generated in whole or in part by GitHub Copilot.
+    def test_simple_detection_with_transpile(self):
+        with Pause(self.fs):
+            file_path = f'{FIXTURES_PATH}/simple-detections/valid'
+            number_of_test_files = len([name for name in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, name))])
+            backend = MockBackend()
+            backend.transpile_simple_detection_to_python = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=TranspileToPythonResponse(
+                        transpiled_python=["def rule(event): return True" for _ in range(number_of_test_files)],
+                    ),
+                    status_code=200,
+                )
+            )
+            args = pat.setup_parser().parse_args(f'test '
+                                                 f'--path '
+                                                 f' {file_path}'.split())
+            return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+        # our mock transpiled code always returns true, so we should have some failing tests
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 0)
