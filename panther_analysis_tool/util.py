@@ -31,6 +31,7 @@ import requests
 from packaging import version
 
 from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.constants import PANTHER_USER_ID
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
 from panther_analysis_tool.backend.public_api_client import (
     PublicAPIClient,
@@ -118,35 +119,27 @@ def func_with_optional_backend(
 
 
 def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
-    # The UserID is required by Panther for this API call, but we have no way of
-    # acquiring it, and it isn't used for anything. This is a valid UUID used by the
-    # Panther deployment tool to indicate this action was performed automatically.
-    user_id = "00000000-0000-4000-8000-000000000000"
 
     if args.api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host)
+            PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
         )
 
     return None
 
 
 def get_backend(args: argparse.Namespace) -> BackendClient:
-    # The UserID is required by Panther for this API call, but we have no way of
-    # acquiring it, and it isn't used for anything. This is a valid UUID used by the
-    # Panther deployment tool to indicate this action was performed automatically.
-    user_id = "00000000-0000-4000-8000-000000000000"
 
     if args.api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host)
+            PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
         )
 
     datalake_lambda = get_datalake_lambda(args)
 
     return LambdaClient(
         LambdaClientOpts(
-            user_id=user_id,
+            user_id=PANTHER_USER_ID,
             aws_profile=args.aws_profile,
             datalake_lambda=datalake_lambda,
         )

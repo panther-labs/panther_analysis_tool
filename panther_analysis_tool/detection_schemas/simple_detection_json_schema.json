@@ -16,10 +16,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "LogType",
-        "Selectors"
-      ]
+      "required": ["LogType", "Selectors"]
     },
     "LogTypeMap": {
       "properties": {
@@ -35,10 +32,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "PrimaryKey",
-        "AssociatedLogTypes"
-      ]
+      "required": ["PrimaryKey", "AssociatedLogTypes"]
     },
     "Mapping": {
       "properties": {
@@ -54,9 +48,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "Name"
-      ]
+      "required": ["Name"]
     },
     "MatchExpressions": {
       "items": {
@@ -76,11 +68,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Expressions",
-              "Key",
-              "Condition"
-            ]
+            "required": ["Expressions", "Key", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -100,11 +88,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Expressions",
-              "DeepKey",
-              "Condition"
-            ]
+            "required": ["Expressions", "DeepKey", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -115,9 +99,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "All"
-            ]
+            "required": ["All"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -128,9 +110,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Any"
-            ]
+            "required": ["Any"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -141,115 +121,130 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "OnlyOne"
-            ]
+            "required": ["OnlyOne"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "Condition": {
                 "type": "string",
-                "enum": [
-                  "AlwaysTrue",
-                  "AlwaysFalse"
+                "enum": ["AlwaysTrue", "AlwaysFalse"]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Condition"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Key": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Key", "Condition"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "DeepKey": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["DeepKey", "Condition"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Key": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Key", "Condition", "Value"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Key": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
                 ]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Condition"
-            ]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Key": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "Key",
-              "Condition"
-            ]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "DeepKey": {
-                "items": {
-                  "oneOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "integer"
-                    }
-                  ]
-                },
-                "type": "array"
-              },
-              "Condition": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "DeepKey",
-              "Condition"
-            ]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Key": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Value": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "Key",
-              "Condition",
-              "Value"
-            ]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Key": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Values": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "Key",
-              "Condition",
-              "Values"
-            ]
+            "required": ["Key", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -271,16 +266,26 @@
                 "type": "string"
               },
               "Value": {
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "DeepKey",
-              "Condition",
-              "Value"
-            ]
+            "required": ["DeepKey", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -302,19 +307,37 @@
                 "type": "string"
               },
               "Values": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "DeepKey",
-              "Condition",
-              "Values"
-            ]
+            "required": ["DeepKey", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -334,9 +357,7 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": [
-                        "Key"
-                      ]
+                      "required": ["Key"]
                     },
                     {
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -357,9 +378,7 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": [
-                        "DeepKey"
-                      ]
+                      "required": ["DeepKey"]
                     }
                   ],
                   "type": "object"
@@ -371,10 +390,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Condition",
-              "Values"
-            ]
+            "required": ["Condition", "Values"]
           }
         ],
         "type": "object"
@@ -395,9 +411,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "TimeoutMinutes"
-      ]
+      "required": ["TimeoutMinutes"]
     },
     "Refresh": {
       "properties": {
@@ -419,21 +433,21 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "RoleARN",
-        "PeriodMinutes",
-        "AlarmPeriodMinutes",
-        "ObjectPath",
-        "ObjectKMSKey"
-      ]
+      "required": ["RoleARN", "PeriodMinutes", "AlarmPeriodMinutes", "ObjectPath", "ObjectKMSKey"]
     },
     "SimpleDetectionSchema": {
       "properties": {
         "AnalysisType": {
           "type": "string",
           "enum": [
+            "datamodel",
+            "global",
+            "pack",
+            "policy",
             "rule",
-            "scheduled_rule"
+            "scheduled_rule",
+            "scheduled_query",
+            "lookup_table"
           ]
         },
         "Description": {
@@ -579,9 +593,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "AnalysisType"
-      ]
+      "required": ["AnalysisType"]
     },
     "Test": {
       "properties": {
@@ -613,10 +625,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "ExpectedResult",
-        "Name"
-      ]
+      "required": ["ExpectedResult", "Name"]
     }
   }
 }
