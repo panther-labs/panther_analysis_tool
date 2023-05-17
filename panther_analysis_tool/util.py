@@ -31,13 +31,16 @@ import requests
 from packaging import version
 
 from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.constants import PANTHER_USER_ID
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
 from panther_analysis_tool.backend.public_api_client import (
     PublicAPIClient,
     PublicAPIClientOptions,
 )
-from panther_analysis_tool.constants import PACKAGE_NAME, VERSION_STRING
+from panther_analysis_tool.constants import (
+    PACKAGE_NAME,
+    PANTHER_USER_ID,
+    VERSION_STRING,
+)
 
 UNKNOWN_VERSION = "unknown"
 
@@ -122,7 +125,9 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
 
     if args.api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
+            PublicAPIClientOptions(
+                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
+            )
         )
 
     return None
@@ -132,7 +137,9 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
 
     if args.api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
+            PublicAPIClientOptions(
+                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
+            )
         )
 
     datalake_lambda = get_datalake_lambda(args)
