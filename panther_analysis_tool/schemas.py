@@ -52,6 +52,7 @@ RESOURCE_TYPE_REGEX = Regex(
 LOG_TYPE_REGEX = Regex(
     r"^(Apache\.AccessCombined|Amazon\.EKS\.Audit|Amazon\.EKS\.Authenticator|Apache\.AccessCommon"
     r"|Asana\.Audit|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
+    r"|Auth0\.Events"
     r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
     r"|AWS\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
     r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
