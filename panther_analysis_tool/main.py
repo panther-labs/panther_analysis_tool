@@ -1078,7 +1078,7 @@ def classify_analysis(
                 error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
         except jsonschema.exceptions.ValidationError as err:
-            error_message = f"{err.json_path}: {err.message}"
+            error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
             invalid_specs.append(
                 (analysis_spec_filename, jsonschema.exceptions.ValidationError(error_message))
             )
