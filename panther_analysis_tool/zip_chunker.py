@@ -7,7 +7,7 @@ from typing import Any, Dict, Generator, List, Optional, Set
 from panther_analysis_tool.analysis_utils import (
     filter_analysis,
     load_analysis_specs,
-    to_relative_path,
+    to_relative_path, ClassifiedAnalysis,
 )
 from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
 
@@ -158,11 +158,14 @@ def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkF
         load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files)
     ):
         if file_name not in files:
-            analysis.append((file_name, f_path, spec))
+            analysis.append(ClassifiedAnalysis(file_name, f_path, spec))
             files.add(file_name)
             files.add("./" + file_name)
     analysis = filter_analysis(analysis, args.filters, args.filters_inverted)
-    for analysis_spec_filename, dir_name, analysis_spec in analysis:
+    for item in analysis:
+        analysis_spec_filename = item.file_name
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         main_file = to_relative_path(analysis_spec_filename)
         for chunk in chunk_files:
             if chunk.matches_file(analysis_spec_filename, analysis_spec):

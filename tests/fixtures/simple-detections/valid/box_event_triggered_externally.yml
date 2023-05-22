@@ -1,0 +1,82 @@
+AnalysisType: rule
+RuleID: 'Box.Event.Triggered.Externally'
+DisplayName: 'Box event triggered by unknown or external user'
+Enabled: false
+LogTypes:
+  - Box.Event
+Tags:
+  - Box
+  - Exfiltration:Exfiltration Over Web Service
+  - Configuration Required
+Reports:
+  MITRE ATT&CK:
+    - TA0010:T1567
+Severity: Medium
+Description: >
+  An external user has triggered a box enterprise event.
+Reference: https://developer.box.com/reference/resources/event/
+Runbook: >
+  Investigate whether this user's activity is expected.
+SummaryAttributes:
+  - ip_address
+Threshold: 10
+DedupPeriodMinutes: 60
+# DOMAINS = {
+#    "@example.com",
+# }
+#
+#
+# def rule(event):
+#    # Check that all events are triggered by internal users
+#    if event.get("event_type") not in ("FAILED_LOGIN", "SHIELD_ALERT"):
+#        user = event.get("created_by", {})
+#        # user id 2 indicates an anonymous user
+#        if user.get("id", "") == "2":
+#            return True
+#        return bool(
+#            user.get("login") and not any(user.get("login", "").endswith(x) for x in DOMAINS)
+#        )
+#    return False
+Detection:
+  - Key: event_type
+    Condition: IsNotIn
+    Values:
+      - FAILED_LOGIN
+      - SHIELD_ALERT
+  - Any:
+      - DeepKey:
+          - created_by
+          - id
+        Condition: Equals
+        Value: '2'
+#      - Key: DOMAINS # TODO: https://app.asana.com/0/1200908948600035/1204508942056116/f
+#        Condition: NoElement
+#        Expressions:
+#          - DeepKey:
+#              - created_by
+#              - login
+#            Condition: EndsWith
+#            Value: DOMAIN
+Tests:
+  - Name: Regular Event
+    ExpectedResult: false
+    Log:
+      {
+        'type': 'event',
+        'additional_details': '{"key": "value"}',
+        'created_by':
+          { 'id': '12345678', 'type': 'user', 'login': 'cat@example.com', 'name': 'Bob Cat' },
+        'event_type': 'DELETE',
+      }
+  - Name: Previewed Anonymously
+    ExpectedResult: true
+    Log:
+      {
+        'created_by': { 'id': '2', 'type': 'user', 'name': 'Unknown User' },
+        'event_type': 'PREVIEW',
+        'type': 'event',
+        'ip_address': '1.2.3.4',
+      }
+  - Name: Missing Created By
+    ExpectedResult: false
+    Log: { 'event_type': 'PREVIEW', 'type': 'event', 'ip_address': '1.2.3.4' }

@@ -1,0 +1,85 @@
+# Copyright (C) 2022 Panther Labs, Inc.
+#
+# The Panther SaaS is licensed under the terms of the Panther Enterprise Subscription
+# Agreement available at https://panther.com/enterprise-subscription-agreement/.
+# All intellectual property rights in and to the Panther SaaS, including any and all
+# rights to access the Panther SaaS, are governed by the Panther Enterprise Subscription Agreement.
+
+# # Explicitly ignore eks:node-manager and eks:addon-manager
+# #  which are run as Lambdas and originate from public IPs
+# AMZ_PUBLICS = {"eks:addon-manager", "eks:node-manager"}
+
+# # Alert if
+# #   the username starts ( with system: or eks: )
+# #   and
+# #   sourceIPs[0] is a Public Address
+# def rule(event):
+#     if event.get("stage", "") != "ResponseComplete":
+#         return False
+#     # We explicitly ignore 403 here. There is another
+#     #  detection that monitors for 403 volume-by-originating-ip
+#     if event.get("responseStatus", {}).get("code", 0) == 403:
+#         return False
+#     p_eks = eks_panther_obj_ref(event)
+#     if (
+#         p_eks.get("actor") in AMZ_PUBLICS
+#         and ":assumed-role/AWSWesleyClusterManagerLambda"
+#         in deep_get(event, "user", "extra", "arn", default=["not found"])[0]
+#     ):
+#         return False
+#     if (
+#         p_eks.get("actor").startswith("system:") or p_eks.get("actor").startswith("eks:")
+#     ) and not ip_address(p_eks.get("sourceIPs")[0]).is_private:
+#         return True
+#     return False
+
+AnalysisType: rule
+RuleID: Amazon.EKS.Audit.SystemNamespaceFromPublicIP
+DisplayName: EKS Audit Log Reporting system Namespace is Used From A Public IP
+Enabled: true
+Severity: High
+LogTypes:
+  - Amazon.EKS.Audit
+Detection:
+  - Key: stage
+    Condition: Equals
+    Value: ResponseComplete
+  - DeepKey:
+      - responseStatus
+      - code
+    Condition: DoesNotEqual
+    Value: 403
+  - DeepKey:
+      - user
+      - username
+    Condition: IsNotIn
+    Values:
+      - eks:addon-manager
+      - eks:node-manager
+  - DeepKey:
+      - user
+      - extra
+      - arn
+      # this is actually an "index" in a list, but lists are really just
+      # dictionaries with only integer keys
+      - 0
+    Condition: DoesNotHave
+    Value: :assumed-role/AWSWesleyClusterManagerLambda
+  - All:
+      - # This is an example where an "any" concept would be nice
+        Any:
+          - DeepKey:
+              - user
+              - username
+            Condition: StartsWith
+            Value: 'system:'
+          - DeepKey:
+              - user
+              - username
+            Condition: StartsWith
+            Value: 'eks:'
+      - DeepKey:
+          - sourceIPs
+          - 0
+        Condition: IsIPAddressPrivate
+        Value: false

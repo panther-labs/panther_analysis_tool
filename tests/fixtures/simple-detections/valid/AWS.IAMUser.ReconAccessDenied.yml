@@ -1,0 +1,102 @@
+# Copyright (C) 2022 Panther Labs, Inc.
+#
+# The Panther SaaS is licensed under the terms of the Panther Enterprise Subscription
+# Agreement available at https://panther.com/enterprise-subscription-agreement/.
+# All intellectual property rights in and to the Panther SaaS, including any and all
+# rights to access the Panther SaaS, are governed by the Panther Enterprise Subscription Agreement.
+
+AnalysisType: rule
+Severity: Medium
+RuleID: AWS.IAMUser.ReconAccessDenied
+DisplayName: Detect Reconnaissance from IAM Users
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Detection:
+  - Key: errorCode
+    Condition: Equals
+    Value: AccessDenied
+  - DeepKey:
+      - userIdentity
+      - type
+    Condition: Equals
+    Value: IAMUser
+  - Key: userAgent
+    Condition: DoesNotStartWith # Do we want "Not:" nodes? Or do we just implement all negated conditions?
+    Value: 'aws-internal/3'
+  - Key: sourceIPAddress
+    Condition: IsIPAddress
+    Value: true
+  - Any:
+      # Zac Notes: This is pretty complex relative to its old school detection design in Python.
+      # The challenge is having a map you're iterating over with keys to check AND you want to do a
+      # StartsWith rather than explicit array membership check (e.g. "foo" is in ["foo", "bar", "baz"]).
+      # We *could* add some ambiguity to the syntax of the YAML definition for these predicates, but I'm
+      # not convinced that's a good thing to do.
+      #
+      # For now, I have opted to explicitly spell out each check in nested or/and/or statements. Logically a little
+      # more complex, but much less ambiguity in hwo it parses.
+
+      - # dynamodb
+        All:
+          - Key: eventSource
+            Condition: StartsWith
+            Value: 'dynamodb'
+          - Any:
+              - Key: eventName
+                Condition: StartsWith
+                Value: List
+              - Key: eventName
+                Condition: StartsWith
+                Value: Describe
+              - Key: eventName
+                Condition: StartsWith
+                Value: Get
+      - # ec2
+        All:
+          - Key: eventSource
+            Condition: StartsWith
+            Value: 'ec2'
+          - Any:
+              - Key: eventName
+                Condition: StartsWith
+                Value: Describe
+              - Key: eventName
+                Condition: StartsWith
+                Value: Get
+      - # iam
+        All:
+          - Key: eventSource
+            Condition: StartsWith
+            Value: 'iam'
+          - Any:
+              - Key: eventName
+                Condition: StartsWith
+                Value: List
+              - Key: eventName
+                Condition: StartsWith
+                Value: Get
+      - # s3
+        All:
+          - Key: eventSource
+            Condition: StartsWith
+            Value: 's3'
+          - Any:
+              - Key: eventName
+                Condition: StartsWith
+                Value: List
+              - Key: eventName
+                Condition: StartsWith
+                Value: Get
+      - # rds
+        All:
+          - Key: eventSource
+            Condition: StartsWith
+            Value: 'rds'
+          - Any:
+              - Key: eventName
+                Condition: StartsWith
+                Value: Describe
+              - Key: eventName
+                Condition: StartsWith
+                Value: List

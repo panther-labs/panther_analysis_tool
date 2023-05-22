@@ -1,0 +1,51 @@
+# Copyright (C) 2022 Panther Labs, Inc.
+#
+# The Panther SaaS is licensed under the terms of the Panther Enterprise Subscription
+# Agreement available at https://panther.com/enterprise-subscription-agreement/.
+# All intellectual property rights in and to the Panther SaaS, including any and all
+# rights to access the Panther SaaS, are governed by the Panther Enterprise Subscription Agreement.
+
+# from ipaddress import ip_address
+
+# from panther_base_helpers import eks_panther_obj_ref
+
+# # Alert if
+# #   state is ResponseComplete
+# #   sourceIPs[0] is a Public Address
+# #   responseStatus:code == 403
+# def rule(event):
+#     if event.get("stage", "") != "ResponseComplete":
+#         return False
+#     # We include only 403
+#     if event.get("responseStatus", {}).get("code", 0) != 403:
+#         return False
+#     # And we only want things that might naively be kubernetes api endpoints
+#     # we do not want to alert on scanners casting non-kubernetes requests.
+#     if not event.get("requestURI", "").startswith(("/api/", "/apis/")):
+#         return False
+#     p_eks = eks_panther_obj_ref(event)
+#     if ip_address(p_eks.get("sourceIPs")[0]).is_private:
+#         return False
+#     return True
+
+AnalysisType: rule
+RuleID: Amazon.EKS.Audit.Multiple403
+DisplayName: EKS Audit Log based single sourceIP is generating multiple 403s
+Severity: High
+Enabled: true
+LogTypes:
+  - Amazon.EKS.Audit
+Detection:
+  - Key: stage
+    Condition: Equals
+    Value: ResponseComplete
+  - DeepKey: # fetch arbitrariliy deep value for key in order (aka deep_get)
+      - responseStatus
+      - code
+    Condition: Equals
+    Value: 403
+  - DeepKey:
+      - sourceIPs
+      - 0
+    Condition: IsIPAddressPrivate
+    Value: true

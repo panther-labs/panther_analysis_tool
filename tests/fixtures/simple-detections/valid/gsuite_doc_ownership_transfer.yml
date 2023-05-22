@@ -1,0 +1,71 @@
+AnalysisType: rule
+RuleID: 'GSuite.DocOwnershipTransfer'
+DisplayName: 'GSuite Document External Ownership Transfer'
+Enabled: false
+LogTypes:
+  - GSuite.ActivityEvent
+Tags:
+  - GSuite
+  - Configuration Required
+  - Collection:Data from Information Repositories
+Reports:
+  MITRE ATT&CK:
+    - TA0009:T1213
+Severity: Low
+Description: >
+  A GSuite document's ownership was transferred to an external party.
+Reference: https://developers.google.com/admin-sdk/reports/v1/appendix/activity/admin-docs-settings#TRANSFER_DOCUMENT_OWNERSHIP
+Runbook: >
+  Verify that this document did not contain sensitive or private company information.
+SummaryAttributes:
+  - actor:email
+# ORG_DOMAINS = {
+#    "@example.com",
+# }
+#
+#
+# def rule(event):
+#    if deep_get(event, "id", "applicationName") != "admin":
+#        return False
+#
+#    if bool(event.get("name") == "TRANSFER_DOCUMENT_OWNERSHIP"):
+#        new_owner = deep_get(event, "parameters", "NEW_VALUE", default="<UNKNOWN USER>")
+#        return bool(new_owner) and not any(new_owner.endswith(x) for x in ORG_DOMAINS)
+#    return False
+Detection:
+  - DeepKey:
+      - id
+      - applicationName
+    Condition: Equals
+    Value: admin
+  - Key: name
+    Condition: Equals
+    Value: TRANSFER_DOCUMENT_OWNERSHIP
+  - DeepKey:
+      - parameters
+      - NEW_VALUE
+    Condition: IsNotNullOrEmpty
+  #- Key: ORG_DOMAINS # TODO:  https://app.asana.com/0/1200908948600035/1204508942056116/f
+  #  Condition: NoElement
+  #  Expressions:
+  #    - DeepKey:
+  #        - parameters
+  #        - NEW_VALUE
+  #      Condition: EndsWith
+Tests:
+  - Name: Ownership Transferred Within Organization
+    ExpectedResult: false
+    Log:
+      {
+        'id': { 'applicationName': 'admin' },
+        'name': 'TRANSFER_DOCUMENT_OWNERSHIP',
+        'parameters': { 'NEW_VALUE': 'homer.simpson@example.com' },
+      }
+  - Name: Document Transferred to External User
+    ExpectedResult: true
+    Log:
+      {
+        'id': { 'applicationName': 'admin' },
+        'name': 'TRANSFER_DOCUMENT_OWNERSHIP',
+        'parameters': { 'NEW_VALUE': 'monty.burns@badguy.com' },
+      }

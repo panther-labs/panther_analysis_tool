@@ -1,0 +1,73 @@
+# Copyright (C) 2022 Panther Labs, Inc.
+#
+# The Panther SaaS is licensed under the terms of the Panther Enterprise Subscription
+# Agreement available at https://panther.com/enterprise-subscription-agreement/.
+# All intellectual property rights in and to the Panther SaaS, including any and all
+# rights to access the Panther SaaS, are governed by the Panther Enterprise Subscription Agreement.
+
+RuleID: AWS.Modify.Cloud.Compute.Infrastructure
+DisplayName: AWS Modify Cloud Compute Infrastructure
+AnalysisType: rule
+Enabled: true
+Severity: Medium
+LogTypes:
+  - AWS.CloudTrail
+Detection:
+  - Key: eventSource
+    Condition: Equals
+    Value: ec2.amazonaws.com
+  - Key: sourceIPAddress
+    Condition: DoesNotEqual
+    Value: '.amazonaws.com'
+  - DeepKey:
+      - userIdentity
+      - type
+    Condition: DoesNotEqual
+    Value: AWSService
+  - DeepKey:
+      - userIdentity
+      - invokedBy
+    Condition: DoesNotEqual
+    Value: 'AWS Internal'
+  - DeepKey:
+      - userIdentity
+      - invokedBy
+    Condition: EndsWith
+    Value: '.amazonaws.com'
+  - Key: errorCode
+    Condition: DoesNotEqual
+    Value: 'Client.DryRunOperation'
+  - Key: eventName
+    Condition: IsIn
+    Values:
+      - 'AssociateIamInstanceProfile'
+      - 'AssociateInstanceEventWindow'
+      - 'BundleInstance'
+      - 'CancelSpotInstanceRequests'
+      - 'ConfirmProductInstance'
+      - 'CreateInstanceEventWindow'
+      - 'CreateInstanceExportTask'
+      - 'DeleteInstanceEventWindow'
+      - 'DeregisterInstanceEventNotificationAttributes'
+      - 'DisassociateIamInstanceProfile'
+      - 'DisassociateInstanceEventWindow'
+      - 'ImportInstance'
+      - 'ModifyInstanceAttribute'
+      - 'ModifyInstanceCapacityReservationAttributes'
+      - 'ModifyInstanceCreditSpecification'
+      - 'ModifyInstanceEventStartTime'
+      - 'ModifyInstanceEventWindow'
+      - 'ModifyInstanceMaintenanceOptions'
+      - 'ModifyInstanceMetadataOptions'
+      - 'ModifyInstancePlacement'
+      - 'MonitorInstances'
+      - 'RegisterInstanceEventNotificationAttributes'
+      - 'ReportInstanceStatus'
+      - 'RequestSpotInstances'
+      - 'ResetInstanceAttribute'
+      - 'RunInstances'
+      - 'RunScheduledInstances'
+      - 'StartInstances'
+      - 'StopInstances'
+      - 'TerminateInstances'
+      - 'UnmonitorInstances'

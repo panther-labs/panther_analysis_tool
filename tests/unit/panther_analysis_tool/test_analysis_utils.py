@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from unittest import mock, TestCase
 
-from panther_analysis_tool.analysis_utils import get_simple_detections_as_python
+from panther_analysis_tool.analysis_utils import get_simple_detections_as_python, ClassifiedAnalysis
 from panther_analysis_tool.backend.client import BackendResponse, BackendError, TranspileToPythonResponse
 from panther_analysis_tool.backend.mocks import MockBackend
 
@@ -31,7 +31,7 @@ class TestAnalysisUtils(TestCase):
         specs = []
         for i in range(10):
             specs.append(
-                (
+                ClassifiedAnalysis(
                     f"filname-{i}",
                     f"filepath-{i}",
                     {
@@ -85,4 +85,4 @@ class TestAnalysisUtils(TestCase):
         )
         output = get_simple_detections_as_python(specs, backend)
         for actual in output:
-            self.assertEqual(actual[2]["body"], "def rule(event): return True")
+            self.assertEqual(actual.analysis_spec["body"], "def rule(event): return True")
