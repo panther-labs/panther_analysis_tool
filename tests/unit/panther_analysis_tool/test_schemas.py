@@ -44,7 +44,6 @@ class TestPATSchemas(unittest.TestCase):
         LOG_TYPE_REGEX.validate("Zeek.Weird")
         LOG_TYPE_REGEX.validate("Zeek.X509")
 
-
     def test_mocks_are_str(self):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "Testing a string"})
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "False"})
@@ -265,26 +264,26 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
 
     def test_valid_all(self):
         case = self.get_test_case()
-        case['Detection'] = [{"All":[{"Key": "event_type",
-          "Condition": "Exists"},
-         {"DeepKey": ["details", "new_value"],
-          "Condition": "IsNotNull"}]}]
+        case['Detection'] = [{"All": [{"Key": "event_type",
+                                       "Condition": "Exists"},
+                                      {"DeepKey": ["details", "new_value"],
+                                       "Condition": "IsNotNull"}]}]
         self.call_validate(case)
 
     def test_valid_any(self):
         case = self.get_test_case()
-        case['Detection'] = [{"Any":[{"Key": "event_type",
-          "Condition": "Exists"},
-         {"DeepKey": ["details", "new_value"],
-          "Condition": "IsNotNull"}]}]
+        case['Detection'] = [{"Any": [{"Key": "event_type",
+                                       "Condition": "Exists"},
+                                      {"DeepKey": ["details", "new_value"],
+                                       "Condition": "IsNotNull"}]}]
         self.call_validate(case)
 
     def test_valid_only_one(self):
         case = self.get_test_case()
-        case['Detection'] = [{"OnlyOne":[{"Key": "event_type",
-          "Condition": "Exists"},
-         {"DeepKey": ["details", "new_value"],
-          "Condition": "IsNotNull"}]}]
+        case['Detection'] = [{"OnlyOne": [{"Key": "event_type",
+                                           "Condition": "Exists"},
+                                          {"DeepKey": ["details", "new_value"],
+                                           "Condition": "IsNotNull"}]}]
         self.call_validate(case)
 
     def test_valid_absolute_match(self):
@@ -303,5 +302,20 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                                   {"Key": "action",
                                    "Condition": "Equals",
                                    "Value": "team_profile_changed"}]
+                              }]
+        self.call_validate(case)
+
+    def test_valid_nested(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"OnlyOne": [{"Key": "event_type",
+                                           "Condition": "Exists"},
+                                          {"Any": [{"DeepKey": ["details", "new_value"],
+                                                    "Condition": "IsNotNull"},
+                                                   {"Condition": "DoesNotEqual",
+                                                    "Values": [{"Key": "leftKey"}, {
+                                                        "DeepKey": ["details",
+                                                                    "new_value"]}]
+                                                    }]
+                                           }]
                               }]
         self.call_validate(case)
