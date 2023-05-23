@@ -5,9 +5,10 @@ from fnmatch import fnmatch
 from typing import Any, Dict, Generator, List, Optional, Set
 
 from panther_analysis_tool.analysis_utils import (
+    ClassifiedAnalysis,
     filter_analysis,
     load_analysis_specs,
-    to_relative_path, ClassifiedAnalysis,
+    to_relative_path,
 )
 from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
 

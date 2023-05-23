@@ -10,6 +10,7 @@ from panther_analysis_tool.constants import PACK, SET_FIELDS
 
 # This file was generated in whole or in part by GitHub Copilot.
 
+
 def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
     """Checks if the fields that Panther expects as sets have duplicates, returns list of invalid.
 
