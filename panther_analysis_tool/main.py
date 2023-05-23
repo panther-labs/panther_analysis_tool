@@ -79,9 +79,10 @@ from schema import (
 
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
+    ClassifiedAnalysis,
     filter_analysis,
     get_simple_detections_as_python,
-    load_analysis_specs, ClassifiedAnalysis,
+    load_analysis_specs,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -838,7 +839,9 @@ def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
         shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
 
 
-def setup_data_models(data_models: List[ClassifiedAnalysis]) -> Tuple[Dict[str, DataModel], List[Any]]:
+def setup_data_models(
+    data_models: List[ClassifiedAnalysis],
+) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
