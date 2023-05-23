@@ -136,7 +136,8 @@ class TestPATSchemas(unittest.TestCase):
 # This class was generated in whole or in part by GitHub Copilot
 class TestSimpleDetectionSchemas(unittest.TestCase):
 
-    def call_validate(self, detection: Dict[str, Any]) -> None:
+    def call_validate(self, detection: Dict[str, Any]) -> Any:
+        RULE_SCHEMA.validate(detection)
         return jsonschema.validate(detection, SIMPLE_DETECTION_SCHEMA)
 
     def get_test_case(self) -> Dict[str, Any]:
@@ -151,7 +152,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
         }
 
     def test_top_level_keys(self):
-        RULE_SCHEMA.validate(self.get_test_case())
         self.call_validate(self.get_test_case())
 
         with self.assertRaises(SchemaError):
@@ -174,7 +174,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                               "Condition": "Exists"},
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IsNotNull"}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_scalar_match_boolean_type_value(self):
@@ -185,7 +184,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", 1],
                               "Condition": "Equals",
                               "Value": False}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_scalar_match_string_type_value(self):
@@ -196,7 +194,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IDoesNotEndWith",
                               "Value": "_"}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_scalar_match_int_type_value(self):
@@ -207,7 +204,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": [1998, 11, 13],
                               "Condition": "IsGreaterThanOrEqualTo",
                               "Value": -25}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_scalar_match_float_type_value(self):
@@ -218,7 +214,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IsGreaterThanOrEqualTo",
                               "Value": -25.5}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_string_list_value_match(self):
@@ -229,7 +224,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IsIn",
                               "Values": ["public", "package-private"]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_bool_list_value_match(self):
@@ -240,7 +234,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IsIn",
                               "Values": [True, False]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_int_list_value_match(self):
@@ -251,7 +244,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IsIn",
                               "Values": [4, 6, 8, 9]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_float_list_value_match(self):
@@ -262,7 +254,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                              {"DeepKey": ["details", "new_value"],
                               "Condition": "IsIn",
                               "Values": [4.5, 6.6, 8.1, 9.0]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_multikey_match(self):
@@ -270,7 +261,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
         case['Detection'] = [{"Condition": "DoesNotEqual",
                               "Values": [{"Key": "leftKey"}, {"DeepKey": ["details", "new_value"]}]
                               }]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_all(self):
@@ -279,7 +269,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
           "Condition": "Exists"},
          {"DeepKey": ["details", "new_value"],
           "Condition": "IsNotNull"}]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_any(self):
@@ -288,7 +277,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
           "Condition": "Exists"},
          {"DeepKey": ["details", "new_value"],
           "Condition": "IsNotNull"}]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_only_one(self):
@@ -297,13 +285,11 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
           "Condition": "Exists"},
          {"DeepKey": ["details", "new_value"],
           "Condition": "IsNotNull"}]}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_absolute_match(self):
         case = self.get_test_case()
         case['Detection'] = [{"Condition": "AlwaysTrue"}]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
 
     def test_valid_list_comprehension(self):
@@ -318,5 +304,4 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
                                    "Condition": "Equals",
                                    "Value": "team_profile_changed"}]
                               }]
-        RULE_SCHEMA.validate(case)
         self.call_validate(case)
