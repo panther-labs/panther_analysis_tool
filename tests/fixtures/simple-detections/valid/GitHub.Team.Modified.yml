@@ -1,0 +1,69 @@
+# Copyright (C) 2022 Panther Labs, Inc.
+#
+# The Panther SaaS is licensed under the terms of the Panther Enterprise Subscription
+# Agreement available at https://panther.com/enterprise-subscription-agreement/.
+# All intellectual property rights in and to the Panther SaaS, including any and all
+# rights to access the Panther SaaS, are governed by the Panther Enterprise Subscription Agreement.
+
+AnalysisType: rule
+RuleID: GitHub.Team.Modified
+DisplayName: GitHub Team Modified
+Enabled: true
+LogTypes:
+  - GitHub.Audit
+Tags:
+  - GitHub
+  - Initial Access:Supply Chain Compromise
+Reports:
+  MITRE ATT&CK:
+    - TA0001:T1195
+Severity: Info
+Description: Detects when a team is modified in some way, such as adding a new team, deleting a team, modifying members, or a change in repository control.
+Detection:
+  - Key: action
+    Condition: IsIn
+    Values:
+      - 'team.add_member'
+      - 'team.add_repository'
+      - 'team.change_parent_team'
+      - 'team.create'
+      - 'team.destroy'
+      - 'team.remove_member'
+      - 'team.remove_repository'
+Tests:
+  - Name: GitHub - Team Deleted
+    ExpectedResult: true
+    Log:
+      {
+        'actor': 'cat',
+        'action': 'team.destroy',
+        'created_at': 1621305118553,
+        'data': { 'team': 'my-org/my-team' },
+        'org': 'my-org',
+        'p_log_type': 'GitHub.Audit',
+        'repo': 'my-org/my-repo',
+      }
+  - Name: GitHub - Team Created
+    ExpectedResult: true
+    Log:
+      {
+        'actor': 'cat',
+        'action': 'team.create',
+        'created_at': 1621305118553,
+        'data': { 'team': 'my-org/my-team' },
+        'org': 'my-org',
+        'p_log_type': 'GitHub.Audit',
+        'repo': 'my-org/my-repo',
+      }
+  - Name: GitHub - Team Add repository
+    ExpectedResult: true
+    Log:
+      {
+        'actor': 'cat',
+        'action': 'team.add_repository',
+        'created_at': 1621305118553,
+        'data': { 'team': 'my-org/my-team' },
+        'org': 'my-org',
+        'p_log_type': 'GitHub.Audit',
+        'repo': 'my-org/my-repo',
+      }

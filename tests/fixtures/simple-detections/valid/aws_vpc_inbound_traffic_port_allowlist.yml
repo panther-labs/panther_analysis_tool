@@ -1,0 +1,72 @@
+AnalysisType: rule
+RuleID: 'AWS.VPC.InboundPortWhitelist'
+DisplayName: 'VPC Flow Logs Inbound Port Allowlist'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Tags:
+  - AWS
+  - Configuration Required
+  - Security Control
+  - Command and Control:Non-Standard Port
+Reports:
+  MITRE ATT&CK:
+    - TA0011:T1571
+Severity: High
+Description: >
+  VPC Flow Logs observed inbound traffic violating the port allowlist.
+Runbook: >
+  Block the unapproved traffic, or update the approved ports list.
+SummaryAttributes:
+  - srcaddr
+  - dstaddr
+  - dstport
+# APPROVED_PORTS = {
+#    80,
+#    443,
+# }
+#
+#
+# def rule(event):
+#    # Can't perform this check without a destination port
+#    if "dstport" not in event:
+#        return False
+#
+#    # Only monitor for non allowlisted ports
+#    if event.get("dstport") in APPROVED_PORTS:
+#        return False
+#
+#    # Only monitor for traffic coming from non-private IP space
+#    #
+#    # Defaults to True (no alert) if 'srcaddr' key is not present
+#    if ip_network(event.get("srcaddr", "0.0.0.0/32")).is_private:
+#        return False
+#
+#    # Alert if the traffic is destined for internal IP addresses
+#    #
+#    # Defaults to False (no alert) if 'dstaddr' key is not present
+#    return ip_network(event.get("dstaddr", "1.0.0.0/32")).is_private
+Detection:
+  - Key: dstport
+    Condition: Exists
+  - Key: dstport
+    Condition: IsNotIn
+    Values:
+      - 80
+      - 443
+  - Key: srcaddr
+    Condition: IsIPAddressPublic
+    Value: true
+  - Key: dstaddr
+    Condition: IsIPAddressPrivate
+    Value: true
+Tests:
+  - Name: Public to Private IP on Restricted Port
+    ExpectedResult: true
+    Log: { 'dstport': 22, 'dstaddr': '10.0.0.1', 'srcaddr': '1.1.1.1' }
+  - Name: Public to Private IP on Allowed Port
+    ExpectedResult: false
+    Log: { 'dstport': 443, 'dstaddr': '10.0.0.1', 'srcaddr': '1.1.1.1' }
+  - Name: Private to Private IP on Restricted Port
+    ExpectedResult: false
+    Log: { 'dstport': 22, 'dstaddr': '10.0.0.1', 'srcaddr': '10.10.10.1' }

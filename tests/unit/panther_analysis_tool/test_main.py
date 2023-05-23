@@ -512,7 +512,7 @@ class TestPantherAnalysisTool(TestCase):
                                                  f' {FIXTURES_PATH}/simple-detections/invalid '.split())
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 2)
+        assert_equal(len(invalid_specs), 3)
 
     # This function was generated in whole or in part by GitHub Copilot.
     def test_simple_detection_with_transpile(self):
