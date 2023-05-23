@@ -40,6 +40,7 @@ Severity: Info
 #            > QUERY_THRESHOLD_BYTES,
 #        ]
 #    )
+# Broken until https://app.asana.com/0/1200908948600035/1204653793686748/f implemented
 Detection:
   - DeepKey:
       - resource
