@@ -29,7 +29,6 @@
 #     return True
 
 AnalysisType: rule
-Filename: source_ip_multiple_403.py
 RuleID: "Amazon.EKS.Audit.Multiple403"
 DisplayName: "EKS Audit Log based single sourceIP is generating multiple 403s"
 Enabled: true
