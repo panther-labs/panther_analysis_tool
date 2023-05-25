@@ -40,21 +40,31 @@ from panther_analysis_tool.constants import (
 )
 
 
+class ClassifiedAnalysis:
+    def __init__(self, file_name: str, dir_name: str, analysis_spec: Dict[str, Any]):
+        self.file_name = file_name
+        self.dir_name = dir_name
+        self.analysis_spec = analysis_spec
+
+
 def filter_analysis(
-    analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
-) -> List[Any]:
+    analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
+) -> List[ClassifiedAnalysis]:
     if filters is None:
         return analysis
 
     filtered_analysis = []
-    for file_name, dir_name, analysis_spec in analysis:
+    for item in analysis:
+        dir_name = item.dir_name
+        file_name = item.file_name
+        analysis_spec = item.analysis_spec
         if fnmatch(dir_name, HELPERS_PATH_PATTERN):
             logging.debug("auto-adding helpers file %s", os.path.join(file_name))
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         if fnmatch(dir_name, DATA_MODEL_PATH_PATTERN):
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         match = True
         for key, values in filters.items():
@@ -71,7 +81,7 @@ def filter_analysis(
                 break
 
         if match:
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
 
     return filtered_analysis
 
@@ -164,20 +174,21 @@ def to_relative_path(filename: str) -> str:
 
 # This function was generated in whole or in part by GitHub Copilot.
 def get_simple_detections_as_python(
-    specs: List[Any], backend: Optional[BackendClient] = None
-) -> List[Any]:
+    specs: List[ClassifiedAnalysis], backend: Optional[BackendClient] = None
+) -> List[ClassifiedAnalysis]:
     """Returns simple detections with transpiled Python."""
     enriched_specs = []
     if backend is not None:
-        batch = [json.dumps(spec) for _, _, spec in specs]
+        batch = [json.dumps(spec.analysis_spec) for spec in specs]
         try:
             params = TranspileToPythonParams(data=batch)
             response = backend.transpile_simple_detection_to_python(params)
             if response.status_code == 200:
                 for i, result in enumerate(response.data.transpiled_python):
-                    file_name, dir_name, spec = specs[i]
+                    item = specs[i]
+                    spec = item.analysis_spec
                     spec["body"] = result
-                    enriched_specs.append((file_name, dir_name, spec))
+                    enriched_specs.append(ClassifiedAnalysis(item.file_name, item.dir_name, spec))
             else:
                 logging.warning(
                     "Error transpiling simple detection(s) to Python, skipping tests for simple detections."

@@ -7,7 +7,6 @@ import jsonschema
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
     POLICY_SCHEMA,
-    RULE_SCHEMA,
     LOG_TYPE_REGEX,
     MOCK_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
@@ -44,7 +43,6 @@ class TestPATSchemas(unittest.TestCase):
         LOG_TYPE_REGEX.validate("Zeek.Tunnel")
         LOG_TYPE_REGEX.validate("Zeek.Weird")
         LOG_TYPE_REGEX.validate("Zeek.X509")
-
 
     def test_mocks_are_str(self):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "Testing a string"})
@@ -134,9 +132,11 @@ class TestPATSchemas(unittest.TestCase):
         })
 
 
+# This class was generated in whole or in part by GitHub Copilot
 class TestSimpleDetectionSchemas(unittest.TestCase):
 
-    def call_validate(self, detection: Dict[str, Any]) -> bool:
+    def call_validate(self, detection: Dict[str, Any]) -> Any:
+        RULE_SCHEMA.validate(detection)
         return jsonschema.validate(detection, SIMPLE_DETECTION_SCHEMA)
 
     def get_test_case(self) -> Dict[str, Any]:
@@ -151,7 +151,6 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
         }
 
     def test_top_level_keys(self):
-        RULE_SCHEMA.validate(self.get_test_case())
         self.call_validate(self.get_test_case())
 
         with self.assertRaises(SchemaError):
@@ -167,3 +166,156 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
         # should raise exception for jsonschema validation
         with self.assertRaises(jsonschema.exceptions.ValidationError):
             self.call_validate(case)
+
+    def test_valid_scalar_match_any_type_no_value(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "Exists"},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IsNotNull"}]
+        self.call_validate(case)
+
+    def test_valid_scalar_match_boolean_type_value(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "DoesNotEqual",
+                              "Value": True},
+                             {"DeepKey": ["details", 1],
+                              "Condition": "Equals",
+                              "Value": False}]
+        self.call_validate(case)
+
+    def test_valid_scalar_match_string_type_value(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "StartsWith",
+                              "Value": "team_"},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IDoesNotEndWith",
+                              "Value": "_"}]
+        self.call_validate(case)
+
+    def test_valid_scalar_match_int_type_value(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "IsLessThan",
+                              "Value": 20},
+                             {"DeepKey": [1998, 11, 13],
+                              "Condition": "IsGreaterThanOrEqualTo",
+                              "Value": -25}]
+        self.call_validate(case)
+
+    def test_valid_scalar_match_float_type_value(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "IsLessThan",
+                              "Value": 20.1},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IsGreaterThanOrEqualTo",
+                              "Value": -25.5}]
+        self.call_validate(case)
+
+    def test_valid_string_list_value_match(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "IsNotIn",
+                              "Values": ["team_privacy_settings_changed", "team_profile_changed"]},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IsIn",
+                              "Values": ["public", "package-private"]}]
+        self.call_validate(case)
+
+    def test_valid_bool_list_value_match(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "IsNotIn",
+                              "Values": [True, False]},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IsIn",
+                              "Values": [True, False]}]
+        self.call_validate(case)
+
+    def test_valid_int_list_value_match(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "IsNotIn",
+                              "Values": [2, 3, 5, 7]},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IsIn",
+                              "Values": [4, 6, 8, 9]}]
+        self.call_validate(case)
+
+    def test_valid_float_list_value_match(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "IsNotIn",
+                              "Values": [2.2, 3.7, 5.4, 7.9]},
+                             {"DeepKey": ["details", "new_value"],
+                              "Condition": "IsIn",
+                              "Values": [4.5, 6.6, 8.1, 9.0]}]
+        self.call_validate(case)
+
+    def test_valid_multikey_match(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Condition": "DoesNotEqual",
+                              "Values": [{"Key": "leftKey"}, {"DeepKey": ["details", "new_value"]}]
+                              }]
+        self.call_validate(case)
+
+    def test_valid_all(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"All": [{"Key": "event_type",
+                                       "Condition": "Exists"},
+                                      {"DeepKey": ["details", "new_value"],
+                                       "Condition": "IsNotNull"}]}]
+        self.call_validate(case)
+
+    def test_valid_any(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Any": [{"Key": "event_type",
+                                       "Condition": "Exists"},
+                                      {"DeepKey": ["details", "new_value"],
+                                       "Condition": "IsNotNull"}]}]
+        self.call_validate(case)
+
+    def test_valid_only_one(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"OnlyOne": [{"Key": "event_type",
+                                           "Condition": "Exists"},
+                                          {"DeepKey": ["details", "new_value"],
+                                           "Condition": "IsNotNull"}]}]
+        self.call_validate(case)
+
+    def test_valid_absolute_match(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Condition": "AlwaysTrue"}]
+        self.call_validate(case)
+
+    def test_valid_list_comprehension(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"Key": "event_type",
+                              "Condition": "AnyElement",
+                              "Expressions": [{
+                                  "DeepKey": ["details", "new_value"],
+                                  "Condition": "IsIn",
+                                  "Values": [4.5, 6.6, 8.1, 9.0]},
+                                  {"Key": "action",
+                                   "Condition": "Equals",
+                                   "Value": "team_profile_changed"}]
+                              }]
+        self.call_validate(case)
+
+    def test_valid_nested(self):
+        case = self.get_test_case()
+        case['Detection'] = [{"OnlyOne": [{"Key": "event_type",
+                                           "Condition": "Exists"},
+                                          {"Any": [{"DeepKey": ["details", "new_value"],
+                                                    "Condition": "IsNotNull"},
+                                                   {"Condition": "DoesNotEqual",
+                                                    "Values": [{"Key": "leftKey"}, {
+                                                        "DeepKey": ["details",
+                                                                    "new_value"]}]
+                                                    }]
+                                           }]
+                              }]
+        self.call_validate(case)

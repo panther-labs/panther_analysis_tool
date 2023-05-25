@@ -1,0 +1,18 @@
+AnalysisType: rule
+RuleID: 'Test.List.Comprehension'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Severity: Low
+Detection:
+  - Key: 'someList'
+    Condition: AnyElement
+    Expressions:
+      - Key: action
+        Condition: Equals
+        Value: ADD
+      - Key: member
+        Condition: IsIn
+        Values:
+          - allUsers
+          - allAuthenticatedUsers

@@ -79,6 +79,7 @@ from schema import (
 
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
+    ClassifiedAnalysis,
     filter_analysis,
     get_simple_detections_as_python,
     load_analysis_specs,
@@ -128,6 +129,8 @@ from panther_analysis_tool.validation import (
     validate_packs,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
+
+# This file was generated in whole or in part by GitHub Copilot.
 
 # interpret datetime as str, the backend uses the default behavior for json.loads, which
 # interprets these as str.  This sets global config for ruamel SafeConstructor
@@ -800,7 +803,7 @@ def test_analysis(
     return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
 
 
-def setup_global_helpers(global_analysis: List[Any]) -> None:
+def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     # ensure the directory does not exist, else clear it
     cleanup_global_helpers(global_analysis)
     os.makedirs(TMP_HELPER_MODULE_LOCATION)
@@ -808,7 +811,9 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
     if TMP_HELPER_MODULE_LOCATION not in sys.path:
         sys.path.append(TMP_HELPER_MODULE_LOCATION)
     # place globals in temp dir
-    for _, dir_name, analysis_spec in global_analysis:
+    for item in global_analysis:
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["GlobalID"]
         source = os.path.join(dir_name, analysis_spec["Filename"])
         destination = os.path.join(TMP_HELPER_MODULE_LOCATION, f"{analysis_id}.py")
@@ -822,10 +827,10 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
             importlib.reload(sys.modules[analysis_id])
 
 
-def cleanup_global_helpers(global_analysis: List[Any]) -> None:
+def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     # clear the modules from the modules cache
-    for _, _, analysis_spec in global_analysis:
-        analysis_id = analysis_spec["GlobalID"]
+    for item in global_analysis:
+        analysis_id = item.analysis_spec["GlobalID"]
         # delete the helpers that were added to sys.modules for testing
         if analysis_id in sys.modules:
             del sys.modules[analysis_id]
@@ -834,12 +839,17 @@ def cleanup_global_helpers(global_analysis: List[Any]) -> None:
         shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
 
 
-def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
+def setup_data_models(
+    data_models: List[ClassifiedAnalysis],
+) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
     log_type_to_data_model: Dict[str, DataModel] = dict()
-    for analysis_spec_filename, dir_name, analysis_spec in data_models:
+    for item in data_models:
+        analysis_spec_filename = item.file_name
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["DataModelID"]
         if analysis_spec["Enabled"]:
             body = None
@@ -886,7 +896,7 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
 
 def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     log_type_to_data_model: Dict[str, DataModel],
-    analysis: List[Any],
+    analysis: List[ClassifiedAnalysis],
     minimum_tests: int,
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
@@ -895,7 +905,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
-    for analysis_spec_filename, dir_name, analysis_spec in analysis:
+    for item in analysis:
+        analysis_spec_filename = item.file_name
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
         analysis_type = analysis_spec["AnalysisType"]
@@ -987,11 +1000,11 @@ def print_summary(
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
-) -> Tuple[Dict[str, List[Any]], List[Any]]:
+) -> Tuple[Dict[str, List[ClassifiedAnalysis]], List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
-    classified_specs: Dict[str, List[Any]] = dict()
+    classified_specs: Dict[str, List[ClassifiedAnalysis]] = dict()
     for key in [DATAMODEL, DETECTION, SIMPLE_DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
         classified_specs[key] = []
 
@@ -1046,16 +1059,16 @@ def classify_analysis(
             if is_simple_detection(analysis_spec):
                 jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
                 classified_specs[SIMPLE_DETECTION].append(
-                    (analysis_spec_filename, dir_name, analysis_spec)
+                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
                 )
             # add the validated analysis type to the classified specs
             elif analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
                 classified_specs[DETECTION].append(
-                    (analysis_spec_filename, dir_name, analysis_spec)
+                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
                 )
             else:
                 classified_specs[analysis_type].append(
-                    (analysis_spec_filename, dir_name, analysis_spec)
+                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
                 )
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))

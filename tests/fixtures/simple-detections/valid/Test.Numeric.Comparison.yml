@@ -1,0 +1,19 @@
+AnalysisType: rule
+RuleID: 'Test.Numeric.Comparison'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Severity: Low
+Detection:
+  - Key: someNum
+    Condition: IsGreaterThan
+    Value: 5
+  - Key: someOtherNum
+    Condition: IsLessThan
+    Value: 10
+  - Key: someOtherOtherNum
+    Condition: IsGreaterThanOrEquals
+    Value: 10
+  - Key: someOtherOtherOtherNum
+    Condition: IsLessThanOrEquals
+    Value: 10

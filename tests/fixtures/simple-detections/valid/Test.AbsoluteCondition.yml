@@ -1,0 +1,9 @@
+AnalysisType: rule
+RuleID: 'Test.Absolute.Condition'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Severity: Low
+Detection:
+  - Condition: AlwaysTrue
+  - Condition: AlwaysFalse
