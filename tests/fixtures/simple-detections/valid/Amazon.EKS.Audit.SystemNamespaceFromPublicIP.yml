@@ -62,6 +62,11 @@ Detection:
           - user
           - extra
           - arn
+        Condition: DoesNotExist
+      - DeepKey:
+          - user
+          - extra
+          - arn
         Condition: IsNullOrEmpty
       - DeepKey:
           - user
@@ -88,8 +93,7 @@ Detection:
       - DeepKey:
           - sourceIPs
           - 0
-        Condition: IsIPAddressPrivate
-        Value: false
+        Condition: IsIPAddressPublic
 Tests:
   - Name: non-system username
     ExpectedResult: false
