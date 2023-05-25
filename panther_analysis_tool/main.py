@@ -757,7 +757,7 @@ def test_analysis(
         None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
-    failed_tests, invalid_detection = setup_run_tests(
+    failed_tests, invalid_detections = setup_run_tests(
         log_type_to_data_model,
         specs[DETECTION] + specs[SIMPLE_DETECTION],
         args.minimum_tests,
@@ -766,7 +766,7 @@ def test_analysis(
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
     )
-    invalid_specs.extend(invalid_detection)
+    invalid_specs.extend(invalid_detections)
 
     # finally, validate pack defs
     invalid_packs = validate_packs(specs)

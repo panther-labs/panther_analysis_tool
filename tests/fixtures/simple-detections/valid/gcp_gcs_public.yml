@@ -1,6 +1,6 @@
 AnalysisType: rule
-RuleID: GCP.GCS.Public
-DisplayName: GCS Bucket Made Public
+RuleID: 'GCP.GCS.Public'
+DisplayName: 'GCS Bucket Made Public'
 Enabled: true
 DedupPeriodMinutes: 15
 LogTypes:
@@ -19,23 +19,55 @@ SummaryAttributes:
   - severity
   - p_any_ip_addresses
   - p_any_domain_names
+# GCS_READ_ROLES = {"roles/storage.objectAdmin", "roles/storage.objectViewer", "roles/storage.admin"}
+# GLOBAL_USERS = {"allUsers", "allAuthenticatedUsers"}
+#
+# def rule(event):
+#    if deep_get(event, "protoPayload", "methodName") != "storage.setIamPermissions":
+#        return False
+#
+#    service_data = deep_get(event, "protoPayload", "serviceData")
+#    if not service_data:
+#        return False
+#
+#    # Reference: bit.ly/2WsJdZS
+#    binding_deltas = deep_get(service_data, "policyDelta", "bindingDeltas")
+#    if not binding_deltas:
+#        return False
+#
+#    for delta in binding_deltas:
+#        if delta.get("action") != "ADD":
+#            continue
+#        if delta.get("member") in GLOBAL_USERS and delta.get("role") in GCS_READ_ROLES:
+#            return True
+#    return False
 Detection:
   - DeepKey:
       - protoPayload
       - methodName
-    Condition: Equals
-    Value: 'storage.setIamPermissions'
+    Condition: IEquals # insensitive for more test cases
+    Value: storage.setIamPermissions
   - DeepKey:
       - protoPayload
       - serviceData
       - policyDelta
       - bindingDeltas
-    Condition: IsIn
-    Values:
-      - 'roles/storage.objectAdmin'
-      - 'roles/storage.objectViewer'
-      - 'roles/storage.admin'
-
+    Condition: AnyElement
+    Expressions:
+      - Key: action
+        Condition: Equals
+        Value: ADD
+      - Key: member
+        Condition: IsIn
+        Values:
+          - allUsers
+          - allAuthenticatedUsers
+      - Key: role
+        Condition: IsIn
+        Values:
+          - roles/storage.objectAdmin
+          - roles/storage.objectViewer
+          - roles/storage.admin
 Tests:
   - Name: GCS AllUsers Read Permission
     ExpectedResult: true
@@ -70,7 +102,14 @@ Tests:
                 '@type': 'type.googleapis.com/google.iam.v1.logging.AuditData',
                 'policyDelta':
                   {
-                    'bindingDeltas': "roles/storage.objectAdmin",
+                    'bindingDeltas':
+                      [
+                        {
+                          'action': 'ADD',
+                          'role': 'roles/storage.objectViewer',
+                          'member': 'allUsers',
+                        },
+                      ],
                   },
               },
             'resourceLocation': { 'currentLocations': ['us'] },

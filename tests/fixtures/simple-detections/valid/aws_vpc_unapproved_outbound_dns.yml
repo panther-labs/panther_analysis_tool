@@ -42,6 +42,8 @@ SummaryAttributes:
 #
 #    # No clean way to default to False (no alert), so explicitly check for key
 #    return "dstaddr" in event and event.get("dstaddr") not in APPROVED_DNS_SERVERS
+
+# Requires https://app.asana.com/0/1202324455056256/1204671191731202/f for fix
 Detection:
   - Key: dstport
     Condition: IsIn

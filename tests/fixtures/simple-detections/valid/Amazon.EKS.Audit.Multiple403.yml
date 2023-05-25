@@ -28,6 +28,8 @@
 #         return False
 #     return True
 
+# Requires https://app.asana.com/0/1202324455056256/1204671191731202/f for fix
+
 AnalysisType: rule
 RuleID: "Amazon.EKS.Audit.Multiple403"
 DisplayName: "EKS Audit Log based single sourceIP is generating multiple 403s"

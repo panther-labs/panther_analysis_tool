@@ -5,6 +5,7 @@
 # All intellectual property rights in and to the Panther SaaS, including any and all
 # rights to access the Panther SaaS, are governed by the Panther Enterprise Subscription Agreement.
 
+# Requires https://app.asana.com/0/1202324455056256/1204671191731202/f for fix
 AnalysisType: rule
 RuleID: "AWS.IAMUser.ReconAccessDenied"
 DisplayName: "Detect Reconnaissance from IAM Users"
