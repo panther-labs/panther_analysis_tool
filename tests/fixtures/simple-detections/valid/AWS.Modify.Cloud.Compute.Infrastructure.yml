@@ -505,6 +505,10 @@ Detection:
       - DeepKey:
           - userIdentity
           - type
+        Condition: DoesNotExist
+      - DeepKey:
+          - userIdentity
+          - type
         Condition: IsNullOrEmpty
       - DeepKey:
           - userIdentity
@@ -512,6 +516,10 @@ Detection:
         Condition: DoesNotEqual
         Value: AWSService
   - Any:
+      - DeepKey:
+          - userIdentity
+          - invokedBy
+        Condition: DoesNotExist
       - DeepKey:
           - userIdentity
           - invokedBy

@@ -565,8 +565,12 @@ Threshold: 1
 Detection:
   - Any:
       - DeepKey:
-            - userIdentity
-            - invokedBy
+          - userIdentity
+          - invokedBy
+        Condition: DoesNotExist
+      - DeepKey:
+          - userIdentity
+          - invokedBy
         Condition: IsNullOrEmpty
       - DeepKey:
           - userIdentity

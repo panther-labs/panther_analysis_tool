@@ -57,11 +57,15 @@ Detection:
     Condition: Exists
   - Any:
       - Key: sourceIPAddress
-        Condition: IsNullOrEmpty
+        Condition: DoesNotExist
       - Key: sourceIPAddress
         Condition: DoesNotEndWith
         Value: .amazonaws.com
   - Any:
+      - DeepKey:
+          - userIdentity
+          - type
+        Condition: DoesNotExist
       - DeepKey:
           - userIdentity
           - type
@@ -72,6 +76,10 @@ Detection:
         Condition: DoesNotEqual
         Value: AWSService
   - Any:
+      - DeepKey:
+          - userIdentity
+          - invokedBy
+        Condition: DoesNotExist
       - DeepKey:
           - userIdentity
           - invokedBy
@@ -89,7 +97,7 @@ Detection:
             Value: .amazonaws.com
   - Any:
       - Key: errorCode
-        Condition: IsNullOrEmpty
+        Condition: DoesNotExist
       - Key: errorCode
         Condition: DoesNotEqual
         Value: Client.DryRunOperation
