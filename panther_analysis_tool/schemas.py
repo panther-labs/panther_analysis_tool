@@ -78,6 +78,7 @@ LOG_TYPE_REGEX = Regex(
     r"|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit\.Exchange"
     r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
     r"MicrosoftGraph\.SecurityAlert|"
+    r"MongoDB\.OrganizationEvent|MongoDB\.ProjectEvent|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
