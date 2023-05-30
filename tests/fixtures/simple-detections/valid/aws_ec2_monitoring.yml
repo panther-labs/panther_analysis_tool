@@ -55,27 +55,52 @@ Detection:
     Value: ec2.amazonaws.com
   - Key: sourceIPAddress
     Condition: Exists
-  - Key: sourceIPAddress
-    Condition: DoesNotEndWith
-    Value: .amazonaws.com
-  - DeepKey:
-      - userIdentity
-      - type
-    Condition: DoesNotEqual
-    Value: AWSService
-  - DeepKey:
-      - userIdentity
-      - invokedBy
-    Condition: DoesNotEqual
-    Value: AWS Internal
-  - DeepKey:
-      - userIdentity
-      - invokedBy
-    Condition: DoesNotEndWith
-    Value: .amazonaws.com
-  - Key: errorCode
-    Condition: DoesNotEqual
-    Value: Client.DryRunOperation
+  - Any:
+      - Key: sourceIPAddress
+        Condition: DoesNotExist
+      - Key: sourceIPAddress
+        Condition: DoesNotEndWith
+        Value: .amazonaws.com
+  - Any:
+      - DeepKey:
+          - userIdentity
+          - type
+        Condition: DoesNotExist
+      - DeepKey:
+          - userIdentity
+          - type
+        Condition: IsNullOrEmpty
+      - DeepKey:
+          - userIdentity
+          - type
+        Condition: DoesNotEqual
+        Value: AWSService
+  - Any:
+      - DeepKey:
+          - userIdentity
+          - invokedBy
+        Condition: DoesNotExist
+      - DeepKey:
+          - userIdentity
+          - invokedBy
+        Condition: IsNullOrEmpty
+      - All:
+          - DeepKey:
+              - userIdentity
+              - invokedBy
+            Condition: DoesNotEqual
+            Value: AWS Internal
+          - DeepKey:
+              - userIdentity
+              - invokedBy
+            Condition: DoesNotEndWith
+            Value: .amazonaws.com
+  - Any:
+      - Key: errorCode
+        Condition: DoesNotExist
+      - Key: errorCode
+        Condition: DoesNotEqual
+        Value: Client.DryRunOperation
   - Key: eventName
     Condition: IsIn
     Values:
