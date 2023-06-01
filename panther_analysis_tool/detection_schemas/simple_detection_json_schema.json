@@ -63,7 +63,8 @@
                 "type": "string"
               },
               "Condition": {
-                "type": "string"
+                "type": "string",
+                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
               }
             },
             "additionalProperties": false,
@@ -83,12 +84,31 @@
                 "type": "array"
               },
               "Condition": {
-                "type": "string"
+                "type": "string",
+                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
               }
             },
             "additionalProperties": false,
             "type": "object",
             "required": ["Expressions", "DeepKey", "Condition"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Expressions": {
+                "$ref": "#/$defs/MatchExpressions"
+              },
+              "PathSpecifier": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string",
+                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Expressions", "PathSpecifier", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -172,6 +192,20 @@
             "additionalProperties": false,
             "type": "object",
             "required": ["DeepKey", "Condition"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "PathSpecifier": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["PathSpecifier", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -338,6 +372,79 @@
             "additionalProperties": false,
             "type": "object",
             "required": ["DeepKey", "Condition", "Values"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "PathSpecifier": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["PathSpecifier", "Condition", "Value"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "PathSpecifier": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["PathSpecifier", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
