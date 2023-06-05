@@ -1,12 +1,13 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from nested_lookup import nested_lookup
 from sqlfluff import parse
 
-from panther_analysis_tool.analysis_utils import ClassifiedAnalysis
-from panther_analysis_tool.constants import PACK, SET_FIELDS
+from panther_analysis_tool.analysis_utils import ClassifiedAnalysisContainer
+from panther_analysis_tool.constants import SET_FIELDS
+
 
 # This file was generated in whole or in part by GitHub Copilot.
 
@@ -31,7 +32,7 @@ def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
 
 
 def contains_invalid_table_names(
-    analysis_spec: Any, analysis_id: str, valid_table_names: List[str]
+        analysis_spec: Any, analysis_id: str, valid_table_names: List[str]
 ) -> List[str]:
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
@@ -67,7 +68,7 @@ def contains_invalid_table_names(
                 else:
                     is_public_table = components[1] == "public"
                     is_snowflake_account_usage_table = (
-                        components[0] == "snowflake" and components[1] == "account_usage"
+                            components[0] == "snowflake" and components[1] == "account_usage"
                     )
                     if not is_public_table and not is_snowflake_account_usage_table:
                         invalid_table_names.append(table_name)
@@ -87,21 +88,20 @@ def lookup_snowflake_query(analysis_spec: Any) -> Optional[str]:
 def matches_valid_table_name(table_name: str, valid_table_names: List[str]) -> bool:
     for valid_table_name in valid_table_names:
         if (
-            re.match(valid_table_name.replace(".", "\\.").replace("*", ".*"), table_name)
-            is not None
+                re.match(valid_table_name.replace(".", "\\.").replace("*", ".*"), table_name)
+                is not None
         ):
             return True
     return False
 
 
-def validate_packs(analysis_specs: Dict[str, List[ClassifiedAnalysis]]) -> List[Any]:
+def validate_packs(analysis_specs: ClassifiedAnalysisContainer) -> List[Any]:
     invalid_specs = []
     # first, setup dictionary of id to detection item
     id_to_detection = {}
-    for analysis_type in analysis_specs:
-        for item in analysis_specs[analysis_type]:
-            analysis_spec = item.analysis_spec
-            analysis_id = (
+    for item in analysis_specs.items():
+        analysis_spec = item.analysis_spec
+        analysis_id = (
                 analysis_spec.get("PolicyID")
                 or analysis_spec.get("RuleID")
                 or analysis_spec.get("DataModelID")
@@ -109,9 +109,9 @@ def validate_packs(analysis_specs: Dict[str, List[ClassifiedAnalysis]]) -> List[
                 or analysis_spec.get("PackID")
                 or analysis_spec.get("QueryName")
                 or analysis_spec["LookupName"]
-            )
-            id_to_detection[analysis_id] = analysis_spec
-    for item in analysis_specs[PACK]:
+        )
+        id_to_detection[analysis_id] = analysis_spec
+    for item in analysis_specs.packs:
         analysis_spec = item.analysis_spec
         analysis_spec_filename = item.file_name
         # validate each id in the pack def exists

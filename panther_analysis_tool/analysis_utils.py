@@ -16,11 +16,12 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+import dataclasses
 import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Callable, Generator
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
@@ -47,8 +48,52 @@ class ClassifiedAnalysis:
         self.analysis_spec = analysis_spec
 
 
+@dataclasses.dataclass
+class ClassifiedAnalysisContainer:
+    """ Contains all classified analysis specs """
+    data_models: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    globals: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    detections: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    simple_detections: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    scheduled_queries: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+
+    def _self_as_list(self) -> List[List[ClassifiedAnalysis]]:
+        return [
+            self.data_models,
+            self.globals,
+            self.detections,
+            self.simple_detections,
+            self.scheduled_queries,
+            self.lookup_tables,
+            self.packs,
+        ]
+
+    def empty(self) -> bool:
+        return all(len(l) == 0 for l in self._self_as_list())
+
+    def apply(self,
+              fn: Callable[[List[ClassifiedAnalysis]], List[ClassifiedAnalysis]],
+              ) -> 'ClassifiedAnalysisContainer':
+        container = ClassifiedAnalysisContainer()
+        container.data_models = fn(self.data_models)
+        container.globals = fn(self.globals)
+        container.detections = fn(self.detections)
+        container.simple_detections = fn(self.simple_detections)
+        container.scheduled_queries = fn(self.scheduled_queries)
+        container.lookup_tables = fn(self.lookup_tables)
+        container.packs = fn(self.packs)
+        return container
+
+    def items(self) -> Generator[ClassifiedAnalysis, None, None]:
+        for analysis_list in self._self_as_list():
+            for classified in analysis_list:
+                yield classified
+
+
 def filter_analysis(
-    analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
+        analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
 ) -> List[ClassifiedAnalysis]:
     if filters is None:
         return analysis
@@ -87,7 +132,7 @@ def filter_analysis(
 
 
 def load_analysis_specs(
-    directories: List[str], ignore_files: List[str]
+        directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
@@ -109,9 +154,9 @@ def load_analysis_specs(
         for relative_path, _, file_list in os.walk(directory):
             # Skip hidden folders
             if (
-                relative_path.split("/")[-1].startswith(".")
-                and relative_path != "./"
-                and relative_path != "."
+                    relative_path.split("/")[-1].startswith(".")
+                    and relative_path != "./"
+                    and relative_path != "."
             ):
                 continue
             # setup yaml object
@@ -122,18 +167,18 @@ def load_analysis_specs(
             # when relative_path is the current dir
             if directory in [".", "./"] and relative_path not in [".", "./"]:
                 if not any(
-                    (
-                        fnmatch(relative_path, path_pattern)
-                        for path_pattern in (
-                            DATA_MODEL_PATH_PATTERN,
-                            HELPERS_PATH_PATTERN,
-                            LUTS_PATH_PATTERN,
-                            RULES_PATH_PATTERN,
-                            PACKS_PATH_PATTERN,
-                            POLICIES_PATH_PATTERN,
-                            QUERIES_PATH_PATTERN,
+                        (
+                                fnmatch(relative_path, path_pattern)
+                                for path_pattern in (
+                                DATA_MODEL_PATH_PATTERN,
+                                HELPERS_PATH_PATTERN,
+                                LUTS_PATH_PATTERN,
+                                RULES_PATH_PATTERN,
+                                PACKS_PATH_PATTERN,
+                                POLICIES_PATH_PATTERN,
+                                QUERIES_PATH_PATTERN,
                         )
-                    )
+                        )
                 ):
                     logging.debug("Skipping path %s", relative_path)
                     continue
@@ -174,7 +219,7 @@ def to_relative_path(filename: str) -> str:
 
 # This function was generated in whole or in part by GitHub Copilot.
 def get_simple_detections_as_python(
-    specs: List[ClassifiedAnalysis], backend: Optional[BackendClient] = None
+        specs: List[ClassifiedAnalysis], backend: Optional[BackendClient] = None
 ) -> List[ClassifiedAnalysis]:
     """Returns simple detections with transpiled Python."""
     enriched_specs = []

@@ -38,7 +38,6 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
-
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -82,7 +81,7 @@ from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     filter_analysis,
     get_simple_detections_as_python,
-    load_analysis_specs,
+    load_analysis_specs, ClassifiedAnalysisContainer,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -96,21 +95,11 @@ from panther_analysis_tool.cmd import (
 from panther_analysis_tool.constants import (
     CONFIG_FILE,
     DATA_MODEL_LOCATION,
-    DATAMODEL,
-    DETECTION,
-    GLOBAL,
     HELPERS_LOCATION,
-    LOOKUP_TABLE,
-    PACK,
     PACKAGE_NAME,
-    POLICY,
-    QUERY,
-    RULE,
-    SCHEDULED_RULE,
     SCHEMAS,
-    SIMPLE_DETECTION,
     TMP_HELPER_MODULE_LOCATION,
-    VERSION_STRING,
+    VERSION_STRING, AnalysisTypes,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
@@ -232,12 +221,12 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     zip_chunks = [
         # note: all the files we care about have an AnalysisType field in their yml
         # so we can ignore file patterns and leave them empty
-        ZipChunk(patterns=[], types=(DATAMODEL, GLOBAL)),  # type: ignore
-        ZipChunk(patterns=[], types=RULE, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=POLICY, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=QUERY, max_size=100),  # type: ignore
-        ZipChunk(patterns=[], types=SCHEDULED_RULE, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=LOOKUP_TABLE, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=(AnalysisTypes.DATA_MODEL, AnalysisTypes.GLOBAL)),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.POLICY, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_QUERY, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.LOOKUP_TABLE, max_size=100),  # type: ignore
     ]
 
     filenames = []
@@ -267,7 +256,7 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
 
 
 def zip_analysis(
-    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+        args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
 ) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
@@ -342,7 +331,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
 
 def upload_zip(
-    backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
+        backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
 ) -> Tuple[int, str]:
     return_archive_fname = ""
     # extract max retries we should handle
@@ -445,12 +434,12 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
                         return {}
             logging.info("Successfully validated the Lookup Table file %s", args.path)
         except (
-            schema.SchemaError,
-            schema.SchemaMissingKeyError,
-            schema.SchemaWrongKeyError,
-            schema.SchemaForbiddenKeyError,
-            schema.SchemaUnexpectedTypeError,
-            schema.SchemaOnlyOneAllowedError,
+                schema.SchemaError,
+                schema.SchemaMissingKeyError,
+                schema.SchemaWrongKeyError,
+                schema.SchemaForbiddenKeyError,
+                schema.SchemaUnexpectedTypeError,
+                schema.SchemaOnlyOneAllowedError,
         ) as err:
             logging.error("Invalid schema in the Lookup Table spec file %s", input_file)
             logging.error(err)
@@ -584,7 +573,7 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
 
 
 def clone_github(
-    owner: str, repo: str, branch: str, path: str, access_token: str
+        owner: str, repo: str, branch: str, path: str, access_token: str
 ) -> Tuple[int, str]:
     repo_url = (
         f"https://{access_token}@github.com/{owner}/{repo}"
@@ -675,7 +664,7 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 
 # pylint: disable=too-many-locals
 def test_analysis(
-    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+        args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
 ) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -690,12 +679,11 @@ def test_analysis(
     ignored_files = args.ignore_files
     search_directories = [args.path]
 
-    # Try the parent directory as well
     for directory in (
-        HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,
-        DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,
+            HELPERS_LOCATION,
+            "." + HELPERS_LOCATION,  # Try the parent directory as well
+            DATA_MODEL_LOCATION,
+            "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -712,7 +700,7 @@ def test_analysis(
         valid_table_names=args.valid_table_names,
     )
 
-    if all((len(specs[key]) == 0 for key in specs)):
+    if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -720,17 +708,16 @@ def test_analysis(
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
-    for key in specs:
-        specs[key] = filter_analysis(specs[key], args.filter, args.filter_inverted)
+    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
 
-    if all((len(specs[key]) == 0 for key in specs)):
+    if specs.empty():
         return 1, [
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
     # enrich simple detections with transpiled python as necessary
-    if specs[SIMPLE_DETECTION]:
-        specs[SIMPLE_DETECTION] = get_simple_detections_as_python(specs[SIMPLE_DETECTION], backend)
+    if len(specs.simple_detections) > 0:
+        specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
 
     ignore_exception_types: List[Type[Exception]] = []
 
@@ -744,13 +731,14 @@ def test_analysis(
         name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
         for name in available_destinations
     }
+
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    setup_global_helpers(specs[GLOBAL])
+    setup_global_helpers(specs.globals)
 
     # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
+    log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
@@ -759,7 +747,7 @@ def test_analysis(
     # then, import rules and policies; run tests
     failed_tests, invalid_detections = setup_run_tests(
         log_type_to_data_model,
-        specs[DETECTION] + specs[SIMPLE_DETECTION],
+        specs.detections + specs.simple_detections,
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
@@ -773,7 +761,7 @@ def test_analysis(
     invalid_specs.extend(invalid_packs)
 
     # cleanup tmp global dir
-    cleanup_global_helpers(specs[GLOBAL])
+    cleanup_global_helpers(specs.globals)
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
         for outcome in ["passed", "errored"]:
@@ -791,7 +779,7 @@ def test_analysis(
                     )
                     print("")
     print_summary(
-        args.path, len(specs[DETECTION] + specs[SIMPLE_DETECTION]), failed_tests, invalid_specs
+        args.path, len(specs.detections + specs.simple_detections), failed_tests, invalid_specs
     )
 
     #  if the classic format was invalid, just exit
@@ -840,7 +828,7 @@ def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
 
 
 def setup_data_models(
-    data_models: List[ClassifiedAnalysis],
+        data_models: List[ClassifiedAnalysis],
 ) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
@@ -895,13 +883,13 @@ def setup_data_models(
 
 
 def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
-    log_type_to_data_model: Dict[str, DataModel],
-    analysis: List[ClassifiedAnalysis],
-    minimum_tests: int,
-    skip_disabled_tests: bool,
-    destinations_by_name: Dict[str, FakeDestination],
-    ignore_exception_types: List[Type[Exception]],
-    all_test_results: typing.Optional[TestResultsContainer] = None,
+        log_type_to_data_model: Dict[str, DataModel],
+        analysis: List[ClassifiedAnalysis],
+        minimum_tests: int,
+        skip_disabled_tests: bool,
+        destinations_by_name: Dict[str, FakeDestination],
+        ignore_exception_types: List[Type[Exception]],
+        all_test_results: typing.Optional[TestResultsContainer] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -936,7 +924,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                     versionId="0000-0000-0000",
                 )
             )
-            if analysis_type == POLICY:
+            if analysis_type == AnalysisTypes.POLICY:
                 detection = Policy(
                     dict(
                         id=analysis_id,
@@ -972,7 +960,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 
 
 def print_summary(
-    test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
+        test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
@@ -999,14 +987,12 @@ def print_summary(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
-) -> Tuple[Dict[str, List[ClassifiedAnalysis]], List[Any]]:
+        specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
+) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
-    classified_specs: Dict[str, List[ClassifiedAnalysis]] = dict()
-    for key in [DATAMODEL, DETECTION, SIMPLE_DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
-        classified_specs[key] = []
+    all_specs = ClassifiedAnalysisContainer()
 
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
@@ -1046,7 +1032,7 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == QUERY and not ignore_table_names:
+            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -1055,27 +1041,32 @@ def classify_analysis(
                         analysis_id, invalid_table_names
                     )
             analysis_ids.append(analysis_id)
+
+            classified_analysis = ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
+
             # extra validation for simple detections based on json schema
             if is_simple_detection(analysis_spec):
                 jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
-                classified_specs[SIMPLE_DETECTION].append(
-                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
-                )
+                all_specs.simple_detections.append(classified_analysis)
             # add the validated analysis type to the classified specs
-            elif analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
-                classified_specs[DETECTION].append(
-                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
-                )
-            else:
-                classified_specs[analysis_type].append(
-                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
-                )
+            elif analysis_type in [AnalysisTypes.POLICY, AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
+                all_specs.detections.append(classified_analysis)
+            elif analysis_type == AnalysisTypes.DATA_MODEL:
+                all_specs.data_models.append(classified_analysis)
+            elif analysis_type == AnalysisTypes.GLOBAL:
+                all_specs.globals.append(classified_analysis)
+            elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
+                all_specs.lookup_tables.append(classified_analysis)
+            elif analysis_type == AnalysisTypes.PACK:
+                all_specs.packs.append(classified_analysis)
+            elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
+                all_specs.scheduled_queries.append(classified_analysis)
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
-            SchemaMissingKeyError,
-            SchemaForbiddenKeyError,
-            SchemaUnexpectedTypeError,
+                SchemaMissingKeyError,
+                SchemaForbiddenKeyError,
+                SchemaUnexpectedTypeError,
         ) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
@@ -1104,24 +1095,24 @@ def classify_analysis(
             if tmp_logtypes and tmp_logtypes_key:
                 analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
 
-    return classified_specs, invalid_specs
+    return all_specs, invalid_specs
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     analysis_id = "UNKNOWN_ID"
-    if analysis_type == DATAMODEL:
+    if analysis_type == AnalysisTypes.DATA_MODEL:
         analysis_id = analysis_spec["DataModelID"]
-    if analysis_type == GLOBAL:
+    elif analysis_type == AnalysisTypes.GLOBAL:
         analysis_id = analysis_spec["GlobalID"]
-    if analysis_type == LOOKUP_TABLE:
+    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
         analysis_id = analysis_spec["LookupName"]
-    if analysis_type == PACK:
+    elif analysis_type == AnalysisTypes.PACK:
         analysis_id = analysis_spec["PackID"]
-    if analysis_type == POLICY:
+    elif analysis_type == AnalysisTypes.POLICY:
         analysis_id = analysis_spec["PolicyID"]
-    if analysis_type == QUERY:
+    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
         analysis_id = analysis_spec["QueryName"]
-    if analysis_type in [RULE, SCHEDULED_RULE]:
+    elif analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
 
@@ -1139,14 +1130,14 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 
 
 def run_tests(  # pylint: disable=too-many-arguments
-    analysis: Dict[str, Any],
-    analysis_data_models: Dict[str, DataModel],
-    detection: Detection,
-    failed_tests: DefaultDict[str, list],
-    minimum_tests: int,
-    destinations_by_name: Dict[str, FakeDestination],
-    ignore_exception_types: List[Type[Exception]],
-    all_test_results: typing.Optional[TestResultsContainer],
+        analysis: Dict[str, Any],
+        analysis_data_models: Dict[str, DataModel],
+        detection: Detection,
+        failed_tests: DefaultDict[str, list],
+        minimum_tests: int,
+        destinations_by_name: Dict[str, FakeDestination],
+        ignore_exception_types: List[Type[Exception]],
+        all_test_results: typing.Optional[TestResultsContainer],
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection.detection_id].append(
@@ -1171,8 +1162,8 @@ def run_tests(  # pylint: disable=too-many-arguments
     )
 
     if minimum_tests > 1 and not (
-        [x for x in analysis["Tests"] if x["ExpectedResult"]]
-        and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
+            [x for x in analysis["Tests"] if x["ExpectedResult"]]
+            and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
     ):
         failed_tests[detection.detection_id].append(
             "Insufficient test coverage: expected at least one positive and one negative test"
@@ -1182,13 +1173,13 @@ def run_tests(  # pylint: disable=too-many-arguments
 
 
 def _run_tests(  # pylint: disable=too-many-arguments
-    analysis_data_models: Dict[str, DataModel],
-    detection: Detection,
-    tests: List[Dict[str, Any]],
-    failed_tests: DefaultDict[str, list],
-    destinations_by_name: Dict[str, FakeDestination],
-    ignore_exception_types: List[Type[Exception]],
-    all_test_results: typing.Optional[TestResultsContainer],
+        analysis_data_models: Dict[str, DataModel],
+        detection: Detection,
+        tests: List[Dict[str, Any]],
+        failed_tests: DefaultDict[str, list],
+        destinations_by_name: Dict[str, FakeDestination],
+        ignore_exception_types: List[Type[Exception]],
+        all_test_results: typing.Optional[TestResultsContainer],
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
@@ -1210,7 +1201,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             test_output_buf = io.StringIO()
             with contextlib.redirect_stdout(test_output_buf), contextlib.redirect_stderr(
-                test_output_buf
+                    test_output_buf
             ):
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
@@ -1269,7 +1260,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
 
 def _print_test_result(
-    detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
+        detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
 ) -> None:
     status_pass = "PASS"  # nosec
     status_fail = "FAIL"
@@ -1335,8 +1326,8 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": 0,
         "type": int,
         "help": "The minimum number of tests in order for a detection to be considered passing. "
-        + "If a number greater than 1 is specified, at least one True and one False test is "
-        + "required.",
+                + "If a number greater than 1 is specified, at least one True and one False test is "
+                + "required.",
         "required": False,
     }
     out_name = "--out"
@@ -1380,7 +1371,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "dest": "ignore_files",
         "nargs": "+",
         "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
-        + "space separated. Example ./foo.yaml ./bar/baz.yaml",
+                + "space separated. Example ./foo.yaml ./bar/baz.yaml",
         "type": str,
         "default": [],
     }
@@ -1391,7 +1382,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "action": "append",
         "help": "A destination name that may be returned by the destinations function. "
-        "Repeat the argument to define more than one name.",
+                "Repeat the argument to define more than one name.",
     }
     sort_test_results_name = "--sort-test-results"
     sort_test_results_arg: Dict[str, Any] = {
@@ -1400,7 +1391,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": False,
         "dest": "sort_test_results",
         "help": "Sort test results by whether the test passed or failed (passing tests first), "
-        "then by rule ID",
+                "then by rule ID",
     }
     ignore_table_names_name = "--ignore-table-names"
     ignore_table_names_arg: Dict[str, Any] = {
@@ -1409,7 +1400,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "dest": "ignore_table_names",
         "required": False,
         "help": "Allows skipping of table name validation from schema validation. Useful when querying "
-        "non-Panther or non-Snowflake tables",
+                "non-Panther or non-Snowflake tables",
     }
     valid_table_names_name = "--valid-table-names"
     valid_table_names_arg: Dict[str, Any] = {
@@ -1417,9 +1408,9 @@ def setup_parser() -> argparse.ArgumentParser:
         "dest": "valid_table_names",
         "nargs": "+",
         "help": "Fully qualified table names that should be considered valid during schema validation "
-        + "(in addition to standard Panther/Snowflake tables), space separated. "
-        + "Accepts '*' as wildcard character matching 0 or more characters. "
-        + "Example foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*",
+                + "(in addition to standard Panther/Snowflake tables), space separated. "
+                + "Accepts '*' as wildcard character matching 0 or more characters. "
+                + "Example foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*",
         "type": str,
         "default": [],
     }
@@ -1428,7 +1419,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         description="Panther Analysis Tool: A command line tool for "
-        + "managing Panther policies and rules.",
+                    + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
     )
     parser.add_argument("--version", action="version", version=VERSION_STRING)
@@ -1440,8 +1431,8 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser = subparsers.add_parser(
         "release",
         help="Create release assets for repository containing panther detections. "
-        + "Generates a file called panther-analysis-all.zip and optionally generates "
-        + "panther-analysis-all.sig",
+             + "Generates a file called panther-analysis-all.zip and optionally generates "
+             + "panther-analysis-all.sig",
     )
 
     standard_args.for_public_api(release_parser, required=False)
@@ -1484,8 +1475,8 @@ def setup_parser() -> argparse.ArgumentParser:
     publish_parser = subparsers.add_parser(
         "publish",
         help="Publishes a new release, generates the release assets, and uploads them. "
-        + "Generates a file called panther-analysis-all.zip and optionally generates "
-        + "panther-analysis-all.sig",
+             + "Generates a file called panther-analysis-all.zip and optionally generates "
+             + "panther-analysis-all.sig",
     )
     publish_parser.add_argument(
         "--body",
@@ -1731,7 +1722,7 @@ def setup_dynaconf() -> Dict[str, Any]:
 
 
 def dynaconf_argparse_merge(
-    argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
+        argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
 ) -> None:
     # Set up another parser w/ no defaults
     aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
@@ -1763,15 +1754,15 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             split[0] = split[0][:-1]  # Remove the trailing "!"
         key = split[0]
         if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
+                (
+                        key
+                        in (
+                                list(GLOBAL_SCHEMA.schema.keys())
+                                + list(POLICY_SCHEMA.schema.keys())
+                                + list(RULE_SCHEMA.schema.keys())
+                        )
+                        for key in (key, Optional(key))
                 )
-                for key in (key, Optional(key))
-            )
         ):
             logging.warning("Filter key %s is not a valid filter field, skipping", key)
             continue
