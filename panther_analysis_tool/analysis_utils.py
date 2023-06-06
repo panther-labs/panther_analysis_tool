@@ -38,7 +38,9 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+    AnalysisTypes,
 )
+from panther_analysis_tool.util import is_simple_detection
 
 
 class ClassifiedAnalysis:
@@ -79,8 +81,8 @@ class ClassifiedAnalysisContainer:
         return all(len(l) == 0 for l in self._self_as_list())
 
     def apply(
-        self,
-        func: Callable[[List[ClassifiedAnalysis]], List[ClassifiedAnalysis]],
+            self,
+            func: Callable[[List[ClassifiedAnalysis]], List[ClassifiedAnalysis]],
     ) -> "ClassifiedAnalysisContainer":
         container = ClassifiedAnalysisContainer()
         container.data_models = func(self.data_models)
@@ -97,9 +99,29 @@ class ClassifiedAnalysisContainer:
             for classified in analysis_list:
                 yield classified
 
+    def add_classified_analysis(self, analysis_type: str, classified_analysis: ClassifiedAnalysis) -> None:
+        if is_simple_detection(classified_analysis.analysis_spec):
+            self.simple_detections.append(classified_analysis)
+        elif analysis_type in [
+            AnalysisTypes.POLICY,
+            AnalysisTypes.RULE,
+            AnalysisTypes.SCHEDULED_RULE,
+        ]:
+            self.detections.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.DATA_MODEL:
+            self.data_models.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.GLOBAL:
+            self.globals.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
+            self.lookup_tables.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.PACK:
+            self.packs.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
+            self.scheduled_queries.append(classified_analysis)
+
 
 def filter_analysis(
-    analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
+        analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
 ) -> List[ClassifiedAnalysis]:
     if filters is None:
         return analysis
@@ -138,7 +160,7 @@ def filter_analysis(
 
 
 def load_analysis_specs(
-    directories: List[str], ignore_files: List[str]
+        directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
     """Loads the analysis specifications from a file.
 
@@ -160,9 +182,9 @@ def load_analysis_specs(
         for relative_path, _, file_list in os.walk(directory):
             # Skip hidden folders
             if (
-                relative_path.split("/")[-1].startswith(".")
-                and relative_path != "./"
-                and relative_path != "."
+                    relative_path.split("/")[-1].startswith(".")
+                    and relative_path != "./"
+                    and relative_path != "."
             ):
                 continue
             # setup yaml object
@@ -173,18 +195,18 @@ def load_analysis_specs(
             # when relative_path is the current dir
             if directory in [".", "./"] and relative_path not in [".", "./"]:
                 if not any(
-                    (
-                        fnmatch(relative_path, path_pattern)
-                        for path_pattern in (
-                            DATA_MODEL_PATH_PATTERN,
-                            HELPERS_PATH_PATTERN,
-                            LUTS_PATH_PATTERN,
-                            RULES_PATH_PATTERN,
-                            PACKS_PATH_PATTERN,
-                            POLICIES_PATH_PATTERN,
-                            QUERIES_PATH_PATTERN,
+                        (
+                                fnmatch(relative_path, path_pattern)
+                                for path_pattern in (
+                                DATA_MODEL_PATH_PATTERN,
+                                HELPERS_PATH_PATTERN,
+                                LUTS_PATH_PATTERN,
+                                RULES_PATH_PATTERN,
+                                PACKS_PATH_PATTERN,
+                                POLICIES_PATH_PATTERN,
+                                QUERIES_PATH_PATTERN,
                         )
-                    )
+                        )
                 ):
                     logging.debug("Skipping path %s", relative_path)
                     continue
@@ -225,7 +247,7 @@ def to_relative_path(filename: str) -> str:
 
 # This function was generated in whole or in part by GitHub Copilot.
 def get_simple_detections_as_python(
-    specs: List[ClassifiedAnalysis], backend: Optional[BackendClient] = None
+        specs: List[ClassifiedAnalysis], backend: Optional[BackendClient] = None
 ) -> List[ClassifiedAnalysis]:
     """Returns simple detections with transpiled Python."""
     enriched_specs = []
