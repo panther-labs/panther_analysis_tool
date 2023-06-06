@@ -80,6 +80,7 @@ from schema import (
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
     filter_analysis,
     get_simple_detections_as_python,
     load_analysis_specs,
@@ -96,21 +97,12 @@ from panther_analysis_tool.cmd import (
 from panther_analysis_tool.constants import (
     CONFIG_FILE,
     DATA_MODEL_LOCATION,
-    DATAMODEL,
-    DETECTION,
-    GLOBAL,
     HELPERS_LOCATION,
-    LOOKUP_TABLE,
-    PACK,
     PACKAGE_NAME,
-    POLICY,
-    QUERY,
-    RULE,
-    SCHEDULED_RULE,
     SCHEMAS,
-    SIMPLE_DETECTION,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
+    AnalysisTypes,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
@@ -232,12 +224,12 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     zip_chunks = [
         # note: all the files we care about have an AnalysisType field in their yml
         # so we can ignore file patterns and leave them empty
-        ZipChunk(patterns=[], types=(DATAMODEL, GLOBAL)),  # type: ignore
-        ZipChunk(patterns=[], types=RULE, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=POLICY, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=QUERY, max_size=100),  # type: ignore
-        ZipChunk(patterns=[], types=SCHEDULED_RULE, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=LOOKUP_TABLE, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=(AnalysisTypes.DATA_MODEL, AnalysisTypes.GLOBAL)),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.POLICY, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_QUERY, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.LOOKUP_TABLE, max_size=100),  # type: ignore
     ]
 
     filenames = []
@@ -690,12 +682,11 @@ def test_analysis(
     ignored_files = args.ignore_files
     search_directories = [args.path]
 
-    # Try the parent directory as well
     for directory in (
         HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,
+        "." + HELPERS_LOCATION,  # Try the parent directory as well
         DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,
+        "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -712,7 +703,7 @@ def test_analysis(
         valid_table_names=args.valid_table_names,
     )
 
-    if all((len(specs[key]) == 0 for key in specs)):
+    if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -720,17 +711,16 @@ def test_analysis(
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
-    for key in specs:
-        specs[key] = filter_analysis(specs[key], args.filter, args.filter_inverted)
+    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
 
-    if all((len(specs[key]) == 0 for key in specs)):
+    if specs.empty():
         return 1, [
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
     # enrich simple detections with transpiled python as necessary
-    if specs[SIMPLE_DETECTION]:
-        specs[SIMPLE_DETECTION] = get_simple_detections_as_python(specs[SIMPLE_DETECTION], backend)
+    if len(specs.simple_detections) > 0:
+        specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
 
     ignore_exception_types: List[Type[Exception]] = []
 
@@ -744,13 +734,14 @@ def test_analysis(
         name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
         for name in available_destinations
     }
+
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    setup_global_helpers(specs[GLOBAL])
+    setup_global_helpers(specs.globals)
 
     # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
+    log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
@@ -759,7 +750,7 @@ def test_analysis(
     # then, import rules and policies; run tests
     failed_tests, invalid_detections = setup_run_tests(
         log_type_to_data_model,
-        specs[DETECTION] + specs[SIMPLE_DETECTION],
+        specs.detections + specs.simple_detections,
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
@@ -773,7 +764,7 @@ def test_analysis(
     invalid_specs.extend(invalid_packs)
 
     # cleanup tmp global dir
-    cleanup_global_helpers(specs[GLOBAL])
+    cleanup_global_helpers(specs.globals)
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
         for outcome in ["passed", "errored"]:
@@ -791,7 +782,7 @@ def test_analysis(
                     )
                     print("")
     print_summary(
-        args.path, len(specs[DETECTION] + specs[SIMPLE_DETECTION]), failed_tests, invalid_specs
+        args.path, len(specs.detections + specs.simple_detections), failed_tests, invalid_specs
     )
 
     #  if the classic format was invalid, just exit
@@ -936,7 +927,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                     versionId="0000-0000-0000",
                 )
             )
-            if analysis_type == POLICY:
+            if analysis_type == AnalysisTypes.POLICY:
                 detection = Policy(
                     dict(
                         id=analysis_id,
@@ -1000,13 +991,11 @@ def print_summary(
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
-) -> Tuple[Dict[str, List[ClassifiedAnalysis]], List[Any]]:
+) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
-    classified_specs: Dict[str, List[ClassifiedAnalysis]] = dict()
-    for key in [DATAMODEL, DETECTION, SIMPLE_DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
-        classified_specs[key] = []
+    all_specs = ClassifiedAnalysisContainer()
 
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
@@ -1046,7 +1035,7 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == QUERY and not ignore_table_names:
+            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -1055,21 +1044,17 @@ def classify_analysis(
                         analysis_id, invalid_table_names
                     )
             analysis_ids.append(analysis_id)
+
+            classified_analysis = ClassifiedAnalysis(
+                analysis_spec_filename, dir_name, analysis_spec
+            )
+
             # extra validation for simple detections based on json schema
             if is_simple_detection(analysis_spec):
                 jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
-                classified_specs[SIMPLE_DETECTION].append(
-                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
-                )
-            # add the validated analysis type to the classified specs
-            elif analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
-                classified_specs[DETECTION].append(
-                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
-                )
-            else:
-                classified_specs[analysis_type].append(
-                    ClassifiedAnalysis(analysis_spec_filename, dir_name, analysis_spec)
-                )
+
+            all_specs.add_classified_analysis(analysis_type, classified_analysis)
+
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
@@ -1104,24 +1089,24 @@ def classify_analysis(
             if tmp_logtypes and tmp_logtypes_key:
                 analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
 
-    return classified_specs, invalid_specs
+    return all_specs, invalid_specs
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     analysis_id = "UNKNOWN_ID"
-    if analysis_type == DATAMODEL:
+    if analysis_type == AnalysisTypes.DATA_MODEL:
         analysis_id = analysis_spec["DataModelID"]
-    if analysis_type == GLOBAL:
+    elif analysis_type == AnalysisTypes.GLOBAL:
         analysis_id = analysis_spec["GlobalID"]
-    if analysis_type == LOOKUP_TABLE:
+    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
         analysis_id = analysis_spec["LookupName"]
-    if analysis_type == PACK:
+    elif analysis_type == AnalysisTypes.PACK:
         analysis_id = analysis_spec["PackID"]
-    if analysis_type == POLICY:
+    elif analysis_type == AnalysisTypes.POLICY:
         analysis_id = analysis_spec["PolicyID"]
-    if analysis_type == QUERY:
+    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
         analysis_id = analysis_spec["QueryName"]
-    if analysis_type in [RULE, SCHEDULED_RULE]:
+    elif analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
 
