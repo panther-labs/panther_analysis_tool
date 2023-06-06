@@ -203,6 +203,12 @@ class Uploader:
                 f" with the prefix '{self._SCHEMA_NAME_PREFIX}'",
             )
 
+        if len(name) > 255:
+            return (
+                "",
+                f"'schema' field: value should not exceed 255 characters"
+            )
+
         return name, None
 
     def _update_or_create_schema(
