@@ -16,11 +16,12 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+import dataclasses
 import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
@@ -37,7 +38,9 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+    AnalysisTypes,
 )
+from panther_analysis_tool.util import is_simple_detection
 
 
 class ClassifiedAnalysis:
@@ -45,6 +48,78 @@ class ClassifiedAnalysis:
         self.file_name = file_name
         self.dir_name = dir_name
         self.analysis_spec = analysis_spec
+
+
+@dataclasses.dataclass
+class ClassifiedAnalysisContainer:
+    """Contains all classified analysis specs"""
+
+    data_models: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    globals: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    detections: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    simple_detections: List[ClassifiedAnalysis] = dataclasses.field(
+        init=False, default_factory=list
+    )
+    scheduled_queries: List[ClassifiedAnalysis] = dataclasses.field(
+        init=False, default_factory=list
+    )
+    lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+
+    def _self_as_list(self) -> List[List[ClassifiedAnalysis]]:
+        return [
+            self.data_models,
+            self.globals,
+            self.detections,
+            self.simple_detections,
+            self.scheduled_queries,
+            self.lookup_tables,
+            self.packs,
+        ]
+
+    def empty(self) -> bool:
+        return all(len(l) == 0 for l in self._self_as_list())
+
+    def apply(
+        self,
+        func: Callable[[List[ClassifiedAnalysis]], List[ClassifiedAnalysis]],
+    ) -> "ClassifiedAnalysisContainer":
+        container = ClassifiedAnalysisContainer()
+        container.data_models = func(self.data_models)
+        container.globals = func(self.globals)
+        container.detections = func(self.detections)
+        container.simple_detections = func(self.simple_detections)
+        container.scheduled_queries = func(self.scheduled_queries)
+        container.lookup_tables = func(self.lookup_tables)
+        container.packs = func(self.packs)
+        return container
+
+    def items(self) -> Generator[ClassifiedAnalysis, None, None]:
+        for analysis_list in self._self_as_list():
+            for classified in analysis_list:
+                yield classified
+
+    def add_classified_analysis(
+        self, analysis_type: str, classified_analysis: ClassifiedAnalysis
+    ) -> None:
+        if is_simple_detection(classified_analysis.analysis_spec):
+            self.simple_detections.append(classified_analysis)
+        elif analysis_type in [
+            AnalysisTypes.POLICY,
+            AnalysisTypes.RULE,
+            AnalysisTypes.SCHEDULED_RULE,
+        ]:
+            self.detections.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.DATA_MODEL:
+            self.data_models.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.GLOBAL:
+            self.globals.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
+            self.lookup_tables.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.PACK:
+            self.packs.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
+            self.scheduled_queries.append(classified_analysis)
 
 
 def filter_analysis(
