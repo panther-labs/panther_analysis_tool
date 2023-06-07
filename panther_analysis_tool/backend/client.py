@@ -162,6 +162,17 @@ class TranspileToPythonResponse:
     transpiled_python: List[str]
 
 
+@dataclass(frozen=True)
+class TranspileFiltersParams:
+    data: List[str]
+    pat_version: str
+
+
+@dataclass(frozen=True)
+class TranspileFiltersResponse:
+    transpiled_filters: List[str]
+
+
 class Client(ABC):
     @abstractmethod
     def check(self) -> BackendCheckResponse:
@@ -179,6 +190,12 @@ class Client(ABC):
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
     ) -> BackendResponse[TranspileToPythonResponse]:
+        pass
+
+    @abstractmethod
+    def transpile_filters(
+        self, params: TranspileFiltersParams
+    ) -> BackendResponse[TranspileFiltersResponse]:
         pass
 
     @abstractmethod

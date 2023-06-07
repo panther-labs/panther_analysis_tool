@@ -82,3 +82,5 @@ SET_FIELDS = [
     "Suppressions",
     "Tags",
 ]
+
+BACKEND_FILTERS_ANALYSIS_SPEC_KEY = "_backend_filters"

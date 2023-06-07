@@ -1,0 +1,19 @@
+AnalysisType: rule
+RuleID: 'basic.rule'
+Detection:
+  - Key: userAgent
+    Condition: Equals
+    Value: Max
+DedupPeriodMinutes: 60
+DisplayName: 'basic.rule'
+Enabled: true
+LogTypes:
+  - Panther.Audit
+Severity: Medium
+Tests:
+  - Name: alerts
+    ExpectedResult: true
+    Log: { 'userAgent': 'Max' }
+  - Name: no alerts - wrong userAgent
+    ExpectedResult: false
+    Log: { 'userAgent': 'John' }
