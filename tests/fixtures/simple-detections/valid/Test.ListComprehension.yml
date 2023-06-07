@@ -1,0 +1,65 @@
+AnalysisType: rule
+RuleID: 'Test.List.Comprehension'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Severity: Low
+Detection:
+  - Key: 'someList'
+    Condition: AnyElement
+    Expressions:
+      - Key: action
+        Condition: Equals
+        Value: ADD
+      - Key: member
+        Condition: IsIn
+        Values:
+          - allUsers
+          - allAuthenticatedUsers
+  - Key: 'someList'
+    Condition: NoElement
+    Expressions:
+      - Key: foo
+        Condition: Equals
+        Value: test
+      - Key: bar
+        Condition: IsIn
+        Values:
+          - baz
+          - quz
+Tests:
+  - Name: Any - all matches
+    ExpectedResult: true
+    Log: { 'someList': [{ 'action': 'ADD', 'member': 'allUsers', 'foo': 'boo', 'bar': 'blah' }] }
+  - Name: Any - one matches
+    ExpectedResult: false
+    Log: { 'someList': [{ 'action': 'ADD', 'member': '', 'foo': 'boo', 'bar': 'blah' }] }
+  - Name: NoElement - element matches all expressions
+    ExpectedResult: false
+    Log: { 'someList': [{ 'action': 'ADD', 'member': 'allUsers', 'foo': 'test', 'bar': 'baz' }] }
+  - Name: NoElement - element matches one of the expressions
+    ExpectedResult: true
+    Log: { 'someList': [{ 'action': 'ADD', 'member': 'allUsers', 'foo': 'test', 'bar': 'blah' }] }
+  - Name: NoElement - element does not match any expression
+    ExpectedResult: true
+    Log: { 'someList': [{ 'action': 'ADD', 'member': 'allUsers', 'foo': 'boo', 'bar': 'blah' }] }
+  - Name: NoElement - one element matches all expressions
+    ExpectedResult: false
+    Log:
+      {
+        'someList':
+          [
+            { 'action': 'ADD', 'member': 'allUsers', 'foo': 'test', 'bar': 'baz' },
+            { 'action': 'ADD', 'member': 'allUsers', 'foo': 'test', 'bar': 'oh hello' },
+          ],
+      }
+  - Name: NoElement - no element matches any expression
+    ExpectedResult: true
+    Log:
+      {
+        'someList':
+          [
+            { 'action': 'ADD', 'member': 'allUsers', 'foo': 'boo', 'bar': 'blah' },
+            { 'action': 'ADD', 'member': 'allUsers', 'foo': 'bar', 'bar': 'oh hello' },
+          ],
+      }

@@ -44,6 +44,8 @@ from .client import (
     PantherSDKBulkUploadResponse,
     PermanentBackendError,
     Schema,
+    TranspileToPythonParams,
+    TranspileToPythonResponse,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     backend_response_failed,
@@ -296,6 +298,13 @@ class LambdaClient(Client):
                 policies=BulkUploadStatistics(**body.get("policies", default_stats)),
                 data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
             ),
+        )
+
+    def transpile_simple_detection_to_python(
+        self, params: TranspileToPythonParams
+    ) -> BackendResponse[TranspileToPythonResponse]:
+        raise BaseException(
+            "transpile simple detections to python is not supported with lambda client"
         )
 
     @staticmethod

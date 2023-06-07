@@ -49,6 +49,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import botocore
+import jsonschema
 import requests
 import schema
 from dynaconf import Dynaconf, Validator
@@ -77,7 +78,13 @@ from schema import (
 )
 
 from panther_analysis_tool import util as pat_utils
-from panther_analysis_tool.analysis_utils import filter_analysis, load_analysis_specs
+from panther_analysis_tool.analysis_utils import (
+    ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
+    filter_analysis,
+    get_simple_detections_as_python,
+    load_analysis_specs,
+)
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.cmd import (
@@ -90,20 +97,12 @@ from panther_analysis_tool.cmd import (
 from panther_analysis_tool.constants import (
     CONFIG_FILE,
     DATA_MODEL_LOCATION,
-    DATAMODEL,
-    DETECTION,
-    GLOBAL,
     HELPERS_LOCATION,
-    LOOKUP_TABLE,
-    PACK,
     PACKAGE_NAME,
-    POLICY,
-    QUERY,
-    RULE,
-    SCHEDULED_RULE,
     SCHEMAS,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
+    AnalysisTypes,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
@@ -112,15 +111,18 @@ from panther_analysis_tool.schemas import (
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    SIMPLE_DETECTION_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.util import convert_unicode
+from panther_analysis_tool.util import convert_unicode, is_simple_detection
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
     contains_invalid_table_names,
     validate_packs,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
+
+# This file was generated in whole or in part by GitHub Copilot.
 
 # interpret datetime as str, the backend uses the default behavior for json.loads, which
 # interprets these as str.  This sets global config for ruamel SafeConstructor
@@ -222,12 +224,12 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     zip_chunks = [
         # note: all the files we care about have an AnalysisType field in their yml
         # so we can ignore file patterns and leave them empty
-        ZipChunk(patterns=[], types=(DATAMODEL, GLOBAL)),  # type: ignore
-        ZipChunk(patterns=[], types=RULE, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=POLICY, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=QUERY, max_size=100),  # type: ignore
-        ZipChunk(patterns=[], types=SCHEDULED_RULE, max_size=200),  # type: ignore
-        ZipChunk(patterns=[], types=LOOKUP_TABLE, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=(AnalysisTypes.DATA_MODEL, AnalysisTypes.GLOBAL)),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.POLICY, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_QUERY, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.LOOKUP_TABLE, max_size=100),  # type: ignore
     ]
 
     filenames = []
@@ -256,7 +258,9 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
     return filename
 
 
-def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
+def zip_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
     Returns 1 if the analysis tests or validation fails.
@@ -268,7 +272,7 @@ def zip_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, invalid_specs = test_analysis(args)
+        return_code, invalid_specs = test_analysis(args, backend)
         if return_code != 0:
             logging.error(invalid_specs)
             return return_code, ""
@@ -307,7 +311,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
         if not args.skip_tests:
-            return_code, invalid_specs = test_analysis(args)
+            return_code, invalid_specs = test_analysis(args, backend)
             if return_code != 0:
                 logging.error(invalid_specs)
                 return return_code, ""
@@ -322,7 +326,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
         return 0, ""
 
-    return_code, archive = zip_analysis(args)
+    return_code, archive = zip_analysis(args, backend)
     if return_code != 0:
         return return_code, ""
 
@@ -662,7 +666,9 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 
 
 # pylint: disable=too-many-locals
-def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
+def test_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
     Args:
@@ -676,12 +682,11 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     ignored_files = args.ignore_files
     search_directories = [args.path]
 
-    # Try the parent directory as well
     for directory in (
         HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,
+        "." + HELPERS_LOCATION,  # Try the parent directory as well
         DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,
+        "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
     ):
         absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
         absolute_helper_path = os.path.abspath(directory)
@@ -698,7 +703,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         valid_table_names=args.valid_table_names,
     )
 
-    if all((len(specs[key]) == 0 for key in specs)):
+    if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
@@ -706,13 +711,16 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
-    for key in specs:
-        specs[key] = filter_analysis(specs[key], args.filter, args.filter_inverted)
+    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
 
-    if all((len(specs[key]) == 0 for key in specs)):
+    if specs.empty():
         return 1, [
             f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
+
+    # enrich simple detections with transpiled python as necessary
+    if len(specs.simple_detections) > 0:
+        specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
 
     ignore_exception_types: List[Type[Exception]] = []
 
@@ -726,36 +734,37 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
         name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
         for name in available_destinations
     }
+
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    setup_global_helpers(specs[GLOBAL])
+    setup_global_helpers(specs.globals)
 
     # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(specs[DATAMODEL])
+    log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
         None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
-    failed_tests, invalid_detection = setup_run_tests(
+    failed_tests, invalid_detections = setup_run_tests(
         log_type_to_data_model,
-        specs[DETECTION],
+        specs.detections + specs.simple_detections,
         args.minimum_tests,
         args.skip_disabled_tests,
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
     )
-    invalid_specs.extend(invalid_detection)
+    invalid_specs.extend(invalid_detections)
 
     # finally, validate pack defs
     invalid_packs = validate_packs(specs)
     invalid_specs.extend(invalid_packs)
 
     # cleanup tmp global dir
-    cleanup_global_helpers(specs[GLOBAL])
+    cleanup_global_helpers(specs.globals)
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
         for outcome in ["passed", "errored"]:
@@ -772,7 +781,9 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
                         failed_tests=test_result_package.failed_tests,
                     )
                     print("")
-    print_summary(args.path, len(specs[DETECTION]), failed_tests, invalid_specs)
+    print_summary(
+        args.path, len(specs.detections + specs.simple_detections), failed_tests, invalid_specs
+    )
 
     #  if the classic format was invalid, just exit
     #  otherwise, run sdk too
@@ -783,7 +794,7 @@ def test_analysis(args: argparse.Namespace) -> Tuple[int, list]:
     return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
 
 
-def setup_global_helpers(global_analysis: List[Any]) -> None:
+def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     # ensure the directory does not exist, else clear it
     cleanup_global_helpers(global_analysis)
     os.makedirs(TMP_HELPER_MODULE_LOCATION)
@@ -791,7 +802,9 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
     if TMP_HELPER_MODULE_LOCATION not in sys.path:
         sys.path.append(TMP_HELPER_MODULE_LOCATION)
     # place globals in temp dir
-    for _, dir_name, analysis_spec in global_analysis:
+    for item in global_analysis:
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["GlobalID"]
         source = os.path.join(dir_name, analysis_spec["Filename"])
         destination = os.path.join(TMP_HELPER_MODULE_LOCATION, f"{analysis_id}.py")
@@ -805,10 +818,10 @@ def setup_global_helpers(global_analysis: List[Any]) -> None:
             importlib.reload(sys.modules[analysis_id])
 
 
-def cleanup_global_helpers(global_analysis: List[Any]) -> None:
+def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     # clear the modules from the modules cache
-    for _, _, analysis_spec in global_analysis:
-        analysis_id = analysis_spec["GlobalID"]
+    for item in global_analysis:
+        analysis_id = item.analysis_spec["GlobalID"]
         # delete the helpers that were added to sys.modules for testing
         if analysis_id in sys.modules:
             del sys.modules[analysis_id]
@@ -817,12 +830,17 @@ def cleanup_global_helpers(global_analysis: List[Any]) -> None:
         shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
 
 
-def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], List[Any]]:
+def setup_data_models(
+    data_models: List[ClassifiedAnalysis],
+) -> Tuple[Dict[str, DataModel], List[Any]]:
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
     log_type_to_data_model: Dict[str, DataModel] = dict()
-    for analysis_spec_filename, dir_name, analysis_spec in data_models:
+    for item in data_models:
+        analysis_spec_filename = item.file_name
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["DataModelID"]
         if analysis_spec["Enabled"]:
             body = None
@@ -869,7 +887,7 @@ def setup_data_models(data_models: List[Any]) -> Tuple[Dict[str, DataModel], Lis
 
 def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     log_type_to_data_model: Dict[str, DataModel],
-    analysis: List[Any],
+    analysis: List[ClassifiedAnalysis],
     minimum_tests: int,
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
@@ -878,22 +896,30 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
-    for analysis_spec_filename, dir_name, analysis_spec in analysis:
+    for item in analysis:
+        analysis_spec_filename = item.file_name
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
         analysis_type = analysis_spec["AnalysisType"]
         analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
-        module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
-        detection: Detection = Rule(
-            dict(
-                id=analysis_id,
-                analysisType=analysis_type,
-                path=module_code_path,
-                versionId="0000-0000-0000",
-            )
-        )
-        if analysis_type == POLICY:
-            detection = Policy(
+        if is_simple_detection(analysis_spec):
+            if analysis_spec.get("body"):
+                detection = Rule(
+                    dict(
+                        id=analysis_id,
+                        analysisType=analysis_type,
+                        body=analysis_spec["body"],
+                        versionId="0000-0000-0000",
+                    )
+                )
+            else:
+                # skip tests when the body is empty
+                continue
+        else:
+            module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
+            detection = Rule(
                 dict(
                     id=analysis_id,
                     analysisType=analysis_type,
@@ -901,6 +927,15 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
                     versionId="0000-0000-0000",
                 )
             )
+            if analysis_type == AnalysisTypes.POLICY:
+                detection = Policy(
+                    dict(
+                        id=analysis_id,
+                        analysisType=analysis_type,
+                        path=module_code_path,
+                        versionId="0000-0000-0000",
+                    )
+                )
 
         if not all_test_results:
             print(detection.detection_id)
@@ -956,13 +991,11 @@ def print_summary(
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
-) -> Tuple[Dict[str, List[Any]], List[Any]]:
+) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
-    classified_specs: Dict[str, List[Any]] = dict()
-    for key in [DATAMODEL, DETECTION, LOOKUP_TABLE, GLOBAL, PACK, QUERY]:
-        classified_specs[key] = []
+    all_specs = ClassifiedAnalysisContainer()
 
     invalid_specs = []
     # each analysis type must have a unique id, track used ids and
@@ -1002,7 +1035,7 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == QUERY and not ignore_table_names:
+            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -1011,15 +1044,17 @@ def classify_analysis(
                         analysis_id, invalid_table_names
                     )
             analysis_ids.append(analysis_id)
-            # add the validated analysis type to the classified specs
-            if analysis_type in [POLICY, RULE, SCHEDULED_RULE]:
-                classified_specs[DETECTION].append(
-                    (analysis_spec_filename, dir_name, analysis_spec)
-                )
-            else:
-                classified_specs[analysis_type].append(
-                    (analysis_spec_filename, dir_name, analysis_spec)
-                )
+
+            classified_analysis = ClassifiedAnalysis(
+                analysis_spec_filename, dir_name, analysis_spec
+            )
+
+            # extra validation for simple detections based on json schema
+            if is_simple_detection(analysis_spec):
+                jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
+
+            all_specs.add_classified_analysis(analysis_type, classified_analysis)
+
         except SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
@@ -1040,6 +1075,11 @@ def classify_analysis(
             elif "ResourceTypes" in str(err):
                 error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
+        except jsonschema.exceptions.ValidationError as err:
+            error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
+            invalid_specs.append(
+                (analysis_spec_filename, jsonschema.exceptions.ValidationError(error_message))
+            )
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
             invalid_specs.append((analysis_spec_filename, err))
@@ -1049,24 +1089,24 @@ def classify_analysis(
             if tmp_logtypes and tmp_logtypes_key:
                 analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
 
-    return classified_specs, invalid_specs
+    return all_specs, invalid_specs
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     analysis_id = "UNKNOWN_ID"
-    if analysis_type == DATAMODEL:
+    if analysis_type == AnalysisTypes.DATA_MODEL:
         analysis_id = analysis_spec["DataModelID"]
-    if analysis_type == GLOBAL:
+    elif analysis_type == AnalysisTypes.GLOBAL:
         analysis_id = analysis_spec["GlobalID"]
-    if analysis_type == LOOKUP_TABLE:
+    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
         analysis_id = analysis_spec["LookupName"]
-    if analysis_type == PACK:
+    elif analysis_type == AnalysisTypes.PACK:
         analysis_id = analysis_spec["PackID"]
-    if analysis_type == POLICY:
+    elif analysis_type == AnalysisTypes.POLICY:
         analysis_id = analysis_spec["PolicyID"]
-    if analysis_type == QUERY:
+    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
         analysis_id = analysis_spec["QueryName"]
-    if analysis_type in [RULE, SCHEDULED_RULE]:
+    elif analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
 
@@ -1411,6 +1451,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser = subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
+    standard_args.for_public_api(test_parser, required=False)
     test_parser.add_argument(filter_name, **filter_arg)
     test_parser.add_argument(min_test_name, **min_test_arg)
     test_parser.add_argument(path_name, **path_arg)
@@ -1421,7 +1462,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    test_parser.set_defaults(func=test_analysis)
+    test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
 
     # -- publish command
 
@@ -1597,6 +1638,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser = subparsers.add_parser(
         "zip", help="Create an archive of local policies and rules for uploading to Panther."
     )
+    standard_args.for_public_api(zip_parser, required=False)
     zip_parser.add_argument(filter_name, **filter_arg)
     zip_parser.add_argument(ignore_files_name, **ignore_files_arg)
     zip_parser.add_argument(min_test_name, **min_test_arg)
@@ -1608,7 +1650,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
     zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     zip_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    zip_parser.set_defaults(func=zip_analysis)
+    zip_parser.set_defaults(func=pat_utils.func_with_optional_backend(zip_analysis))
 
     # -- check-connection command
 
@@ -1777,7 +1819,7 @@ def run() -> None:
             break
     if os.path.exists(CONFIG_FILE):
         logging.info(
-            "Found Config File %s . NOTE: SETTINGS IN CONFIG FILE OVERRIDE COMMAND LINE OPTIONS",
+            "Found Config File %s . NOTE: COMMAND LINE OPTIONS WILL OVERRIDE SETTINGS IN CONFIG FILE",
             CONFIG_FILE,
         )
     config_file_settings = setup_dynaconf()

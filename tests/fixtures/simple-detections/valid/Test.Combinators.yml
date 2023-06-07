@@ -1,0 +1,32 @@
+AnalysisType: rule
+RuleID: 'Test.Combinators'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Severity: Low
+Detection:
+  - All:
+      - Key: flurb
+        Condition: Equals
+        Value: asdfasdf
+      - Key: bar
+        Condition: Equals
+        Value: blah
+  - Any:
+      - DeepKey:
+          - abc
+          - def
+        Condition: Equals
+        Value: 123
+      - DeepKey:
+          - abc
+          - def
+        Condition: Equals
+        Value: 456
+  - OnlyOne:
+      - Key: flargle
+        Condition: Equals
+        Value: 1234
+      - Key: blurgle
+        Condition: Equals
+        Value: 999999

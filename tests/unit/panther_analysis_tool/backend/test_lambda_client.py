@@ -22,7 +22,7 @@ import json
 from typing import Any, Dict
 from unittest import TestCase, mock
 
-from panther_analysis_tool.backend.client import BulkUploadParams, DeleteDetectionsParams
+from panther_analysis_tool.backend.client import BulkUploadParams, DeleteDetectionsParams, TranspileToPythonParams
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
 
 
@@ -79,3 +79,7 @@ class TestLambdaClient(TestCase):
             self.assertEqual(["1", "2"], result.data.ids)
             self.assertEqual([], result.data.saved_query_names)
 
+    def test_transpile_to_python(self) -> None:
+        with self.assertRaises(BaseException):
+            lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
+            lc.transpile_simple_detection_to_python(TranspileToPythonParams(data=[""]))

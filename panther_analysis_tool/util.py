@@ -24,7 +24,7 @@ import re
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
 import requests
@@ -36,7 +36,11 @@ from panther_analysis_tool.backend.public_api_client import (
     PublicAPIClient,
     PublicAPIClientOptions,
 )
-from panther_analysis_tool.constants import PACKAGE_NAME, VERSION_STRING
+from panther_analysis_tool.constants import (
+    PACKAGE_NAME,
+    PANTHER_USER_ID,
+    VERSION_STRING,
+)
 
 UNKNOWN_VERSION = "unknown"
 
@@ -111,22 +115,38 @@ def func_with_backend(
     return lambda args: func(get_backend(args), args)
 
 
-def get_backend(args: argparse.Namespace) -> BackendClient:
-    # The UserID is required by Panther for this API call, but we have no way of
-    # acquiring it, and it isn't used for anything. This is a valid UUID used by the
-    # Panther deployment tool to indicate this action was performed automatically.
-    user_id = "00000000-0000-4000-8000-000000000000"
+def func_with_optional_backend(
+    func: Callable[[argparse.Namespace, Optional[BackendClient]], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
+    return lambda args: func(args, get_optional_backend(args))
+
+
+def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
 
     if args.api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(token=args.api_token, user_id=user_id, host=args.api_host)
+            PublicAPIClientOptions(
+                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
+            )
+        )
+
+    return None
+
+
+def get_backend(args: argparse.Namespace) -> BackendClient:
+
+    if args.api_token:
+        return PublicAPIClient(
+            PublicAPIClientOptions(
+                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
+            )
         )
 
     datalake_lambda = get_datalake_lambda(args)
 
     return LambdaClient(
         LambdaClientOpts(
-            user_id=user_id,
+            user_id=PANTHER_USER_ID,
             aws_profile=args.aws_profile,
             datalake_lambda=datalake_lambda,
         )
@@ -173,3 +193,7 @@ def convert_unicode(obj: Any) -> str:
     e.g. \\\\u003c => <"""
     string_to_convert = str(obj)
     return re.sub(r"\\*\\u([0-9a-f]{4})", lambda m: chr(int(m.group(1), 16)), string_to_convert)
+
+
+def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
+    return analysis_item.get("Detection") is not None

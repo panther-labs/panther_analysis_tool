@@ -16,6 +16,8 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+import json
+import pkgutil
 from typing import Any, Dict
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
@@ -52,6 +54,8 @@ RESOURCE_TYPE_REGEX = Regex(
 LOG_TYPE_REGEX = Regex(
     r"^(Apache\.AccessCombined|Amazon\.EKS\.Audit|Amazon\.EKS\.Authenticator|Apache\.AccessCommon"
     r"|Asana\.Audit|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
+    r"|Auth0\.Events"
+    r"|Netskope\.Audit"
     r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
     r"|AWS\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
     r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
@@ -75,7 +79,9 @@ LOG_TYPE_REGEX = Regex(
     r"|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit\.Exchange"
     r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
     r"MicrosoftGraph\.SecurityAlert|"
+    r"MongoDB\.OrganizationEvent|MongoDB\.ProjectEvent|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
+    r"Notion\.AuditLogs|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
     r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Snyk\.OrgAudit|Snyk\.GroupAudit|Sophos\.Central|Suricata"
@@ -191,12 +197,13 @@ RULE_SCHEMA = Schema(
     {
         "AnalysisType": Or("rule", "scheduled_rule"),
         "Enabled": bool,
-        "Filename": str,
+        Or("Filename", "Detection", only_one=True): Or(str, object),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
         Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
@@ -264,3 +271,11 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+# load jsonschema files
+raw_simple_detection_schema = pkgutil.get_data(
+    __name__, "detection_schemas/simple_detection_json_schema.json"
+)
+SIMPLE_DETECTION_SCHEMA = (
+    json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
+)

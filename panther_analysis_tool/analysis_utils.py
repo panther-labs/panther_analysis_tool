@@ -1,13 +1,35 @@
+"""
+Panther Analysis Tool is a command line interface for writing,
+testing, and packaging policies/rules.
+Copyright (C) 2020 Panther Labs Inc
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+import dataclasses
 import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
+from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import TranspileToPythonParams
 from panther_analysis_tool.constants import (
     DATA_MODEL_PATH_PATTERN,
     HELPERS_PATH_PATTERN,
@@ -16,24 +38,108 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+    AnalysisTypes,
 )
+from panther_analysis_tool.util import is_simple_detection
+
+
+class ClassifiedAnalysis:
+    def __init__(self, file_name: str, dir_name: str, analysis_spec: Dict[str, Any]):
+        self.file_name = file_name
+        self.dir_name = dir_name
+        self.analysis_spec = analysis_spec
+
+
+@dataclasses.dataclass
+class ClassifiedAnalysisContainer:
+    """Contains all classified analysis specs"""
+
+    data_models: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    globals: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    detections: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    simple_detections: List[ClassifiedAnalysis] = dataclasses.field(
+        init=False, default_factory=list
+    )
+    scheduled_queries: List[ClassifiedAnalysis] = dataclasses.field(
+        init=False, default_factory=list
+    )
+    lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+
+    def _self_as_list(self) -> List[List[ClassifiedAnalysis]]:
+        return [
+            self.data_models,
+            self.globals,
+            self.detections,
+            self.simple_detections,
+            self.scheduled_queries,
+            self.lookup_tables,
+            self.packs,
+        ]
+
+    def empty(self) -> bool:
+        return all(len(l) == 0 for l in self._self_as_list())
+
+    def apply(
+        self,
+        func: Callable[[List[ClassifiedAnalysis]], List[ClassifiedAnalysis]],
+    ) -> "ClassifiedAnalysisContainer":
+        container = ClassifiedAnalysisContainer()
+        container.data_models = func(self.data_models)
+        container.globals = func(self.globals)
+        container.detections = func(self.detections)
+        container.simple_detections = func(self.simple_detections)
+        container.scheduled_queries = func(self.scheduled_queries)
+        container.lookup_tables = func(self.lookup_tables)
+        container.packs = func(self.packs)
+        return container
+
+    def items(self) -> Generator[ClassifiedAnalysis, None, None]:
+        for analysis_list in self._self_as_list():
+            for classified in analysis_list:
+                yield classified
+
+    def add_classified_analysis(
+        self, analysis_type: str, classified_analysis: ClassifiedAnalysis
+    ) -> None:
+        if is_simple_detection(classified_analysis.analysis_spec):
+            self.simple_detections.append(classified_analysis)
+        elif analysis_type in [
+            AnalysisTypes.POLICY,
+            AnalysisTypes.RULE,
+            AnalysisTypes.SCHEDULED_RULE,
+        ]:
+            self.detections.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.DATA_MODEL:
+            self.data_models.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.GLOBAL:
+            self.globals.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
+            self.lookup_tables.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.PACK:
+            self.packs.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
+            self.scheduled_queries.append(classified_analysis)
 
 
 def filter_analysis(
-    analysis: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
-) -> List[Any]:
+    analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
+) -> List[ClassifiedAnalysis]:
     if filters is None:
         return analysis
 
     filtered_analysis = []
-    for file_name, dir_name, analysis_spec in analysis:
+    for item in analysis:
+        dir_name = item.dir_name
+        file_name = item.file_name
+        analysis_spec = item.analysis_spec
         if fnmatch(dir_name, HELPERS_PATH_PATTERN):
             logging.debug("auto-adding helpers file %s", os.path.join(file_name))
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         if fnmatch(dir_name, DATA_MODEL_PATH_PATTERN):
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         match = True
         for key, values in filters.items():
@@ -50,7 +156,7 @@ def filter_analysis(
                 break
 
         if match:
-            filtered_analysis.append((file_name, dir_name, analysis_spec))
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
 
     return filtered_analysis
 
@@ -139,3 +245,34 @@ def load_analysis_specs(
 def to_relative_path(filename: str) -> str:
     cwd = os.getcwd()
     return os.path.relpath(filename, cwd)
+
+
+# This function was generated in whole or in part by GitHub Copilot.
+def get_simple_detections_as_python(
+    specs: List[ClassifiedAnalysis], backend: Optional[BackendClient] = None
+) -> List[ClassifiedAnalysis]:
+    """Returns simple detections with transpiled Python."""
+    enriched_specs = []
+    if backend is not None:
+        batch = [json.dumps(spec.analysis_spec) for spec in specs]
+        try:
+            params = TranspileToPythonParams(data=batch)
+            response = backend.transpile_simple_detection_to_python(params)
+            if response.status_code == 200:
+                for i, result in enumerate(response.data.transpiled_python):
+                    item = specs[i]
+                    spec = item.analysis_spec
+                    spec["body"] = result
+                    enriched_specs.append(ClassifiedAnalysis(item.file_name, item.dir_name, spec))
+            else:
+                logging.warning(
+                    "Error transpiling simple detection(s) to Python, skipping tests for simple detections."
+                )
+        except (BackendError, BaseException) as be_err:  # pylint: disable=broad-except
+            logging.warning(
+                "Error transpiling simple detection(s) to Python, skipping tests for simple detections:  %s",
+                be_err,
+            )
+    else:
+        logging.info("No backend client provided, skipping tests for simple detections.")
+    return enriched_specs if enriched_specs else specs

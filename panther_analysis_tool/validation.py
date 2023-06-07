@@ -1,11 +1,14 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from nested_lookup import nested_lookup
 from sqlfluff import parse
 
-from panther_analysis_tool.constants import PACK, SET_FIELDS
+from panther_analysis_tool.analysis_utils import ClassifiedAnalysisContainer
+from panther_analysis_tool.constants import SET_FIELDS
+
+# This file was generated in whole or in part by GitHub Copilot.
 
 
 def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
@@ -91,23 +94,25 @@ def matches_valid_table_name(table_name: str, valid_table_names: List[str]) -> b
     return False
 
 
-def validate_packs(analysis_specs: Dict[str, List[Any]]) -> List[Any]:
+def validate_packs(analysis_specs: ClassifiedAnalysisContainer) -> List[Any]:
     invalid_specs = []
     # first, setup dictionary of id to detection item
     id_to_detection = {}
-    for analysis_type in analysis_specs:
-        for analysis_spec_filename, _, analysis_spec in analysis_specs[analysis_type]:
-            analysis_id = (
-                analysis_spec.get("PolicyID")
-                or analysis_spec.get("RuleID")
-                or analysis_spec.get("DataModelID")
-                or analysis_spec.get("GlobalID")
-                or analysis_spec.get("PackID")
-                or analysis_spec.get("QueryName")
-                or analysis_spec["LookupName"]
-            )
-            id_to_detection[analysis_id] = analysis_spec
-    for analysis_spec_filename, _, analysis_spec in analysis_specs[PACK]:
+    for item in analysis_specs.items():
+        analysis_spec = item.analysis_spec
+        analysis_id = (
+            analysis_spec.get("PolicyID")
+            or analysis_spec.get("RuleID")
+            or analysis_spec.get("DataModelID")
+            or analysis_spec.get("GlobalID")
+            or analysis_spec.get("PackID")
+            or analysis_spec.get("QueryName")
+            or analysis_spec["LookupName"]
+        )
+        id_to_detection[analysis_id] = analysis_spec
+    for item in analysis_specs.packs:
+        analysis_spec = item.analysis_spec
+        analysis_spec_filename = item.file_name
         # validate each id in the pack def exists
         pack_invalid_ids = []
         for analysis_id in analysis_spec.get("PackDefinition", {}).get("IDs", []):
