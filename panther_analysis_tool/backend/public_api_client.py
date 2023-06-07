@@ -50,6 +50,8 @@ from .client import (
     PantherSDKBulkUploadResponse,
     PermanentBackendError,
     Schema,
+    TranspileFiltersParams,
+    TranspileFiltersResponse,
     TranspileToPythonParams,
     TranspileToPythonResponse,
     UpdateSchemaParams,
@@ -101,6 +103,9 @@ class PublicAPIRequests:
 
     def transpile_simple_detection_to_python(self) -> DocumentNode:
         return self._load("transpile_sdl")
+
+    def transpile_filters(self) -> DocumentNode:
+        return self._load("transpile_filters")
 
     def introspection_query(self) -> DocumentNode:
         return self._load("introspection_query")
@@ -193,6 +198,21 @@ class PublicAPIClient(Client):
             status_code=200,
             data=TranspileToPythonResponse(
                 transpiled_python=data.get("transpiledPython") or [],
+            ),
+        )
+
+    def transpile_filters(
+        self, params: TranspileFiltersParams
+    ) -> BackendResponse[TranspileFiltersResponse]:
+        query = self._requests.transpile_filters()
+        transpile_input = {"input": {"data": params.data, "patVersion": params.pat_version}}
+        res = self._safe_execute(query, variable_values=transpile_input)
+        data = res.data.get("transpileFilters", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=TranspileFiltersResponse(
+                transpiled_filters=data.get("transpiledFilters") or [],
             ),
         )
 
