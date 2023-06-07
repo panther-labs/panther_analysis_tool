@@ -191,3 +191,28 @@ class TestTranspileInlineFilters(TestCase):
                 self.assertEqual(json.loads(filters), actual.analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY))
             else:
                 self.assertEqual(None, actual.analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY))
+
+    def test_no_filters(self) -> None:
+        import logging
+        specs = ClassifiedAnalysisContainer()
+        backend = MockBackend()
+        specs.simple_detections = [
+            ClassifiedAnalysis("filname", "filepath", {
+                "Detection": [
+                    {
+                        "Key": "event_type",
+                        "Condition": "Equals",
+                        "Value": "team_privacy_settings_changed"
+                    },
+                ]
+            })
+        ]
+        specs.detections = [
+            ClassifiedAnalysis("filname", "filepath", {
+                "Filename": "python.py"
+            })
+        ]
+        with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT,
+                                 info=mock.DEFAULT) as logging_mocks:
+            transpile_inline_filters(specs, backend)
+            self.assertEqual(logging_mocks['warning'].call_count, 0)

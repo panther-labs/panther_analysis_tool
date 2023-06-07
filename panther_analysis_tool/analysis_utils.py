@@ -307,7 +307,7 @@ def transpile_inline_filters(
             simple_detections.append(det)
 
     # if there are no InlineFilters at all then we can just return
-    if len(detections) == 0 and len(simple_detections) == 0:
+    if len(all_detections_with_filters) == 0:
         return
 
     if backend is not None:
