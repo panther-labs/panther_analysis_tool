@@ -22,7 +22,8 @@ import json
 from typing import Any, Dict
 from unittest import TestCase, mock
 
-from panther_analysis_tool.backend.client import BulkUploadParams, DeleteDetectionsParams, TranspileToPythonParams
+from panther_analysis_tool.backend.client import BulkUploadParams, DeleteDetectionsParams, TranspileToPythonParams, \
+    TranspileFiltersParams
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
 
 
@@ -60,7 +61,8 @@ class TestLambdaClient(TestCase):
 
     def test_bulk_upload(self) -> None:
         mock_lambda_res = _make_mock_response_with_string_body(http_status=200,
-                                                               payload={"policies": {"total": 2, "new": 0, "modified": 0}})
+                                                               payload={
+                                                                   "policies": {"total": 2, "new": 0, "modified": 0}})
 
         with mock.patch('boto3.client', return_value=MockBoto(invoke_returns=mock_lambda_res)):
             lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
@@ -70,11 +72,13 @@ class TestLambdaClient(TestCase):
             self.assertEqual(result.data.rules.total, 0)
 
     def test_delete_detections(self) -> None:
-        mock_lambda_res = _make_mock_response_with_string_body(http_status=200, payload={"ids": ["1", "2"], "savedQueryNames": None})
+        mock_lambda_res = _make_mock_response_with_string_body(http_status=200,
+                                                               payload={"ids": ["1", "2"], "savedQueryNames": None})
 
         with mock.patch('boto3.client', return_value=MockBoto(invoke_returns=mock_lambda_res)):
             lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
-            result = lc.delete_detections(DeleteDetectionsParams(dry_run=True, ids=["1", "2", "3"], include_saved_queries=False))
+            result = lc.delete_detections(
+                DeleteDetectionsParams(dry_run=True, ids=["1", "2", "3"], include_saved_queries=False))
 
             self.assertEqual(["1", "2"], result.data.ids)
             self.assertEqual([], result.data.saved_query_names)
@@ -83,3 +87,8 @@ class TestLambdaClient(TestCase):
         with self.assertRaises(BaseException):
             lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
             lc.transpile_simple_detection_to_python(TranspileToPythonParams(data=[""]))
+
+    def test_transpile_filters(self) -> None:
+        with self.assertRaises(BaseException):
+            lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
+            lc.transpile_filters(TranspileFiltersParams(data=[""]))

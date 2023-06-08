@@ -1,0 +1,23 @@
+AnalysisType: rule
+RuleID: 'basic.python.rule.with.filters'
+Filename: basic.python.rule.with.filters.py
+InlineFilters:
+  - PathSpecifier: actionName
+    Condition: Equals
+    Value: Beans
+DedupPeriodMinutes: 60
+DisplayName: 'basic.python.rule.with.filters'
+Enabled: true
+LogTypes:
+  - Panther.Audit
+Severity: Medium
+Tests:
+  - Name: wrong userAgent
+    ExpectedResult: false
+    Log: { 'userAgent': 'John', 'actionName': 'Beans' }
+  - Name: wrong actionName
+    ExpectedResult: false
+    Log: { 'userAgent': 'Max', 'actionName': 'bananas' }
+  - Name: alerts
+    ExpectedResult: true
+    Log: { 'userAgent': 'Max', 'actionName': 'Beans' }

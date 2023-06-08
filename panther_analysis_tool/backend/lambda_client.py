@@ -44,6 +44,8 @@ from .client import (
     PantherSDKBulkUploadResponse,
     PermanentBackendError,
     Schema,
+    TranspileFiltersParams,
+    TranspileFiltersResponse,
     TranspileToPythonParams,
     TranspileToPythonResponse,
     UpdateSchemaParams,
@@ -306,6 +308,11 @@ class LambdaClient(Client):
         raise BaseException(
             "transpile simple detections to python is not supported with lambda client"
         )
+
+    def transpile_filters(
+        self, params: TranspileFiltersParams
+    ) -> BackendResponse[TranspileFiltersResponse]:
+        raise BaseException("transpile filters is not supported with lambda client")
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:

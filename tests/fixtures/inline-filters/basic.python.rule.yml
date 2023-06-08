@@ -1,0 +1,16 @@
+AnalysisType: rule
+RuleID: 'basic.python.rule'
+Filename: basic.python.rule.py
+DedupPeriodMinutes: 60
+DisplayName: 'basic.python.rule'
+Enabled: true
+LogTypes:
+  - Panther.Audit
+Severity: Medium
+Tests:
+  - Name: wrong userAgent
+    ExpectedResult: false
+    Log: { 'userAgent': 'John' }
+  - Name: alerts
+    ExpectedResult: true
+    Log: { 'userAgent': 'Max' }

@@ -30,7 +30,8 @@ from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
-from panther_analysis_tool.backend.client import BackendError, BackendResponse, TranspileToPythonResponse
+from panther_analysis_tool.backend.client import BackendError, BackendResponse, TranspileToPythonResponse, \
+    TranspileFiltersResponse
 from panther_analysis_tool.backend.mocks import MockBackend
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
@@ -472,7 +473,8 @@ class TestPantherAnalysisTool(TestCase):
     def test_invalid_query_passes_when_unchecked(self):
         # sqlfluff doesn't load correctly with the fake file system
         with Pause(self.fs):
-            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names'.split())
+            args = pat.setup_parser().parse_args(
+                f'test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names'.split())
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -481,7 +483,8 @@ class TestPantherAnalysisTool(TestCase):
     def test_invalid_query_passes_when_table_name_provided(self):
         # sqlfluff doesn't load correctly with the fake file system
         with Pause(self.fs):
-            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history'.split())
+            args = pat.setup_parser().parse_args(
+                f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history'.split())
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
@@ -490,7 +493,8 @@ class TestPantherAnalysisTool(TestCase):
     def test_invalid_query_fails_when_partial_table_name_provided(self):
         # sqlfluff doesn't load correctly with the fake file system
         with Pause(self.fs):
-            args = pat.setup_parser().parse_args(f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history'.split())
+            args = pat.setup_parser().parse_args(
+                f'test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history'.split())
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
@@ -518,7 +522,8 @@ class TestPantherAnalysisTool(TestCase):
     def test_simple_detection_with_transpile(self):
         with Pause(self.fs):
             file_path = f'{FIXTURES_PATH}/simple-detections/valid'
-            number_of_test_files = len([name for name in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, name))])
+            number_of_test_files = len(
+                [name for name in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, name))])
             backend = MockBackend()
             backend.transpile_simple_detection_to_python = mock.MagicMock(
                 return_value=BackendResponse(
@@ -534,4 +539,37 @@ class TestPantherAnalysisTool(TestCase):
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_run_tests_with_filters(self):
+        with Pause(self.fs):
+            file_path = f'{FIXTURES_PATH}/inline-filters'
+            number_of_test_files = len(
+                [name for name in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, name))])
+            backend = MockBackend()
+            backend.transpile_simple_detection_to_python = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=TranspileToPythonResponse(
+                        transpiled_python=["def rule(event): return event.get('userAgent') == 'Max'" for _ in
+                                           range(number_of_test_files)],
+                    ),
+                    status_code=200,
+                )
+            )
+            backend.transpile_filters = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=TranspileFiltersResponse(
+                        transpiled_filters=[json.dumps({
+                            'statement': {'and': [{'target': 'actionName', 'value': 'Beans', 'operator': '=='}]},
+                        }) for _ in range(number_of_test_files)],
+                    ),
+                    status_code=200,
+                )
+            )
+            args = pat.setup_parser().parse_args(f'test '
+                                                 f'--path '
+                                                 f' {file_path}'.split())
+            return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+        # our mock transpiled code always returns true, so we should have some failing tests
+        assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)

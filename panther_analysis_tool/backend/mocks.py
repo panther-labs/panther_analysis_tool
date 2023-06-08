@@ -12,6 +12,8 @@ from panther_analysis_tool.backend.client import (
     DeleteSavedQueriesParams,
     ListSchemasParams,
     PantherSDKBulkUploadParams,
+    TranspileFiltersParams,
+    TranspileFiltersResponse,
     TranspileToPythonParams,
     UpdateSchemaParams,
 )
@@ -48,4 +50,9 @@ class MockBackend(BackendClient):
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
     ) -> BackendResponse[Any]:
+        pass
+
+    def transpile_filters(
+        self, params: TranspileFiltersParams
+    ) -> BackendResponse[TranspileFiltersResponse]:
         pass

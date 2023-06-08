@@ -29,8 +29,12 @@ from ruamel.yaml import scanner as YAMLScanner
 
 from panther_analysis_tool.backend.client import BackendError
 from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import TranspileToPythonParams
+from panther_analysis_tool.backend.client import (
+    TranspileFiltersParams,
+    TranspileToPythonParams,
+)
 from panther_analysis_tool.constants import (
+    BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_PATH_PATTERN,
     HELPERS_PATH_PATTERN,
     LUTS_PATH_PATTERN,
@@ -38,6 +42,7 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+    VERSION_STRING,
     AnalysisTypes,
 )
 from panther_analysis_tool.util import is_simple_detection
@@ -276,3 +281,66 @@ def get_simple_detections_as_python(
     else:
         logging.info("No backend client provided, skipping tests for simple detections.")
     return enriched_specs if enriched_specs else specs
+
+
+def transpile_inline_filters(
+    all_specs: ClassifiedAnalysisContainer, backend: Optional[BackendClient] = None
+) -> None:
+    """
+    Transpiles all InlineFilters on detections from simple detection format to the backend format and saves the
+    transpiled filter's JSON to the analysis spec under "_backend_filters".
+    """
+    inline_filters_key = "InlineFilters"
+
+    # separate out all detections with inline filters
+    # keep track of the detections without filters so the list can be used later
+    all_detections_with_filters, detections, simple_detections = [], [], []
+    for det in all_specs.detections:
+        if inline_filters_key in det.analysis_spec:
+            all_detections_with_filters.append(det)
+        else:
+            detections.append(det)
+    for det in all_specs.simple_detections:
+        if inline_filters_key in det.analysis_spec:
+            all_detections_with_filters.append(det)
+        else:
+            simple_detections.append(det)
+
+    # if there are no InlineFilters at all then we can just return
+    if len(all_detections_with_filters) == 0:
+        return
+
+    if backend is not None:
+        batch = [
+            json.dumps(d.analysis_spec.get("InlineFilters")) for d in all_detections_with_filters
+        ]
+        try:
+            params = TranspileFiltersParams(data=batch, pat_version=VERSION_STRING)
+            response = backend.transpile_filters(params)
+
+            if response.status_code == 200:
+                # set the translated backend filters on the analysis spec
+                for i, result in enumerate(response.data.transpiled_filters):
+                    all_detections_with_filters[i].analysis_spec[
+                        BACKEND_FILTERS_ANALYSIS_SPEC_KEY
+                    ] = json.loads(result)
+                # separate the simple detections from the other detections
+                for det in all_detections_with_filters:
+                    if is_simple_detection(det.analysis_spec):
+                        simple_detections.append(det)
+                    else:
+                        detections.append(det)
+                # replace the lists in all specs with the new specs
+                all_specs.detections = detections
+                all_specs.simple_detections = simple_detections
+            else:
+                logging.warning(
+                    "Error transpiling InlineFilter(s), skipping InlineFilters during testing"
+                )
+        except (BackendError, BaseException) as be_err:  # pylint: disable=broad-except
+            logging.warning(
+                "Error transpiling InlineFilter(s), skipping InlineFilters during testing:  %s",
+                be_err,
+            )
+    else:
+        logging.info("No backend client provided, skipping InlineFilters during testing")

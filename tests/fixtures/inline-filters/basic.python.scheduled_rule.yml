@@ -1,0 +1,16 @@
+AnalysisType: scheduled_rule
+RuleID: 'basic.python.scheduled_rule'
+Filename: basic.python.scheduled_rule.py
+DedupPeriodMinutes: 60
+DisplayName: 'basic.python.scheduled_rule'
+Enabled: true
+ScheduledQueries:
+  - MyQuery
+Severity: Medium
+Tests:
+  - Name: alerts
+    ExpectedResult: true
+    Log: { 'userAgent': 'Max' }
+  - Name: no alerts - wrong userAgent
+    ExpectedResult: false
+    Log: { 'userAgent': 'John' }

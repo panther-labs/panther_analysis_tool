@@ -84,6 +84,7 @@ from panther_analysis_tool.analysis_utils import (
     filter_analysis,
     get_simple_detections_as_python,
     load_analysis_specs,
+    transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -95,6 +96,7 @@ from panther_analysis_tool.cmd import (
     standard_args,
 )
 from panther_analysis_tool.constants import (
+    BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     CONFIG_FILE,
     DATA_MODEL_LOCATION,
     HELPERS_LOCATION,
@@ -722,6 +724,8 @@ def test_analysis(
     if len(specs.simple_detections) > 0:
         specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
 
+    transpile_inline_filters(specs, backend)
+
     ignore_exception_types: List[Type[Exception]] = []
 
     available_destinations: List[str] = []
@@ -903,39 +907,27 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
             continue
         analysis_type = analysis_spec["AnalysisType"]
-        analysis_id = analysis_spec.get("PolicyID") or analysis_spec["RuleID"]
+
+        detection_args = dict(
+            id=analysis_spec.get("PolicyID") or analysis_spec["RuleID"],
+            analysisType=analysis_type.upper(),
+            versionId="0000-0000-0000",
+            filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
+        )
+
         if is_simple_detection(analysis_spec):
-            if analysis_spec.get("body"):
-                detection = Rule(
-                    dict(
-                        id=analysis_id,
-                        analysisType=analysis_type,
-                        body=analysis_spec["body"],
-                        versionId="0000-0000-0000",
-                    )
-                )
-            else:
-                # skip tests when the body is empty
+            # skip tests when the body is empty
+            if not analysis_spec.get("body"):
                 continue
+            detection_args["body"] = analysis_spec.get("body")
         else:
-            module_code_path = os.path.join(dir_name, analysis_spec["Filename"])
-            detection = Rule(
-                dict(
-                    id=analysis_id,
-                    analysisType=analysis_type,
-                    path=module_code_path,
-                    versionId="0000-0000-0000",
-                )
-            )
-            if analysis_type == AnalysisTypes.POLICY:
-                detection = Policy(
-                    dict(
-                        id=analysis_id,
-                        analysisType=analysis_type,
-                        path=module_code_path,
-                        versionId="0000-0000-0000",
-                    )
-                )
+            detection_args["path"] = os.path.join(dir_name, analysis_spec["Filename"])
+
+        detection = (
+            Policy(detection_args)
+            if analysis_type == AnalysisTypes.POLICY
+            else Rule(detection_args)
+        )
 
         if not all_test_results:
             print(detection.detection_id)
