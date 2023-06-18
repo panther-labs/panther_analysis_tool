@@ -102,6 +102,7 @@ TYPE_SCHEMA = Schema(
             "pack",
             "policy",
             "rule",
+            "saved_query",
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
@@ -225,6 +226,17 @@ RULE_SCHEMA = Schema(
                 Optional("Mocks"): [MOCK_SCHEMA],
             }
         ],
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+QUERY_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("saved_query"),
+        "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
+        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        Optional("Description"): str,
+        Optional("Tags"): [str],
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields

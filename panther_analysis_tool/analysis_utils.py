@@ -65,9 +65,7 @@ class ClassifiedAnalysisContainer:
     simple_detections: List[ClassifiedAnalysis] = dataclasses.field(
         init=False, default_factory=list
     )
-    scheduled_queries: List[ClassifiedAnalysis] = dataclasses.field(
-        init=False, default_factory=list
-    )
+    queries: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
 
@@ -77,7 +75,7 @@ class ClassifiedAnalysisContainer:
             self.globals,
             self.detections,
             self.simple_detections,
-            self.scheduled_queries,
+            self.queries,
             self.lookup_tables,
             self.packs,
         ]
@@ -94,7 +92,7 @@ class ClassifiedAnalysisContainer:
         container.globals = func(self.globals)
         container.detections = func(self.detections)
         container.simple_detections = func(self.simple_detections)
-        container.scheduled_queries = func(self.scheduled_queries)
+        container.queries = func(self.queries)
         container.lookup_tables = func(self.lookup_tables)
         container.packs = func(self.packs)
         return container
@@ -123,8 +121,10 @@ class ClassifiedAnalysisContainer:
             self.lookup_tables.append(classified_analysis)
         elif analysis_type == AnalysisTypes.PACK:
             self.packs.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.SAVED_QUERY:
+            self.queries.append(classified_analysis)
         elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
-            self.scheduled_queries.append(classified_analysis)
+            self.queries.append(classified_analysis)
 
 
 def filter_analysis(
