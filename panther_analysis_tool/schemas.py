@@ -230,7 +230,7 @@ RULE_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
-QUERY_SCHEMA = Schema(
+SAVED_QUERY_SCHEMA = Schema(
     {
         "AnalysisType": Or("saved_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),

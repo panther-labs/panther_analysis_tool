@@ -10,8 +10,8 @@ from panther_analysis_tool.schemas import (
     LOOKUP_TABLE_SCHEMA,
     PACK_SCHEMA,
     POLICY_SCHEMA,
-    QUERY_SCHEMA,
     RULE_SCHEMA,
+    SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
 )
 
@@ -71,7 +71,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.LOOKUP_TABLE: LOOKUP_TABLE_SCHEMA,
     AnalysisTypes.PACK: PACK_SCHEMA,
     AnalysisTypes.POLICY: POLICY_SCHEMA,
-    AnalysisTypes.SAVED_QUERY: QUERY_SCHEMA,
+    AnalysisTypes.SAVED_QUERY: SAVED_QUERY_SCHEMA,
     AnalysisTypes.SCHEDULED_QUERY: SCHEDULED_QUERY_SCHEMA,
     AnalysisTypes.RULE: RULE_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,

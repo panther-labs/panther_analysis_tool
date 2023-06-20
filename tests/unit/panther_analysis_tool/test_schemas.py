@@ -9,6 +9,7 @@ from panther_analysis_tool.schemas import (
     POLICY_SCHEMA,
     LOG_TYPE_REGEX,
     MOCK_SCHEMA,
+    SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
     RULE_SCHEMA,
     SIMPLE_DETECTION_SCHEMA,
@@ -67,7 +68,78 @@ class TestPATSchemas(unittest.TestCase):
             sample_datamodel["Mappings"] = [{"Name": "hello", "Path": "world", "Method": "foo"}]
             DATA_MODEL_SCHEMA.validate(sample_datamodel)
 
-    def test_query_rateminutes(self):
+    def test_scheduled_query_validate_schema(self):
+        # has required fields
+        SCHEDULED_QUERY_SCHEMA.validate({
+            "QueryName": "my.query.id",
+            "AnalysisType": "scheduled_query",
+            "Query": "select 1",
+            "Enabled": False,
+            "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
+        })
+        # missing Enabled
+        with self.assertRaises(SchemaError):
+            SCHEDULED_QUERY_SCHEMA.validate({
+                "QueryName": "my.query.id",
+                "AnalysisType": "scheduled_query",
+                "Query": "select 1",
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
+        })
+        # missing Schedule
+        with self.assertRaises(SchemaError):
+            SCHEDULED_QUERY_SCHEMA.validate({
+                "QueryName": "my.query.id",
+                "AnalysisType": "scheduled_query",
+                "Query": "select 1",
+                "Enabled": False,
+        })
+        #  unknown field
+        with self.assertRaises(SchemaError):
+            SCHEDULED_QUERY_SCHEMA.validate({
+                "QueryName": "my.query.id",
+                "AnalysisType": "scheduled_query",
+                "Query": "select 1",
+                "Enabled": False,
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
+                "Unknown field": 1
+        })
+
+    def test_saved_query_validate_schema(self):
+        # has required fields
+        SAVED_QUERY_SCHEMA.validate({
+            "QueryName": "my.query.id",
+            "AnalysisType": "saved_query",
+            "Query": "select 1",
+        })
+        # missing QueryName
+        with self.assertRaises(SchemaError):
+            SAVED_QUERY_SCHEMA.validate({
+                "AnalysisType": "saved_query",
+                "Query": "select 1",
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
+        })
+        #  schedule query
+        with self.assertRaises(SchemaError):
+            SAVED_QUERY_SCHEMA.validate({
+            "QueryName": "my.query.id",
+            "AnalysisType": "saved_query",
+            "Query": "select 1",
+            "Enabled": False,
+            "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
+        })        
+        #  unknown field
+        with self.assertRaises(SchemaError):
+            SAVED_QUERY_SCHEMA.validate({
+                "QueryName": "my.query.id",
+                "AnalysisType": "saved_query",
+                "Query": "select 1",
+                "Enabled": False,
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
+                "Unknown field": 1
+        })
+            
+        
+    def test_query_rateminutes(self):        
         sample_query = {
             "QueryName": "my.query.id",
             "AnalysisType": "scheduled_query",
