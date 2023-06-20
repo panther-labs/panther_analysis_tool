@@ -415,7 +415,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(logging_mocks['warning'].call_count, 1)
                 # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
                 # which can be removed by pausing the fake file system
-                assert_equal(logging_mocks['info'].call_count, 6)
+                assert_equal(logging_mocks['info'].call_count, 5)
                 assert_equal(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
@@ -428,7 +428,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks['debug'].call_count, 1)
                 assert_equal(logging_mocks['warning'].call_count, 2)
-                assert_equal(logging_mocks['info'].call_count, 6)
+                assert_equal(logging_mocks['info'].call_count, 5)
                 assert_equal(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
@@ -442,7 +442,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(logging_mocks['debug'].call_count, 21)
                 # warning about max and final error
                 assert_equal(logging_mocks['warning'].call_count, 2)
-                assert_equal(logging_mocks['info'].call_count, 6)
+                assert_equal(logging_mocks['info'].call_count, 5)
                 assert_equal(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):

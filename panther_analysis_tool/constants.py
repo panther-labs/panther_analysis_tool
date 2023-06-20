@@ -11,6 +11,7 @@ from panther_analysis_tool.schemas import (
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
 )
 
@@ -39,6 +40,7 @@ class AnalysisTypes:
     LOOKUP_TABLE = "lookup_table"
     PACK = "pack"
     POLICY = "policy"
+    SAVED_QUERY = "saved_query"
     SCHEDULED_QUERY = "scheduled_query"
     RULE = "rule"
     SCHEDULED_RULE = "scheduled_rule"
@@ -69,6 +71,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.LOOKUP_TABLE: LOOKUP_TABLE_SCHEMA,
     AnalysisTypes.PACK: PACK_SCHEMA,
     AnalysisTypes.POLICY: POLICY_SCHEMA,
+    AnalysisTypes.SAVED_QUERY: SAVED_QUERY_SCHEMA,
     AnalysisTypes.SCHEDULED_QUERY: SCHEDULED_QUERY_SCHEMA,
     AnalysisTypes.RULE: RULE_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
