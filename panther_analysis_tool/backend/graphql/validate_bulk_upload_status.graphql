@@ -1,0 +1,12 @@
+query ValidateBulkUploadStatus($input: ID!) {
+    validateBulkUploadStatus(receiptId: $input) {
+        status
+        error
+        result {
+            issues {
+                path
+                errorMessage
+            }
+        }
+    }
+}

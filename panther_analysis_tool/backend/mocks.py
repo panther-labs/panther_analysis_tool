@@ -5,6 +5,7 @@ from panther_analysis_tool.backend.client import (
     BackendResponse,
     BulkUploadParams,
     BulkUploadResponse,
+    BulkUploadValidateStatusResponse,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
@@ -55,4 +56,10 @@ class MockBackend(BackendClient):
     def transpile_filters(
         self, params: TranspileFiltersParams
     ) -> BackendResponse[TranspileFiltersResponse]:
+        pass
+
+    def supports_bulk_validate(self) -> bool:
+        pass
+
+    def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
         pass

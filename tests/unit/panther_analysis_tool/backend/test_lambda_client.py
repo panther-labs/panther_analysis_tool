@@ -71,6 +71,11 @@ class TestLambdaClient(TestCase):
             self.assertEqual(result.data.policies.total, 2)
             self.assertEqual(result.data.rules.total, 0)
 
+    def test_bulk_validate(self) -> None:
+        with self.assertRaises(BaseException):
+            lc = LambdaClient(LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None))
+            lc.bulk_validate(BulkUploadParams(zip_bytes=b"yo"))
+
     def test_delete_detections(self) -> None:
         mock_lambda_res = _make_mock_response_with_string_body(http_status=200,
                                                                payload={"ids": ["1", "2"], "savedQueryNames": None})

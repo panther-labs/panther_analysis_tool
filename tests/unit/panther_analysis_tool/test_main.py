@@ -31,8 +31,9 @@ from schema import SchemaWrongKeyError
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import BackendError, BackendResponse, TranspileToPythonResponse, \
-    TranspileFiltersResponse
+    TranspileFiltersResponse, BulkUploadValidateStatusResponse, BulkUploadValidateResult, UnsupportedEndpointError
 from panther_analysis_tool.backend.mocks import MockBackend
+from panther_analysis_tool.cmd import validate
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')
@@ -573,3 +574,92 @@ class TestPantherAnalysisTool(TestCase):
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
+
+    def test_bulk_validate_happy_path(self):
+        backend = MockBackend()
+        backend.supports_bulk_validate = mock.MagicMock(return_value=True)
+        backend.bulk_validate = mock.MagicMock(
+            return_value=BulkUploadValidateStatusResponse(status="COMPLETE")
+        )
+
+        args = pat.setup_parser().parse_args(
+            f'--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
+
+        return_code, return_str = validate.run(backend, args)
+        assert_equal(return_code, 0)
+        assert_true("validation success" in return_str, f"match not found: {return_str}")
+        backend.bulk_validate.assert_called_once()
+        params = backend.bulk_validate.call_args[0][0]
+        self.assertIsNotNone(params.zip_bytes, "zip data was unexpectedly empty")
+
+    def test_bulk_validate_with_exception(self):
+        backend = MockBackend()
+        backend.supports_bulk_validate = mock.MagicMock(return_value=True)
+        backend.bulk_validate = mock.MagicMock(
+            side_effect=BackendError("ruh oh something went wrong")
+        )
+
+        args = pat.setup_parser().parse_args(
+            f'--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
+
+        return_code, _ = validate.run(backend, args)
+        assert_equal(return_code, 1)
+
+    def test_bulk_validate_without_support(self):
+        backend = MockBackend()
+        backend.bulk_validate = mock.MagicMock(
+            side_effect=BackendError("ruh oh something went wrong")
+        )
+
+        args = pat.setup_parser().parse_args(
+            f'--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
+
+        return_code, return_str = validate.run(backend, args)
+        assert_equal(return_code, 1)
+        assert_true("bulk validate is only supported via the api token" in return_str, f"match not found in {return_str}")
+
+    def test_bulk_validate_unsupported_exception(self):
+        backend = MockBackend()
+        backend.supports_bulk_validate = mock.MagicMock(return_value=True)
+        backend.bulk_validate = mock.MagicMock(
+            side_effect=UnsupportedEndpointError("ruh oh something went wrong")
+        )
+
+        args = pat.setup_parser().parse_args(
+            f'--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
+
+        return_code, return_str = validate.run(backend, args)
+        assert_equal(return_code, 1)
+        assert_true("your panther instance does not support this feature" in return_str, f"match not found in {return_str}")
+
+    def test_bulk_validate_with_expected_failures(self):
+        backend = MockBackend()
+        backend.supports_bulk_validate = mock.MagicMock(return_value=True)
+        fake_response = BulkUploadValidateStatusResponse(
+                error="oh snap",
+                status="FAILED",
+                result=BulkUploadValidateResult.from_json({
+                    "issues": [
+                        {"path": "ok.some.path.text", "errorMessage": "ruh oh"},
+                        {"path": "simple.yml", "errorMessage": "oh noz"},
+                    ]
+                })
+            )
+        backend.bulk_validate = mock.MagicMock(
+            return_value=fake_response
+        )
+
+        args = pat.setup_parser().parse_args(
+            f'--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis'.split())
+
+        return_code, return_str = validate.run(backend, args)
+        assert_equal(return_code, 1)
+        expected_strs = [
+            fake_response.error
+        ]
+        for issue in fake_response.issues():
+            expected_strs.append(issue.path)
+            expected_strs.append(issue.error_message)
+
+        for expected in expected_strs:
+            assert_true(expected in return_str, f"expected to find {expected} in {return_str} but no matches found")
