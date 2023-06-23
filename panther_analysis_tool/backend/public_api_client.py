@@ -451,7 +451,7 @@ def _build_client(host: str, token: str) -> GraphQLClient:
 
     transport = AIOHTTPTransport(url=graphql_url, headers={_API_TOKEN_HEADER: token})
 
-    return GraphQLClient(transport=transport, fetch_schema_from_transport=True, execute_timeout=30)
+    return GraphQLClient(transport=transport, fetch_schema_from_transport=False, execute_timeout=30)
 
 
 def is_url(url: str) -> bool:
