@@ -55,6 +55,7 @@ class ZipArgs:
     def from_args(cls, args: argparse.Namespace) -> Any:
         filters = []
         filters_inverted = {}
+        out = "./"
         try:
             filters = args.filter
         except:  # pylint: disable=bare-except # nosec
@@ -64,8 +65,13 @@ class ZipArgs:
             filters_inverted = args.filter_inverted
         except:  # pylint: disable=bare-except # nosec
             pass
+
+        try:
+            out = args.out
+        except:  # pylint: disable=bare-except # nosec
+            pass
         return cls(
-            out=args.out,
+            out=out,
             path=args.path,
             ignore_files=args.ignore_files,
             filters=filters,  # type: ignore

@@ -56,6 +56,7 @@ positional arguments:
     upload              Upload specified policies and rules to a Panther deployment.
     delete              Delete policies, rules, or saved queries from a Panther deployment
     test-lookup-table   Validate a Lookup Table spec file.
+    validate            Validate your bulk uploads against your panther instance
     zip                 Create an archive of local policies and rules for uploading to Panther.
 
 optional arguments:

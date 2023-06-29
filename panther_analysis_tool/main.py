@@ -94,6 +94,7 @@ from panther_analysis_tool.cmd import (
     panthersdk_test,
     panthersdk_upload,
     standard_args,
+    validate,
 )
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
@@ -116,7 +117,11 @@ from panther_analysis_tool.schemas import (
     SIMPLE_DETECTION_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.util import convert_unicode, is_simple_detection
+from panther_analysis_tool.util import (
+    add_path_to_filename,
+    convert_unicode,
+    is_simple_detection,
+)
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
     contains_invalid_table_names,
@@ -245,19 +250,6 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
                 zip_out.write(name)
 
     return filenames
-
-
-def add_path_to_filename(output_path: str, filename: str) -> str:
-    if output_path:
-        if not os.path.isdir(output_path):
-            logging.info(
-                "Creating directory: %s",
-                output_path,
-            )
-            os.makedirs(output_path)
-        filename = f"{output_path.rstrip('/')}/{filename}"
-
-    return filename
 
 
 def zip_analysis(
@@ -1624,6 +1616,16 @@ def setup_parser() -> argparse.ArgumentParser:
     )
 
     test_lookup_table_parser.set_defaults(func=test_lookup_table)
+
+    # -- validate command
+    validate_parser = subparsers.add_parser(
+        "validate", help="Validate your bulk uploads against your panther instance"
+    )
+    standard_args.for_public_api(validate_parser, required=False)
+    validate_parser.add_argument(filter_name, **filter_arg)
+    validate_parser.add_argument(ignore_files_name, **ignore_files_arg)
+    validate_parser.add_argument(path_name, **path_arg)
+    validate_parser.set_defaults(func=pat_utils.func_with_backend(validate.run))
 
     # -- zip command
 

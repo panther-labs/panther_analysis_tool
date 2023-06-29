@@ -19,8 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import base64
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Generic, List, TypeVar
+from dataclasses import dataclass, field
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 ResponseData = TypeVar("ResponseData")
 
@@ -31,6 +31,10 @@ class BackendError(Exception):
 
 class PermanentBackendError(BackendError):
     permanent: bool = True
+
+
+class UnsupportedEndpointError(Exception):
+    pass
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,64 @@ class BulkUploadStatistics:
     new: int
     total: int
     modified: int
+
+
+@dataclass(frozen=True)
+class BulkUploadIssue:
+    path: str
+    error_message: str
+
+    @classmethod
+    def from_json(cls, data: Optional[Dict[str, Any]]) -> Optional["BulkUploadIssue"]:
+        if not data:
+            return None
+
+        return cls(path=data.get("path", ""), error_message=data.get("errorMessage", ""))
+
+
+@dataclass(frozen=True)
+class BulkUploadValidateResult:
+    issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
+
+    @classmethod
+    def from_json(cls, data: Optional[Dict[str, Any]]) -> Optional["BulkUploadValidateResult"]:
+        if not data:
+            return None
+
+        raw_issues = data.get("issues", []) or []
+        issues: List[BulkUploadIssue] = []
+        for issue in raw_issues:
+            issues.append(BulkUploadIssue.from_json(issue))  # type: ignore
+
+        return cls(issues=issues)
+
+
+@dataclass(frozen=True)
+class BulkUploadValidateStatusResponse:
+    status: str
+    error: Optional[str] = None
+    result: Optional[BulkUploadValidateResult] = None
+
+    def has_error(self) -> bool:
+        return self.error is not None and len(self.error) > 0
+
+    def has_issues(self) -> bool:
+        return self.result is not None and len(self.result.issues) > 0
+
+    def issues(self) -> List[BulkUploadIssue]:
+        if not self.has_issues():
+            return []
+
+        return self.result.issues or []  # type: ignore
+
+    def is_valid(self) -> bool:
+        if self.has_error():
+            return False
+
+        if self.has_issues():
+            return False
+
+        return True
 
 
 @dataclass(frozen=True)
@@ -187,6 +249,10 @@ class Client(ABC):
         pass
 
     @abstractmethod
+    def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        pass
+
+    @abstractmethod
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
     ) -> BackendResponse[TranspileToPythonResponse]:
@@ -226,6 +292,10 @@ class Client(ABC):
 
     @abstractmethod
     def supports_async_uploads(self) -> bool:
+        pass
+
+    @abstractmethod
+    def supports_bulk_validate(self) -> bool:
         pass
 
 

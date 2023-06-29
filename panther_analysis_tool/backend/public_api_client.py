@@ -22,7 +22,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from gql import Client as GraphQLClient
@@ -39,6 +39,8 @@ from .client import (
     BulkUploadParams,
     BulkUploadResponse,
     BulkUploadStatistics,
+    BulkUploadValidateResult,
+    BulkUploadValidateStatusResponse,
     Client,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
@@ -54,6 +56,7 @@ from .client import (
     TranspileFiltersResponse,
     TranspileToPythonParams,
     TranspileToPythonResponse,
+    UnsupportedEndpointError,
     UpdateSchemaParams,
     UpdateSchemaResponse,
     to_bulk_upload_response,
@@ -88,6 +91,12 @@ class PublicAPIRequests:
 
     def bulk_upload_mutation(self) -> DocumentNode:
         return self._load("bulk_upload")
+
+    def validate_bulk_upload_mutation(self) -> DocumentNode:
+        return self._load("validate_bulk_upload")
+
+    def validate_bulk_upload_status_query(self) -> DocumentNode:
+        return self._load("validate_bulk_upload_status")
 
     def list_schemas_query(self) -> DocumentNode:
         return self._load("list_schemas")
@@ -171,11 +180,12 @@ class PublicAPIClient(Client):
                 if is_retryable_error_str(error):
                     raise BackendError(error)
                 raise PermanentBackendError(error)
-            if status == "":
-                raise BackendError("no bulk upload status available")
 
             if status == "COMPLETED":
                 return to_bulk_upload_response(data)
+
+            if status not in ["NOT_PROCESSED"]:
+                raise BackendError(f"unexpected status: {status}")
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
         query = self._requests.bulk_upload_mutation()
@@ -184,6 +194,35 @@ class PublicAPIClient(Client):
         data = res.data.get("uploadDetectionEntities", {})  # type: ignore
 
         return to_bulk_upload_response(data)
+
+    def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        mutation = self._requests.validate_bulk_upload_mutation()
+        upload_params = {"input": {"data": params.encoded_bytes(), "patVersion": VERSION_STRING}}
+        res = self._potentially_supported_execute(mutation, variable_values=upload_params)
+        receipt_id = res.data.get("validateBulkUpload", {}).get("receiptId")  # type: ignore
+        if not receipt_id:
+            raise BackendError("empty data")
+
+        while True:
+            time.sleep(2)
+            query = self._requests.validate_bulk_upload_status_query()
+            params = {"input": receipt_id}  # type: ignore
+            res = self._potentially_supported_execute(query, variable_values=params)  # type: ignore
+            result = res.data.get("validateBulkUploadStatus", {})  # type: ignore
+            status = result.get("status", "")
+            error = result.get("error", "")
+
+            response = BulkUploadValidateStatusResponse(
+                error=error,
+                status=status,
+                result=BulkUploadValidateResult.from_json(result.get("result")),
+            )
+
+            if status in ["FAILED", "COMPLETED"]:
+                return response
+
+            if status not in ["NOT_PROCESSED"]:
+                raise BackendError(f"unexpected status: {status}")
 
     # This function was generated in whole or in part by GitHub Copilot.
     def transpile_simple_detection_to_python(
@@ -390,12 +429,11 @@ class PublicAPIClient(Client):
             ),
         )
 
-    def supports_async_uploads(self) -> bool:
+    def has_graphql_endpoints(self, endpoints: List[str]) -> bool:
         res = self._execute(self._requests.introspection_query())
         if res.errors:
             return False
 
-        endpoints = ["uploadDetectionEntitiesAsync", "detectionEntitiesUploadStatus"]
         expected = len(endpoints)
         seen = 0
         for graphql_type in res.data.get("__schema", {}).get("types", []):  # type: ignore
@@ -407,6 +445,14 @@ class PublicAPIClient(Client):
                             return True
 
         return False
+
+    def supports_async_uploads(self) -> bool:
+        return self.has_graphql_endpoints(
+            ["uploadDetectionEntitiesAsync", "detectionEntitiesUploadStatus"]
+        )
+
+    def supports_bulk_validate(self) -> bool:
+        return True
 
     def _execute(
         self,
@@ -438,6 +484,32 @@ class PublicAPIClient(Client):
             raise BackendError("empty data")
 
         return res
+
+    def _potentially_supported_execute(
+        self,
+        request: DocumentNode,
+        variable_values: Optional[Dict[str, Any]] = None,
+    ) -> ExecutionResult:
+        """
+        Same behavior as _safe_execute but throws an UnSupportedEndpointError
+        whenever a graphql validation error is detected
+        """
+        try:
+            return self._safe_execute(request, variable_values)
+        except BaseException as err:
+            not_supported = False
+            try:
+                not_supported = (
+                    err.args[0]["extensions"]["code"]  # pylint: disable=invalid-sequence-index
+                    == "GRAPHQL_VALIDATION_FAILED"
+                )
+            except BaseException:  # pylint: disable=broad-except
+                pass
+
+            if not_supported:
+                raise UnsupportedEndpointError(err) from err
+
+            raise err
 
 
 _API_URL_PATH = "public/graphql"

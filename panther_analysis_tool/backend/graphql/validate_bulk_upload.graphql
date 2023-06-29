@@ -1,0 +1,5 @@
+mutation ValidateBulkUpload($input: ValidateBulkUploadInput!) {
+    validateBulkUpload(input: $input) {
+        receiptId
+    }
+}

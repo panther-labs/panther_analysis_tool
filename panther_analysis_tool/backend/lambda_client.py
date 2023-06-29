@@ -33,6 +33,7 @@ from .client import (
     BulkUploadParams,
     BulkUploadResponse,
     BulkUploadStatistics,
+    BulkUploadValidateStatusResponse,
     Client,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
@@ -126,6 +127,9 @@ class LambdaClient(Client):
 
         body = decode_body(resp)
         return to_bulk_upload_response(body)
+
+    def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        raise BaseException("bulk validate is not supported with lambda client")
 
     def delete_detections(
         self, params: DeleteDetectionsParams
@@ -338,4 +342,7 @@ class LambdaClient(Client):
         )
 
     def supports_async_uploads(self) -> bool:
+        return False
+
+    def supports_bulk_validate(self) -> bool:
         return False
