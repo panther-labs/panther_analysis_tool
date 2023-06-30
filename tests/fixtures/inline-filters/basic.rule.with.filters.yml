@@ -5,7 +5,7 @@ Detection:
     Condition: Equals
     Value: Max
 InlineFilters:
-  - PathSpecifier: actionName
+  - KeyPath: actionName
     Condition: Equals
     Value: Beans
 DedupPeriodMinutes: 60

@@ -2,7 +2,7 @@ AnalysisType: rule
 RuleID: 'basic.python.rule.with.filters'
 Filename: basic.python.rule.with.filters.py
 InlineFilters:
-  - PathSpecifier: actionName
+  - KeyPath: actionName
     Condition: Equals
     Value: Beans
 DedupPeriodMinutes: 60
