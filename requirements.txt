@@ -33,6 +33,7 @@ packaging==23.0
 pathspec==0.11.1 ; python_version >= '3.7'
 pluggy==1.0.0 ; python_version >= '3.6'
 ply==3.11
+policyuniverse==1.5.0.20220613
 pygments==2.15.1 ; python_version >= '3.7'
 pyrsistent==0.19.3 ; python_version >= '3.7'
 pytest==7.3.1 ; python_version >= '3.7'
