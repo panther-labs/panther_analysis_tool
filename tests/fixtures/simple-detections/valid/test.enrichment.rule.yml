@@ -1,0 +1,36 @@
+AnalysisType: rule
+LogTypes:
+  - AWS.VPCFlow
+RuleID: basic.enrichment.rule
+Enabled: true
+Severity: High
+Detection:
+  - Enrichment:
+      Table: ipinfo_location
+      Selector: srcAddr
+      FieldPath: city
+    Condition: Equals
+    Value: Idaho Falls
+Tests:
+  - Name: alerts
+    ExpectedResult: true
+    Log:
+      {
+        "p_enrichment": {
+          "ipinfo_location": {
+            "srcAddr": {
+              "city": "Idaho Falls",
+              "country": "US",
+              "lat": "43.5518",
+              "lng": "-111.8919",
+              "p_match": "75.174.152.196",
+              "postal_code": "83401",
+              "region": "Idaho",
+              "region_code": "ID",
+              "timezone": "America/Boise"
+            }
+          }
+        },
+        "p_log_type": "AWS.VPCFlow",
+        "srcAddr": "75.174.152.196"
+      }
