@@ -1,0 +1,37 @@
+AnalysisType: rule
+RuleID: 'basic.rule.with.dynamic.funcs'
+Detection:
+  - Key: userAgent
+    Condition: Equals
+    Value: Max
+InlineFilters:
+  - KeyPath: actionName
+    Condition: Equals
+    Value: Beans
+Title: The user agent was {userAgent}
+DynamicSeverities:
+  - ChangeTo: High
+    Conditions:
+      - Key: actionName
+        Condition: Equals
+        Value: Beans
+AlertContext:
+  - KeyName: foo
+    KeyValue: 
+      Key: actionName
+GroupBy:
+  - Key: actionName
+  - KeyPath: userAgent
+DedupPeriodMinutes: 60
+DisplayName: 'basic.rule'
+Enabled: true
+LogTypes:
+  - Panther.Audit
+Severity: Medium
+Tests:
+  - Name: alerts
+    ExpectedResult: true
+    Log: { 'userAgent': 'Max', 'actionName': 'Beans' }
+  - Name: no alerts - wrong userAgent
+    ExpectedResult: false
+    Log: { 'userAgent': 'John' }

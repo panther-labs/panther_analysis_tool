@@ -18,6 +18,81 @@
       "type": "object",
       "required": ["LogType", "Selectors"]
     },
+    "DynamicSeverity": {
+      "properties": {
+        "ChangeTo": {
+          "type": "string"
+        },
+        "Conditions": {
+          "items": true,
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["ChangeTo", "Conditions"]
+    },
+    "KeySpecifier": {
+      "oneOf": [
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "properties": {
+            "Key": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["Key"]
+        },
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "properties": {
+            "DeepKey": {
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["DeepKey"]
+        },
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "properties": {
+            "KeyPath": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["KeyPath"]
+        }
+      ],
+      "type": "object"
+    },
+    "KeyValueDefinition": {
+      "properties": {
+        "KeyName": {
+          "type": "string"
+        },
+        "KeyValue": {
+          "$ref": "#/$defs/KeySpecifier"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["KeyName", "KeyValue"]
+    },
     "LogTypeMap": {
       "properties": {
         "PrimaryKey": {
@@ -98,7 +173,7 @@
               "Expressions": {
                 "$ref": "#/$defs/MatchExpressions"
               },
-              "PathSpecifier": {
+              "KeyPath": {
                 "type": "string"
               },
               "Condition": {
@@ -108,7 +183,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["Expressions", "PathSpecifier", "Condition"]
+            "required": ["Expressions", "KeyPath", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -196,7 +271,7 @@
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
-              "PathSpecifier": {
+              "KeyPath": {
                 "type": "string"
               },
               "Condition": {
@@ -205,7 +280,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["PathSpecifier", "Condition"]
+            "required": ["KeyPath", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -376,7 +451,7 @@
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
-              "PathSpecifier": {
+              "KeyPath": {
                 "type": "string"
               },
               "Condition": {
@@ -402,12 +477,12 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["PathSpecifier", "Condition", "Value"]
+            "required": ["KeyPath", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
-              "PathSpecifier": {
+              "KeyPath": {
                 "type": "string"
               },
               "Condition": {
@@ -444,7 +519,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["PathSpecifier", "Condition", "Values"]
+            "required": ["KeyPath", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -486,6 +561,17 @@
                       "additionalProperties": false,
                       "type": "object",
                       "required": ["DeepKey"]
+                    },
+                    {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "properties": {
+                        "KeyPath": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["KeyPath"]
                     }
                   ],
                   "type": "object"
@@ -498,6 +584,105 @@
             "additionalProperties": false,
             "type": "object",
             "required": ["Condition", "Values"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["Table", "Selector", "FieldPath"]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Enrichment", "Condition", "Value"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["Table", "Selector", "FieldPath"]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Enrichment", "Condition", "Values"]
           }
         ],
         "type": "object"
@@ -696,6 +881,27 @@
         },
         "InlineFilters": {
           "$ref": "#/$defs/MatchExpressions"
+        },
+        "GroupBy": {
+          "items": {
+            "$ref": "#/$defs/KeySpecifier"
+          },
+          "type": "array"
+        },
+        "AlertContext": {
+          "items": {
+            "$ref": "#/$defs/KeyValueDefinition"
+          },
+          "type": "array"
+        },
+        "Title": {
+          "type": "string"
+        },
+        "DynamicSeverities": {
+          "items": {
+            "$ref": "#/$defs/DynamicSeverity"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

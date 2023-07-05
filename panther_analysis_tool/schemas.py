@@ -226,6 +226,10 @@ RULE_SCHEMA = Schema(
                 Optional("Mocks"): [MOCK_SCHEMA],
             }
         ],
+        Optional("DynamicSeverities"): object,
+        Optional("Title"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
