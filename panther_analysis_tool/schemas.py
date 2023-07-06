@@ -291,7 +291,7 @@ LOOKUP_TABLE_SCHEMA = Schema(
 
 # load jsonschema files
 raw_simple_detection_schema = pkgutil.get_data(
-    __name__, "detection_schemas/simple_detection_json_schema.json"
+    __name__, "detection_schemas/analysis_config_schema.json"
 )
 SIMPLE_DETECTION_SCHEMA = (
     json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
