@@ -148,8 +148,10 @@ class AnalysisIDConflictException(Exception):
 # exception for conflicting ids
 class AnalysisContainsDuplicatesException(Exception):
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = "Specification file for [{}] contains fields with duplicate values: [{}]".format(
-            analysis_id, ", ".join(x for x in invalid_fields)
+        self.message = (
+            "Specification file for [{}] contains fields with duplicate values: [{}]".format(
+                analysis_id, ", ".join(x for x in invalid_fields)
+            )
         )
         super().__init__(self.message)
 
@@ -288,9 +290,7 @@ def zip_analysis(
     return 0, filename
 
 
-def upload_analysis(
-    backend: BackendClient, args: argparse.Namespace
-) -> Tuple[int, str]:
+def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
     Returns 1 if the analysis tests, validation, packaging, or upload fails.
@@ -353,9 +353,7 @@ def upload_zip(
                     response = backend.bulk_upload(upload_params)
 
                 logging.info("Upload success.")
-                logging.info(
-                    "API Response:\n%s", json.dumps(asdict(response.data), indent=4)
-                )
+                logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
 
                 return_code = 0
                 return_archive_fname = ""
@@ -363,16 +361,12 @@ def upload_zip(
 
             except BackendError as be_err:
                 if be_err.permanent is True:
-                    logging.error(
-                        "Failed to upload to backend: %s", convert_unicode(be_err)
-                    )
+                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
                     return_code = 1
                     break
 
                 if max_retries - retry_count > 0:
-                    logging.debug(
-                        "Failed to upload to Panther: %s.", convert_unicode(be_err)
-                    )
+                    logging.debug("Failed to upload to Panther: %s.", convert_unicode(be_err))
                     retry_count += 1
 
                     # typical bulk upload takes 30 seconds, allow any currently running one to complete
@@ -383,12 +377,8 @@ def upload_zip(
                     time.sleep(30)
 
                 else:
-                    logging.warning(
-                        "Exhausted retries attempting to perform bulk upload."
-                    )
-                    logging.error(
-                        "Failed to upload to backend: %s", convert_unicode(be_err)
-                    )
+                    logging.warning("Exhausted retries attempting to perform bulk upload.")
+                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
                     return_code = 1
                     return_archive_fname = ""
                     break
@@ -403,9 +393,7 @@ def upload_zip(
     if return_code != 0:
         return return_code, return_archive_fname
 
-    return_code, _ = panthersdk_upload.run(
-        backend=backend, args=args, indirect_invocation=True
-    )
+    return_code, _ = panthersdk_upload.run(backend=backend, args=args, indirect_invocation=True)
 
     return return_code, return_archive_fname
 
@@ -475,9 +463,7 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
-def update_custom_schemas(
-    backend: BackendClient, args: argparse.Namespace
-) -> Tuple[int, str]:
+def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """
     Updates or creates custom schemas.
     Returns 1 if any file failed to be updated.
@@ -535,9 +521,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
                 logging.error("Missing signtaure in response: %s", response)
                 return 1, ""
         except botocore.exceptions.ClientError as err:
-            logging.error(
-                "Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key
-            )
+            logging.error("Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key)
             logging.error(err)
             return 1, ""
     return 0, ""
@@ -560,7 +544,9 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     if not api_token:
         logging.error("error: GITHUB_TOKEN env variable must be set")
         return 1, ""
-    release_url = f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
+    release_url = (
+        f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
+    )
     # setup appropriate https headers
     headers = {
         "accept": "application/vnd.github.v3+json",
@@ -579,14 +565,10 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code != 0:
         return return_code, ""
     # then publish to Github
-    return_code = publish_github(
-        args.github_tag, args.body, headers, release_url, release_dir
-    )
+    return_code = publish_github(args.github_tag, args.body, headers, release_url, release_dir)
     if return_code != 0:
         return return_code, ""
-    logging.info(
-        "draft release (%s) created in repo (%s)", args.github_tag, release_url
-    )
+    logging.info("draft release (%s) created in repo (%s)", args.github_tag, release_url)
     return 0, ""
 
 
@@ -644,9 +626,7 @@ def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int
     return return_code
 
 
-def publish_github(
-    tag: str, body: str, headers: dict, release_url: str, release_dir: str
-) -> int:
+def publish_github(tag: str, body: str, headers: dict, release_url: str, release_dir: str) -> int:
     payload = {"tag_name": tag, "draft": True}
     if body:
         payload["body"] = body
@@ -741,9 +721,7 @@ def test_analysis(
 
     # enrich simple detections with transpiled python as necessary
     if len(specs.simple_detections) > 0:
-        specs.simple_detections = get_simple_detections_as_python(
-            specs.simple_detections, backend
-        )
+        specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
 
     transpile_inline_filters(specs, backend)
 
@@ -756,9 +734,7 @@ def test_analysis(
         ignore_exception_types.append(UnknownDestinationError)
 
     destinations_by_name = {
-        name: FakeDestination(
-            destination_id=str(uuid4()), destination_display_name=name
-        )
+        name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
         for name in available_destinations
     }
 
@@ -772,9 +748,7 @@ def test_analysis(
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
-        None
-        if not bool(args.sort_test_results)
-        else TestResultsContainer(passed={}, errored={})
+        None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detections = setup_run_tests(
@@ -877,16 +851,12 @@ def setup_data_models(
         if analysis_spec["Enabled"]:
             body = None
             if "Filename" in analysis_spec:
-                _, load_err = load_module(
-                    os.path.join(dir_name, analysis_spec["Filename"])
-                )
+                _, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
                 # If the module could not be loaded, continue to the next
                 if load_err:
                     invalid_specs.append((analysis_spec_filename, load_err))
                     continue
-                data_model_module_path = os.path.join(
-                    dir_name, analysis_spec["Filename"]
-                )
+                data_model_module_path = os.path.join(dir_name, analysis_spec["Filename"])
                 with open(data_model_module_path, "r") as python_module_file:
                     body = python_module_file.read()
 
@@ -1064,10 +1034,7 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if (
-                analysis_type == AnalysisTypes.SCHEDULED_QUERY
-                and not ignore_table_names
-            ):
+            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -1088,9 +1055,7 @@ def classify_analysis(
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
 
         except SchemaWrongKeyError as err:
-            invalid_specs.append(
-                (analysis_spec_filename, handle_wrong_key_error(err, keys))
-            )
+            invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
             SchemaMissingKeyError,
             SchemaForbiddenKeyError,
@@ -1223,9 +1188,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
             mock_methods: Dict[str, Any] = {}
             if mocks:
                 mock_methods = {
-                    each_mock["objectName"]: MagicMock(
-                        return_value=each_mock["returnValue"]
-                    )
+                    each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
@@ -1233,18 +1196,16 @@ def _run_tests(  # pylint: disable=too-many-arguments
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             test_output_buf = io.StringIO()
-            with contextlib.redirect_stdout(
+            with contextlib.redirect_stdout(test_output_buf), contextlib.redirect_stderr(
                 test_output_buf
-            ), contextlib.redirect_stderr(test_output_buf):
+            ):
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
                         result = detection.run(
                             test_case, {}, destinations_by_name, batch_mode=False
                         )
                 else:
-                    result = detection.run(
-                        test_case, {}, destinations_by_name, batch_mode=False
-                    )
+                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
             test_output = test_output_buf.getvalue()
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
@@ -1316,9 +1277,7 @@ def _print_test_result(
         if function_result:
             if function_result.get("error"):
                 # add this as output to the failed test spec as well
-                failed_tests[detection.detection_id].append(
-                    f"{test_result.name}:{printable_name}"
-                )
+                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
                         status_fail,
@@ -1328,9 +1287,7 @@ def _print_test_result(
                 )
             # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
-                failed_tests[detection.detection_id].append(
-                    f"{test_result.name}:{printable_name}"
-                )
+                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
                         status_fail, printable_name, function_result.get("output")
@@ -1662,9 +1619,7 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.using_aws_profile(update_custom_schemas_parser)
 
     custom_schemas_path_arg = path_arg.copy()
-    custom_schemas_path_arg[
-        "help"
-    ] = "The relative or absolute path to Panther custom schemas."
+    custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(
         func=pat_utils.func_with_backend(update_custom_schemas)
@@ -1726,16 +1681,13 @@ def setup_parser() -> argparse.ArgumentParser:
 
     standard_args.for_public_api(check_conn_parser, required=False)
 
-    check_conn_parser.set_defaults(
-        func=pat_utils.func_with_backend(check_connection.run)
-    )
+    check_conn_parser.set_defaults(func=pat_utils.func_with_backend(check_connection.run))
 
     # -- sdk command
 
     panthersdk_parser = subparsers.add_parser(
         "sdk",
-        help="Perform operations using the Panther SDK exclusively "
-        "(pass sdk --help for more)",
+        help="Perform operations using the Panther SDK exclusively " "(pass sdk --help for more)",
     )
     standard_args.for_public_api(panthersdk_parser, required=False)
     standard_args.using_aws_profile(panthersdk_parser)
@@ -1744,17 +1696,13 @@ def setup_parser() -> argparse.ArgumentParser:
     panthersdk_upload_parser = panthersdk_subparsers.add_parser(
         "upload", help="Upload policies and rules generated from your Panther content"
     )
-    panthersdk_upload_parser.set_defaults(
-        func=pat_utils.func_with_backend(panthersdk_upload.run)
-    )
+    panthersdk_upload_parser.set_defaults(func=pat_utils.func_with_backend(panthersdk_upload.run))
 
     panthersdk_test_parser = panthersdk_subparsers.add_parser(
         "test", help="Validate analysis specifications and run policy and rule tests."
     )
     panthersdk_test_parser.add_argument(min_test_name, **min_test_arg)
-    panthersdk_test_parser.add_argument(
-        skip_disabled_test_name, **skip_disabled_test_arg
-    )
+    panthersdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     panthersdk_test_parser.set_defaults(func=panthersdk_test.run)
 
     return parser
@@ -1842,9 +1790,7 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             try:
                 bool_value = bool(strtobool(split[1]))
             except ValueError:
-                logging.warning(
-                    "Filter key %s should have either true or false, skipping", key
-                )
+                logging.warning("Filter key %s should have either true or false, skipping", key)
                 continue
             if invert_filter:
                 parsed_filters_inverted[key] = [bool_value]
