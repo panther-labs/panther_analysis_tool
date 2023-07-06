@@ -32,6 +32,7 @@
       "type": "object",
       "required": ["ChangeTo", "Conditions"]
     },
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
     "InlineFilterMatchExpressions": {
       "items": {
         "oneOf": [
@@ -248,6 +249,8 @@
       },
       "type": "array"
     },
+=======
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
     "KeySpecifier": {
       "oneOf": [
         {
@@ -478,6 +481,7 @@
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
               "Enrichment": {
                 "properties": {
                   "Table": {
@@ -493,6 +497,13 @@
                 "additionalProperties": false,
                 "type": "object",
                 "required": ["Table", "Selector", "FieldPath"]
+=======
+              "Expressions": {
+                "$ref": "#/$defs/MatchExpressions"
+              },
+              "KeyPath": {
+                "type": "string"
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
               },
               "Condition": {
                 "type": "string"
@@ -528,7 +539,11 @@
             },
             "additionalProperties": false,
             "type": "object",
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
             "required": ["Enrichment", "Condition", "Values"]
+=======
+            "required": ["Expressions", "KeyPath", "Condition"]
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -604,6 +619,23 @@
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
+=======
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["KeyPath", "Condition"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
               "Key": {
                 "type": "string"
               },
@@ -770,10 +802,14 @@
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
               "Expressions": {
                 "$ref": "#/$defs/MatchExpressions"
               },
               "Key": {
+=======
+              "KeyPath": {
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
                 "type": "string"
               },
               "Condition": {
@@ -783,11 +819,16 @@
             },
             "additionalProperties": false,
             "type": "object",
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
             "required": ["Expressions", "Key", "Condition"]
+=======
+            "required": ["KeyPath", "Condition", "Value"]
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
               "Expressions": {
                 "$ref": "#/$defs/MatchExpressions"
               },
@@ -796,6 +837,10 @@
                   "type": "string"
                 },
                 "type": "array"
+=======
+              "KeyPath": {
+                "type": "string"
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
               },
               "Condition": {
                 "type": "string",
@@ -804,6 +849,7 @@
             },
             "additionalProperties": false,
             "type": "object",
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
             "required": ["Expressions", "DeepKey", "Condition"]
           },
           {
@@ -835,6 +881,9 @@
             "additionalProperties": false,
             "type": "object",
             "required": ["Condition"]
+=======
+            "required": ["KeyPath", "Condition", "Values"]
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -899,6 +948,105 @@
             "additionalProperties": false,
             "type": "object",
             "required": ["Condition", "Values"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["Table", "Selector", "FieldPath"]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Enrichment", "Condition", "Value"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["Table", "Selector", "FieldPath"]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Enrichment", "Condition", "Values"]
           }
         ],
         "type": "object"
@@ -1140,7 +1288,11 @@
           "$ref": "#/$defs/MatchExpressions"
         },
         "InlineFilters": {
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
           "$ref": "#/$defs/InlineFilterMatchExpressions"
+=======
+          "$ref": "#/$defs/MatchExpressions"
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
         },
         "GroupBy": {
           "items": {
@@ -1154,7 +1306,11 @@
           },
           "type": "array"
         },
+<<<<<<< HEAD:panther_analysis_tool/detection_schemas/analysis_config_schema.json
         "AlertTitle": {
+=======
+        "Title": {
+>>>>>>> main:panther_analysis_tool/detection_schemas/simple_detection_json_schema.json
           "type": "string"
         },
         "DynamicSeverities": {
