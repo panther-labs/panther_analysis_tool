@@ -38,6 +38,10 @@ class QueryScheduleSchema(Schema):
                 # validate rate minutes >= timeout
                 if rate < timeout:
                     raise SchemaError("RateMinutes must be >= TimeoutMinutes")
+            lookback, lookback_window = data.get("Lookback"), data.get("LookbackWindow")
+            if lookback:
+                if lookback_window is None or lookback_window < 1:
+                    raise SchemaError("LookbackWindow must be > 1 (minute)")
         return data
 
 
@@ -242,6 +246,8 @@ SAVED_QUERY_SCHEMA = Schema(
         Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
         Optional("Description"): str,
         Optional("Tags"): [str],
+        Optional("Lookback"): bool,
+        Optional("LookbackWindowSeconds"): int
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -260,6 +266,8 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         ),
         Optional("Description"): str,
         Optional("Tags"): [str],
+        Optional("Lookback"): bool,
+        Optional("LookbackWindowSeconds"): int
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
