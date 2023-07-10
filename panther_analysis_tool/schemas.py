@@ -82,6 +82,7 @@ LOG_TYPE_REGEX = Regex(
     r"MongoDB\.OrganizationEvent|MongoDB\.ProjectEvent|"
     r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
     r"Notion\.AuditLogs|"
+    r"Heroku\.Runtime|"
     r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
     r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
     r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Snyk\.OrgAudit|Snyk\.GroupAudit|Sophos\.Central|Suricata"
