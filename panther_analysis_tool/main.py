@@ -134,7 +134,7 @@ from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 # interpret datetime as str, the backend uses the default behavior for json.loads, which
 # interprets these as str.  This sets global config for ruamel SafeConstructor
 constructor.SafeConstructor.add_constructor(
-     "tag:yaml.org,2002:timestamp",   SafeConstructor.construct_yaml_str
+    "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
 )
 
 
