@@ -26,7 +26,7 @@ from schema import And, Optional, Or, Regex, Schema, SchemaError
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
     def validate(
-            self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
+        self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
     ) -> Dict[str, Any]:
         super().validate(data, _is_query_schedule_schema=False)
         if _is_query_schedule_schema:
