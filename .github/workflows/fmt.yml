@@ -6,8 +6,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
       - name: Setup Python
         uses: actions/setup-python@v4.3.0
         with:
@@ -27,8 +25,8 @@ jobs:
 
           make fmt
           
-          git config --global user.email "github-service-account-automation@panther.io"
-          git config --global user.name "panther-bot-automation"
+          git config --global user.email "$(git log -n 1 --pretty=format:%ae)"
+          git config --global user.name "${{ github.actor }}"
           git add -A .
 
           AUTOFMT_COMMIT=1
