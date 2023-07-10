@@ -1,4 +1,7 @@
-on: [push, pull_request, pull_request_target]
+on:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   fmt:
@@ -17,13 +20,8 @@ jobs:
       - name: Install
         run: make install
       - name: Commit Modified Files
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BRANCH=${{ github.head_ref }}
-            git fetch; git checkout ${{ github.head_ref }}
-          else
-              BRANCH=${{ github.ref }}
-          fi
+        run: |          
+          git fetch; git checkout ${{ github.head_ref }}
 
           make fmt
           
@@ -37,5 +35,5 @@ jobs:
             echo "No autoformatting needed"
           else
             echo "Auto formatting changed files"
-            git push origin HEAD:$BRANCH
+            git push origin HEAD:${{ github.head_ref }}
           fi
