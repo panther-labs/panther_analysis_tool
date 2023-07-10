@@ -12,6 +12,7 @@ from panther_analysis_tool.schemas import (
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
     RULE_SCHEMA,
+    ANALYSIS_CONFIG_SCHEMA
 )
 
 
@@ -207,7 +208,7 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
 
     def call_validate(self, detection: Dict[str, Any]) -> Any:
         RULE_SCHEMA.validate(detection)
-        return jsonschema.validate(detection, SIMPLE_DETECTION_SCHEMA)
+        return jsonschema.validate(detection, ANALYSIS_CONFIG_SCHEMA)
 
     def get_test_case(self) -> Dict[str, Any]:
         return {

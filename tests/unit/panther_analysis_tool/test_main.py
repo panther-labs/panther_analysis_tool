@@ -23,6 +23,7 @@ import shutil
 from datetime import datetime
 from unittest import mock
 
+import jsonschema
 from nose.tools import assert_equal, assert_is_instance, assert_true
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import TestCase, Pause
@@ -71,6 +72,8 @@ class TestPantherAnalysisTool(TestCase):
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
         self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
+        # jsonschema needs to be able to access '.../site-packages/jsonschema/schemas/vocabularies' to work
+        self.fs.add_real_directory(jsonschema.__path__[0])
 
     def tearDown(self) -> None:
         with Pause(self.fs):
@@ -616,7 +619,8 @@ class TestPantherAnalysisTool(TestCase):
 
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 1)
-        assert_true("bulk validate is only supported via the api token" in return_str, f"match not found in {return_str}")
+        assert_true("bulk validate is only supported via the api token" in return_str,
+                    f"match not found in {return_str}")
 
     def test_bulk_validate_unsupported_exception(self):
         backend = MockBackend()
@@ -630,21 +634,22 @@ class TestPantherAnalysisTool(TestCase):
 
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 1)
-        assert_true("your panther instance does not support this feature" in return_str, f"match not found in {return_str}")
+        assert_true("your panther instance does not support this feature" in return_str,
+                    f"match not found in {return_str}")
 
     def test_bulk_validate_with_expected_failures(self):
         backend = MockBackend()
         backend.supports_bulk_validate = mock.MagicMock(return_value=True)
         fake_response = BulkUploadValidateStatusResponse(
-                error="oh snap",
-                status="FAILED",
-                result=BulkUploadValidateResult.from_json({
-                    "issues": [
-                        {"path": "ok.some.path.text", "errorMessage": "ruh oh"},
-                        {"path": "simple.yml", "errorMessage": "oh noz"},
-                    ]
-                })
-            )
+            error="oh snap",
+            status="FAILED",
+            result=BulkUploadValidateResult.from_json({
+                "issues": [
+                    {"path": "ok.some.path.text", "errorMessage": "ruh oh"},
+                    {"path": "simple.yml", "errorMessage": "oh noz"},
+                ]
+            })
+        )
         backend.bulk_validate = mock.MagicMock(
             return_value=fake_response
         )

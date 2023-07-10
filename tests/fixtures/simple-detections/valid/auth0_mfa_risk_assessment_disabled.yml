@@ -5,7 +5,7 @@ Enabled: true
 Runbook: Assess if this was done by the user for a valid business reason. Be vigilant to re-enable this setting as it's in the best security interest for your organization's security posture.
 Severity: High
 InlineFilters:
-  - Key: p_any_usernames
+  - KeyPath: p_any_usernames
     Condition: Equals
     Value: google-oauth2|105261262156475851231
 Detection:
@@ -188,15 +188,15 @@ Tests:
                 email: user.name@yourcompany.io
                 name: User Name
                 user_id: google-oauth2|105261262156475850461
-            body: []
+            body: [ ]
             channel: https://manage.auth0.com/
             ip: 12.12.12.12
             method: put
             path: /api/v2/guardian/policies
-            query: {}
+            query: { }
             userAgent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36
           response:
-            body: []
+            body: [ ]
             statusCode: 200
         ip: 12.12.12.12
         log_id: '90020230516172812328948000000000000001223372037498448373'
@@ -374,7 +374,7 @@ Tests:
             ip: 12.12.12.12
             method: patch
             path: /api/v2/risk-assessment/config
-            query: {}
+            query: { }
             userAgent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36
           response:
             body:
