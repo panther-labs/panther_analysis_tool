@@ -1,7 +1,7 @@
 on:
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   fmt:
@@ -30,7 +30,7 @@ jobs:
           git add -A .
 
           AUTOFMT_COMMIT=1
-          git commit -m "Automatically commit format changes" || AUTOFMT_COMMIT=0
+          git commit -m "Auto-format files" || AUTOFMT_COMMIT=0
           if [ $AUTOFMT_COMMIT -eq 0 ]; then
             echo "No autoformatting needed"
           else
