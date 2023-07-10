@@ -38,10 +38,6 @@ class QueryScheduleSchema(Schema):
                 # validate rate minutes >= timeout
                 if rate < timeout:
                     raise SchemaError("RateMinutes must be >= TimeoutMinutes")
-            lookback, lookback_window = data.get("Lookback"), data.get("LookbackWindow")
-            if lookback:
-                if lookback_window is None or lookback_window < 1:
-                    raise SchemaError("LookbackWindow must be > 1 (minute)")
         return data
 
 
@@ -253,7 +249,7 @@ SAVED_QUERY_SCHEMA = Schema(
 )  # Prevent user typos on optional fields
 
 SCHEDULED_QUERY_SCHEMA = Schema(
-    {
+    And({
         "AnalysisType": Or("scheduled_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
