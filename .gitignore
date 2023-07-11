@@ -61,7 +61,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Editor/IDE
+# Editor / IDE
 .vim/
 .idea
 .vscode
