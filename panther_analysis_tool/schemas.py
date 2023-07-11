@@ -242,6 +242,8 @@ SAVED_QUERY_SCHEMA = Schema(
         Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
         Optional("Description"): str,
         Optional("Tags"): [str],
+        Optional("Lookback"): bool,
+        Optional("LookbackWindowSeconds"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -260,9 +262,12 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         ),
         Optional("Description"): str,
         Optional("Tags"): [str],
+        Optional("Lookback"): bool,
+        Optional("LookbackWindowSeconds"): int,
     },
-    ignore_extra_keys=False,
-)  # Prevent user typos on optional fields
+    ignore_extra_keys=False
+    # Prevent user typos on optional fields
+)
 
 LOOKUP_TABLE_SCHEMA = Schema(
     {
