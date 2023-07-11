@@ -45,5 +45,5 @@ jobs:
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files"
-            git push origin HEAD:${{ github.head_ref }}
+            git push origin HEAD:$BRANCH
           fi
