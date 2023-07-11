@@ -1,11 +1,27 @@
-on: [push, pull_request, pull_request_target]
+on:
+  push:
+    branches-ignore:
+      - master
 
 jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure git user
+        run: |
+          if [[ -n "${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}" ]]; then
+            echo "GIT_USER_NAME=panther-bot-automation" >> $GITHUB_ENV
+            echo "GIT_USER_EMAIL=github-service-account-automation@panther.io" >> $GITHUB_ENV
+            echo "GIT_TOKEN=${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}" >> $GITHUB_ENV
+          else
+            echo "GIT_USER_NAME=${{ github.actor }}" >> $GITHUB_ENV
+            echo "GIT_USER_EMAIL=$(git log -n 1 --pretty=format:%ae)" >> $GITHUB_ENV
+            echo "GIT_TOKEN=${{ github.token }}" >> $GITHUB_ENV
+          fi
       - name: Checkout
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3
+        with:
+          token: ${{ env.GIT_TOKEN }}
       - name: Setup Python
         uses: actions/setup-python@v4.3.0
         with:
@@ -17,7 +33,17 @@ jobs:
       - name: Format
         run: make fmt
       - name: Commit formatting
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: Automatically commit format changes
+        run: |
+          git config --global user.name "$GIT_USER_NAME"
+          git config --global user.email "$GIT_USER_EMAIL"
+          
+          git add -A .
 
+          REQUIRES_COMMIT=1
+          git commit -m "Auto-format files" || REQUIRES_COMMIT=0
+          if [[ $REQUIRES_COMMIT -eq 0 ]]; then
+            echo "No auto-formatting needed"
+          else
+            echo "Committing auto-formatted files"
+            git push origin HEAD:${{ github.ref }}
+          fi
