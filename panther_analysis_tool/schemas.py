@@ -243,7 +243,7 @@ SAVED_QUERY_SCHEMA = Schema(
         Optional("Description"): str,
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
-        Optional("LookbackWindowSeconds"): int
+        Optional("LookbackWindowSeconds"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
