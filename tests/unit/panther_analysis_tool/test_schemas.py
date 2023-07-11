@@ -103,6 +103,16 @@ class TestPATSchemas(unittest.TestCase):
                 "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
                 "Unknown field": 1
             })
+        # Lookback and LookbackWindow
+        SCHEDULED_QUERY_SCHEMA.validate({
+            "QueryName": "my.query.id",
+            "AnalysisType": "scheduled_query",
+            "Query": "select 1",
+            "Enabled": False,
+            "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
+            "Lookback": True,
+            "LookbackWindowSeconds": 60
+        })
 
     def test_saved_query_validate_schema(self):
         # has required fields
