@@ -13,12 +13,12 @@ jobs:
           else
             echo "GIT_USER_NAME=${{ github.actor }}" >> $GITHUB_ENV
             echo "GIT_USER_EMAIL=$(git log -n 1 --pretty=format:%ae)" >> $GITHUB_ENV
-            echo "GIT_TOKEN=${GITHUB_TOKEN}" >> $GITHUB_ENV
+            echo "GIT_TOKEN=${{ github.token }}" >> $GITHUB_ENV
           fi
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          token: $GIT_TOKEN
+          token: ${{ env.GIT_TOKEN }}
       - name: Setup Python
         uses: actions/setup-python@v4.3.0
         with:
