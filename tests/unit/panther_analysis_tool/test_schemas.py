@@ -1,8 +1,8 @@
 import unittest
-
-from schema import SchemaError
 from typing import Any, Dict
+
 import jsonschema
+from schema import SchemaError
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
@@ -12,7 +12,7 @@ from panther_analysis_tool.schemas import (
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
     RULE_SCHEMA,
-    SIMPLE_DETECTION_SCHEMA,
+    ANALYSIS_CONFIG_SCHEMA
 )
 
 
@@ -84,7 +84,7 @@ class TestPATSchemas(unittest.TestCase):
                 "AnalysisType": "scheduled_query",
                 "Query": "select 1",
                 "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
-        })
+            })
         # missing Schedule
         with self.assertRaises(SchemaError):
             SCHEDULED_QUERY_SCHEMA.validate({
@@ -92,7 +92,7 @@ class TestPATSchemas(unittest.TestCase):
                 "AnalysisType": "scheduled_query",
                 "Query": "select 1",
                 "Enabled": False,
-        })
+            })
         #  unknown field
         with self.assertRaises(SchemaError):
             SCHEDULED_QUERY_SCHEMA.validate({
@@ -102,7 +102,7 @@ class TestPATSchemas(unittest.TestCase):
                 "Enabled": False,
                 "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
                 "Unknown field": 1
-        })
+            })
 
     def test_saved_query_validate_schema(self):
         # has required fields
@@ -117,17 +117,17 @@ class TestPATSchemas(unittest.TestCase):
                 "AnalysisType": "saved_query",
                 "Query": "select 1",
                 "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
-        })
+            })
         #  schedule query
         with self.assertRaises(SchemaError):
             SAVED_QUERY_SCHEMA.validate({
-            "QueryName": "my.query.id",
-            "AnalysisType": "saved_query",
-            "Query": "select 1",
-            "Enabled": False,
-            "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
-        })        
-        #  unknown field
+                "QueryName": "my.query.id",
+                "AnalysisType": "saved_query",
+                "Query": "select 1",
+                "Enabled": False,
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5}
+            })
+            #  unknown field
         with self.assertRaises(SchemaError):
             SAVED_QUERY_SCHEMA.validate({
                 "QueryName": "my.query.id",
@@ -136,10 +136,9 @@ class TestPATSchemas(unittest.TestCase):
                 "Enabled": False,
                 "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
                 "Unknown field": 1
-        })
-            
-        
-    def test_query_rateminutes(self):        
+            })
+
+    def test_query_rateminutes(self):
         sample_query = {
             "QueryName": "my.query.id",
             "AnalysisType": "scheduled_query",
@@ -209,7 +208,7 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
 
     def call_validate(self, detection: Dict[str, Any]) -> Any:
         RULE_SCHEMA.validate(detection)
-        return jsonschema.validate(detection, SIMPLE_DETECTION_SCHEMA)
+        return jsonschema.validate(detection, ANALYSIS_CONFIG_SCHEMA)
 
     def get_test_case(self) -> Dict[str, Any]:
         return {
