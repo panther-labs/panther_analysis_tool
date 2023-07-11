@@ -27,20 +27,14 @@ jobs:
         run: make install-pipenv
       - name: Install
         run: make install
-      - name: Format and commit modified files
+      - name: Format
+        run: make fmt
+      - name: Commit formatting
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BRANCH=${{ github.head_ref }}
-            git fetch; git checkout ${{ github.head_ref }}
-          else
-            BRANCH=${{ github.ref }}
-          fi
-
-          make fmt
-          git add -A .
-
           git config --global user.name "$GIT_USER_NAME"
           git config --global user.email "$GIT_USER_EMAIL"
+          
+          git add -A .
 
           REQUIRES_COMMIT=1
           git commit -m "Auto-format files" || REQUIRES_COMMIT=0
@@ -48,5 +42,5 @@ jobs:
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files"
-            git push origin HEAD:$BRANCH
+            git push origin HEAD:${{ github.ref }}
           fi
