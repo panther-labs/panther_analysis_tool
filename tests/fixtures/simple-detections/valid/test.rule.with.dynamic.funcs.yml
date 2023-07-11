@@ -8,7 +8,7 @@ InlineFilters:
   - KeyPath: actionName
     Condition: Equals
     Value: Beans
-Title: The user agent was {userAgent}
+AlertTitle: The user agent was {userAgent}
 DynamicSeverities:
   - ChangeTo: High
     Conditions:
@@ -17,7 +17,7 @@ DynamicSeverities:
         Value: Beans
 AlertContext:
   - KeyName: foo
-    KeyValue: 
+    KeyValue:
       Key: actionName
 GroupBy:
   - Key: actionName

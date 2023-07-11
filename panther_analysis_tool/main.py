@@ -110,11 +110,11 @@ from panther_analysis_tool.constants import (
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
+    ANALYSIS_CONFIG_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
-    SIMPLE_DETECTION_SCHEMA,
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
@@ -548,7 +548,10 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
         f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
     )
     # setup appropriate https headers
-    headers = {"accept": "application/vnd.github.v3+json", "Authorization": f"token {api_token}"}
+    headers = {
+        "accept": "application/vnd.github.v3+json",
+        "Authorization": f"token {api_token}",
+    }
     # check this tag doesn't already exist
     response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers)
     if response.status_code == 200:
@@ -604,7 +607,11 @@ def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int
         os.makedirs(release_dir)
     # pull latest version of the github repo
     return_code, _ = clone_github(
-        args.github_owner, args.github_repository, args.github_branch, release_dir, token
+        args.github_owner,
+        args.github_repository,
+        args.github_branch,
+        release_dir,
+        token,
     )
     if return_code != 0:
         return return_code
@@ -778,7 +785,10 @@ def test_analysis(
                     )
                     print("")
     print_summary(
-        args.path, len(specs.detections + specs.simple_detections), failed_tests, invalid_specs
+        args.path,
+        len(specs.detections + specs.simple_detections),
+        failed_tests,
+        invalid_specs,
     )
 
     #  if the classic format was invalid, just exit
@@ -947,7 +957,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
 
 
 def print_summary(
-    test_path: str, num_tests: int, failed_tests: Dict[str, list], invalid_specs: List[Any]
+    test_path: str,
+    num_tests: int,
+    failed_tests: Dict[str, list],
+    invalid_specs: List[Any],
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
@@ -974,7 +987,9 @@ def print_summary(
 
 # pylint: disable=too-many-locals,too-many-statements
 def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]], ignore_table_names: bool, valid_table_names: List[str]
+    specs: List[Tuple[str, str, Any, Any]],
+    ignore_table_names: bool,
+    valid_table_names: List[str],
 ) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -1033,9 +1048,7 @@ def classify_analysis(
                 analysis_spec_filename, dir_name, analysis_spec
             )
 
-            # extra validation for simple detections based on json schema
-            if is_simple_detection(analysis_spec):
-                jsonschema.validate(analysis_spec, SIMPLE_DETECTION_SCHEMA)
+            jsonschema.validate(analysis_spec, ANALYSIS_CONFIG_SCHEMA)
 
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
 
@@ -1062,7 +1075,10 @@ def classify_analysis(
         except jsonschema.exceptions.ValidationError as err:
             error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
             invalid_specs.append(
-                (analysis_spec_filename, jsonschema.exceptions.ValidationError(error_message))
+                (
+                    analysis_spec_filename,
+                    jsonschema.exceptions.ValidationError(error_message),
+                )
             )
         except Exception as err:  # pylint: disable=broad-except
             # Catch arbitrary exceptions thrown by bad specification files
@@ -1262,7 +1278,9 @@ def _print_test_result(
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
                     "\t\t[{}] [{}] {}".format(
-                        status_fail, printable_name, function_result.get("error", {}).get("message")
+                        status_fail,
+                        printable_name,
+                        function_result.get("error", {}).get("message"),
                     )
                 )
             # if it didn't error, we simply need to check if the output was as expected
@@ -1292,7 +1310,11 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "When set your upload will be broken down into multiple zip files",
     }
     filter_name = "--filter"
-    filter_arg: Dict[str, Any] = {"required": False, "metavar": "KEY=VALUE", "nargs": "+"}
+    filter_arg: Dict[str, Any] = {
+        "required": False,
+        "metavar": "KEY=VALUE",
+        "nargs": "+",
+    }
     kms_key_name = "--kms-key"
     kms_key_arg: Dict[str, Any] = {
         "type": str,
@@ -1543,7 +1565,8 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- delete command
 
     delete_parser = subparsers.add_parser(
-        "delete", help="Delete policies, rules, or saved queries from a Panther deployment"
+        "delete",
+        help="Delete policies, rules, or saved queries from a Panther deployment",
     )
     delete_parser.add_argument(
         "--no-confirm",
@@ -1586,7 +1609,8 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- update custom schemas command
 
     update_custom_schemas_parser = subparsers.add_parser(
-        "update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
+        "update-custom-schemas",
+        help="Update or create custom schemas on a Panther deployment.",
     )
 
     standard_args.for_public_api(update_custom_schemas_parser, required=False)
@@ -1630,7 +1654,8 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- zip command
 
     zip_parser = subparsers.add_parser(
-        "zip", help="Create an archive of local policies and rules for uploading to Panther."
+        "zip",
+        help="Create an archive of local policies and rules for uploading to Panther.",
     )
     standard_args.for_public_api(zip_parser, required=False)
     zip_parser.add_argument(filter_name, **filter_arg)

@@ -16,7 +16,10 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["LogType", "Selectors"]
+      "required": [
+        "LogType",
+        "Selectors"
+      ]
     },
     "DynamicSeverity": {
       "properties": {
@@ -30,7 +33,257 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["ChangeTo", "Conditions"]
+      "required": [
+        "ChangeTo",
+        "Conditions"
+      ]
+    },
+    "InlineFilterMatchExpressions": {
+      "items": {
+        "oneOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "KeyPath",
+              "Condition"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "KeyPath",
+              "Condition",
+              "Value"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "KeyPath",
+              "Condition",
+              "Values"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "Table",
+                  "Selector",
+                  "FieldPath"
+                ]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Enrichment",
+              "Condition",
+              "Value"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "Table",
+                  "Selector",
+                  "FieldPath"
+                ]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Enrichment",
+              "Condition",
+              "Values"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "All": {
+                "$ref": "#/$defs/InlineFilterMatchExpressions"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "All"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Any": {
+                "$ref": "#/$defs/InlineFilterMatchExpressions"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Any"
+            ]
+          }
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "KeySpecifier": {
       "oneOf": [
@@ -43,7 +296,9 @@
           },
           "additionalProperties": false,
           "type": "object",
-          "required": ["Key"]
+          "required": [
+            "Key"
+          ]
         },
         {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -64,7 +319,9 @@
           },
           "additionalProperties": false,
           "type": "object",
-          "required": ["DeepKey"]
+          "required": [
+            "DeepKey"
+          ]
         },
         {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -75,7 +332,9 @@
           },
           "additionalProperties": false,
           "type": "object",
-          "required": ["KeyPath"]
+          "required": [
+            "KeyPath"
+          ]
         }
       ],
       "type": "object"
@@ -91,7 +350,10 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["KeyName", "KeyValue"]
+      "required": [
+        "KeyName",
+        "KeyValue"
+      ]
     },
     "LogTypeMap": {
       "properties": {
@@ -107,7 +369,10 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["PrimaryKey", "AssociatedLogTypes"]
+      "required": [
+        "PrimaryKey",
+        "AssociatedLogTypes"
+      ]
     },
     "Mapping": {
       "properties": {
@@ -123,11 +388,491 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["Name"]
+      "required": [
+        "Name"
+      ]
     },
     "MatchExpressions": {
       "items": {
         "oneOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "KeyPath",
+              "Condition"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "KeyPath",
+              "Condition",
+              "Value"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "KeyPath": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "KeyPath",
+              "Condition",
+              "Values"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "Table",
+                  "Selector",
+                  "FieldPath"
+                ]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Enrichment",
+              "Condition",
+              "Value"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Enrichment": {
+                "properties": {
+                  "Table": {
+                    "type": "string"
+                  },
+                  "Selector": {
+                    "type": "string"
+                  },
+                  "FieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "Table",
+                  "Selector",
+                  "FieldPath"
+                ]
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Enrichment",
+              "Condition",
+              "Values"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "All": {
+                "$ref": "#/$defs/MatchExpressions"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "All"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Any": {
+                "$ref": "#/$defs/MatchExpressions"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Any"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "OnlyOne": {
+                "$ref": "#/$defs/MatchExpressions"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "OnlyOne"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Key": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Key",
+              "Condition"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "DeepKey": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "Condition": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "DeepKey",
+              "Condition"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Key": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Key",
+              "Condition",
+              "Value"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "Key": {
+                "type": "string"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "Key",
+              "Condition",
+              "Values"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "DeepKey": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "DeepKey",
+              "Condition",
+              "Value"
+            ]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "DeepKey": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "Condition": {
+                "type": "string"
+              },
+              "Values": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": "array"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "DeepKey",
+              "Condition",
+              "Values"
+            ]
+          },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
@@ -139,12 +884,21 @@
               },
               "Condition": {
                 "type": "string",
-                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
+                "enum": [
+                  "AllElements",
+                  "AnyElement",
+                  "NoElement",
+                  "OnlyOneElement"
+                ]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["Expressions", "Key", "Condition"]
+            "required": [
+              "Expressions",
+              "Key",
+              "Condition"
+            ]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -160,12 +914,21 @@
               },
               "Condition": {
                 "type": "string",
-                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
+                "enum": [
+                  "AllElements",
+                  "AnyElement",
+                  "NoElement",
+                  "OnlyOneElement"
+                ]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["Expressions", "DeepKey", "Condition"]
+            "required": [
+              "Expressions",
+              "DeepKey",
+              "Condition"
+            ]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -178,348 +941,38 @@
               },
               "Condition": {
                 "type": "string",
-                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
+                "enum": [
+                  "AllElements",
+                  "AnyElement",
+                  "NoElement",
+                  "OnlyOneElement"
+                ]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["Expressions", "KeyPath", "Condition"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "All": {
-                "$ref": "#/$defs/MatchExpressions"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["All"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Any": {
-                "$ref": "#/$defs/MatchExpressions"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["Any"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "OnlyOne": {
-                "$ref": "#/$defs/MatchExpressions"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["OnlyOne"]
+            "required": [
+              "Expressions",
+              "KeyPath",
+              "Condition"
+            ]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "Condition": {
                 "type": "string",
-                "enum": ["AlwaysTrue", "AlwaysFalse"]
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["Condition"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Key": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["Key", "Condition"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "DeepKey": {
-                "items": {
-                  "oneOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "integer"
-                    }
-                  ]
-                },
-                "type": "array"
-              },
-              "Condition": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["DeepKey", "Condition"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "KeyPath": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["KeyPath", "Condition"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Key": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Value": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ],
-                "additionalProperties": false
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["Key", "Condition", "Value"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Key": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Values": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": "array"
-                  }
+                "enum": [
+                  "AlwaysTrue",
+                  "AlwaysFalse"
                 ]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["Key", "Condition", "Values"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "DeepKey": {
-                "items": {
-                  "oneOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "integer"
-                    }
-                  ]
-                },
-                "type": "array"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Value": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ],
-                "additionalProperties": false
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["DeepKey", "Condition", "Value"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "DeepKey": {
-                "items": {
-                  "oneOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "integer"
-                    }
-                  ]
-                },
-                "type": "array"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Values": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": "array"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["DeepKey", "Condition", "Values"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "KeyPath": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Value": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ],
-                "additionalProperties": false
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["KeyPath", "Condition", "Value"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "KeyPath": {
-                "type": "string"
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Values": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": "array"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["KeyPath", "Condition", "Values"]
+            "required": [
+              "Condition"
+            ]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -539,7 +992,9 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["Key"]
+                      "required": [
+                        "Key"
+                      ]
                     },
                     {
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -560,7 +1015,9 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["DeepKey"]
+                      "required": [
+                        "DeepKey"
+                      ]
                     },
                     {
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -571,7 +1028,9 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["KeyPath"]
+                      "required": [
+                        "KeyPath"
+                      ]
                     }
                   ],
                   "type": "object"
@@ -583,111 +1042,60 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": ["Condition", "Values"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Enrichment": {
-                "properties": {
-                  "Table": {
-                    "type": "string"
-                  },
-                  "Selector": {
-                    "type": "string"
-                  },
-                  "FieldPath": {
-                    "type": "string"
-                  }
-                },
-                "additionalProperties": false,
-                "type": "object",
-                "required": ["Table", "Selector", "FieldPath"]
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Value": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ],
-                "additionalProperties": false
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["Enrichment", "Condition", "Value"]
-          },
-          {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "properties": {
-              "Enrichment": {
-                "properties": {
-                  "Table": {
-                    "type": "string"
-                  },
-                  "Selector": {
-                    "type": "string"
-                  },
-                  "FieldPath": {
-                    "type": "string"
-                  }
-                },
-                "additionalProperties": false,
-                "type": "object",
-                "required": ["Table", "Selector", "FieldPath"]
-              },
-              "Condition": {
-                "type": "string"
-              },
-              "Values": {
-                "anyOf": [
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": "array"
-                  },
-                  {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": "array"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "required": ["Enrichment", "Condition", "Values"]
+            "required": [
+              "Condition",
+              "Values"
+            ]
           }
         ],
         "type": "object"
       },
       "type": "array"
+    },
+    "MockReturnValue": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        },
+        {
+          "type": "array"
+        }
+      ]
+    },
+    "Mocks": {
+      "items": {
+        "patternProperties": {
+          ".*": {
+            "$ref": "#/$defs/MockReturnValue"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "PackDefinition": {
+      "properties": {
+        "IDs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "IDs"
+      ]
     },
     "QuerySchedule": {
       "properties": {
@@ -703,7 +1111,9 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["TimeoutMinutes"]
+      "required": [
+        "TimeoutMinutes"
+      ]
     },
     "Refresh": {
       "properties": {
@@ -725,7 +1135,32 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["RoleARN", "PeriodMinutes", "AlarmPeriodMinutes", "ObjectPath", "ObjectKMSKey"]
+      "required": [
+        "RoleARN",
+        "PeriodMinutes",
+        "ObjectPath"
+      ]
+    },
+    "ReportItem": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "Reports": {
+      "patternProperties": {
+        ".*": {
+          "items": {
+            "$ref": "#/$defs/ReportItem"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
     },
     "SimpleDetectionSchema": {
       "properties": {
@@ -739,7 +1174,8 @@
             "rule",
             "scheduled_rule",
             "scheduled_query",
-            "lookup_table"
+            "lookup_table",
+            "saved_query"
           ]
         },
         "Description": {
@@ -767,15 +1203,7 @@
           "type": "string"
         },
         "Reports": {
-          "patternProperties": {
-            ".*": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
+          "$ref": "#/$defs/Reports"
         },
         "Runbook": {
           "type": "string"
@@ -864,6 +1292,12 @@
         "SnowflakeQuery": {
           "type": "string"
         },
+        "Lookback": {
+          "type": "boolean"
+        },
+        "LookbackWindowSeconds": {
+          "type": "integer"
+        },
         "LogTypeMap": {
           "$ref": "#/$defs/LogTypeMap"
         },
@@ -876,11 +1310,17 @@
         "Schema": {
           "type": "string"
         },
+        "PackDefinition": {
+          "$ref": "#/$defs/PackDefinition"
+        },
+        "PackID": {
+          "type": "string"
+        },
         "Detection": {
           "$ref": "#/$defs/MatchExpressions"
         },
         "InlineFilters": {
-          "$ref": "#/$defs/MatchExpressions"
+          "$ref": "#/$defs/InlineFilterMatchExpressions"
         },
         "GroupBy": {
           "items": {
@@ -894,7 +1334,7 @@
           },
           "type": "array"
         },
-        "Title": {
+        "AlertTitle": {
           "type": "string"
         },
         "DynamicSeverities": {
@@ -906,7 +1346,9 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["AnalysisType"]
+      "required": [
+        "AnalysisType"
+      ]
     },
     "Test": {
       "properties": {
@@ -918,15 +1360,7 @@
           "type": "string"
         },
         "Mocks": {
-          "items": {
-            "patternProperties": {
-              ".*": {
-                "type": "string"
-              }
-            },
-            "type": "object"
-          },
-          "type": "array"
+          "$ref": "#/$defs/Mocks"
         },
         "Name": {
           "type": "string"
@@ -938,7 +1372,10 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["ExpectedResult", "Name"]
+      "required": [
+        "ExpectedResult",
+        "Name"
+      ]
     }
   }
 }
