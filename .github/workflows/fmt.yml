@@ -1,16 +1,24 @@
-on:
-  pull_request:
-    branches:
-      - master
+on: [push, pull_request, pull_request_target]
 
 jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure git user
+        run: |
+          if [[ -n "${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}" ]]; then
+            echo "TOKEN=${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}" >> $GITHUB_ENV
+            git config --global user.email "github-service-account-automation@panther.io"
+            git config --global user.name "panther-bot-automation"
+          else
+            echo "TOKEN=${GITHUB_TOKEN}" >> $GITHUB_ENV
+            git config --global user.email "github-service-account-automation@panther.io"
+            git config --global user.name "panther-bot-automation"
+          fi
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
+          token: $TOKEN
       - name: Setup Python
         uses: actions/setup-python@v4.3.0
         with:
@@ -19,21 +27,23 @@ jobs:
         run: make install-pipenv
       - name: Install
         run: make install
-      - name: Commit Modified Files
-        run: |          
-          git fetch; git checkout ${{ github.head_ref }}
+      - name: Format and commit modified files
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH=${{ github.head_ref }}
+            git fetch; git checkout ${{ github.head_ref }}
+          else
+            BRANCH=${{ github.ref }}
+          fi
 
           make fmt
-          
-          git config --global user.email "github-service-account-automation@panther.io"
-          git config --global user.name "panther-bot-automation"
           git add -A .
 
-          AUTOFMT_COMMIT=1
-          git commit -m "Auto-format files" || AUTOFMT_COMMIT=0
-          if [ $AUTOFMT_COMMIT -eq 0 ]; then
-            echo "No autoformatting needed"
+          REQUIRES_COMMIT=1
+          git commit -m "Auto-format files" || REQUIRES_COMMIT=0
+          if [ $REQUIRES_COMMIT -eq 0 ]; then
+            echo "No auto-formatting needed"
           else
-            echo "Auto formatting changed files"
+            echo "Committing auto-formatted files"
             git push origin HEAD:${{ github.head_ref }}
           fi
