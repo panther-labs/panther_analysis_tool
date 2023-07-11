@@ -41,7 +41,7 @@ jobs:
 
           REQUIRES_COMMIT=1
           git commit -m "Auto-format files" || REQUIRES_COMMIT=0
-          if [ $REQUIRES_COMMIT -eq 0 ]; then
+          if [[ $REQUIRES_COMMIT -eq 0 ]]; then
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files"
