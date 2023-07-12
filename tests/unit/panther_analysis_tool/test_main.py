@@ -509,6 +509,8 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(f'test '
                                                  f'--path '
                                                  f' {FIXTURES_PATH}/simple-detections/valid '.split())
+            # Force the PAT schema explicitly to ignore extra keys.
+            pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -540,6 +542,8 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(f'test '
                                                  f'--path '
                                                  f' {file_path}'.split())
+            # Force the PAT schema explicitly to ignore extra keys.
+            pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 1)

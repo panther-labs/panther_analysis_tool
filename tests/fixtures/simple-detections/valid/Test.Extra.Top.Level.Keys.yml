@@ -1,0 +1,37 @@
+AnalysisType: rule
+RuleID: 'Test.Path.Specifiers'
+Enabled: false
+LogTypes:
+  - AWS.VPCFlow
+Severity: Low
+Detection:
+  - KeyPath: abc.def
+    Condition: Equals
+    Value: 123
+  - KeyPath: fed.cbc
+    Condition: IsIn
+    Values:
+      - 123
+      - 456
+  - KeyPath: one.two.three[0]
+    Condition: DoesNotExist
+  - KeyPath: some.list
+    Condition: AnyElement
+    Expressions:
+      - KeyPath: three.two.one
+        Condition: Equals
+        Value: heylo
+      - KeyPath: x.y.z
+        Condition: IsIn
+        Values:
+          - one
+          - two
+  - Condition: Equals
+    Values:
+      - KeyPath: some.list
+      - Key: someOtherList
+ThisIsNotARealTopLevelKey:
+  - KeyPath: abc.def
+    Condition: Equals
+    Value: 123
+  - someKey: 'blah blah'
