@@ -16,10 +16,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "LogType",
-        "Selectors"
-      ]
+      "required": ["LogType", "Selectors"]
     },
     "DynamicSeverity": {
       "properties": {
@@ -33,10 +30,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "ChangeTo",
-        "Conditions"
-      ]
+      "required": ["ChangeTo", "Conditions"]
     },
     "InlineFilterMatchExpressions": {
       "items": {
@@ -53,10 +47,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "KeyPath",
-              "Condition"
-            ]
+            "required": ["KeyPath", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -87,11 +78,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "KeyPath",
-              "Condition",
-              "Value"
-            ]
+            "required": ["KeyPath", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -133,11 +120,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "KeyPath",
-              "Condition",
-              "Values"
-            ]
+            "required": ["KeyPath", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -156,11 +139,7 @@
                 },
                 "additionalProperties": false,
                 "type": "object",
-                "required": [
-                  "Table",
-                  "Selector",
-                  "FieldPath"
-                ]
+                "required": ["Table", "Selector", "FieldPath"]
               },
               "Condition": {
                 "type": "string"
@@ -185,11 +164,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Enrichment",
-              "Condition",
-              "Value"
-            ]
+            "required": ["Enrichment", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -208,11 +183,7 @@
                 },
                 "additionalProperties": false,
                 "type": "object",
-                "required": [
-                  "Table",
-                  "Selector",
-                  "FieldPath"
-                ]
+                "required": ["Table", "Selector", "FieldPath"]
               },
               "Condition": {
                 "type": "string"
@@ -248,11 +219,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Enrichment",
-              "Condition",
-              "Values"
-            ]
+            "required": ["Enrichment", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -263,9 +230,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "All"
-            ]
+            "required": ["All"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -276,9 +241,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Any"
-            ]
+            "required": ["Any"]
           }
         ],
         "type": "object"
@@ -296,9 +259,7 @@
           },
           "additionalProperties": false,
           "type": "object",
-          "required": [
-            "Key"
-          ]
+          "required": ["Key"]
         },
         {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -319,9 +280,7 @@
           },
           "additionalProperties": false,
           "type": "object",
-          "required": [
-            "DeepKey"
-          ]
+          "required": ["DeepKey"]
         },
         {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -332,9 +291,7 @@
           },
           "additionalProperties": false,
           "type": "object",
-          "required": [
-            "KeyPath"
-          ]
+          "required": ["KeyPath"]
         }
       ],
       "type": "object"
@@ -350,10 +307,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "KeyName",
-        "KeyValue"
-      ]
+      "required": ["KeyName", "KeyValue"]
     },
     "LogTypeMap": {
       "properties": {
@@ -369,10 +323,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "PrimaryKey",
-        "AssociatedLogTypes"
-      ]
+      "required": ["PrimaryKey", "AssociatedLogTypes"]
     },
     "Mapping": {
       "properties": {
@@ -388,9 +339,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "Name"
-      ]
+      "required": ["Name"]
     },
     "MatchExpressions": {
       "items": {
@@ -407,10 +356,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "KeyPath",
-              "Condition"
-            ]
+            "required": ["KeyPath", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -441,11 +387,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "KeyPath",
-              "Condition",
-              "Value"
-            ]
+            "required": ["KeyPath", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -487,11 +429,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "KeyPath",
-              "Condition",
-              "Values"
-            ]
+            "required": ["KeyPath", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -510,11 +448,7 @@
                 },
                 "additionalProperties": false,
                 "type": "object",
-                "required": [
-                  "Table",
-                  "Selector",
-                  "FieldPath"
-                ]
+                "required": ["Table", "Selector", "FieldPath"]
               },
               "Condition": {
                 "type": "string"
@@ -539,11 +473,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Enrichment",
-              "Condition",
-              "Value"
-            ]
+            "required": ["Enrichment", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -562,11 +492,7 @@
                 },
                 "additionalProperties": false,
                 "type": "object",
-                "required": [
-                  "Table",
-                  "Selector",
-                  "FieldPath"
-                ]
+                "required": ["Table", "Selector", "FieldPath"]
               },
               "Condition": {
                 "type": "string"
@@ -602,11 +528,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Enrichment",
-              "Condition",
-              "Values"
-            ]
+            "required": ["Enrichment", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -617,9 +539,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "All"
-            ]
+            "required": ["All"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -630,9 +550,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Any"
-            ]
+            "required": ["Any"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -643,9 +561,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "OnlyOne"
-            ]
+            "required": ["OnlyOne"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -659,10 +575,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Key",
-              "Condition"
-            ]
+            "required": ["Key", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -686,10 +599,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "DeepKey",
-              "Condition"
-            ]
+            "required": ["DeepKey", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -720,11 +630,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Key",
-              "Condition",
-              "Value"
-            ]
+            "required": ["Key", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -766,11 +672,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Key",
-              "Condition",
-              "Values"
-            ]
+            "required": ["Key", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -811,11 +713,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "DeepKey",
-              "Condition",
-              "Value"
-            ]
+            "required": ["DeepKey", "Condition", "Value"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -867,11 +765,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "DeepKey",
-              "Condition",
-              "Values"
-            ]
+            "required": ["DeepKey", "Condition", "Values"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -884,21 +778,12 @@
               },
               "Condition": {
                 "type": "string",
-                "enum": [
-                  "AllElements",
-                  "AnyElement",
-                  "NoElement",
-                  "OnlyOneElement"
-                ]
+                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Expressions",
-              "Key",
-              "Condition"
-            ]
+            "required": ["Expressions", "Key", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -914,21 +799,12 @@
               },
               "Condition": {
                 "type": "string",
-                "enum": [
-                  "AllElements",
-                  "AnyElement",
-                  "NoElement",
-                  "OnlyOneElement"
-                ]
+                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Expressions",
-              "DeepKey",
-              "Condition"
-            ]
+            "required": ["Expressions", "DeepKey", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -941,38 +817,24 @@
               },
               "Condition": {
                 "type": "string",
-                "enum": [
-                  "AllElements",
-                  "AnyElement",
-                  "NoElement",
-                  "OnlyOneElement"
-                ]
+                "enum": ["AllElements", "AnyElement", "NoElement", "OnlyOneElement"]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Expressions",
-              "KeyPath",
-              "Condition"
-            ]
+            "required": ["Expressions", "KeyPath", "Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
               "Condition": {
                 "type": "string",
-                "enum": [
-                  "AlwaysTrue",
-                  "AlwaysFalse"
-                ]
+                "enum": ["AlwaysTrue", "AlwaysFalse"]
               }
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Condition"
-            ]
+            "required": ["Condition"]
           },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -992,9 +854,7 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": [
-                        "Key"
-                      ]
+                      "required": ["Key"]
                     },
                     {
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1015,9 +875,7 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": [
-                        "DeepKey"
-                      ]
+                      "required": ["DeepKey"]
                     },
                     {
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1028,9 +886,7 @@
                       },
                       "additionalProperties": false,
                       "type": "object",
-                      "required": [
-                        "KeyPath"
-                      ]
+                      "required": ["KeyPath"]
                     }
                   ],
                   "type": "object"
@@ -1042,10 +898,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "required": [
-              "Condition",
-              "Values"
-            ]
+            "required": ["Condition", "Values"]
           }
         ],
         "type": "object"
@@ -1093,9 +946,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "IDs"
-      ]
+      "required": ["IDs"]
     },
     "QuerySchedule": {
       "properties": {
@@ -1111,9 +962,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "TimeoutMinutes"
-      ]
+      "required": ["TimeoutMinutes"]
     },
     "Refresh": {
       "properties": {
@@ -1135,11 +984,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "RoleARN",
-        "PeriodMinutes",
-        "ObjectPath"
-      ]
+      "required": ["RoleARN", "PeriodMinutes", "ObjectPath"]
     },
     "ReportItem": {
       "oneOf": [
@@ -1344,11 +1189,9 @@
           "type": "array"
         }
       },
-      "additionalProperties": false,
+      "additionalProperties": true,
       "type": "object",
-      "required": [
-        "AnalysisType"
-      ]
+      "required": ["AnalysisType"]
     },
     "Test": {
       "properties": {
@@ -1372,10 +1215,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "ExpectedResult",
-        "Name"
-      ]
+      "required": ["ExpectedResult", "Name"]
     }
   }
 }
