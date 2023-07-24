@@ -231,7 +231,8 @@ class TestUploader(unittest.TestCase):
                         spec=self.valid_schema0,
                         description='Sample Lookup Table Schema 1',
                         reference_url='https://runpanther.io',
-                        revision=17
+                        revision=17,
+                        field_discovery=True,
                     )
                 )
             ]
