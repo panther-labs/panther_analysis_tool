@@ -224,6 +224,7 @@ class LambdaClient(Client):
                     revision=result.get("revision", ""),
                     spec=result.get("spec", ""),
                     updated_at=result.get("updatedAt", ""),
+                    field_discovery_enabled=result.get("fieldDiscoveryEnabled", False),
                 )
             )
 
