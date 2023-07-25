@@ -242,7 +242,7 @@ class LambdaClient(Client):
                             "reference_url": params.reference_url,
                             "revision": params.revision,
                             "spec": params.spec,
-                            "fieldDiscoveryEnabled": params.fieldDiscovery
+                            "fieldDiscoveryEnabled": params.fieldDiscovery,
                         }
                     }
                 ),
