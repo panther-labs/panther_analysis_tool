@@ -264,6 +264,7 @@ class LambdaClient(Client):
                     revision=schema.get("revision", ""),
                     spec=schema.get("spec", ""),
                     updated_at=schema.get("updatedAt", ""),
+                    field_discovery_enabled=schema.get("fieldDiscoveryEnabled", False),
                 )
             ),
         )
