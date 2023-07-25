@@ -226,7 +226,10 @@ class Uploader:
         description = definition.get("description", current_description)
         field_discovery = definition.get("fieldDiscovery", False)
         logger.debug(
-            "updating schema '%s' at revision '%d', using " "referenceURL=%s, " "description=%s, " " fieldDiscovery=%b",
+            "updating schema '%s' at revision '%d', using "
+            "referenceURL=%s, "
+            "description=%s, "
+            " fieldDiscovery=%b",
             name,
             current_revision,
             reference_url,
@@ -240,7 +243,7 @@ class Uploader:
                 revision=current_revision,
                 reference_url=reference_url,
                 description=description,
-                field_discovery=field_discovery
+                field_discovery=field_discovery,
             )
         )
         return existed, response
