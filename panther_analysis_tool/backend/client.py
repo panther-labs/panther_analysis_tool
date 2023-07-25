@@ -88,7 +88,6 @@ class UpdateSchemaParams:
     name: str
     reference_url: str
     revision: int
-    fieldDiscovery: bool
     spec: str
     field_discovery_enabled: bool
 
