@@ -354,7 +354,7 @@ class PublicAPIClient(Client):
                 "referenceURL": params.reference_url,
                 "revision": params.revision,
                 "spec": params.spec,
-                "fieldDiscoveryEnabled": params.fieldDiscovery,
+                "fieldDiscoveryEnabled": params.field_discovery_enabled,
             }
         }
         res = self._execute(self._requests.update_schema_mutation(), gql_params)
@@ -379,6 +379,7 @@ class PublicAPIClient(Client):
                     revision=schema.get("revision", ""),
                     spec=schema.get("spec", ""),
                     updated_at=schema.get("updatedAt", ""),
+                    field_discovery_enabled=schema.get("fieldDiscoveryEnabled", False),
                 )
             ),
         )
