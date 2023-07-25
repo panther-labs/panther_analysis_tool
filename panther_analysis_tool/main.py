@@ -54,6 +54,7 @@ import requests
 import schema
 from dynaconf import Dynaconf, Validator
 from gql.transport.aiohttp import log as aiohttp_logger
+from jsonschema.validators import Draft202012Validator
 from panther_core.data_model import DataModel
 from panther_core.enriched_event import PantherEvent
 from panther_core.exceptions import UnknownDestinationError
@@ -1001,6 +1002,9 @@ def classify_analysis(
     # add any duplicates to the invalid_specs
     analysis_ids: List[Any] = []
 
+    # Create a json validator and check the schema only once rather than during every loop
+    json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)
+
     # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
         keys: List[Any] = list()
@@ -1048,7 +1052,7 @@ def classify_analysis(
                 analysis_spec_filename, dir_name, analysis_spec
             )
 
-            jsonschema.validate(analysis_spec, ANALYSIS_CONFIG_SCHEMA)
+            json_validator.validate(analysis_spec)
 
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
 
