@@ -90,6 +90,7 @@ class UpdateSchemaParams:
     revision: int
     fieldDiscovery: bool
     spec: str
+    field_discovery_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -190,6 +191,7 @@ class Schema:
     revision: int
     spec: str
     updated_at: str
+    field_discovery_enabled: bool
 
 
 @dataclass(frozen=True)

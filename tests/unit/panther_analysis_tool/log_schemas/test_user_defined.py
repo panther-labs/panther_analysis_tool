@@ -81,7 +81,9 @@ class TestUploader(unittest.TestCase):
                         reference_url='https://example.com',
                         revision=17,
                         spec=self.valid_schema0,
-                        updated_at='2021-05-14T12:05:13.928862479Z'
+                        updated_at='2021-05-14T12:05:13.928862479Z',
+                        field_discovery_enabled=False
+
                     ),
                     Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
@@ -91,7 +93,8 @@ class TestUploader(unittest.TestCase):
                         reference_url='https://example.com',
                         revision=17,
                         spec=self.valid_schema1,
-                        updated_at='2021-05-14T12:05:13.928862479Z'
+                        updated_at='2021-05-14T12:05:13.928862479Z',
+                        field_discovery_enabled=False
                     ),
                     Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
@@ -101,7 +104,8 @@ class TestUploader(unittest.TestCase):
                         reference_url='https://example.com',
                         revision=17,
                         spec=self.valid_schema2,
-                        updated_at='2021-05-14T12:05:13.928862479Z'
+                        updated_at='2021-05-14T12:05:13.928862479Z',
+                        field_discovery_enabled=False
                     ),
                     Schema(
                         created_at='2021-05-11T14:08:08.42627193Z',
@@ -111,7 +115,8 @@ class TestUploader(unittest.TestCase):
                         reference_url='https://example.com',
                         revision=17,
                         spec=self.valid_schema3,
-                        updated_at='2021-05-14T12:05:13.928862479Z'
+                        updated_at='2021-05-14T12:05:13.928862479Z',
+                        field_discovery_enabled=True
                     ),
                 ]
             )
@@ -123,7 +128,8 @@ class TestUploader(unittest.TestCase):
             created_at='2021-05-17T10:15:38.18907328Z',
             is_managed=False,
             reference_url='https://github.com/random',
-            spec=''
+            spec='',
+            field_discovery_enabled=False
         )
         self.put_schema_response2 = lambda: {
             'record': {
@@ -136,7 +142,8 @@ class TestUploader(unittest.TestCase):
                 'referenceURL': 'https://github.com/random',
                 'spec': '',
                 'active': False,
-                'native': False
+                'native': False,
+                'fieldDiscoveryEnabled': False
             }
         }
 
