@@ -239,7 +239,7 @@ class TestUploader(unittest.TestCase):
                         description='Sample Lookup Table Schema 1',
                         reference_url='https://runpanther.io',
                         revision=17,
-                        field_discovery=True,
+                        field_discovery_enabled=True,
                     )
                 )
             ]
