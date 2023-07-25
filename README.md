@@ -18,14 +18,14 @@
 Install simply with pip:
 
 ```bash
-$ pip3 install panther_analysis_tool
+pip3 install panther_analysis_tool
 ```
 
 If you would rather use the `panther_analysis_tool` outside of the virtual environment, install it  directly:
 
 ```bash
-$ make deps
-$ pip3 install -e .
+make deps
+pip3 install -e .
 ```
 
 ## Build From Source
@@ -33,8 +33,8 @@ $ pip3 install -e .
 If you'd prefer instead to run from source for development reasons, first setup your environment:
 
 ```bash
-$ make install
-$ pipenv run -- pip3 install -e .
+make install
+pipenv run -- pip3 install -e .
 ```
 
 # Commands and Usage
