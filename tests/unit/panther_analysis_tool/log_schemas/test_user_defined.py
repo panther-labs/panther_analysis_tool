@@ -210,7 +210,8 @@ class TestUploader(unittest.TestCase):
                         is_managed=False,
                         reference_url='https://github.com/random',
                         spec='',
-                        description=''
+                        description='',
+                        field_discovery_enabled=response.field_discovery_enabled
                     )
                 )
             )
@@ -237,6 +238,21 @@ class TestUploader(unittest.TestCase):
                         name="Custom.AWSAccountIDs",
                         spec=self.valid_schema0,
                         description='Sample Lookup Table Schema 1',
+                        reference_url='https://runpanther.io',
+                        revision=17,
+                        field_discovery_enabled=False,
+                    )
+                )
+            ]
+        )
+
+        backend.update_schema.assert_has_calls(
+            [
+                mock.call(
+                    params=UpdateSchemaParams(
+                        name="Custom.Sample.Schema3 ",
+                        spec=self.valid_schema3,
+                        description='Sample Schema 3',
                         reference_url='https://runpanther.io',
                         revision=17,
                         field_discovery_enabled=True,
