@@ -250,7 +250,7 @@ class TestUploader(unittest.TestCase):
             [
                 mock.call(
                     params=UpdateSchemaParams(
-                        name="Custom.Sample.Schema3 ",
+                        name="Custom.Sample.Schema3",
                         spec=self.valid_schema3,
                         description='Sample Schema 3',
                         reference_url='https://runpanther.io',
