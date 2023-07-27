@@ -224,12 +224,12 @@ class Uploader:
             current_revision = existing_schema.revision
         reference_url = definition.get("referenceURL", current_reference_url)
         description = definition.get("description", current_description)
-        field_discovery_enabled = definition.get("fieldDiscovery", False)
+        field_discovery_enabled = definition.get("fieldDiscoveryEnabled", False)
         logger.debug(
             "updating schema '%s' at revision '%d', using "
             "referenceURL=%s, "
             "description=%s, "
-            " fieldDiscovery=%s",
+            " fieldDiscoveryEnabled=%s",
             name,
             current_revision,
             reference_url,
