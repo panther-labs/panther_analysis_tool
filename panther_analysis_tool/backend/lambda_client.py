@@ -224,6 +224,7 @@ class LambdaClient(Client):
                     revision=result.get("revision", ""),
                     spec=result.get("spec", ""),
                     updated_at=result.get("updatedAt", ""),
+                    field_discovery_enabled=result.get("fieldDiscoveryEnabled", False),
                 )
             )
 
@@ -242,6 +243,7 @@ class LambdaClient(Client):
                             "reference_url": params.reference_url,
                             "revision": params.revision,
                             "spec": params.spec,
+                            "fieldDiscoveryEnabled": params.field_discovery_enabled,
                         }
                     }
                 ),
@@ -263,6 +265,7 @@ class LambdaClient(Client):
                     revision=schema.get("revision", ""),
                     spec=schema.get("spec", ""),
                     updated_at=schema.get("updatedAt", ""),
+                    field_discovery_enabled=schema.get("fieldDiscoveryEnabled", False),
                 )
             ),
         )

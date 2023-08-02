@@ -89,6 +89,7 @@ class UpdateSchemaParams:
     reference_url: str
     revision: int
     spec: str
+    field_discovery_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -189,6 +190,7 @@ class Schema:
     revision: int
     spec: str
     updated_at: str
+    field_discovery_enabled: bool
 
 
 @dataclass(frozen=True)
