@@ -55,6 +55,7 @@ LOG_TYPE_REGEX = Regex(
     r"^(Apache\.AccessCombined|Amazon\.EKS\.Audit|Amazon\.EKS\.Authenticator|Apache\.AccessCommon"
     r"|Asana\.Audit|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
     r"|Auth0\.Events"
+    r"|CarbonBlack\.Audit"
     r"|Linux\.Auditd"
     r"|Netskope\.Audit"
     r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
