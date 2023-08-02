@@ -235,6 +235,16 @@ class TranspileFiltersResponse:
     transpiled_filters: List[str]
 
 
+@dataclass(frozen=True)
+class GenerateEnrichedEventInputParams:
+    event: str  # json string
+
+
+@dataclass(frozen=True)
+class GenerateEnrichedEventInputResponse:
+    enriched_event: str  # json string
+
+
 class Client(ABC):
     @abstractmethod
     def check(self) -> BackendCheckResponse:
@@ -296,6 +306,16 @@ class Client(ABC):
 
     @abstractmethod
     def supports_bulk_validate(self) -> bool:
+        pass
+
+    @abstractmethod
+    def supports_enrich_test_data(self) -> bool:
+        pass
+
+    @abstractmethod
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventInputParams
+    ) -> BackendResponse[GenerateEnrichedEventInputResponse]:
         pass
 
 

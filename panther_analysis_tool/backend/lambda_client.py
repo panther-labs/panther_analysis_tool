@@ -346,3 +346,6 @@ class LambdaClient(Client):
 
     def supports_bulk_validate(self) -> bool:
         return False
+
+    def supports_enrich_test_data(self) -> bool:
+        return False

@@ -46,6 +46,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    GenerateEnrichedEventInputParams,
+    GenerateEnrichedEventInputResponse,
     ListSchemasParams,
     ListSchemasResponse,
     PantherSDKBulkUploadParams,
@@ -453,6 +455,14 @@ class PublicAPIClient(Client):
 
     def supports_bulk_validate(self) -> bool:
         return True
+
+    def supports_enrich_test_data(self) -> bool:
+        return True
+
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventInputParams
+    ) -> BackendResponse[GenerateEnrichedEventInputResponse]:
+        return None
 
     def _execute(
         self,
