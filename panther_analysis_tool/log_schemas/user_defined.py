@@ -229,7 +229,7 @@ class Uploader:
             "updating schema '%s' at revision '%d', using "
             "referenceURL=%s, "
             "description=%s, "
-            " fieldDiscoveryEnabled=%s",
+            "fieldDiscoveryEnabled=%s",
             name,
             current_revision,
             reference_url,
