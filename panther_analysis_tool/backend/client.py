@@ -279,8 +279,8 @@ class SizeWindow:
 
 @dataclass(frozen=True)
 class DataWindow:
-    size_window: SizeWindow
-    time_window: TimeWindow
+    size_window: Optional[SizeWindow]
+    time_window: Optional[TimeWindow]
 
 
 @dataclass(frozen=True)
@@ -292,7 +292,7 @@ class ReplayScope:
 @dataclass(frozen=True)
 class ReplaySummary:
     total_alerts: int
-    completed_at: datetime.datetime
+    completed_at: Optional[datetime.datetime]
     rule_error_count: int
     rule_match_count: int
     evaluation_progress: int
@@ -307,11 +307,11 @@ class ReplaySummary:
 
 @dataclass(frozen=True)
 class ReplayResponse:
-    id: str
+    replay_id: str
     state: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    completed_at: datetime.datetime
+    completed_at: Optional[datetime.datetime]
     detection_id: str
     replay_type: str
     replay_scope: ReplayScope
@@ -320,7 +320,7 @@ class ReplayResponse:
     @classmethod
     def from_json(
         cls, data: Dict[str, Any], replay_id: str, status: str
-    ) -> Optional["ReplayResponse"]:
+    ) -> "ReplayResponse":
         scope = data.get("scope", {})
         data_window = scope.get("dataWindow", {})
         retrieved_size_window = data_window.get("size_window")
@@ -341,13 +341,13 @@ class ReplayResponse:
         summary = data.get("summary", {})
 
         return ReplayResponse(
-            id=replay_id,
+            replay_id=replay_id,
             state=status,
-            created_at=dateutil.parser.parse(data.get("createdAt")),
-            updated_at=dateutil.parser.parse(data.get("updatedAt")),
+            created_at=dateutil.parser.parse(data.get("createdAt")), # type: ignore
+            updated_at=dateutil.parser.parse(data.get("updatedAt")), # type: ignore
             completed_at=parse_optional_time(data.get("completedAt")),
-            detection_id=data.get("detectionId"),
-            replay_type=data.get("replayType"),
+            detection_id=data.get("detectionId"), # type: ignore
+            replay_type=data.get("replayType"), # type: ignore
             replay_scope=ReplayScope(
                 log_types=scope.get("logTypes"),
                 data_window=DataWindow(size_window=size_window, time_window=time_window),

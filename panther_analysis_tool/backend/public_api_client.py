@@ -32,7 +32,6 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
-from ..constants import VERSION_STRING
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -43,7 +42,6 @@ from .client import (
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
     Client,
-    DataWindow,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
@@ -57,12 +55,8 @@ from .client import (
     PerfTestParams,
     PermanentBackendError,
     ReplayResponse,
-    ReplayScope,
-    ReplaySummary,
     Schema,
     SeriesWithBreakdown,
-    SizeWindow,
-    TimeWindow,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -70,10 +64,10 @@ from .client import (
     UnsupportedEndpointError,
     UpdateSchemaParams,
     UpdateSchemaResponse,
-    parse_optional_time,
     to_bulk_upload_response,
 )
 from .errors import is_retryable_error, is_retryable_error_str
+from ..constants import VERSION_STRING
 
 
 @dataclass(frozen=True)
@@ -543,8 +537,8 @@ class PublicAPIClient(Client):
 
             time.sleep(0.25)
             query = self._requests.replay_query()
-            get_params = {"input": replay_id}  # type: ignore
-            res = self._potentially_supported_execute(query, variable_values=get_params)  # type: ignore
+            get_params = {"input": replay_id}
+            res = self._potentially_supported_execute(query, variable_values=get_params)
             result = res.data.get("replay", {})  # type: ignore
             status = result.get("state", "")
             if status in terminal_statuses:

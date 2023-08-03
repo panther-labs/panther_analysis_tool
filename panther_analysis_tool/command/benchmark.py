@@ -1,7 +1,6 @@
 import argparse
 import datetime
 import io
-import logging
 import sys
 import zipfile
 from statistics import mean, median
@@ -22,34 +21,33 @@ from panther_analysis_tool.zip_chunker import (
 
 
 class PerformanceTestIteration:
-    def __init__(self, read_time_nanos, processing_time_nanos):
+    def __init__(self, read_time_nanos: int, processing_time_nanos: int) -> None:
         self.read_time_nanos = read_time_nanos
         self.processing_time_nanos = processing_time_nanos
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Read time (nanoseconds): {self.read_time_nanos}\n"
             f"Processing time (nanoseconds): {self.processing_time_nanos}"
         )
 
 
-def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:  # pylint: disable=too-many-locals
     if not backend.supports_perf_test():
         return 1, "benchmark is only supported via the api token"
 
     if args.iterations <= 0:
         return 1, f"benchmark must perform at least 1 iteration, {args.iterations} requested"
 
-    zip_args = ZipArgs.from_args(args)
-    analyses = analysis_for_chunks(zip_args, no_helpers=True)
+    analyses = analysis_for_chunks(ZipArgs.from_args(args), no_helpers=True)
 
     rule_or_err = validate_rule_count(analyses)
     if isinstance(rule_or_err, str):
         return 1, rule_or_err
 
     log_type, err_msg = validate_log_type(args, rule_or_err)
-    if err_msg is not None:
-        return 1, err_msg
+    if err_msg is not None or not isinstance(log_type, str):
+        return 1, err_msg or "No log_type found"
 
     hour_or_err = validate_hour(args, log_type, backend)
     if isinstance(hour_or_err, str):
@@ -65,17 +63,15 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     now = datetime.datetime.now()
     timeout = now + datetime.timedelta(minutes=13)
 
-    params = PerfTestParams(
-        zip_bytes=buffer.read(), log_type=log_type, hour=hour_or_err, timeout=timeout.astimezone()
-    )
-    iterations = []
+    iterations: List[PerformanceTestIteration] = []
     logged = False
-    for i in range(0, args.iterations):
-        replay_response = backend.run_perf_test(params)
-        iteration = PerformanceTestIteration(
-            read_time_nanos=replay_response.data.replay_summary.read_time_nanos,
-            processing_time_nanos=replay_response.data.replay_summary.processing_time_nanos,
-        )
+    for _ in range(0, args.iterations):
+        replay_response = backend.run_perf_test(PerfTestParams(
+            zip_bytes=buffer.read(),
+            log_type=log_type,
+            hour=hour_or_err,
+            timeout=timeout.astimezone(),
+        ))
         if replay_response.data.state == "CANCELED":
             if len(iterations) == 0:
                 log_extreme_timeout(args, hour_or_err, now)
@@ -86,7 +82,10 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
             if len(iterations) == 0:
                 logged = True
             break
-        iterations.append(iteration)
+        iterations.append(PerformanceTestIteration(
+            read_time_nanos=replay_response.data.replay_summary.read_time_nanos,
+            processing_time_nanos=replay_response.data.replay_summary.processing_time_nanos,
+        ))
 
     if not logged:
         log_output(args, hour_or_err, iterations, rule_or_err, now)
@@ -109,7 +108,7 @@ def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> (Union[Classified
     return analysis
 
 
-def validate_log_type(args: argparse.Namespace, rule: ClassifiedAnalysis) -> (str, Optional[str]):
+def validate_log_type(args: argparse.Namespace, rule: ClassifiedAnalysis) -> Tuple[Optional[str], Optional[str]]:
     log_type = getattr(args, "log_type", None)
     rule_log_types = rule.analysis_spec.get("LogTypes", [])
     if log_type is None:
@@ -141,69 +140,44 @@ def validate_hour(
     if hour is None:
         end_time = now_truncated
         start_time = window_begin
-        metrics_response = backend.get_metrics(
-            MetricsParams(
-                from_date=start_time,
-                to_date=end_time,
-                interval_in_minutes=60,
-            )
-        )
-        data_for_log_type = next(
-            (
-                x
-                for x in metrics_response.data.bytes_processed_per_source
-                if x.label.casefold() == log_type.casefold()
-            ),
-            None,
-        )
-        if data_for_log_type is None:
-            return (
-                f"No data found on Panther for log_type {log_type} in past two weeks. This can occur if"
-                f" ingestion began within the last 24 hours."
-            )
-        max_data_hour = max(
-            data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None
-        )
-        if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
-            return f"No data processed on Panther for log_type {log_type} in past 2 weeks."
-        hour = dateutil.parser.parse(max_data_hour)
-        logging.info(
-            f"To re-run with this same data please add '--hour {max_data_hour}' to the commandline invocation"
-        )
+        err_msg = f"No data found on Panther for log_type {log_type} in past two weeks. This can occur if" \
+                  f" ingestion began within the last 24 hours."
     else:
         if hour < window_begin:
-            return f"Provided hour {hour.isoformat()} too old. Please provide a time no older than {window_begin}"
+            return f"Provided hour {hour.isoformat()} is too old. Please provide a time no older than {window_begin}"
         start_time = hour.replace(minute=0, second=0, microsecond=0)
         end_time = start_time + datetime.timedelta(hours=1, microseconds=-1)
         hour = start_time
-        metrics_response = backend.get_metrics(
-            MetricsParams(
-                from_date=start_time,
-                to_date=end_time,
-                interval_in_minutes=60,
-            )
+        err_msg = f"No data found on Panther for log_type {log_type} at specified hour: {hour.isoformat()}. Please" \
+            f" try another hour or leave the argument blank and one will be selected for you."
+    metrics_response = backend.get_metrics(
+        MetricsParams(
+            from_date=start_time,
+            to_date=end_time,
+            interval_in_minutes=60,
         )
-        data_for_log_type = next(
-            (
-                x
-                for x in metrics_response.data.bytes_processed_per_source
-                if x.label.casefold() == log_type.casefold()
-            ),
-            None,
-        )
-        if data_for_log_type is None:
-            return (
-                f"No data found on Panther for log_type {log_type} at specified hour: {hour.isoformat()}. Please"
-                f" try another hour or leave the argument blank and one will be selected for you."
-            )
-        if len(data_for_log_type.breakdown) > 1:
-            return "Internal error: time window too large. Please report this error to someone at Panther."
-        selected_hour = next(iter(data_for_log_type.breakdown), None)
-        if selected_hour is None or data_for_log_type.breakdown[selected_hour] == 0:
-            return (
-                f"No data processed on Panther for log_type {log_type} at specified hour: {hour.isoformat()}."
-                f" Please try another hour or leave the argument blank and one will be selected for you."
-            )
+    )
+    data_for_log_type = next(
+        (
+            x
+            for x in metrics_response.data.bytes_processed_per_source
+            if x.label.casefold() == log_type.casefold()
+        ),
+        None,
+    )
+    if data_for_log_type is None:
+        return err_msg
+
+    if hour is not None and len(data_for_log_type.breakdown) > 1:
+        return "Internal error: time window too large. Please report this error to someone at Panther."
+
+    max_data_hour = max(  # type: ignore
+        data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None
+    )
+    if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
+        return err_msg
+    hour = dateutil.parser.parse(max_data_hour)
+
     return hour
 
 
@@ -219,7 +193,7 @@ def generate_command_log_text(hour: datetime.datetime) -> List[str]:
     ]
 
 
-def write_output(args: argparse.Namespace, to_write: List[str], now: datetime.datetime):
+def write_output(args: argparse.Namespace, to_write: List[str], now: datetime.datetime) -> None:
     with open(args.out + f"/benchmark-{now.timestamp()}", "a") as filename:
         to_write.insert(0, f"Writing to file: {filename.name}")
         log_and_write_to_file(to_write, filename)
@@ -235,7 +209,7 @@ def log_output(
     iterations: List[PerformanceTestIteration],
     rule: ClassifiedAnalysis,
     now: datetime.datetime,
-):
+) -> None:
     to_write = generate_command_log_text(hour)
 
     median_read_time_nanos = median([i.read_time_nanos for i in iterations])
@@ -280,14 +254,14 @@ def log_extreme_timeout(
     args: argparse.Namespace,
     hour: datetime.datetime,
     now: datetime.datetime,
-):
+) -> None:
     to_write = generate_command_log_text(hour)
     to_write.append(
-        f"Your detection has timed out before completing the benchmark one hour of data! Please improve performance."
+        "Your detection has timed out before completing the benchmark one hour of data! Please improve performance."
     )
     write_output(args, to_write, now)
 
 
-def log_error(args: argparse.Namespace, now: datetime.datetime):
+def log_error(args: argparse.Namespace, now: datetime.datetime) -> None:
     to_write = ["benchmark failed with an error. Please ensure the correctness of your rule."]
     write_output(args, to_write, now)
