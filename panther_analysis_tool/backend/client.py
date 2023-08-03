@@ -318,9 +318,7 @@ class ReplayResponse:
     replay_summary: ReplaySummary
 
     @classmethod
-    def from_json(
-        cls, data: Dict[str, Any], replay_id: str, status: str
-    ) -> "ReplayResponse":
+    def from_json(cls, data: Dict[str, Any], replay_id: str, status: str) -> "ReplayResponse":
         scope = data.get("scope", {})
         data_window = scope.get("dataWindow", {})
         retrieved_size_window = data_window.get("size_window")
@@ -343,11 +341,11 @@ class ReplayResponse:
         return ReplayResponse(
             replay_id=replay_id,
             state=status,
-            created_at=dateutil.parser.parse(data.get("createdAt")), # type: ignore
-            updated_at=dateutil.parser.parse(data.get("updatedAt")), # type: ignore
+            created_at=dateutil.parser.parse(data.get("createdAt")),  # type: ignore
+            updated_at=dateutil.parser.parse(data.get("updatedAt")),  # type: ignore
             completed_at=parse_optional_time(data.get("completedAt")),
-            detection_id=data.get("detectionId"), # type: ignore
-            replay_type=data.get("replayType"), # type: ignore
+            detection_id=data.get("detectionId"),  # type: ignore
+            replay_type=data.get("replayType"),  # type: ignore
             replay_scope=ReplayScope(
                 log_types=scope.get("logTypes"),
                 data_window=DataWindow(size_window=size_window, time_window=time_window),

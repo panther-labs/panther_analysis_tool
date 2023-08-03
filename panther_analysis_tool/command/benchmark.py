@@ -32,7 +32,9 @@ class PerformanceTestIteration:
         )
 
 
-def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:  # pylint: disable=too-many-locals
+def run(
+    backend: BackendClient, args: argparse.Namespace
+) -> Tuple[int, str]:  # pylint: disable=too-many-locals
     if not backend.supports_perf_test():
         return 1, "benchmark is only supported via the api token"
 
@@ -66,12 +68,14 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:  #
     iterations: List[PerformanceTestIteration] = []
     logged = False
     for _ in range(0, args.iterations):
-        replay_response = backend.run_perf_test(PerfTestParams(
-            zip_bytes=buffer.read(),
-            log_type=log_type,
-            hour=hour_or_err,
-            timeout=timeout.astimezone(),
-        ))
+        replay_response = backend.run_perf_test(
+            PerfTestParams(
+                zip_bytes=buffer.read(),
+                log_type=log_type,
+                hour=hour_or_err,
+                timeout=timeout.astimezone(),
+            )
+        )
         if replay_response.data.state == "CANCELED":
             if len(iterations) == 0:
                 log_extreme_timeout(args, hour_or_err, now)
@@ -82,10 +86,12 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:  #
             if len(iterations) == 0:
                 logged = True
             break
-        iterations.append(PerformanceTestIteration(
-            read_time_nanos=replay_response.data.replay_summary.read_time_nanos,
-            processing_time_nanos=replay_response.data.replay_summary.processing_time_nanos,
-        ))
+        iterations.append(
+            PerformanceTestIteration(
+                read_time_nanos=replay_response.data.replay_summary.read_time_nanos,
+                processing_time_nanos=replay_response.data.replay_summary.processing_time_nanos,
+            )
+        )
 
     if not logged:
         log_output(args, hour_or_err, iterations, rule_or_err, now)
@@ -108,7 +114,9 @@ def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> (Union[Classified
     return analysis
 
 
-def validate_log_type(args: argparse.Namespace, rule: ClassifiedAnalysis) -> Tuple[Optional[str], Optional[str]]:
+def validate_log_type(
+    args: argparse.Namespace, rule: ClassifiedAnalysis
+) -> Tuple[Optional[str], Optional[str]]:
     log_type = getattr(args, "log_type", None)
     rule_log_types = rule.analysis_spec.get("LogTypes", [])
     if log_type is None:
@@ -140,16 +148,20 @@ def validate_hour(
     if hour is None:
         end_time = now_truncated
         start_time = window_begin
-        err_msg = f"No data found on Panther for log_type {log_type} in past two weeks. This can occur if" \
-                  f" ingestion began within the last 24 hours."
+        err_msg = (
+            f"No data found on Panther for log_type {log_type} in past two weeks. This can occur if"
+            f" ingestion began within the last 24 hours."
+        )
     else:
         if hour < window_begin:
             return f"Provided hour {hour.isoformat()} is too old. Please provide a time no older than {window_begin}"
         start_time = hour.replace(minute=0, second=0, microsecond=0)
         end_time = start_time + datetime.timedelta(hours=1, microseconds=-1)
         hour = start_time
-        err_msg = f"No data found on Panther for log_type {log_type} at specified hour: {hour.isoformat()}. Please" \
+        err_msg = (
+            f"No data found on Panther for log_type {log_type} at specified hour: {hour.isoformat()}. Please"
             f" try another hour or leave the argument blank and one will be selected for you."
+        )
     metrics_response = backend.get_metrics(
         MetricsParams(
             from_date=start_time,
@@ -169,7 +181,9 @@ def validate_hour(
         return err_msg
 
     if hour is not None and len(data_for_log_type.breakdown) > 1:
-        return "Internal error: time window too large. Please report this error to someone at Panther."
+        return (
+            "Internal error: time window too large. Please report this error to someone at Panther."
+        )
 
     max_data_hour = max(  # type: ignore
         data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None
