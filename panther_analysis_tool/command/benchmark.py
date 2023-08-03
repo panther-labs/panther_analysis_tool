@@ -32,9 +32,9 @@ class PerformanceTestIteration:
         )
 
 
-def run(
+def run(  # pylint: disable=too-many-locals
     backend: BackendClient, args: argparse.Namespace
-) -> Tuple[int, str]:  # pylint: disable=too-many-locals
+) -> Tuple[int, str]:
     if not backend.supports_perf_test():
         return 1, "benchmark is only supported via the api token"
 
