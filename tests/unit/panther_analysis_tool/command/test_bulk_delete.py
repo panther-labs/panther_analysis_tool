@@ -4,7 +4,7 @@ from unittest import mock
 
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.backend.client import BackendResponse, DeleteDetectionsResponse, DeleteSavedQueriesResponse
-from panther_analysis_tool.cmd.bulk_delete import _delete_detections_dry_run, _delete_queries_dry_run
+from panther_analysis_tool.command.bulk_delete import _delete_detections_dry_run, _delete_queries_dry_run
 
 
 class TestBulkDelete(unittest.TestCase):

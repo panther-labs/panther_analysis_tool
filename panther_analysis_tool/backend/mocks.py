@@ -5,7 +5,7 @@ from panther_analysis_tool.backend.client import (
     BackendResponse,
     BulkUploadParams,
     BulkUploadResponse,
-    BulkUploadValidateStatusResponse,
+    BulkUploadValidateStatusResponse, MetricsParams, MetricsResponse, PerfTestParams, ReplayResponse,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
@@ -62,4 +62,13 @@ class MockBackend(BackendClient):
         pass
 
     def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        pass
+
+    def supports_perf_test(self) -> bool:
+        pass
+
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        pass
+
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
         pass

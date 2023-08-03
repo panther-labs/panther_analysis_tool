@@ -1,0 +1,37 @@
+query Replay($input: ID!) {
+    replay(id: $input) {
+        id
+        state
+        createdAt
+        updatedAt
+        completedAt
+        detectionId
+        replayType
+        scope {
+            logTypes
+            dataWindow {
+                sizeWindow {
+                    maxSizeInGB
+                }
+                timeWindow {
+                    endsAt
+                    startsAt
+                }
+            }
+        }
+        summary {
+            totalAlerts
+            completedAt
+            ruleErrorCount
+            ruleMatchCount
+            evaluationProgress
+            computationProgress
+            logDataSizeEstimate
+            matchesProcessedCount
+            eventsProcessedCount
+            eventsMatchedCount
+            readTimeNanos
+            processingTimeNanos
+        }
+    }
+}

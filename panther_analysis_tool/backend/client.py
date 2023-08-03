@@ -18,9 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import base64
+import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, List, Optional, TypeVar
+
+import dateutil.parser
 
 ResponseData = TypeVar("ResponseData")
 
@@ -237,6 +240,125 @@ class TranspileFiltersResponse:
     transpiled_filters: List[str]
 
 
+@dataclass(frozen=True)
+class MetricsParams:
+    from_date: datetime.datetime
+    to_date: datetime.datetime
+    interval_in_minutes: int
+
+
+@dataclass(frozen=True)
+class SeriesWithBreakdown:
+    breakdown: Dict[str, Any]
+    label: str
+    value: float
+
+
+@dataclass(frozen=True)
+class MetricsResponse:
+    bytes_processed_per_source: List[SeriesWithBreakdown]
+
+
+@dataclass(frozen=True)
+class PerfTestParams(BulkUploadParams):
+    hour: datetime.datetime
+    log_type: str
+    timeout: datetime.datetime
+
+
+@dataclass(frozen=True)
+class TimeWindow:
+    starts_at: datetime.datetime
+    ends_at: datetime.datetime
+
+
+@dataclass(frozen=True)
+class SizeWindow:
+    max_size_in_gb: int
+
+
+@dataclass(frozen=True)
+class DataWindow:
+    size_window: SizeWindow
+    time_window: TimeWindow
+
+
+@dataclass(frozen=True)
+class ReplayScope:
+    log_types: List[str]
+    data_window: DataWindow
+
+
+@dataclass(frozen=True)
+class ReplaySummary:
+    total_alerts: int
+    completed_at: datetime.datetime
+    rule_error_count: int
+    rule_match_count: int
+    evaluation_progress: int
+    computation_progress: int
+    log_data_size_estimate: int
+    matches_processed_count: int
+    events_processed_count: int
+    events_matched_count: int
+    read_time_nanos: int
+    processing_time_nanos: int
+
+
+@dataclass(frozen=True)
+class ReplayResponse:
+    id: str
+    state: str
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    completed_at: datetime.datetime
+    detection_id: str
+    replay_type: str
+    replay_scope: ReplayScope
+    replay_summary: ReplaySummary
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any], replay_id: str, status: str) -> Optional["ReplayResponse"]:
+        scope = data.get("scope", {})
+        data_window = scope.get("dataWindow", {})
+        retrieved_size_window = data_window.get("size_window")
+        size_window = None if retrieved_size_window is None \
+            else SizeWindow(max_size_in_gb=retrieved_size_window.get("maxSizeInGB"))
+        retrieved_time_window = data_window.get("time_window")
+        time_window = None if retrieved_time_window is None \
+            else TimeWindow(starts_at=dateutil.parser.parse(retrieved_time_window.get("startsAt")),
+                            ends_at=dateutil.parser.parse(retrieved_time_window.get("endsAt")))
+        summary = data.get("summary", {})
+
+        return ReplayResponse(
+            id=replay_id,
+            state=status,
+            created_at=dateutil.parser.parse(data.get("createdAt")),
+            updated_at=dateutil.parser.parse(data.get("updatedAt")),
+            completed_at=parse_optional_time(data.get("completedAt")),
+            detection_id=data.get("detectionId"),
+            replay_type=data.get("replayType"),
+            replay_scope=ReplayScope(
+                log_types=scope.get("logTypes"),
+                data_window=DataWindow(size_window=size_window, time_window=time_window),
+            ),
+            replay_summary=ReplaySummary(
+                total_alerts=summary.get("totalAlerts"),
+                completed_at=parse_optional_time(summary.get("completedAt")),
+                rule_error_count=summary.get("ruleErrorCount"),
+                rule_match_count=summary.get("ruleMatchCount"),
+                evaluation_progress=summary.get("evaluationProgress"),
+                computation_progress=summary.get("computationProgress"),
+                log_data_size_estimate=summary.get("logDataSizeEstimate"),
+                matches_processed_count=summary.get("matchesProcessedCount"),
+                events_processed_count=summary.get("eventsProcessedCount"),
+                events_matched_count=summary.get("eventsMatchedCount"),
+                read_time_nanos=summary.get("readTimeNanos"),
+                processing_time_nanos=summary.get("processingTimeNanos"),
+            ),
+        )
+
+
 class Client(ABC):
     @abstractmethod
     def check(self) -> BackendCheckResponse:
@@ -300,6 +422,18 @@ class Client(ABC):
     def supports_bulk_validate(self) -> bool:
         pass
 
+    @abstractmethod
+    def supports_perf_test(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        pass
+
+    @abstractmethod
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        pass
+
 
 def backend_response_failed(resp: BackendResponse) -> bool:
     return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400
@@ -318,3 +452,7 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
             global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
         ),
     )
+
+
+def parse_optional_time(time: Optional[str]) -> Optional[datetime.datetime]:
+    return None if time is None else dateutil.parser.parse(time)

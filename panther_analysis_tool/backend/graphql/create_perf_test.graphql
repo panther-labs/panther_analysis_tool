@@ -1,0 +1,39 @@
+mutation CreatePerfTest ($input: CreatePerfTestInput!){
+    createPerfTest(input: $input) {
+        replay {
+            id
+            state
+            createdAt
+            updatedAt
+            completedAt
+            detectionId
+            replayType
+            scope {
+                logTypes
+                dataWindow {
+                    sizeWindow {
+                        maxSizeInGB
+                    }
+                    timeWindow {
+                        endsAt
+                        startsAt
+                    }
+                }
+            }
+            summary {
+                totalAlerts
+                completedAt
+                ruleErrorCount
+                ruleMatchCount
+                evaluationProgress
+                computationProgress
+                logDataSizeEstimate
+                matchesProcessedCount
+                eventsProcessedCount
+                eventsMatchedCount
+                readTimeNanos
+                processingTimeNanos
+            }
+        }
+    }
+}
