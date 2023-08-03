@@ -318,16 +318,26 @@ class ReplayResponse:
     replay_summary: ReplaySummary
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any], replay_id: str, status: str) -> Optional["ReplayResponse"]:
+    def from_json(
+        cls, data: Dict[str, Any], replay_id: str, status: str
+    ) -> Optional["ReplayResponse"]:
         scope = data.get("scope", {})
         data_window = scope.get("dataWindow", {})
         retrieved_size_window = data_window.get("size_window")
-        size_window = None if retrieved_size_window is None \
+        size_window = (
+            None
+            if retrieved_size_window is None
             else SizeWindow(max_size_in_gb=retrieved_size_window.get("maxSizeInGB"))
+        )
         retrieved_time_window = data_window.get("time_window")
-        time_window = None if retrieved_time_window is None \
-            else TimeWindow(starts_at=dateutil.parser.parse(retrieved_time_window.get("startsAt")),
-                            ends_at=dateutil.parser.parse(retrieved_time_window.get("endsAt")))
+        time_window = (
+            None
+            if retrieved_time_window is None
+            else TimeWindow(
+                starts_at=dateutil.parser.parse(retrieved_time_window.get("startsAt")),
+                ends_at=dateutil.parser.parse(retrieved_time_window.get("endsAt")),
+            )
+        )
         summary = data.get("summary", {})
 
         return ReplayResponse(

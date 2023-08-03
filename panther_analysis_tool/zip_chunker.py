@@ -164,9 +164,7 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
     paths = [args.path]
     if not no_helpers:
         paths.extend([HELPERS_LOCATION, DATA_MODEL_LOCATION])
-    for (file_name, f_path, spec, _) in list(
-        load_analysis_specs(paths, args.ignore_files)
-    ):
+    for (file_name, f_path, spec, _) in list(load_analysis_specs(paths, args.ignore_files)):
         if file_name not in files:
             analysis.append(ClassifiedAnalysis(file_name, f_path, spec))
             files.add(file_name)
@@ -174,7 +172,9 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
     return filter_analysis(analysis, args.filters, args.filters_inverted)
 
 
-def chunk_analysis(analysis: List[ClassifiedAnalysis], chunks: List[ZipChunk] = None) -> List[ChunkFiles]:
+def chunk_analysis(
+    analysis: List[ClassifiedAnalysis], chunks: List[ZipChunk] = None
+) -> List[ChunkFiles]:
     if chunks is None or len(chunks) == 0:
         chunks = [ZipChunk(patterns=["*"])]
     chunk_files = [ChunkFiles(f) for f in chunks]

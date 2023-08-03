@@ -5,14 +5,18 @@ from panther_analysis_tool.backend.client import (
     BackendResponse,
     BulkUploadParams,
     BulkUploadResponse,
-    BulkUploadValidateStatusResponse, MetricsParams, MetricsResponse, PerfTestParams, ReplayResponse,
+    BulkUploadValidateStatusResponse,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
     ListSchemasParams,
+    MetricsParams,
+    MetricsResponse,
     PantherSDKBulkUploadParams,
+    PerfTestParams,
+    ReplayResponse,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,

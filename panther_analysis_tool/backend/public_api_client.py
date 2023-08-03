@@ -21,7 +21,6 @@ import datetime
 import logging
 import os
 import time
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -44,16 +43,26 @@ from .client import (
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
     Client,
+    DataWindow,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
     ListSchemasParams,
     ListSchemasResponse,
+    MetricsParams,
+    MetricsResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PerfTestParams,
     PermanentBackendError,
+    ReplayResponse,
+    ReplayScope,
+    ReplaySummary,
     Schema,
+    SeriesWithBreakdown,
+    SizeWindow,
+    TimeWindow,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -61,8 +70,8 @@ from .client import (
     UnsupportedEndpointError,
     UpdateSchemaParams,
     UpdateSchemaResponse,
-    to_bulk_upload_response, MetricsParams, MetricsResponse, SeriesWithBreakdown, PerfTestParams, ReplayResponse,
-    ReplayScope, ReplaySummary, DataWindow, SizeWindow, TimeWindow, parse_optional_time,
+    parse_optional_time,
+    to_bulk_upload_response,
 )
 from .errors import is_retryable_error, is_retryable_error_str
 
@@ -241,7 +250,7 @@ class PublicAPIClient(Client):
 
     # This function was generated in whole or in part by GitHub Copilot.
     def transpile_simple_detection_to_python(
-            self, params: TranspileToPythonParams
+        self, params: TranspileToPythonParams
     ) -> BackendResponse[TranspileToPythonResponse]:
         query = self._requests.transpile_simple_detection_to_python()
         transpile_input = {"input": {"data": params.data}}
@@ -256,7 +265,7 @@ class PublicAPIClient(Client):
         )
 
     def transpile_filters(
-            self, params: TranspileFiltersParams
+        self, params: TranspileFiltersParams
     ) -> BackendResponse[TranspileFiltersResponse]:
         query = self._requests.transpile_filters()
         transpile_input = {"input": {"data": params.data, "patVersion": params.pat_version}}
@@ -271,7 +280,7 @@ class PublicAPIClient(Client):
         )
 
     def delete_saved_queries(
-            self, params: DeleteSavedQueriesParams
+        self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         query = self._requests.delete_saved_queries()
         delete_params = {
@@ -300,7 +309,7 @@ class PublicAPIClient(Client):
         )
 
     def delete_detections(
-            self, params: DeleteDetectionsParams
+        self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         gql_params = {
             "input": {
@@ -497,34 +506,37 @@ class PublicAPIClient(Client):
 
         return BackendResponse(
             status_code=200,
-            data=MetricsResponse(bytes_processed_per_source=[SeriesWithBreakdown(
-                breakdown=x['breakdown'],
-                label=x['label'],
-                value=x['value'],
-            ) for x in bytes_processed_per_source_list]),
+            data=MetricsResponse(
+                bytes_processed_per_source=[
+                    SeriesWithBreakdown(
+                        breakdown=x["breakdown"],
+                        label=x["label"],
+                        value=x["value"],
+                    )
+                    for x in bytes_processed_per_source_list
+                ]
+            ),
         )
 
     def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
         query = self._requests.create_perf_test_mutation()
-        create_params = {"input": {
-            "detection": params.encoded_bytes(),
-            "hour": params.hour.astimezone().isoformat(),
-            "logType": params.log_type
-        }}
+        create_params = {
+            "input": {
+                "detection": params.encoded_bytes(),
+                "hour": params.hour.astimezone().isoformat(),
+                "logType": params.log_type,
+            }
+        }
         res = self._potentially_supported_execute(query, variable_values=create_params)
         replay_id = res.data.get("createPerfTest", {}).get("replay", {}).get("id")  # type: ignore
         if not replay_id:
             raise BackendError("empty data")
         stopped = False
-        terminal_statuses = ['DONE', 'CANCELED', 'ERROR_EVALUATION', 'ERROR_COMPUTATION']
+        terminal_statuses = ["DONE", "CANCELED", "ERROR_EVALUATION", "ERROR_COMPUTATION"]
 
         while True:
             if not stopped and params.timeout < datetime.datetime.now().astimezone():
-                stop_params = {
-                    "input": {
-                        "id": replay_id
-                    }
-                }
+                stop_params = {"input": {"id": replay_id}}
                 query = self._requests.stop_replay_mutation()
                 self._potentially_supported_execute(query, variable_values=stop_params)
                 stopped = True
@@ -539,22 +551,24 @@ class PublicAPIClient(Client):
                 replay_response = ReplayResponse.from_json(result, replay_id, status)
                 return BackendResponse(status_code=200, data=replay_response)
 
-            if status not in terminal_statuses + (['EVALUATION_IN_PROGRESS', 'COMPUTATION_IN_PROGRESS']):
+            if status not in terminal_statuses + (
+                ["EVALUATION_IN_PROGRESS", "COMPUTATION_IN_PROGRESS"]
+            ):
                 raise BackendError(f"unexpected status: {status}")
 
     def _execute(
-            self,
-            request: DocumentNode,
-            variable_values: Optional[Dict[str, Any]] = None,
+        self,
+        request: DocumentNode,
+        variable_values: Optional[Dict[str, Any]] = None,
     ) -> ExecutionResult:
         return self._gql_client.execute(
             request, variable_values=variable_values, get_execution_result=True
         )
 
     def _safe_execute(
-            self,
-            request: DocumentNode,
-            variable_values: Optional[Dict[str, Any]] = None,
+        self,
+        request: DocumentNode,
+        variable_values: Optional[Dict[str, Any]] = None,
     ) -> ExecutionResult:
         try:
             res = self._execute(request, variable_values=variable_values)
@@ -574,9 +588,9 @@ class PublicAPIClient(Client):
         return res
 
     def _potentially_supported_execute(
-            self,
-            request: DocumentNode,
-            variable_values: Optional[Dict[str, Any]] = None,
+        self,
+        request: DocumentNode,
+        variable_values: Optional[Dict[str, Any]] = None,
     ) -> ExecutionResult:
         """
         Same behavior as _safe_execute but throws an UnSupportedEndpointError
@@ -588,8 +602,8 @@ class PublicAPIClient(Client):
             not_supported = False
             try:
                 not_supported = (
-                        err.args[0]["extensions"]["code"]  # pylint: disable=invalid-sequence-index
-                        == "GRAPHQL_VALIDATION_FAILED"
+                    err.args[0]["extensions"]["code"]  # pylint: disable=invalid-sequence-index
+                    == "GRAPHQL_VALIDATION_FAILED"
                 )
             except BaseException:  # pylint: disable=broad-except
                 pass
