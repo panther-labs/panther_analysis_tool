@@ -32,7 +32,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
-from ..constants import VERSION_STRING
+from ..constants import VERSION_STRING, ReplayStatus
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -526,7 +526,12 @@ class PublicAPIClient(Client):
         if not replay_id:
             raise BackendError("empty data")
         stopped = False
-        terminal_statuses = ["DONE", "CANCELED", "ERROR_EVALUATION", "ERROR_COMPUTATION"]
+        terminal_statuses = [
+            ReplayStatus.DONE,
+            ReplayStatus.CANCELED,
+            ReplayStatus.ERROR_EVALUATION,
+            ReplayStatus.ERROR_COMPUTATION,
+        ]
 
         while True:
             if not stopped and params.timeout < datetime.datetime.now().astimezone():
@@ -546,7 +551,7 @@ class PublicAPIClient(Client):
                 return BackendResponse(status_code=200, data=replay_response)
 
             if status not in terminal_statuses + (
-                ["EVALUATION_IN_PROGRESS", "COMPUTATION_IN_PROGRESS"]
+                [ReplayStatus.EVALUATION_IN_PROGRESS, ReplayStatus.COMPUTATION_IN_PROGRESS]
             ):
                 raise BackendError(f"unexpected status: {status}")
 

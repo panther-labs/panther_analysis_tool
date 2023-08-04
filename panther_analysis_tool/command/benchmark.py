@@ -11,7 +11,7 @@ import dateutil.parser
 from panther_analysis_tool.analysis_utils import ClassifiedAnalysis
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import MetricsParams, PerfTestParams
-from panther_analysis_tool.constants import AnalysisTypes
+from panther_analysis_tool.constants import AnalysisTypes, ReplayStatus
 from panther_analysis_tool.util import log_and_write_to_file
 from panther_analysis_tool.zip_chunker import (
     ZipArgs,
@@ -76,12 +76,15 @@ def run(  # pylint: disable=too-many-locals
                 timeout=timeout.astimezone(),
             )
         )
-        if replay_response.data.state == "CANCELED":
+        if replay_response.data.state == ReplayStatus.CANCELED:
             if len(iterations) == 0:
                 log_extreme_timeout(args, hour_or_err, now)
                 logged = True
             break
-        if replay_response.data.state in ["ERROR_EVALUATION", "ERROR_COMPUTATION"]:
+        if replay_response.data.state in [
+            ReplayStatus.ERROR_EVALUATION,
+            ReplayStatus.ERROR_COMPUTATION,
+        ]:
             log_error(args, now)
             if len(iterations) == 0:
                 logged = True
