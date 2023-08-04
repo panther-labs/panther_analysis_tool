@@ -65,17 +65,16 @@ def run(  # pylint: disable=too-many-locals
     now = datetime.datetime.now()
     timeout = now + datetime.timedelta(minutes=13)
 
+    params = PerfTestParams(
+        zip_bytes=buffer.read(),
+        log_type=log_type,
+        hour=hour_or_err,
+        timeout=timeout.astimezone(),
+    )
     iterations: List[PerformanceTestIteration] = []
     logged = False
     for _ in range(0, args.iterations):
-        replay_response = backend.run_perf_test(
-            PerfTestParams(
-                zip_bytes=buffer.read(),
-                log_type=log_type,
-                hour=hour_or_err,
-                timeout=timeout.astimezone(),
-            )
-        )
+        replay_response = backend.run_perf_test(params)
         if replay_response.data.state == ReplayStatus.CANCELED:
             if len(iterations) == 0:
                 log_extreme_timeout(args, hour_or_err, now)
