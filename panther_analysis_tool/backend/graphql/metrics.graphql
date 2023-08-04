@@ -1,0 +1,9 @@
+query Metrics($input: MetricsInput!) {
+    metrics(input: $input) {
+        bytesProcessedPerSource {
+            breakdown
+            label
+            value
+        }
+    }
+}

@@ -41,9 +41,13 @@ from .client import (
     DeleteSavedQueriesResponse,
     ListSchemasParams,
     ListSchemasResponse,
+    MetricsParams,
+    MetricsResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PerfTestParams,
     PermanentBackendError,
+    ReplayResponse,
     Schema,
     TranspileFiltersParams,
     TranspileFiltersResponse,
@@ -349,3 +353,12 @@ class LambdaClient(Client):
 
     def supports_bulk_validate(self) -> bool:
         return False
+
+    def supports_perf_test(self) -> bool:
+        return False
+
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        raise BaseException("get metrics is not supported with lambda client")
+
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        raise BaseException("run perf test is not supported with lambda client")
