@@ -1434,7 +1434,11 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- release command
 
-    release_help_text = "Create release assets for repository containing panther detections. " + "Generates a file called panther-analysis-all.zip and optionally generates " + "panther-analysis-all.sig"
+    release_help_text = (
+        "Create release assets for repository containing panther detections. "
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig"
+    )
     release_parser = subparsers.add_parser(
         "release",
         help=release_help_text,
@@ -1461,9 +1465,7 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- test command
 
     test_help_text = "Validate analysis specifications and run policy and rule tests."
-    test_parser = subparsers.add_parser(
-        "test", help=test_help_text, description=test_help_text
-    )
+    test_parser = subparsers.add_parser("test", help=test_help_text, description=test_help_text)
     standard_args.for_public_api(test_parser, required=False)
     test_parser.add_argument(filter_name, **filter_arg)
     test_parser.add_argument(min_test_name, **min_test_arg)
@@ -1479,7 +1481,11 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- publish command
 
-    publish_help_text = "Publishes a new release, generates the release assets, and uploads them. " + "Generates a file called panther-analysis-all.zip and optionally generates " + "panther-analysis-all.sig"
+    publish_help_text = (
+        "Publishes a new release, generates the release assets, and uploads them. "
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig"
+    )
     publish_parser = subparsers.add_parser(
         "publish",
         help=publish_help_text,
@@ -1533,7 +1539,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     upload_help_text = "Upload specified policies and rules to a Panther deployment."
     upload_parser = subparsers.add_parser(
-        "upload", help=upload_help_text, description=upload_help_text,
+        "upload",
+        help=upload_help_text,
+        description=upload_help_text,
     )
     upload_parser.add_argument(
         "--max-retries",
@@ -1639,7 +1647,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     test_lookup_help_text = "Validate a Lookup Table spec file."
     test_lookup_table_parser = subparsers.add_parser(
-        "test-lookup-table", help=test_lookup_help_text, description=test_lookup_help_text,
+        "test-lookup-table",
+        help=test_lookup_help_text,
+        description=test_lookup_help_text,
     )
 
     standard_args.using_aws_profile(test_lookup_table_parser)
@@ -1691,7 +1701,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     check_connection_help_text = "Check your Panther API connection"
     check_conn_parser = subparsers.add_parser(
-        "check-connection", help=check_connection_help_text, description=check_connection_help_text,
+        "check-connection",
+        help=check_connection_help_text,
+        description=check_connection_help_text,
     )
 
     standard_args.for_public_api(check_conn_parser, required=False)
@@ -1700,7 +1712,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- sdk command
 
-    sdk_help_text = "Perform operations using the Panther SDK exclusively ""(pass sdk --help for more)"
+    sdk_help_text = (
+        "Perform operations using the Panther SDK exclusively " "(pass sdk --help for more)"
+    )
     panthersdk_parser = subparsers.add_parser(
         "sdk",
         help=sdk_help_text,
@@ -1723,9 +1737,11 @@ def setup_parser() -> argparse.ArgumentParser:
     panthersdk_test_parser.set_defaults(func=panthersdk_test.run)
 
     # -- benchmark command
-    benchmark_help_text = f"Performance test one rule against one of its log types. The rule must be the only item" \
-        f" in the working directory or specified by {path_name}, {ignore_files_name}, and {filter_name}. This feature" \
+    benchmark_help_text = (
+        f"Performance test one rule against one of its log types. The rule must be the only item"
+        f" in the working directory or specified by {path_name}, {ignore_files_name}, and {filter_name}. This feature"
         f" is an extension of Data Replay and is subject to the same limitations."
+    )
     benchmark_parser = subparsers.add_parser(
         "benchmark",
         help=benchmark_help_text,
