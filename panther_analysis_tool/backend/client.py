@@ -236,13 +236,13 @@ class TranspileFiltersResponse:
 
 
 @dataclass(frozen=True)
-class GenerateEnrichedEventInputParams:
-    event: str  # json string
+class GenerateEnrichedEventParams:
+    event: Dict[str, Any]  # json
 
 
 @dataclass(frozen=True)
-class GenerateEnrichedEventInputResponse:
-    enriched_event: str  # json string
+class GenerateEnrichedEventResponse:
+    enriched_event: Dict[str, Any]  # json
 
 
 class Client(ABC):
@@ -314,8 +314,8 @@ class Client(ABC):
 
     @abstractmethod
     def generate_enriched_event_input(
-        self, params: GenerateEnrichedEventInputParams
-    ) -> BackendResponse[GenerateEnrichedEventInputResponse]:
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
         pass
 
 
@@ -330,9 +330,13 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
         data=BulkUploadResponse(
             rules=BulkUploadStatistics(**data.get("rules", default_stats)),
             queries=BulkUploadStatistics(**data.get("queries", default_stats)),
-            policies=BulkUploadStatistics(**data.get("policies", default_stats)),
-            data_models=BulkUploadStatistics(**data.get("dataModels", default_stats)),
-            lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
-            global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
+            policies=BulkUploadStatistics(
+                **data.get("policies", default_stats)),
+            data_models=BulkUploadStatistics(
+                **data.get("dataModels", default_stats)),
+            lookup_tables=BulkUploadStatistics(
+                **data.get("lookupTables", default_stats)),
+            global_helpers=BulkUploadStatistics(
+                **data.get("globalHelpers", default_stats)),
         ),
     )

@@ -46,8 +46,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
-    GenerateEnrichedEventInputParams,
-    GenerateEnrichedEventInputResponse,
+    GenerateEnrichedEventParams,
+    GenerateEnrichedEventResponse,
     ListSchemasParams,
     ListSchemasResponse,
     PantherSDKBulkUploadParams,
@@ -120,6 +120,9 @@ class PublicAPIRequests:
 
     def introspection_query(self) -> DocumentNode:
         return self._load("introspection_query")
+
+    def generate_enriched_event_query(self) -> DocumentNode:
+        return self._load("generate_enriched_event")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -460,9 +463,24 @@ class PublicAPIClient(Client):
         return True
 
     def generate_enriched_event_input(
-        self, params: GenerateEnrichedEventInputParams
-    ) -> BackendResponse[GenerateEnrichedEventInputResponse]:
-        return None
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
+        query = self._requests.generate_enriched_event_query()
+        query_input = {
+            "input": {
+                "event": params.event
+            }
+        }
+        res = self._safe_execute(query, variable_values=query_input)
+        data = res.data.get("generateEnrichedEvent", {})
+        enriched_event = data.get("enrichedEvent", {})
+
+        return BackendResponse(
+            status_code=200,
+            data=GenerateEnrichedEventResponse(
+                enriched_event=enriched_event,
+            ),
+        )
 
     def _execute(
         self,

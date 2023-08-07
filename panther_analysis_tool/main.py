@@ -88,7 +88,7 @@ from panther_analysis_tool.analysis_utils import (
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
-from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import Client as BackendClient, GenerateEnrichedEventParams
 from panther_analysis_tool.cmd import (
     bulk_delete,
     check_connection,
@@ -1096,6 +1096,113 @@ def classify_analysis(
     return all_specs, invalid_specs
 
 
+def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+    """Imports each policy or rule and enriches their test data, if any. The
+        modifications are saved in the Analysis YAML files, but not committed
+        to git. Users of panther_analysis_tool are expected to commit the changes
+        after review.
+
+    Args:
+        backend: Backend API client.
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of the return code, and a list of the rules whose test content was enriched.
+    """
+
+    if not backend.supports_enrich_test_data():
+        msg = "enrich-test-data is only supported through token authentication"
+        logging.error(msg)
+        return 1, msg
+
+    logging.info("Enriching test data for analysis items in %s\n", args.path)
+
+    ignored_files = args.ignore_files
+    search_directories = [args.path]
+
+    # First classify each file, always include globals and data models location
+    specs, invalid_specs = classify_analysis(
+        list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
+        ignore_table_names=args.ignore_table_names,
+        valid_table_names=args.valid_table_names,
+    )
+
+    # If no specs were found, nothing to do
+    if specs.empty():
+        if invalid_specs:
+            return 1, invalid_specs
+        return 1, ["No analysis content to enrich tests data for in {}".format(args.path)]
+
+    # Apply the filters as needed
+    if getattr(args, "filter_inverted", None) is None:
+        args.filter_inverted = {}
+    specs = specs.apply(lambda l: filter_analysis(
+        l, args.filter, args.filter_inverted))
+
+    # If no specs after filtering, nothing to do
+    if specs.empty():
+        return 1, [
+            f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}"
+        ]
+
+    # Enrich the test data for each analysis item
+    enricher = TestDataEnricher(backend)
+    enricher.enrich_test_data(specs)
+
+    return (0, "success")
+
+
+class TestDataEnricher:
+    """Enriches test data for analysis items."""
+
+    def __init__(self, backend: BackendClient):
+        """Initializes the TestDataEnricher.
+
+        Args:
+            backend: Backend API client.
+        """
+        self.backend = backend
+
+    def enrich_test_data(self, analysis_items: ClassifiedAnalysisContainer):
+        """Enriches test data for analysis items.
+
+        Args:
+            analysis_items: A list of analysis items to enrich test data for.
+        """
+        # Enrich any detections
+        all_detections = analysis_items.detections + analysis_items.simple_detections
+        logging.info("Enriching test data for %s detections",
+                     len(all_detections))
+        for analysis_item in all_detections:
+            analysis_rule_id = analysis_item.analysis_spec["RuleID"]
+            logging.info("processing {}".format(analysis_rule_id))
+
+            if analysis_item.analysis_spec["AnalysisType"] in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]:
+                tests = analysis_item.analysis_spec.get("Tests", {})
+
+                if tests == {}:
+                    logging.info("Skipping %s, no test data found",
+                                 analysis_rule_id)
+                    continue
+
+                for test in tests:
+                    logging.info("Enriching test case '%s' for %s",
+                                 test["Name"], analysis_rule_id)
+                    params = GenerateEnrichedEventParams(test)
+                    resp = self.backend.generate_enriched_event_input(params)
+
+                    if resp.status_code >= 400:
+                        logging.warn(
+                            "Failed to enrich test data for %s: %s",
+                            analysis_item.analysis_spec["Name"],
+                            resp.data,
+                        )
+                        continue
+
+                    enriched_test_data = resp.data.enriched_event
+                    logging.info(enriched_test_data)
+
+
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     analysis_id = "UNKNOWN_ID"
     if analysis_type == AnalysisTypes.DATA_MODEL:
@@ -1706,6 +1813,24 @@ def setup_parser() -> argparse.ArgumentParser:
     panthersdk_test_parser.add_argument(min_test_name, **min_test_arg)
     panthersdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     panthersdk_test_parser.set_defaults(func=panthersdk_test.run)
+
+    # -- enrich-test-data command
+
+    enrich_test_data_parser = subparsers.add_parser(
+        "enrich-test-data",
+        help="Enrich test data with additional enrichments from the Panther API.",
+    )
+    standard_args.for_public_api(enrich_test_data_parser, required=False)
+
+    enrich_test_data_parser.add_argument(filter_name, **filter_arg)
+    enrich_test_data_parser.add_argument(path_name, **path_arg)
+    enrich_test_data_parser.add_argument(ignore_files_name, **ignore_files_arg)
+    enrich_test_data_parser.add_argument(
+        ignore_table_names_name, **ignore_table_names_arg)
+    enrich_test_data_parser.add_argument(
+        valid_table_names_name, **valid_table_names_arg)
+    enrich_test_data_parser.set_defaults(
+        func=pat_utils.func_with_backend(enrich_test_data))
 
     return parser
 
