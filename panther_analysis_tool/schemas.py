@@ -94,6 +94,7 @@ LOG_TYPE_REGEX = Regex(
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
     r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility|SentinelOne\.DeepVisibilityV2"
     r"|Tailscale\.Audit|Tailscale\.Network"
+    r"|Tenable\.Vulnerability"
     r"|Tines\.Audit"
     r"|Windows\.EventLog"
     r"|Zeek\.CaptureLoss|Zeek\.Conn|Zeek\.DHCP|Zeek\.DNS|Zeek\.DPD|Zeek\.Files|Zeek\.HTTP|Zeek\.Notice|Zeek\.NTP|Zeek\.OCSP|Zeek\.Reporter|Zeek\.SIP|Zeek\.Software|Zeek\.Ssh|Zeek\.Ssl|Zeek\.Stats|Zeek\.Tunnel|Zeek\.Weird|Zeek\.X509"

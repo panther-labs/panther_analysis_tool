@@ -34,7 +34,7 @@ from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import BackendError, BackendResponse, TranspileToPythonResponse, \
     TranspileFiltersResponse, BulkUploadValidateStatusResponse, BulkUploadValidateResult, UnsupportedEndpointError
 from panther_analysis_tool.backend.mocks import MockBackend
-from panther_analysis_tool.cmd import validate
+from panther_analysis_tool.command import validate
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'fixtures'))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, 'detections')

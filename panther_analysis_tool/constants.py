@@ -17,7 +17,7 @@ from panther_analysis_tool.schemas import (
 
 PACKAGE_NAME: Final = "panther_analysis_tool"
 
-VERSION_STRING: Final = "0.24.3"
+VERSION_STRING: Final = "0.24.4"
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
@@ -87,3 +87,12 @@ SET_FIELDS = [
 ]
 
 BACKEND_FILTERS_ANALYSIS_SPEC_KEY = "_backend_filters"
+
+
+class ReplayStatus:
+    DONE = "DONE"
+    CANCELED = "CANCELED"
+    ERROR_EVALUATION = "ERROR_EVALUATION"
+    ERROR_COMPUTATION = "ERROR_COMPUTATION"
+    EVALUATION_IN_PROGRESS = "EVALUATION_IN_PROGRESS"
+    COMPUTATION_IN_PROGRESS = "COMPUTATION_IN_PROGRESS"

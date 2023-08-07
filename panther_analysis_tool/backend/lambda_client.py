@@ -39,11 +39,17 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    GenerateEnrichedEventParams,
+    GenerateEnrichedEventResponse,
     ListSchemasParams,
     ListSchemasResponse,
+    MetricsParams,
+    MetricsResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PerfTestParams,
     PermanentBackendError,
+    ReplayResponse,
     Schema,
     TranspileFiltersParams,
     TranspileFiltersResponse,
@@ -224,6 +230,7 @@ class LambdaClient(Client):
                     revision=result.get("revision", ""),
                     spec=result.get("spec", ""),
                     updated_at=result.get("updatedAt", ""),
+                    field_discovery_enabled=result.get("fieldDiscoveryEnabled", False),
                 )
             )
 
@@ -242,6 +249,7 @@ class LambdaClient(Client):
                             "reference_url": params.reference_url,
                             "revision": params.revision,
                             "spec": params.spec,
+                            "fieldDiscoveryEnabled": params.field_discovery_enabled,
                         }
                     }
                 ),
@@ -263,6 +271,7 @@ class LambdaClient(Client):
                     revision=schema.get("revision", ""),
                     spec=schema.get("spec", ""),
                     updated_at=schema.get("updatedAt", ""),
+                    field_discovery_enabled=schema.get("fieldDiscoveryEnabled", False),
                 )
             ),
         )
@@ -347,5 +356,19 @@ class LambdaClient(Client):
     def supports_bulk_validate(self) -> bool:
         return False
 
+    def supports_perf_test(self) -> bool:
+        return False
+
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        raise BaseException("get metrics is not supported with lambda client")
+
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        raise BaseException("run perf test is not supported with lambda client")
+
     def supports_enrich_test_data(self) -> bool:
         return False
+
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
+        raise BaseException("enrich-test-data is not supported with lambda client")

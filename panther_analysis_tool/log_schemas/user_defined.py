@@ -224,12 +224,17 @@ class Uploader:
             current_revision = existing_schema.revision
         reference_url = definition.get("referenceURL", current_reference_url)
         description = definition.get("description", current_description)
+        field_discovery_enabled = definition.get("fieldDiscoveryEnabled", False)
         logger.debug(
-            "updating schema %s at revision %d, using " "referenceURL=%s, " "description=%s",
+            "updating schema '%s' at revision '%d', using "
+            "referenceURL=%s, "
+            "description=%s, "
+            "fieldDiscoveryEnabled=%s",
             name,
             current_revision,
             reference_url,
             description,
+            field_discovery_enabled,
         )
         response = self._backend.update_schema(
             params=UpdateSchemaParams(
@@ -238,6 +243,7 @@ class Uploader:
                 revision=current_revision,
                 reference_url=reference_url,
                 description=description,
+                field_discovery_enabled=field_discovery_enabled,
             )
         )
         return existed, response

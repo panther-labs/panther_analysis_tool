@@ -12,7 +12,11 @@ from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
     ListSchemasParams,
+    MetricsParams,
+    MetricsResponse,
     PantherSDKBulkUploadParams,
+    PerfTestParams,
+    ReplayResponse,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -62,4 +66,13 @@ class MockBackend(BackendClient):
         pass
 
     def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        pass
+
+    def supports_perf_test(self) -> bool:
+        pass
+
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        pass
+
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
         pass

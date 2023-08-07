@@ -1,0 +1,47 @@
+mutation StopReplay($input: StopReplayInput!) {
+  stopReplay(input: $input) {
+    replay {
+      ...ReplayFull
+      __typename
+    }
+    __typename
+  }
+}
+
+fragment ReplayFull on Replay {
+  id
+  state
+  createdAt
+  completedAt
+  detectionId
+  scope {
+    dataWindow {
+      timeWindow {
+        startsAt
+        endsAt
+        __typename
+      }
+      sizeWindow {
+        maxSizeInGB
+        __typename
+      }
+      __typename
+    }
+    logTypes
+    __typename
+  }
+  summary {
+    completedAt
+    totalAlerts
+    ruleMatchCount
+    ruleErrorCount
+    evaluationProgress
+    logDataSizeEstimate
+    computationProgress
+    matchesProcessedCount
+    eventsProcessedCount
+    eventsMatchedCount
+    __typename
+  }
+  __typename
+}

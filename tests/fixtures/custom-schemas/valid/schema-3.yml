@@ -1,6 +1,7 @@
 schema: Custom.Sample.Schema3
 description: "Sample Schema 3"
 referenceURL: "https://runpanther.io"
+fieldDiscoveryEnabled: true
 version: 0
 fields:
   - name: time

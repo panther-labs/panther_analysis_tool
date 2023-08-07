@@ -49,6 +49,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import botocore
+import dateutil.parser
 import jsonschema
 import requests
 import schema
@@ -89,7 +90,8 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
 from panther_analysis_tool.backend.client import Client as BackendClient, GenerateEnrichedEventParams
-from panther_analysis_tool.cmd import (
+from panther_analysis_tool.command import (
+    benchmark,
     bulk_delete,
     check_connection,
     panthersdk_test,
@@ -1814,8 +1816,46 @@ def setup_parser() -> argparse.ArgumentParser:
     panthersdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     panthersdk_test_parser.set_defaults(func=panthersdk_test.run)
 
-    # -- enrich-test-data command
+    # -- benchmark command
+    benchmark_parser = subparsers.add_parser(
+        "benchmark",
+        help=f"Performance test one rule against one of its log types. The rule must be the only item"
+        f" in the working directory or specified by {path_name}, {ignore_files_name}, and"
+        f" {filter_name}. This feature is an extension of Data Replay and is subject to the same"
+        f" limitations.",
+    )
+    standard_args.for_public_api(benchmark_parser, required=False)
+    benchmark_parser.add_argument(filter_name, **filter_arg)
+    benchmark_parser.add_argument(ignore_files_name, **ignore_files_arg)
+    benchmark_parser.add_argument(path_name, **path_arg)
+    benchmark_parser.add_argument(out_name, **out_arg)
+    benchmark_parser.add_argument(
+        "--iterations",
+        required=False,
+        default=50,
+        type=int,
+        help="The number of iterations of the performance test to perform. Each iteration runs against the selected"
+        " hour of data. Fewer iterations will be run if the time limit is reached. Min: 1",
+    )
+    benchmark_parser.add_argument(
+        "--hour",
+        required=False,
+        type=dateutil.parser.parse,
+        help="The hour of historical data to perform the benchmark against, in any parseable format, e.g."
+        " '2023-07-31T09:00:00.000-7:00'. Minutes, Seconds, etc will be truncated if specified. If hour is "
+        "unspecified, the performance test will run against the hour in the last two weeks with the largest log"
+        " volume.",
+    )
+    benchmark_parser.add_argument(
+        "--log-type",
+        required=False,
+        type=str,
+        help="Required if the rule supports multiple log types, optional otherwise. Must be one of the rule's log"
+        " types.",
+    )
+    benchmark_parser.set_defaults(func=pat_utils.func_with_backend(benchmark.run))
 
+    # -- enrich-test-data command
     enrich_test_data_parser = subparsers.add_parser(
         "enrich-test-data",
         help="Enrich test data with additional enrichments from the Panther API.",

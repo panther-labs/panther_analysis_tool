@@ -24,7 +24,7 @@ import re
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple
 
 import boto3
 import requests
@@ -210,3 +210,9 @@ def add_path_to_filename(output_path: str, filename: str) -> str:
         filename = f"{output_path.rstrip('/')}/{filename}"
 
     return filename
+
+
+def log_and_write_to_file(msgs: List[str], filename: TextIO) -> None:
+    for msg in msgs:
+        filename.write(msg + "\n")
+        logging.info(msg)

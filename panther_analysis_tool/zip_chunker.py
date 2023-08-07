@@ -153,22 +153,31 @@ def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkF
     :param chunks:
     :return:
     """
+    analysis = analysis_for_chunks(args)
+    return chunk_analysis(analysis, chunks)
 
-    if chunks is None or len(chunks) == 0:
-        chunks = [ZipChunk(patterns=["*"])]
 
-    chunk_files = [ChunkFiles(f) for f in chunks]
+def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[ClassifiedAnalysis]:
     analysis = []
     files: Set[str] = set()
 
-    for (file_name, f_path, spec, _) in list(
-        load_analysis_specs([args.path, HELPERS_LOCATION, DATA_MODEL_LOCATION], args.ignore_files)
-    ):
+    paths = [args.path]
+    if not no_helpers:
+        paths.extend([HELPERS_LOCATION, DATA_MODEL_LOCATION])
+    for (file_name, f_path, spec, _) in list(load_analysis_specs(paths, args.ignore_files)):
         if file_name not in files:
             analysis.append(ClassifiedAnalysis(file_name, f_path, spec))
             files.add(file_name)
             files.add("./" + file_name)
-    analysis = filter_analysis(analysis, args.filters, args.filters_inverted)
+    return filter_analysis(analysis, args.filters, args.filters_inverted)
+
+
+def chunk_analysis(
+    analysis: List[ClassifiedAnalysis], chunks: List[ZipChunk] = None
+) -> List[ChunkFiles]:
+    if chunks is None or len(chunks) == 0:
+        chunks = [ZipChunk(patterns=["*"])]
+    chunk_files = [ChunkFiles(f) for f in chunks]
     for item in analysis:
         analysis_spec_filename = item.file_name
         dir_name = item.dir_name

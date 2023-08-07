@@ -17,6 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import base64
+import datetime
 import logging
 import os
 import time
@@ -31,7 +32,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
-from ..constants import VERSION_STRING
+from ..constants import VERSION_STRING, ReplayStatus
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -50,10 +51,15 @@ from .client import (
     GenerateEnrichedEventResponse,
     ListSchemasParams,
     ListSchemasResponse,
+    MetricsParams,
+    MetricsResponse,
     PantherSDKBulkUploadParams,
     PantherSDKBulkUploadResponse,
+    PerfTestParams,
     PermanentBackendError,
+    ReplayResponse,
     Schema,
+    SeriesWithBreakdown,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -120,6 +126,18 @@ class PublicAPIRequests:
 
     def introspection_query(self) -> DocumentNode:
         return self._load("introspection_query")
+
+    def metrics_query(self) -> DocumentNode:
+        return self._load("metrics")
+
+    def create_perf_test_mutation(self) -> DocumentNode:
+        return self._load("create_perf_test")
+
+    def replay_query(self) -> DocumentNode:
+        return self._load("replay")
+
+    def stop_replay_mutation(self) -> DocumentNode:
+        return self._load("stop_replay")
 
     def generate_enriched_event_query(self) -> DocumentNode:
         return self._load("generate_enriched_event")
@@ -346,6 +364,7 @@ class PublicAPIClient(Client):
                 revision=node.get("revision", ""),
                 spec=node.get("spec", ""),
                 updated_at=node.get("updatedAt", ""),
+                field_discovery_enabled=node.get("fieldDiscoveryEnabled", False),
             )
             schemas.append(schema)
 
@@ -359,6 +378,7 @@ class PublicAPIClient(Client):
                 "referenceURL": params.reference_url,
                 "revision": params.revision,
                 "spec": params.spec,
+                "isFieldDiscoveryEnabled": params.field_discovery_enabled,
             }
         }
         res = self._execute(self._requests.update_schema_mutation(), gql_params)
@@ -383,6 +403,7 @@ class PublicAPIClient(Client):
                     revision=schema.get("revision", ""),
                     spec=schema.get("spec", ""),
                     updated_at=schema.get("updatedAt", ""),
+                    field_discovery_enabled=schema.get("fieldDiscoveryEnabled", False),
                 )
             ),
         )
@@ -459,6 +480,86 @@ class PublicAPIClient(Client):
     def supports_bulk_validate(self) -> bool:
         return True
 
+    def supports_perf_test(self) -> bool:
+        return True
+
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        gql_params = {
+            "input": {
+                "fromDate": params.from_date.astimezone().isoformat(),
+                "toDate": params.to_date.astimezone().isoformat(),
+                "intervalInMinutes": params.interval_in_minutes,
+            }
+        }
+        res = self._execute(self._requests.metrics_query(), gql_params)
+        if res.errors:
+            for err in res.errors:
+                logging.error(err.message)
+            raise BackendError(res.errors)
+
+        if res.data is None:
+            raise BackendError("empty data")
+
+        all_metrics = res.data.get("metrics", {})
+        bytes_processed_per_source_list = all_metrics.get("bytesProcessedPerSource", [])
+
+        return BackendResponse(
+            status_code=200,
+            data=MetricsResponse(
+                bytes_processed_per_source=[
+                    SeriesWithBreakdown(
+                        breakdown=x["breakdown"],
+                        label=x["label"],
+                        value=x["value"],
+                    )
+                    for x in bytes_processed_per_source_list
+                ]
+            ),
+        )
+
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        query = self._requests.create_perf_test_mutation()
+        create_params = {
+            "input": {
+                "detection": params.encoded_bytes(),
+                "hour": params.hour.astimezone().isoformat(),
+                "logType": params.log_type,
+            }
+        }
+        res = self._potentially_supported_execute(query, variable_values=create_params)
+        replay_id = res.data.get("createPerfTest", {}).get("replay", {}).get("id")  # type: ignore
+        if not replay_id:
+            raise BackendError("empty data")
+        stopped = False
+        terminal_statuses = [
+            ReplayStatus.DONE,
+            ReplayStatus.CANCELED,
+            ReplayStatus.ERROR_EVALUATION,
+            ReplayStatus.ERROR_COMPUTATION,
+        ]
+
+        while True:
+            if not stopped and params.timeout < datetime.datetime.now().astimezone():
+                stop_params = {"input": {"id": replay_id}}
+                query = self._requests.stop_replay_mutation()
+                self._potentially_supported_execute(query, variable_values=stop_params)
+                stopped = True
+
+            time.sleep(0.25)
+            query = self._requests.replay_query()
+            get_params = {"input": replay_id}
+            res = self._potentially_supported_execute(query, variable_values=get_params)
+            result = res.data.get("replay", {})  # type: ignore
+            status = result.get("state", "")
+            if status in terminal_statuses:
+                replay_response = ReplayResponse.from_json(result, replay_id, status)
+                return BackendResponse(status_code=200, data=replay_response)
+
+            if status not in terminal_statuses + (
+                [ReplayStatus.EVALUATION_IN_PROGRESS, ReplayStatus.COMPUTATION_IN_PROGRESS]
+            ):
+                raise BackendError(f"unexpected status: {status}")
+
     def supports_enrich_test_data(self) -> bool:
         return True
 
@@ -481,7 +582,6 @@ class PublicAPIClient(Client):
                 enriched_event=enriched_event,
             ),
         )
-
     def _execute(
         self,
         request: DocumentNode,
