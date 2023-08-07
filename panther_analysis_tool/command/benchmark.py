@@ -84,7 +84,7 @@ def run(  # pylint: disable=too-many-locals
             ReplayStatus.ERROR_EVALUATION,
             ReplayStatus.ERROR_COMPUTATION,
         ]:
-            log_error(args, now)
+            log_error(args, hour_or_err, now)
             if len(iterations) == 0:
                 logged = True
             break
@@ -198,19 +198,19 @@ def validate_hour(
 
 
 def generate_command_log_text(hour: datetime.datetime) -> List[str]:
-    command = sys.argv.copy()
+    command = sys.argv[1:].copy()
     if "--hour" not in command:
         command.append("--hour")
         command.append(hour.isoformat())
 
     return [
         "To reproduce this benchmark on the same environment, please run:",
-        " ".join(command),
+        "panther_analysis_tool " + " ".join(command),
     ]
 
 
 def write_output(args: argparse.Namespace, to_write: List[str], now: datetime.datetime) -> None:
-    with open(args.out + f"/benchmark-{now.timestamp()}", "a") as filename:
+    with open(args.out + f"/benchmark-{int(now.timestamp())}", "a") as filename:
         to_write.insert(0, f"Writing to file: {filename.name}")
         log_and_write_to_file(to_write, filename)
 
@@ -256,7 +256,8 @@ def log_output(
             "1 minute to 10 minutes: Less performant, but unlikely to cause issues unless running alongside other less"
             " performant rules",
             "10+ minutes: At risk of timing out. Please improve performance",
-            f"Rule {rule.file_name} is: {descriptor_string}",
+            "",
+            f"*** Rule {rule.file_name} is: {descriptor_string} ***",
             "",
             "Full record:",
         ]
@@ -278,6 +279,7 @@ def log_extreme_timeout(
     write_output(args, to_write, now)
 
 
-def log_error(args: argparse.Namespace, now: datetime.datetime) -> None:
-    to_write = ["benchmark failed with an error. Please ensure the correctness of your rule."]
+def log_error(args: argparse.Namespace, hour: datetime.datetime, now: datetime.datetime) -> None:
+    to_write = generate_command_log_text(hour)
+    to_write.append("benchmark failed with an error. Please ensure the correctness of your rule.")
     write_output(args, to_write, now)
