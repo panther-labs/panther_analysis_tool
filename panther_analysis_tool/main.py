@@ -91,7 +91,8 @@ from panther_analysis_tool.analysis_utils import (
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
-from panther_analysis_tool.backend.client import Client as BackendClient, GenerateEnrichedEventParams
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import GenerateEnrichedEventParams
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -1127,11 +1128,15 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # Load all of the anlaysis specs based on the search directories and ignored files.
     # We use the load_analysis_specs_ex variant to get a nice round object that includes
     # the YAML context for each analysis item. This means we can roundtrip without sadness.
-    raw_analysis_items = list(load_analysis_specs_ex(search_directories, ignore_files=ignored_files))
+    raw_analysis_items = list(
+        load_analysis_specs_ex(search_directories, ignore_files=ignored_files)
+    )
     specs, invalid_specs = classify_analysis(
         # unpack the nice dataclass into a tuple because we use Tuples too much everywhere
-        [(raw_item.spec_filename, raw_item.relative_path, raw_item.analysis_spec, raw_item.error)
-         for raw_item in raw_analysis_items],
+        [
+            (raw_item.spec_filename, raw_item.relative_path, raw_item.analysis_spec, raw_item.error)
+            for raw_item in raw_analysis_items
+        ],
         ignore_table_names=args.ignore_table_names,
         valid_table_names=args.valid_table_names,
     )
@@ -1145,8 +1150,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
-    specs = specs.apply(lambda l: filter_analysis(
-        l, args.filter, args.filter_inverted))
+    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
 
     # If no specs after filtering, nothing to do
     if specs.empty():
@@ -1186,7 +1190,9 @@ class TestDataEnricher:
         """
         self.backend = backend
 
-    def _filter_analysis_items(self, analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
+    def _filter_analysis_items(
+        self, analysis_items: list[LoadAnalysisSpecsResult]
+    ) -> list[LoadAnalysisSpecsResult]:
         """Filters analysis items to only those that need test data enrichment.
 
         Args:
@@ -1195,7 +1201,13 @@ class TestDataEnricher:
         Returns:
             A list of analysis items that have the Tests property and an AnalysisType of RULE, POLICY, or SCHEDULED_RULE.
         """
-        return [item for item in analysis_items if item.analysis_spec.get("Tests") and item.analysis_spec["AnalysisType"] in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]]
+        return [
+            item
+            for item in analysis_items
+            if item.analysis_spec.get("Tests")
+            and item.analysis_spec["AnalysisType"]
+            in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
+        ]
 
     def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]):
         """Enriches test data for analysis items.
@@ -1207,8 +1219,9 @@ class TestDataEnricher:
 
         # Enrich any detections
         relevant_analysis_items = self._filter_analysis_items(analysis_items)
-        logging.info("Enriching test data for %s detections, after filtering",
-                     len(relevant_analysis_items))
+        logging.info(
+            "Enriching test data for %s detections, after filtering", len(relevant_analysis_items)
+        )
         for analysis_item in relevant_analysis_items:
             analysis_rule_id = analysis_item.analysis_spec["RuleID"]
             analysis_type = analysis_item.analysis_spec["AnalysisType"]
@@ -1218,8 +1231,7 @@ class TestDataEnricher:
             enriched_tests = []
 
             for test in tests:
-                logging.info("\tEnriching test case '%s' for %s",
-                             test["Name"], analysis_rule_id)
+                logging.info("\tEnriching test case '%s' for %s", test["Name"], analysis_rule_id)
                 if "Log" not in test:
                     logging.warn(
                         "Skipping test case '%s' for %s, no event data found",
@@ -1911,12 +1923,9 @@ def setup_parser() -> argparse.ArgumentParser:
     enrich_test_data_parser.add_argument(filter_name, **filter_arg)
     enrich_test_data_parser.add_argument(path_name, **path_arg)
     enrich_test_data_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    enrich_test_data_parser.add_argument(
-        ignore_table_names_name, **ignore_table_names_arg)
-    enrich_test_data_parser.add_argument(
-        valid_table_names_name, **valid_table_names_arg)
-    enrich_test_data_parser.set_defaults(
-        func=pat_utils.func_with_backend(enrich_test_data))
+    enrich_test_data_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
+    enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
 
     return parser
 

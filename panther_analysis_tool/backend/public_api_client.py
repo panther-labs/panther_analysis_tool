@@ -567,11 +567,7 @@ class PublicAPIClient(Client):
         self, params: GenerateEnrichedEventParams
     ) -> BackendResponse[GenerateEnrichedEventResponse]:
         query = self._requests.generate_enriched_event_query()
-        query_input = {
-            "input": {
-                "event": params.event
-            }
-        }
+        query_input = {"input": {"event": params.event}}
         res = self._safe_execute(query, variable_values=query_input)
         data = res.data.get("generateEnrichedEvent", {})
         enriched_event = data.get("enrichedEvent", {})
@@ -582,6 +578,7 @@ class PublicAPIClient(Client):
                 enriched_event=enriched_event,
             ),
         )
+
     def _execute(
         self,
         request: DocumentNode,

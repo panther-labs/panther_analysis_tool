@@ -20,9 +20,9 @@ import dataclasses
 import json
 import logging
 import os
+import sys
 from fnmatch import fnmatch
 from sys import stdout
-import sys
 from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
@@ -196,7 +196,14 @@ class LoadAnalysisSpecsResult:
     yaml_ctx: YAML
     error: Exception
 
-    def __init__(self, spec_filename: str, relative_path: str, analysis_spec: Any, yaml_ctx: YAML, error: Exception):
+    def __init__(
+        self,
+        spec_filename: str,
+        relative_path: str,
+        analysis_spec: Any,
+        yaml_ctx: YAML,
+        error: Exception,
+    ):
         self.spec_filename = spec_filename
         self.relative_path = relative_path
         self.analysis_spec = analysis_spec
@@ -295,7 +302,7 @@ def load_analysis_specs_ex(
                                 relative_path=relative_path,
                                 analysis_spec=yaml.load(spec_file_obj),
                                 yaml_ctx=yaml,
-                                error=None
+                                error=None,
                             )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error
@@ -304,7 +311,7 @@ def load_analysis_specs_ex(
                                 relative_path=relative_path,
                                 analysis_spec=None,
                                 yaml_ctx=None,
-                                error=err
+                                error=err,
                             )
                 if fnmatch(filename, "*.json"):
                     with open(spec_filename, "r") as spec_file_obj:
@@ -314,7 +321,7 @@ def load_analysis_specs_ex(
                                 relative_path=relative_path,
                                 analysis_spec=json.load(spec_file_obj),
                                 yaml_ctx=None,
-                                error=None
+                                error=None,
                             )
                         except ValueError as err:
                             yield LoadAnalysisSpecsResult(
@@ -322,7 +329,7 @@ def load_analysis_specs_ex(
                                 relative_path=relative_path,
                                 analysis_spec=None,
                                 yaml_ctx=None,
-                                error=err
+                                error=err,
                             )
 
 
