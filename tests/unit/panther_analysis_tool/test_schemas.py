@@ -17,6 +17,53 @@ from panther_analysis_tool.schemas import (
 
 
 class TestPATSchemas(unittest.TestCase):
+    def test_known_log_types(selfs):
+        arr = ["AWS.ALB","AWS.AuroraMySQLAudit","AWS.CloudTrail","AWS.CloudTrailDigest","AWS.CloudTrailInsight",
+               "AWS.CloudWatchEvents","AWS.Config","AWS.GuardDuty","AWS.S3ServerAccess","AWS.TransitGatewayFlow",
+               "AWS.VPCDns","AWS.VPCFlow","AWS.WAFWebACL","AlphaSOC.Alert","Amazon.EKS.Audit",
+               "Amazon.EKS.Authenticator","Apache.AccessCombined","Apache.AccessCommon","Asana.Audit",
+               "Atlassian.Audit","Auth0.Events","Azure.Audit","Azure.SignIn","Bitwarden.Events",
+               "Box.Event","CarbonBlack.Audit","CiscoUmbrella.CloudFirewall","CiscoUmbrella.DNS",
+               "CiscoUmbrella.IP","CiscoUmbrella.Proxy","Cloudflare.Audit","Cloudflare.Firewall",
+               "Cloudflare.HttpRequest","Cloudflare.Spectrum","Crowdstrike.AIDMaster","Crowdstrike.ActivityAudit",
+               "Crowdstrike.AppInfo","Crowdstrike.CriticalFile","Crowdstrike.DNSRequest","Crowdstrike.DetectionSummary",
+               "Crowdstrike.FDREvent","Crowdstrike.GroupIdentity","Crowdstrike.ManagedAssets",
+               "Crowdstrike.NetworkConnect","Crowdstrike.NetworkListen","Crowdstrike.NotManagedAssets",
+               "Crowdstrike.ProcessRollup2","Crowdstrike.ProcessRollup2Stats","Crowdstrike.SyntheticProcessRollup2",
+               "Crowdstrike.Unknown","Crowdstrike.UserIdentity","Crowdstrike.UserInfo","Crowdstrike.UserLogonLogoff",
+               "Docker.Events","Dropbox.TeamEvent","Duo.Administrator","Duo.Authentication","Duo.OfflineEnrollment",
+               "Duo.Telephony","Fastly.Access","Fluentd.Syslog3164","Fluentd.Syslog5424","GCP.AuditLog",
+               "GCP.HTTPLoadBalancer","GSuite.ActivityEvent","GSuite.DirectoryUsers","GSuite.Reports","GitHub.Audit",
+               "GitLab.API","GitLab.Audit","GitLab.Exceptions","GitLab.Git","GitLab.Integrations","GitLab.Production",
+               "Gravitational.TeleportAudit","GreyNoise.Noise","GreyNoise.RIOT","Heroku.Runtime","IPInfo.ASNCIDR",
+               "IPInfo.ASNRanges","IPInfo.LocationCIDR","IPInfo.LocationRanges","IPInfo.PrivacyCIDR",
+               "IPInfo.PrivacyRanges","Jamfpro.Login","Juniper.Access","Juniper.Audit","Juniper.Firewall",
+               "Juniper.MWS","Juniper.Postgres","Juniper.Security","Lacework.AgentManagement",
+               "Lacework.AlertDetails","Lacework.AllFiles","Lacework.Applications","Lacework.ChangeFiles",
+               "Lacework.CloudCompliance","Lacework.CloudConfiguration","Lacework.Cmdline","Lacework.Connections",
+               "Lacework.ContainerSummary","Lacework.ContainerVulnDetails","Lacework.DNSQuery","Lacework.Events",
+               "Lacework.HostVulnDetails","Lacework.Image","Lacework.Interfaces","Lacework.InternalIPA",
+               "Lacework.MachineDetails","Lacework.MachineSummary","Lacework.NewHashes","Lacework.Package",
+               "Lacework.PodSummary","Lacework.ProcessSummary","Lacework.UserDetails","Lacework.UserLogin",
+               "Linux.Auditd","Microsoft365.Audit.AzureActiveDirectory","Microsoft365.Audit.Exchange",
+               "Microsoft365.Audit.General","Microsoft365.Audit.SharePoint","Microsoft365.DLP.All",
+               "MicrosoftGraph.SecurityAlert","MongoDB.OrganizationEvent","MongoDB.ProjectEvent",
+               "Netskope.Audit","Nginx.Access","Notion.AuditLogs","OSSEC.EventInfo","Okta.Devices",
+               "Okta.SystemLog","Okta.Users","OneLogin.Events","OnePassword.AuditEvent","OnePassword.ItemUsage",
+               "OnePassword.SignInAttempt","Osquery.Batch","Osquery.Differential","Osquery.Snapshot","Osquery.Status",
+               "Panther.Audit","Salesforce.Login","Salesforce.LoginAs","Salesforce.Logout","Salesforce.URI",
+               "SentinelOne.Activity","SentinelOne.DeepVisibility","SentinelOne.DeepVisibilityV2","Slack.AccessLogs",
+               "Slack.AuditLogs","Slack.IntegrationLogs","Snyk.GroupAudit","Snyk.OrgAudit","Sophos.Central",
+               "Suricata.Alert","Suricata.Anomaly","Suricata.DHCP","Suricata.DNS","Suricata.FileInfo","Suricata.Flow",
+               "Suricata.HTTP","Suricata.SSH","Suricata.TLS","Sysdig.Audit","Syslog.RFC3164","Syslog.RFC5424",
+               "Tailscale.Audit","Tailscale.Network","Tenable.Vulnerability","Tines.Audit","Tor.ExitNode",
+               "Windows.EventLogs","Workday.Activity","Workday.SignOnAttempt","Zeek.CaptureLoss","Zeek.Conn",
+               "Zeek.DHCP","Zeek.DNS","Zeek.DPD","Zeek.Files","Zeek.HTTP","Zeek.NTP","Zeek.Notice","Zeek.OCSP",
+               "Zeek.Reporter","Zeek.SIP","Zeek.Software","Zeek.Ssh","Zeek.Ssl","Zeek.Stats","Zeek.Tunnel",
+               "Zeek.Weird","Zeek.X509","Zendesk.Audit","Zoom.Activity","Zoom.Operation"]
+        for log_type in arr:
+            LOG_TYPE_REGEX.validate(log_type)
+
     def test_logtypes_regex_amazon_eks(self):
         LOG_TYPE_REGEX.validate("Amazon.EKS.Audit")
         LOG_TYPE_REGEX.validate("Amazon.EKS.Authenticator")
