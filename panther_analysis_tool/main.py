@@ -70,6 +70,7 @@ from panther_core.testing import (
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
+from ruamel.yaml import CommentedMap as YAMLCommentedMap
 from schema import (
     Optional,
     SchemaError,
@@ -1209,6 +1210,27 @@ class TestDataEnricher:
             in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
         ]
 
+    def _convert_inline_json_to_yaml(self, data: YAMLCommentedMap) -> dict:
+        """Converts inline JSON to YAML."""
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    data[key] = dict(value)
+                    self._convert_inline_json_to_yaml(data[key])
+        return data
+
+    def _convert_inline_json_to_yaml(self, data: YAMLCommentedMap) -> dict:
+        """Converts inline JSON to YAML."""
+        if isinstance(data, dict):
+            new_dict = {}
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    new_dict[key] = self._convert_inline_json_to_yaml(value)
+                else:
+                    new_dict[key] = value
+            return new_dict
+        return data
+
     def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]):
         """Enriches test data for analysis items.
 
@@ -1257,6 +1279,16 @@ class TestDataEnricher:
                 # We're only copying the p_enrichment field because it's the only net-new
                 # field. This helps reduce unnecessary deserialize/serialize noise.
                 test["Log"]["p_enrichment"] = enriched_test_data.get("p_enrichment", {})
+
+                # Some test cases are pasted in as JSON. JSON does not roundtrip
+                # nicely - often just rendering as one giant line after we add
+                # the p_enrichment field.
+                #
+                # We're forcibly converting the test case data to a Python dict
+                # so that it roundtrips out as YAML instead. This is noisy
+                # for those tests that are in JSON format, but it's preferable
+                # to the alternative.
+                test["Log"] = self._convert_inline_json_to_yaml(test["Log"])
                 enriched_tests.append(test)
 
             analysis_item.analysis_spec["Tests"] = enriched_tests

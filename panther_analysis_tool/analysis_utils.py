@@ -221,6 +221,7 @@ def get_yaml_loader() -> YAML:
     yaml = YAML(typ="rt")
     yaml.indent(mapping=2, sequence=4, offset=2)
     yaml.preserve_quotes = True
+    yaml.default_flow_style = False
     yaml.width = 4096  # allow indefinitely long lines to avoid unnecessary line changes
     return yaml
 
