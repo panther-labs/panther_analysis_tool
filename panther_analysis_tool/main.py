@@ -1173,7 +1173,8 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
                 continue
 
             logging.warning(
-                "Analysis item %s is not a Rule, Scheduled Rule, or Policy - skipping", item.spec_filename
+                "Analysis item %s is not a Rule, Scheduled Rule, or Policy - skipping",
+                item.spec_filename,
             )
 
     filtered_raw_analysis_items_by_id = {}

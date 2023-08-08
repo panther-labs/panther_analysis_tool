@@ -22,9 +22,9 @@ import logging
 from ruamel.yaml import CommentedMap as YAMLCommentedMap
 
 from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult
-from panther_analysis_tool.backend.client import Client as BackendClient, GenerateEnrichedEventParams
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import GenerateEnrichedEventParams
 from panther_analysis_tool.constants import AnalysisTypes
-
 
 TEST_CASE_FIELD_KEY_LOG = "Log"
 TEST_CASE_FIELD_KEY_RESOURCE = "Resource"
@@ -41,7 +41,9 @@ class TestDataEnricher:
         """
         self.backend = backend
 
-    def _filter_analysis_items(self, analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
+    def _filter_analysis_items(
+        self, analysis_items: list[LoadAnalysisSpecsResult]
+    ) -> list[LoadAnalysisSpecsResult]:
         """Filters analysis items to only those that need test data enrichment.
 
         Args:
@@ -50,7 +52,13 @@ class TestDataEnricher:
         Returns:
             A list of analysis items that have the Tests property and an AnalysisType of RULE, POLICY, or SCHEDULED_RULE.
         """
-        return [item for item in analysis_items if item.analysis_spec.get("Tests") and item.analysis_spec["AnalysisType"] in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]]
+        return [
+            item
+            for item in analysis_items
+            if item.analysis_spec.get("Tests")
+            and item.analysis_spec["AnalysisType"]
+            in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
+        ]
 
     def _convert_inline_json_to_yaml(self, data: YAMLCommentedMap) -> dict:
         """Converts inline JSON to YAML."""
@@ -127,10 +135,13 @@ class TestDataEnricher:
 
         # Enrich any detections
         relevant_analysis_items = self._filter_analysis_items(analysis_items)
-        logging.info("Enriching test data for %s detections, after filtering",
-                     len(relevant_analysis_items))
+        logging.info(
+            "Enriching test data for %s detections, after filtering", len(relevant_analysis_items)
+        )
         for analysis_item in relevant_analysis_items:
-            analysis_id = analysis_item.analysis_spec.get("RuleID") or analysis_item.analysis_spec.get("PolicyID")
+            analysis_id = analysis_item.analysis_spec.get(
+                "RuleID"
+            ) or analysis_item.analysis_spec.get("PolicyID")
 
             analysis_type = analysis_item.analysis_spec["AnalysisType"]
             logging.info("Processing {} '{}'".format(analysis_type, analysis_id))
@@ -139,8 +150,7 @@ class TestDataEnricher:
             enriched_tests = []
 
             for test in tests:
-                logging.info("\tEnriching test case '%s' for %s",
-                             test["Name"], analysis_id)
+                logging.info("\tEnriching test case '%s' for %s", test["Name"], analysis_id)
                 if "Log" in test:
                     enriched_test = self._handle_rule_test(analysis_id, test)
                     if enriched_test:
@@ -150,7 +160,11 @@ class TestDataEnricher:
                     if enriched_test:
                         enriched_tests.append(enriched_test)
                 else:
-                    logging.warn("Skipping test case '%s' for %s, no event data found", test["Name"], analysis_id)
+                    logging.warn(
+                        "Skipping test case '%s' for %s, no event data found",
+                        test["Name"],
+                        analysis_id,
+                    )
 
             analysis_item.analysis_spec["Tests"] = enriched_tests
             analysis_item.serialize_to_file()
