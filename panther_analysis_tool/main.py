@@ -1427,6 +1427,7 @@ def setup_parser() -> argparse.ArgumentParser:
         description="Panther Analysis Tool: A command line tool for "
         + "managing Panther policies and rules.",
         prog="panther_analysis_tool",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=VERSION_STRING)
     parser.add_argument("--debug", action="store_true", dest="debug")
@@ -1443,6 +1444,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "release",
         help=release_help_text,
         description=release_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     standard_args.for_public_api(release_parser, required=False)
@@ -1465,7 +1467,12 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- test command
 
     test_help_text = "Validate analysis specifications and run policy and rule tests."
-    test_parser = subparsers.add_parser("test", help=test_help_text, description=test_help_text)
+    test_parser = subparsers.add_parser(
+        "test",
+        help=test_help_text,
+        description=test_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     standard_args.for_public_api(test_parser, required=False)
     test_parser.add_argument(filter_name, **filter_arg)
     test_parser.add_argument(min_test_name, **min_test_arg)
@@ -1490,6 +1497,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "publish",
         help=publish_help_text,
         description=publish_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     publish_parser.add_argument(
         "--body",
@@ -1542,6 +1550,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "upload",
         help=upload_help_text,
         description=upload_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     upload_parser.add_argument(
         "--max-retries",
@@ -1585,6 +1594,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "delete",
         help=delete_help_text,
         description=delete_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     delete_parser.add_argument(
         "--no-confirm",
@@ -1631,6 +1641,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "update-custom-schemas",
         help=custom_schemas_help_text,
         description=custom_schemas_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     standard_args.for_public_api(update_custom_schemas_parser, required=False)
@@ -1650,6 +1661,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "test-lookup-table",
         help=test_lookup_help_text,
         description=test_lookup_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     standard_args.using_aws_profile(test_lookup_table_parser)
@@ -1667,7 +1679,10 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- validate command
     validate_help_text = "Validate your bulk uploads against your panther instance"
     validate_parser = subparsers.add_parser(
-        "validate", help=validate_help_text, description=validate_help_text
+        "validate",
+        help=validate_help_text,
+        description=validate_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     standard_args.for_public_api(validate_parser, required=False)
     validate_parser.add_argument(filter_name, **filter_arg)
@@ -1682,6 +1697,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "zip",
         help=zip_help_text,
         description=zip_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     standard_args.for_public_api(zip_parser, required=False)
     zip_parser.add_argument(filter_name, **filter_arg)
@@ -1704,6 +1720,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "check-connection",
         help=check_connection_help_text,
         description=check_connection_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     standard_args.for_public_api(check_conn_parser, required=False)
@@ -1719,18 +1736,27 @@ def setup_parser() -> argparse.ArgumentParser:
         "sdk",
         help=sdk_help_text,
         description=sdk_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     standard_args.for_public_api(panthersdk_parser, required=False)
     standard_args.using_aws_profile(panthersdk_parser)
     panthersdk_subparsers = panthersdk_parser.add_subparsers()
 
+    sdk_upload_help_text = "Upload policies and rules generated from your Panther content"
     panthersdk_upload_parser = panthersdk_subparsers.add_parser(
-        "upload", help="Upload policies and rules generated from your Panther content"
+        "upload",
+        help=sdk_upload_help_text,
+        description=sdk_upload_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     panthersdk_upload_parser.set_defaults(func=pat_utils.func_with_backend(panthersdk_upload.run))
 
+    sdk_test_help_text = "Validate analysis specifications and run policy and rule tests."
     panthersdk_test_parser = panthersdk_subparsers.add_parser(
-        "test", help="Validate analysis specifications and run policy and rule tests."
+        "test",
+        help=sdk_test_help_text,
+        description=sdk_test_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     panthersdk_test_parser.add_argument(min_test_name, **min_test_arg)
     panthersdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
@@ -1746,6 +1772,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "benchmark",
         help=benchmark_help_text,
         description=benchmark_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     standard_args.for_public_api(benchmark_parser, required=False)
     benchmark_parser.add_argument(filter_name, **filter_arg)
