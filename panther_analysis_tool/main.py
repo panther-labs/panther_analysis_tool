@@ -1164,20 +1164,43 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     raw_analysis_items_by_id = {}
     for item in raw_analysis_items:
         if item.analysis_spec != None:
-            raw_analysis_items_by_id[item.analysis_spec["RuleID"]] = item
+            rule_id = item.analysis_spec.get("RuleID", "")
+            if rule_id != "":
+                raw_analysis_items_by_id[rule_id] = item
+                continue
+
+            policy_id = item.analysis_spec.get("PolicyID", "")
+            if policy_id != "":
+                raw_analysis_items_by_id[policy_id] = item
+                continue
+
+            logging.warning(
+                "Analysis item %s is not a Rule, Scheduled Rule, or Policy - skipping", item.spec_filename
+            )
 
     filtered_raw_analysis_items_by_id = {}
     all_relevant_specs = specs.detections + specs.simple_detections
 
     for spec in all_relevant_specs:
-        rule_id = spec.analysis_spec["RuleID"]
-        filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[rule_id]
+        rule_id = spec.analysis_spec.get("RuleID", "")
+        if rule_id != "":
+            filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[rule_id]
+            continue
+
+        policy_id = spec.analysis_spec.get("PolicyID", "")
+        if policy_id != "":
+            filtered_raw_analysis_items_by_id[policy_id] = raw_analysis_items_by_id[policy_id]
+            continue
 
     # Enrich the test data for each analysis item
     enricher = TestDataEnricher(backend)
     enricher.enrich_test_data(filtered_raw_analysis_items_by_id.values())
 
     return (0, "success")
+
+
+TEST_CASE_FIELD_KEY_LOG = "Log"
+TEST_CASE_FIELD_KEY_RESOURCE = "Resource"
 
 
 class TestDataEnricher:
@@ -1231,6 +1254,50 @@ class TestDataEnricher:
             return new_dict
         return data
 
+    def _handle_analysis_item(self, analysis_id: str, test: dict, test_case_field_key: str) -> dict:
+        if test_case_field_key not in test:
+            logging.error(
+                "Skipping test case '%s' for %s, no event data found",
+                test["Name"],
+                analysis_id,
+            )
+            return None
+
+        params = GenerateEnrichedEventParams(test[test_case_field_key])
+        resp = self.backend.generate_enriched_event_input(params)
+
+        if resp.status_code >= 400:
+            logging.error(
+                "Failed to enrich test data for %s: %s",
+                analysis_id,
+                resp.data,
+            )
+            return None
+
+        enriched_test_data = resp.data.enriched_event
+        logging.debug("enriched test case: %s", enriched_test_data)
+
+        # We're only copying the p_enrichment field because it's the only net-new
+        # field. This helps reduce unnecessary deserialize/serialize noise.
+        test[test_case_field_key]["p_enrichment"] = enriched_test_data.get("p_enrichment", {})
+
+        # Some test cases are pasted in as JSON. JSON does not roundtrip
+        # nicely - often just rendering as one giant line after we add
+        # the p_enrichment field.
+        #
+        # We're forcibly converting the test case data to a Python dict
+        # so that it roundtrips out as YAML instead. This is noisy
+        # for those tests that are in JSON format, but it's preferable
+        # to the alternative.
+        test[test_case_field_key] = self._convert_inline_json_to_yaml(test[test_case_field_key])
+        return test
+
+    def _handle_rule_test(self, analysis_id: str, test: dict) -> dict:
+        return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_LOG)
+
+    def _handle_policy_test(self, analysis_id: str, test: dict) -> dict:
+        return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_RESOURCE)
+
     def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]):
         """Enriches test data for analysis items.
 
@@ -1241,55 +1308,30 @@ class TestDataEnricher:
 
         # Enrich any detections
         relevant_analysis_items = self._filter_analysis_items(analysis_items)
-        logging.info(
-            "Enriching test data for %s detections, after filtering", len(relevant_analysis_items)
-        )
+        logging.info("Enriching test data for %s detections, after filtering",
+                     len(relevant_analysis_items))
         for analysis_item in relevant_analysis_items:
-            analysis_rule_id = analysis_item.analysis_spec["RuleID"]
+            analysis_id = analysis_item.analysis_spec.get("RuleID") or analysis_item.analysis_spec.get("PolicyID")
+
             analysis_type = analysis_item.analysis_spec["AnalysisType"]
-            logging.info("Processing {} '{}'".format(analysis_type, analysis_rule_id))
+            logging.info("Processing {} '{}'".format(analysis_type, analysis_id))
             tests = analysis_item.analysis_spec.get("Tests")
 
             enriched_tests = []
 
             for test in tests:
-                logging.info("\tEnriching test case '%s' for %s", test["Name"], analysis_rule_id)
-                if "Log" not in test:
-                    logging.warn(
-                        "Skipping test case '%s' for %s, no event data found",
-                        test["Name"],
-                        analysis_rule_id,
-                    )
-                    continue
-
-                params = GenerateEnrichedEventParams(test["Log"])
-                resp = self.backend.generate_enriched_event_input(params)
-
-                if resp.status_code >= 400:
-                    logging.warn(
-                        "Failed to enrich test data for %s: %s",
-                        analysis_item.analysis_spec["Name"],
-                        resp.data,
-                    )
-                    continue
-
-                enriched_test_data = resp.data.enriched_event
-                logging.debug("enriched test case: %s", enriched_test_data)
-
-                # We're only copying the p_enrichment field because it's the only net-new
-                # field. This helps reduce unnecessary deserialize/serialize noise.
-                test["Log"]["p_enrichment"] = enriched_test_data.get("p_enrichment", {})
-
-                # Some test cases are pasted in as JSON. JSON does not roundtrip
-                # nicely - often just rendering as one giant line after we add
-                # the p_enrichment field.
-                #
-                # We're forcibly converting the test case data to a Python dict
-                # so that it roundtrips out as YAML instead. This is noisy
-                # for those tests that are in JSON format, but it's preferable
-                # to the alternative.
-                test["Log"] = self._convert_inline_json_to_yaml(test["Log"])
-                enriched_tests.append(test)
+                logging.info("\tEnriching test case '%s' for %s",
+                             test["Name"], analysis_id)
+                if "Log" in test:
+                    enriched_test = self._handle_rule_test(analysis_id, test)
+                    if enriched_test:
+                        enriched_tests.append(enriched_test)
+                elif "Resource" in test:
+                    enriched_test = self._handle_policy_test(analysis_id, test)
+                    if enriched_test:
+                        enriched_tests.append(enriched_test)
+                else:
+                    logging.warn("Skipping test case '%s' for %s, no event data found", test["Name"], analysis_id)
 
             analysis_item.analysis_spec["Tests"] = enriched_tests
             analysis_item.serialize_to_file()
@@ -2112,7 +2154,7 @@ def run() -> None:
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
-        logging.warning('Unhandled exception: "%s"', err)
+        logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
         logging.debug("Full error traceback:", exc_info=err)
         sys.exit(1)
 
