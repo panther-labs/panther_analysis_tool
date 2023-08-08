@@ -21,6 +21,8 @@ import json
 import logging
 import os
 from fnmatch import fnmatch
+from sys import stdout
+import sys
 from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
@@ -169,7 +171,9 @@ def filter_analysis(
 def load_analysis_specs(
     directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
-    """Loads the analysis specifications from a file.
+    """Loads the analysis specifications from a file. It calls load_analysis_specs_ex
+    and returns the spec_filename, relative_path, analysis_spec, and error to preserve
+    historic callers.
 
     Args:
         directories: The relative path to Panther policies or rules.
@@ -177,6 +181,57 @@ def load_analysis_specs(
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
+    """
+    for result in load_analysis_specs_ex(directories, ignore_files):
+        yield result.spec_filename, result.relative_path, result.analysis_spec, result.error
+
+
+@dataclasses.dataclass
+class LoadAnalysisSpecsResult:
+    """The result of loading analysis specifications from a file."""
+
+    spec_filename: str
+    relative_path: str
+    analysis_spec: Any
+    yaml_ctx: YAML
+    error: Exception
+
+    def __init__(self, spec_filename: str, relative_path: str, analysis_spec: Any, yaml_ctx: YAML, error: Exception):
+        self.spec_filename = spec_filename
+        self.relative_path = relative_path
+        self.analysis_spec = analysis_spec
+        self.yaml_ctx = yaml_ctx
+        self.error = error
+
+    def serialize_to_file(self) -> None:
+        logging.debug("Writing analysis spec to %s", self.spec_filename)
+        with open(self.spec_filename, "w") as f:
+            self.yaml_ctx.dump(self.analysis_spec, f)
+
+
+def get_yaml_loader() -> YAML:
+    """Returns a YAML object with the correct settings for loading analysis specifications."""
+    yaml = YAML(typ="rt")
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.preserve_quotes = True
+    yaml.width = 4096  # allow indefinitely long lines to avoid unnecessary line changes
+    return yaml
+
+
+def load_analysis_specs_ex(
+    directories: List[str], ignore_files: List[str]
+) -> Iterator[LoadAnalysisSpecsResult]:
+    """Loads the analysis specifications from a file. The _ex variant of this function returns
+    a LoadAnalysisSpecsResult object that contains the yaml_ctx object that was used to load
+    the specific YAML content. This allows us to roundtrip the YAML content back to the file with
+    minimal changes.
+
+    Args:
+        directories: The relative path to Panther policies or rules.
+        ignore_files: Files that Panther Analysis Tool should not process
+
+    Yields:
+        An instance of LoadAnalysisSpecsResult.
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
@@ -194,8 +249,7 @@ def load_analysis_specs(
                 and relative_path != "."
             ):
                 continue
-            # setup yaml object
-            yaml = YAML(typ="safe")
+
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
@@ -233,18 +287,43 @@ def load_analysis_specs(
                 loaded_specs.append(spec_filename)
                 if fnmatch(filename, "*.y*ml"):
                     with open(spec_filename, "r") as spec_file_obj:
+                        # setup yaml object
+                        yaml = get_yaml_loader()
                         try:
-                            yield spec_filename, relative_path, yaml.load(spec_file_obj), None
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=yaml.load(spec_file_obj),
+                                yaml_ctx=yaml,
+                                error=None
+                            )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error
-                            yaml = YAML(typ="safe")
-                            yield spec_filename, relative_path, None, err
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=None,
+                                yaml_ctx=None,
+                                error=err
+                            )
                 if fnmatch(filename, "*.json"):
                     with open(spec_filename, "r") as spec_file_obj:
                         try:
-                            yield spec_filename, relative_path, json.load(spec_file_obj), None
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=json.load(spec_file_obj),
+                                yaml_ctx=None,
+                                error=None
+                            )
                         except ValueError as err:
-                            yield spec_filename, relative_path, None, err
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=None,
+                                yaml_ctx=None,
+                                error=err
+                            )
 
 
 def to_relative_path(filename: str) -> str:

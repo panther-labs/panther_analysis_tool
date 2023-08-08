@@ -83,9 +83,11 @@ from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
+    LoadAnalysisSpecsResult,
     filter_analysis,
     get_simple_detections_as_python,
     load_analysis_specs,
+    load_analysis_specs_ex,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
@@ -1122,9 +1124,14 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     ignored_files = args.ignore_files
     search_directories = [args.path]
 
-    # First classify each file, always include globals and data models location
+    # Load all of the anlaysis specs based on the search directories and ignored files.
+    # We use the load_analysis_specs_ex variant to get a nice round object that includes
+    # the YAML context for each analysis item. This means we can roundtrip without sadness.
+    raw_analysis_items = list(load_analysis_specs_ex(search_directories, ignore_files=ignored_files))
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
+        # unpack the nice dataclass into a tuple because we use Tuples too much everywhere
+        [(raw_item.spec_filename, raw_item.relative_path, raw_item.analysis_spec, raw_item.error)
+         for raw_item in raw_analysis_items],
         ignore_table_names=args.ignore_table_names,
         valid_table_names=args.valid_table_names,
     )
@@ -1147,9 +1154,23 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
             f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}"
         ]
 
+    # We only used classify_analysis to figure out what to filter out, if anything.
+    # We need to filter our own list of items now, using what's left in the `specs` variable.
+    raw_analysis_items_by_id = {}
+    for item in raw_analysis_items:
+        if item.analysis_spec != None:
+            raw_analysis_items_by_id[item.analysis_spec["RuleID"]] = item
+
+    filtered_raw_analysis_items_by_id = {}
+    all_relevant_specs = specs.detections + specs.simple_detections
+
+    for spec in all_relevant_specs:
+        rule_id = spec.analysis_spec["RuleID"]
+        filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[rule_id]
+
     # Enrich the test data for each analysis item
     enricher = TestDataEnricher(backend)
-    enricher.enrich_test_data(specs)
+    enricher.enrich_test_data(filtered_raw_analysis_items_by_id.values())
 
     return (0, "success")
 
@@ -1165,44 +1186,69 @@ class TestDataEnricher:
         """
         self.backend = backend
 
-    def enrich_test_data(self, analysis_items: ClassifiedAnalysisContainer):
+    def _filter_analysis_items(self, analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
+        """Filters analysis items to only those that need test data enrichment.
+
+        Args:
+            analysis_items: A list of analysis items to filter.
+
+        Returns:
+            A list of analysis items that have the Tests property and an AnalysisType of RULE, POLICY, or SCHEDULED_RULE.
+        """
+        return [item for item in analysis_items if item.analysis_spec.get("Tests") and item.analysis_spec["AnalysisType"] in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]]
+
+    def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]):
         """Enriches test data for analysis items.
 
         Args:
             analysis_items: A list of analysis items to enrich test data for.
         """
+        logging.debug("Received %s analysis items", len(analysis_items))
+
         # Enrich any detections
-        all_detections = analysis_items.detections + analysis_items.simple_detections
-        logging.info("Enriching test data for %s detections",
-                     len(all_detections))
-        for analysis_item in all_detections:
+        relevant_analysis_items = self._filter_analysis_items(analysis_items)
+        logging.info("Enriching test data for %s detections, after filtering",
+                     len(relevant_analysis_items))
+        for analysis_item in relevant_analysis_items:
             analysis_rule_id = analysis_item.analysis_spec["RuleID"]
-            logging.info("processing {}".format(analysis_rule_id))
+            analysis_type = analysis_item.analysis_spec["AnalysisType"]
+            logging.info("Processing {} '{}'".format(analysis_type, analysis_rule_id))
+            tests = analysis_item.analysis_spec.get("Tests")
 
-            if analysis_item.analysis_spec["AnalysisType"] in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]:
-                tests = analysis_item.analysis_spec.get("Tests", {})
+            enriched_tests = []
 
-                if tests == {}:
-                    logging.info("Skipping %s, no test data found",
-                                 analysis_rule_id)
+            for test in tests:
+                logging.info("\tEnriching test case '%s' for %s",
+                             test["Name"], analysis_rule_id)
+                if "Log" not in test:
+                    logging.warn(
+                        "Skipping test case '%s' for %s, no event data found",
+                        test["Name"],
+                        analysis_rule_id,
+                    )
                     continue
 
-                for test in tests:
-                    logging.info("Enriching test case '%s' for %s",
-                                 test["Name"], analysis_rule_id)
-                    params = GenerateEnrichedEventParams(test)
-                    resp = self.backend.generate_enriched_event_input(params)
+                params = GenerateEnrichedEventParams(test["Log"])
+                resp = self.backend.generate_enriched_event_input(params)
 
-                    if resp.status_code >= 400:
-                        logging.warn(
-                            "Failed to enrich test data for %s: %s",
-                            analysis_item.analysis_spec["Name"],
-                            resp.data,
-                        )
-                        continue
+                if resp.status_code >= 400:
+                    logging.warn(
+                        "Failed to enrich test data for %s: %s",
+                        analysis_item.analysis_spec["Name"],
+                        resp.data,
+                    )
+                    continue
 
-                    enriched_test_data = resp.data.enriched_event
-                    logging.info(enriched_test_data)
+                enriched_test_data = resp.data.enriched_event
+                logging.debug("enriched test case: %s", enriched_test_data)
+
+                # We're only copying the p_enrichment field because it's the only net-new
+                # field. This helps reduce unnecessary deserialize/serialize noise.
+                test["Log"]["p_enrichment"] = enriched_test_data.get("p_enrichment", {})
+                enriched_tests.append(test)
+
+            analysis_item.analysis_spec["Tests"] = enriched_tests
+            analysis_item.serialize_to_file()
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
