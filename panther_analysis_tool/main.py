@@ -1434,17 +1434,11 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- release command
 
-<<<<<<< Updated upstream
     release_help_text = (
         "Create release assets for repository containing panther detections. "
         + "Generates a file called panther-analysis-all.zip and optionally generates "
         + "panther-analysis-all.sig"
     )
-=======
-    release_help_text = "Create release assets for repository containing panther detections. " \
-                        + "Generates a file called panther-analysis-all.zip and optionally generates " \
-                        + "panther-analysis-all.sig"
->>>>>>> Stashed changes
     release_parser = subparsers.add_parser(
         "release",
         help=release_help_text,
@@ -1487,17 +1481,11 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- publish command
 
-<<<<<<< Updated upstream
     publish_help_text = (
         "Publishes a new release, generates the release assets, and uploads them. "
         + "Generates a file called panther-analysis-all.zip and optionally generates "
         + "panther-analysis-all.sig"
     )
-=======
-    publish_help_text = "Publishes a new release, generates the release assets, and uploads them. "\
-                        + "Generates a file called panther-analysis-all.zip and optionally generates "\
-                        + "panther-analysis-all.sig"
->>>>>>> Stashed changes
     publish_parser = subparsers.add_parser(
         "publish",
         help=publish_help_text,
@@ -1724,13 +1712,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- sdk command
 
-<<<<<<< Updated upstream
     sdk_help_text = (
-        "Perform operations using the Panther SDK exclusively " "(pass sdk --help for more)"
+        "Perform operations using the Panther SDK exclusively (pass sdk --help for more)"
     )
-=======
-    sdk_help_text = "Perform operations using the Panther SDK exclusively (pass sdk --help for more)"
->>>>>>> Stashed changes
     panthersdk_parser = subparsers.add_parser(
         "sdk",
         help=sdk_help_text,
