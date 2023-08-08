@@ -1,3 +1,4 @@
+
 from schema import Regex
 
 LOG_TYPE_REGEX = Regex(
