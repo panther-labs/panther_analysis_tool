@@ -74,11 +74,19 @@ class TestDataEnricher:
         if isinstance(data, dict):
             new_dict = {}
             for key, value in data.items():
-                if isinstance(value, dict):
+                if isinstance(value, (dict, list)):
                     new_dict[key] = self._convert_inline_json_to_yaml(value)
                 else:
                     new_dict[key] = value
             return new_dict
+        elif isinstance(data, list):
+            new_list = []
+            for item in data:
+                if isinstance(item, (dict, list)):
+                    new_list.append(self._convert_inline_json_to_yaml(item))
+                else:
+                    new_list.append(item)
+            return new_list
         return data
 
     def _handle_analysis_item(self, analysis_id: str, test: dict, test_case_field_key: str) -> dict:
