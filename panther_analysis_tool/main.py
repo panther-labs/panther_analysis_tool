@@ -121,7 +121,7 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.test_data_enricher import TestDataEnricher
+from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
@@ -1192,7 +1192,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
             continue
 
     # Enrich the test data for each analysis item
-    enricher = TestDataEnricher(backend)
+    enricher = EnrichedEventGenerator(backend)
     enricher.enrich_test_data(filtered_raw_analysis_items_by_id.values())
 
     return (0, "success")

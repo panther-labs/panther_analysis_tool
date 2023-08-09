@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import logging
+from tkinter import E
 
 from ruamel.yaml import CommentedMap as YAMLCommentedMap
 
@@ -30,7 +31,7 @@ TEST_CASE_FIELD_KEY_LOG = "Log"
 TEST_CASE_FIELD_KEY_RESOURCE = "Resource"
 
 
-class TestDataEnricher:
+class EnrichedEventGenerator:
     """Enriches test data for analysis items."""
 
     def __init__(self, backend: BackendClient):
@@ -60,32 +61,34 @@ class TestDataEnricher:
             in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
         ]
 
-    def _convert_inline_json_to_yaml(self, data: YAMLCommentedMap) -> dict:
-        """Converts inline JSON to YAML."""
+    @staticmethod
+    def _convert_inline_json_dict_to_python_dict(data: YAMLCommentedMap) -> dict:
+        """Converts YAML-loaded inline JSON to Python dictionaries. This allows them
+           to be re-serialized into YAML instead of maintaining JSON formatting.
+        """
         if isinstance(data, dict):
-            for key, value in data.items():
-                if isinstance(value, dict):
-                    data[key] = dict(value)
-                    self._convert_inline_json_to_yaml(data[key])
-        return data
-
-    def _convert_inline_json_to_yaml(self, data: YAMLCommentedMap) -> dict:
-        """Converts inline JSON to YAML."""
-        if isinstance(data, dict):
+            logging.info("in dict")
             new_dict = {}
             for key, value in data.items():
+                logging.info("[dict] type(value): %s", type(value))
                 if isinstance(value, (dict, list)):
-                    new_dict[key] = self._convert_inline_json_to_yaml(value)
+                    logging.info("[dict] found another dict or list")
+                    new_dict[key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(value)
                 else:
                     new_dict[key] = value
+            logging.info("new_dict type: %s", type(new_dict))
             return new_dict
         elif isinstance(data, list):
+            logging.info("in list")
             new_list = []
             for item in data:
+                logging.info("[list] type(item): %s", type(item))
                 if isinstance(item, (dict, list)):
-                    new_list.append(self._convert_inline_json_to_yaml(item))
+                    logging.info("[list] found another dict or list")
+                    new_list.append(EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(item))
                 else:
                     new_list.append(item)
+            logging.info("new_list type: %s", type(new_list))
             return new_list
         return data
 
@@ -124,7 +127,8 @@ class TestDataEnricher:
         # so that it roundtrips out as YAML instead. This is noisy
         # for those tests that are in JSON format, but it's preferable
         # to the alternative.
-        test[test_case_field_key] = self._convert_inline_json_to_yaml(test[test_case_field_key])
+        test[test_case_field_key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
+            test[test_case_field_key])
         return test
 
     def _handle_rule_test(self, analysis_id: str, test: dict) -> dict:
