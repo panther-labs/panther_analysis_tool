@@ -103,6 +103,7 @@ LOG_TYPE_REGEX = Regex(
     r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Snyk\.OrgAudit|Snyk\.GroupAudit|Sophos\.Central|Suricata"
     r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zendesk\.Audit|Zendesk"
     r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
+    r"|Proofpoint\.Event"
     r"|Suricata\.Alert|Suricata\.DHCP|Suricata\.FileInfo|Suricata\.Flow|Suricata\.HTTP|Suricata\.SSH|Suricata\.TLS"
     r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility|SentinelOne\.DeepVisibilityV2"
     r"|Sysdig\.Audit"
