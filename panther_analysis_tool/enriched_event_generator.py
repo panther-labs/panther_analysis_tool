@@ -66,7 +66,7 @@ class EnrichedEventGenerator:
         ]
 
     @staticmethod
-    def _convert_inline_json_dict_to_python_dict(data: dict) -> dict:
+    def _convert_inline_json_dict_to_python_dict(data: YAMLCommentedMap) -> dict:
         """Converts YAML-loaded inline JSON to Python dictionaries. This allows them
         to be re-serialized into YAML instead of maintaining JSON formatting.
         """
@@ -143,10 +143,10 @@ class EnrichedEventGenerator:
         # so that it roundtrips out as YAML instead. This is noisy
         # for those tests that are in JSON format, but it's preferable
         # to the alternative.
-        enriched_test[test_case_field_key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
-            enriched_test_data
+        enriched_test[test_case_field_key] = enriched_test_data
+        return EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
+            enriched_test  # type: ignore
         )
-        return enriched_test
 
     def _handle_rule_test(self, analysis_id: str, test: dict) -> dict:
         return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_LOG)
