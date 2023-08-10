@@ -85,9 +85,7 @@ class EnrichedEventGenerator:
             for item in data:
                 if isinstance(item, (dict, list)):
                     new_list.append(
-                        EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
-                            item
-                        )
+                        EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(item)
                     )
                 else:
                     new_list.append(item)
@@ -154,7 +152,9 @@ class EnrichedEventGenerator:
     def _handle_policy_test(self, analysis_id: str, test: dict) -> dict:
         return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_RESOURCE)
 
-    def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
+    def enrich_test_data(
+        self, analysis_items: list[LoadAnalysisSpecsResult]
+    ) -> list[LoadAnalysisSpecsResult]:
         """Enriches test data for analysis items.
 
         Args:
