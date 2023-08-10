@@ -114,7 +114,19 @@ class EnrichedEventGenerator:
 
         # We're only copying the p_enrichment field because it's the only net-new
         # field. This helps reduce unnecessary deserialize/serialize noise.
-        test[test_case_field_key]["p_enrichment"] = enriched_test_data.get("p_enrichment", {})
+        #
+        # If the returned "enriched event" has a p_enrichment field that's empty,
+        # we'll just skip it. This reduces git diff noise.
+        p_enrichment = enriched_test_data.get("p_enrichment", {})
+        if p_enrichment == {} and p_enrichment == None:
+            logging.warning(
+                "Skipping test case '%s' for %s, no enrichment data found",
+                test["Name"],
+                analysis_id,
+            )
+            return test
+
+        test[test_case_field_key]["p_enrichment"] = p_enrichment
 
         # Some test cases are pasted in as JSON. JSON does not roundtrip
         # nicely - often just rendering as one giant line after we add
@@ -171,10 +183,14 @@ class EnrichedEventGenerator:
                         enriched_tests.append(enriched_test)
                 else:
                     logging.warn(
-                        "Skipping test case '%s' for %s, no event data found",
+                        "\tSkipping test case '%s' for %s, no event data found",
                         test["Name"],
                         analysis_id,
                     )
+
+            if enriched_tests == tests:
+                logging.info("\tNo test data enrichment available for rule '%s'", analysis_id)
+                continue
 
             analysis_item.analysis_spec["Tests"] = enriched_tests
             analysis_item.serialize_to_file()
