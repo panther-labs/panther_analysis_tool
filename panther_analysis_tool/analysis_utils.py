@@ -202,7 +202,7 @@ class LoadAnalysisSpecsResult:
         relative_path: str,
         analysis_spec: Any,
         yaml_ctx: YAML,
-        error: Exception,
+        error: Any,
     ):
         self.spec_filename = spec_filename
         self.relative_path = relative_path
@@ -210,7 +210,7 @@ class LoadAnalysisSpecsResult:
         self.yaml_ctx = yaml_ctx
         self.error = error
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
             return NotImplemented
 
@@ -230,6 +230,9 @@ class LoadAnalysisSpecsResult:
             ]
         )
 
+    def __str__(self) -> str:
+        return f"LoadAnalysisSpecsResult(spec_filename={self.spec_filename}, relative_path={self.relative_path}, analysis_spec={self.analysis_spec['AnalysisType']}, error={self.error})"
+
     def serialize_to_file(self) -> None:
         logging.debug("Writing analysis spec to %s", self.spec_filename)
         with open(self.spec_filename, "w") as f:
@@ -240,9 +243,10 @@ def get_yaml_loader() -> YAML:
     """Returns a YAML object with the correct settings for loading analysis specifications."""
     yaml = YAML(typ="rt")
     yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.preserve_quotes = True
+    yaml.preserve_quotes = True  # type: ignore
     yaml.default_flow_style = False
-    yaml.width = 4096  # allow indefinitely long lines to avoid unnecessary line changes
+    # allow very long lines to avoid unnecessary line changes
+    yaml.width = 4096  # type: ignore
     return yaml
 
 
@@ -331,7 +335,7 @@ def load_analysis_specs_ex(
                                 spec_filename=spec_filename,
                                 relative_path=relative_path,
                                 analysis_spec=None,
-                                yaml_ctx=None,
+                                yaml_ctx=yaml,
                                 error=err,
                             )
                 if fnmatch(filename, "*.json"):
@@ -341,7 +345,7 @@ def load_analysis_specs_ex(
                                 spec_filename=spec_filename,
                                 relative_path=relative_path,
                                 analysis_spec=json.load(spec_file_obj),
-                                yaml_ctx=None,
+                                yaml_ctx=yaml,
                                 error=None,
                             )
                         except ValueError as err:
@@ -349,7 +353,7 @@ def load_analysis_specs_ex(
                                 spec_filename=spec_filename,
                                 relative_path=relative_path,
                                 analysis_spec=None,
-                                yaml_ctx=None,
+                                yaml_ctx=yaml,
                                 error=err,
                             )
 

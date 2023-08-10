@@ -72,7 +72,7 @@ class EnrichedEventGenerator:
             for key, value in data.items():
                 if isinstance(value, (dict, list)):
                     new_dict[key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
-                        value
+                        value  # type: ignore
                     )
                 else:
                     new_dict[key] = value
@@ -82,7 +82,9 @@ class EnrichedEventGenerator:
             for item in data:
                 if isinstance(item, (dict, list)):
                     new_list.append(
-                        EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(item)
+                        EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
+                            item
+                        )
                     )
                 else:
                     new_list.append(item)
@@ -96,7 +98,7 @@ class EnrichedEventGenerator:
                 test["Name"],
                 analysis_id,
             )
-            return None
+            return {}
 
         params = GenerateEnrichedEventParams(test[test_case_field_key])
         resp = self.backend.generate_enriched_event_input(params)
@@ -107,7 +109,7 @@ class EnrichedEventGenerator:
                 analysis_id,
                 resp.data,
             )
-            return None
+            return {}
 
         enriched_test_data = resp.data.enriched_event
         logging.debug("\tEnriched test case: %s", enriched_test_data)
@@ -157,7 +159,7 @@ class EnrichedEventGenerator:
     def _handle_policy_test(self, analysis_id: str, test: dict) -> dict:
         return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_RESOURCE)
 
-    def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]):
+    def enrich_test_data(self, analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
         """Enriches test data for analysis items.
 
         Args:
@@ -170,6 +172,9 @@ class EnrichedEventGenerator:
         logging.info(
             "Enriching test data for %s detections, after filtering", len(relevant_analysis_items)
         )
+
+        enriched_analysis_items = []
+
         for analysis_item in relevant_analysis_items:
             analysis_id = analysis_item.analysis_spec.get(
                 "RuleID"
@@ -200,9 +205,10 @@ class EnrichedEventGenerator:
 
             if enriched_tests == tests:
                 logging.info("\tNo test data enrichment available for rule '%s'", analysis_id)
-                logging.info("\tenriched_tests: %s", enriched_tests)
-                logging.info("\ttests: %s", tests)
                 continue
 
             analysis_item.analysis_spec["Tests"] = enriched_tests
             analysis_item.serialize_to_file()
+            enriched_analysis_items.append(analysis_item)
+
+        return enriched_analysis_items

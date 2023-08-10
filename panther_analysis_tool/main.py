@@ -1100,7 +1100,7 @@ def classify_analysis(
     return all_specs, invalid_specs
 
 
-def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, List[Any]]:
     """Imports each policy or rule and enriches their test data, if any. The
         modifications are saved in the Analysis YAML files, but not committed
         to git. Users of panther_analysis_tool are expected to commit the changes
@@ -1117,7 +1117,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     if not backend.supports_enrich_test_data():
         msg = "enrich-test-data is only supported through token authentication"
         logging.error(msg)
-        return 1, msg
+        return 1, list(msg)
 
     logging.info("Enriching test data for analysis items in %s\n", args.path)
 
@@ -1193,9 +1193,9 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
 
     # Enrich the test data for each analysis item
     enricher = EnrichedEventGenerator(backend)
-    enricher.enrich_test_data(filtered_raw_analysis_items_by_id.values())
+    result = enricher.enrich_test_data(list(filtered_raw_analysis_items_by_id.values()))
 
-    return (0, "success")
+    return (0, result)
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:

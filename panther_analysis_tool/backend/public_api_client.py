@@ -569,7 +569,7 @@ class PublicAPIClient(Client):
         query = self._requests.generate_enriched_event_query()
         query_input = {"input": {"event": params.event}}
         res = self._safe_execute(query, variable_values=query_input)
-        data = res.data.get("generateEnrichedEvent", {})
+        data = res.data.get("generateEnrichedEvent", {})  # type: ignore
         enriched_event = data.get("enrichedEvent", {})
 
         return BackendResponse(
