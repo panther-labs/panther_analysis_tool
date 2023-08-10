@@ -1,3 +1,4 @@
+
 from schema import Regex
 
 LOG_TYPE_REGEX = Regex(
@@ -70,6 +71,7 @@ LOG_TYPE_REGEX = Regex(
     r"GSuite\.DirectoryUsers|"
     r"GSuite\.Reports|"
     r"GitHub\.Audit|"
+    r"GitHub\.Webhook|"
     r"GitLab\.API|"
     r"GitLab\.Audit|"
     r"GitLab\.Exceptions|"
@@ -143,6 +145,7 @@ LOG_TYPE_REGEX = Regex(
     r"Osquery\.Snapshot|"
     r"Osquery\.Status|"
     r"Panther\.Audit|"
+    r"Proofpoint\.Event|"
     r"Salesforce\.Login|"
     r"Salesforce\.LoginAs|"
     r"Salesforce\.Logout|"
