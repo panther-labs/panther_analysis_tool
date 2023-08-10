@@ -42,9 +42,8 @@ class EnrichedEventGenerator:
         """
         self.backend = backend
 
-    def _filter_analysis_items(
-        self, analysis_items: list[LoadAnalysisSpecsResult]
-    ) -> list[LoadAnalysisSpecsResult]:
+    @staticmethod
+    def _filter_analysis_items(analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
         """Filters analysis items to only those that need test data enrichment.
 
         Args:
@@ -67,28 +66,20 @@ class EnrichedEventGenerator:
            to be re-serialized into YAML instead of maintaining JSON formatting.
         """
         if isinstance(data, dict):
-            logging.info("in dict")
             new_dict = {}
             for key, value in data.items():
-                logging.info("[dict] type(value): %s", type(value))
                 if isinstance(value, (dict, list)):
-                    logging.info("[dict] found another dict or list")
                     new_dict[key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(value)
                 else:
                     new_dict[key] = value
-            logging.info("new_dict type: %s", type(new_dict))
             return new_dict
         elif isinstance(data, list):
-            logging.info("in list")
             new_list = []
             for item in data:
-                logging.info("[list] type(item): %s", type(item))
                 if isinstance(item, (dict, list)):
-                    logging.info("[list] found another dict or list")
                     new_list.append(EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(item))
                 else:
                     new_list.append(item)
-            logging.info("new_list type: %s", type(new_list))
             return new_list
         return data
 
@@ -146,7 +137,7 @@ class EnrichedEventGenerator:
         logging.debug("Received %s analysis items", len(analysis_items))
 
         # Enrich any detections
-        relevant_analysis_items = self._filter_analysis_items(analysis_items)
+        relevant_analysis_items = EnrichedEventGenerator._filter_analysis_items(analysis_items)
         logging.info(
             "Enriching test data for %s detections, after filtering", len(relevant_analysis_items)
         )

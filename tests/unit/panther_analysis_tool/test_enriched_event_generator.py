@@ -1,85 +1,81 @@
+import copy
 import io
 import logging
-import sys
-import unittest
+import typing
 from unittest import mock, TestCase
-from pprint import pformat
+from unittest.mock import mock_open, patch, call
+from nose.tools import nottest
 
-from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult, get_yaml_loader
-from panther_analysis_tool.backend.client import Client
+from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult, get_yaml_loader, AnalysisTypes
+from panther_analysis_tool.backend.client import BackendResponse, Client, GenerateEnrichedEventResponse
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.backend.mocks import MockBackend
 
 
-def get_specs_for_test():
-    return [
-        LoadAnalysisSpecsResult(
+@nottest
+def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
+    return {
+        AnalysisTypes.RULE: LoadAnalysisSpecsResult(
             f"filname.rule",
             f"filepath.rule",
-            {
-                "RuleID": f"foo.bar.rule",
-                "AnalysisType": "rule",
-                "Tests": [
-                    {
-                        "Key": "event_type",
-                        "Condition": "Equals",
-                        "Value": f"team_privacy_settings_changed"
-                    },
-                    {
-                        "DeepKey": ["details", "new_value"],
-                        "Condition": "Equals",
-                        "Value": f"public"
-                    }
-                ]
-            },
+            get_yaml_loader().load(
+                """
+                RuleID: foo.bar.rule
+                AnalysisType: rule
+                Tests:
+                  - Name: Test1
+                    ExpectedResult: true
+                    Log:
+                        a: event_type
+                        b: Equals
+                        c: 1234
+                        json: {"foo": "bar"}
+                """
+            ),
             yaml_ctx=get_yaml_loader(),
             error=None
         ),
-        LoadAnalysisSpecsResult(
+        AnalysisTypes.SCHEDULED_RULE: LoadAnalysisSpecsResult(
             f"filname.scheduled_rule",
             f"filepath.scheduled_rule",
-            {
-                "RuleID": f"foo.bar.scheduled_rule",
-                "AnalysisType": "scheduled_rule",
-                "Tests": [
-                    {
-                        "Key": "event_type",
-                        "Condition": "Equals",
-                        "Value": f"team_privacy_settings_changed"
-                    },
-                    {
-                        "DeepKey": ["details", "new_value"],
-                        "Condition": "Equals",
-                        "Value": f"public"
-                    }
-                ]
-            },
+            get_yaml_loader().load(
+                """
+                RuleID: foo.bar.scheduled_rule
+                AnalysisType: scheduled_rule
+                Tests:
+                  - Name: Test1
+                    ExpectedResult: true
+                    Log:
+                        a: event_type
+                        b: Equals
+                        c: 1234
+                        json: {"foo": "bar"}
+                """
+            ),
             yaml_ctx=get_yaml_loader(),
             error=None
         ),
-        LoadAnalysisSpecsResult(
+        AnalysisTypes.POLICY: LoadAnalysisSpecsResult(
             f"filname.policy",
             f"filepath.policy",
-            {
-                "PolicyID": f"foo.bar.policy",
-                "AnalysisType": "policy",
-                "Tests": [
-                    {
-                        "Key": "event_type",
-                        "Condition": "Equals",
-                        "Value": f"team_privacy_settings_changed"
-                    },
-                    {
-                        "DeepKey": ["details", "new_value"],
-                        "Condition": "Equals",
-                        "Value": f"public"
-                    }
-                ]
-            },
+            get_yaml_loader().load(
+                """
+                PolicyID: foo.bar.policy
+                AnalysisType: policy
+                Tests:
+                  - Name: Test1
+                    ExpectedResult: true
+                    Resource:
+                        a: event_type
+                        b: Equals
+                        c: 1234
+                        json: {"foo": "bar"}
+                """
+            ),
             yaml_ctx=get_yaml_loader(),
             error=None
         )
-    ]
+    }
 
 
 class TestEnrichedEventGenerator(TestCase):
@@ -117,3 +113,303 @@ class TestEnrichedEventGenerator(TestCase):
                 string_io.getvalue(),
                 test['expected'],
             )
+
+    def test__handle_rule_test(self) -> None:
+        # the unit test content for rules and scheduled_rules is the same
+        for analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
+            test_data = get_specs_for_test()[analysis_type]
+            test_case = test_data.analysis_spec["Tests"][0]
+
+            mock_result = copy.deepcopy(test_case)
+            mock_result["Log"]["p_enrichment"] = {"p_foo": "bar"}
+
+            backend = MockBackend()
+            backend.generate_enriched_event_input = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=GenerateEnrichedEventResponse(
+                        enriched_event=mock_result,
+                    ),
+                    status_code=200,
+                )
+            )
+
+            enricher = EnrichedEventGenerator(backend=backend)
+
+            result = enricher._handle_rule_test(test_data.analysis_spec["RuleID"], test_case)
+            test_case["Log"]["p_enrichement"] = {"p_foo": "bar"}
+            self.assertEqual(
+                result,
+                test_case
+            )
+
+    def test__handle_policy_test(self) -> None:
+        test_data = get_specs_for_test()[AnalysisTypes.POLICY]
+        test_case = test_data.analysis_spec["Tests"][0]
+
+        mock_result = copy.deepcopy(test_case)
+        mock_result["Resource"]["p_enrichment"] = {"p_foo": "bar"}
+
+        backend = MockBackend()
+        backend.generate_enriched_event_input = mock.MagicMock(
+            return_value=BackendResponse(
+                data=GenerateEnrichedEventResponse(
+                    enriched_event=mock_result,
+                ),
+                status_code=200,
+            )
+        )
+
+        enricher = EnrichedEventGenerator(backend=backend)
+
+        result = enricher._handle_policy_test(test_data.analysis_spec["PolicyID"], test_case)
+        test_case["Resource"]["p_enrichement"] = {"p_foo": "bar"}
+        self.assertEqual(
+            result,
+            test_case
+        )
+
+    def test__filter_analysis_items(self) -> None:
+        analysis_items = get_specs_for_test()
+
+        # now add one we filter
+        analysis_items[AnalysisTypes.DATA_MODEL] = LoadAnalysisSpecsResult(
+            f"filname.data_model",
+            f"filepath.data_model",
+            {
+                "DataModelID": f"foo.bar.data_model",
+                "AnalysisType": "data_model",
+            },
+            yaml_ctx=get_yaml_loader(),
+            error=None
+        )
+
+        input = list(analysis_items.values())
+        filtered = EnrichedEventGenerator._filter_analysis_items(input)
+
+        self.assertEqual(
+            filtered,
+            list(get_specs_for_test().values())
+        )
+
+    def test_enrich_test_data(self) -> None:
+        test_data = get_specs_for_test()
+
+        backend = MockBackend()
+        backend.generate_enriched_event_input = mock.MagicMock(
+            return_value=BackendResponse(
+                data=GenerateEnrichedEventResponse(
+                    enriched_event=test_data[AnalysisTypes.RULE].analysis_spec["Tests"][0],
+                ),
+                status_code=200,
+            )
+        )
+
+        enricher = EnrichedEventGenerator(backend=backend)
+
+        # The `enrich_test_data` method writes to the operating system so we'll
+        # mock `open` and assert on the content from the writes.
+        m = mock_open()
+        with patch('builtins.open', m):
+            enricher.enrich_test_data(test_data.values())
+
+        m().write.assert_has_calls([call('RuleID'),
+                                    call(':'),
+                                    call(' '),
+                                    call('foo.bar.rule'),
+                                    call('\n'),
+                                    call('AnalysisType'),
+                                    call(':'),
+                                    call(' '),
+                                    call('rule'),
+                                    call('\n'),
+                                    call('Tests'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('  -'),
+                                    call(' '),
+                                    call('Name'),
+                                    call(':'),
+                                    call(' '),
+                                    call('Test1'),
+                                    call('\n'),
+                                    call('    '),
+                                    call('ExpectedResult'),
+                                    call(':'),
+                                    call(' '),
+                                    call('true'),
+                                    call('\n'),
+                                    call('    '),
+                                    call('Log'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('a'),
+                                    call(':'),
+                                    call(' '),
+                                    call('event_type'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('b'),
+                                    call(':'),
+                                    call(' '),
+                                    call('Equals'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('c'),
+                                    call(':'),
+                                    call(' '),
+                                    call('1234'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('json'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('        '),
+                                    call('"'),
+                                    call('foo'),
+                                    call('"'),
+                                    call(':'),
+                                    call(' "'),
+                                    call('bar'),
+                                    call('"'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('p_enrichment'),
+                                    call(':'),
+                                    call(' {'),
+                                    call('}'),
+                                    call('\n'),
+                                    call('RuleID'),
+                                    call(':'),
+                                    call(' '),
+                                    call('foo.bar.scheduled_rule'),
+                                    call('\n'),
+                                    call('AnalysisType'),
+                                    call(':'),
+                                    call(' '),
+                                    call('scheduled_rule'),
+                                    call('\n'),
+                                    call('Tests'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('  -'),
+                                    call(' '),
+                                    call('Name'),
+                                    call(':'),
+                                    call(' '),
+                                    call('Test1'),
+                                    call('\n'),
+                                    call('    '),
+                                    call('ExpectedResult'),
+                                    call(':'),
+                                    call(' '),
+                                    call('true'),
+                                    call('\n'),
+                                    call('    '),
+                                    call('Log'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('a'),
+                                    call(':'),
+                                    call(' '),
+                                    call('event_type'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('b'),
+                                    call(':'),
+                                    call(' '),
+                                    call('Equals'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('c'),
+                                    call(':'),
+                                    call(' '),
+                                    call('1234'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('json'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('        '),
+                                    call('"'),
+                                    call('foo'),
+                                    call('"'),
+                                    call(':'),
+                                    call(' "'),
+                                    call('bar'),
+                                    call('"'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('p_enrichment'),
+                                    call(':'),
+                                    call(' {'),
+                                    call('}'),
+                                    call('\n'),
+                                    call('PolicyID'),
+                                    call(':'),
+                                    call(' '),
+                                    call('foo.bar.policy'),
+                                    call('\n'),
+                                    call('AnalysisType'),
+                                    call(':'),
+                                    call(' '),
+                                    call('policy'),
+                                    call('\n'),
+                                    call('Tests'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('  -'),
+                                    call(' '),
+                                    call('Name'),
+                                    call(':'),
+                                    call(' '),
+                                    call('Test1'),
+                                    call('\n'),
+                                    call('    '),
+                                    call('ExpectedResult'),
+                                    call(':'),
+                                    call(' '),
+                                    call('true'),
+                                    call('\n'),
+                                    call('    '),
+                                    call('Resource'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('a'),
+                                    call(':'),
+                                    call(' '),
+                                    call('event_type'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('b'),
+                                    call(':'),
+                                    call(' '),
+                                    call('Equals'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('c'),
+                                    call(':'),
+                                    call(' '),
+                                    call('1234'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('json'),
+                                    call(':'),
+                                    call('\n'),
+                                    call('        '),
+                                    call('"'),
+                                    call('foo'),
+                                    call('"'),
+                                    call(':'),
+                                    call(' "'),
+                                    call('bar'),
+                                    call('"'),
+                                    call('\n'),
+                                    call('      '),
+                                    call('p_enrichment'),
+                                    call(':'),
+                                    call(' {'),
+                                    call('}'),
+                                    call('\n')])
