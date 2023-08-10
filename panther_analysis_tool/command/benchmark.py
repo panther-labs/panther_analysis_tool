@@ -104,14 +104,16 @@ def run(  # pylint: disable=too-many-locals
 def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> (Union[ClassifiedAnalysis, str]):
     if len(analyses) != 1:
         return (
-            f"Only 1 detection must be specified for benchmarking, {len(analyses)} were specified:"
-            f" {[a.file_name for a in analyses]}"
+            f"Only 1 detection must be specified for benchmarking, but {len(analyses)} were specified. The rule must"
+            f" be the only item in the working directory or specified by --path, --ignore-files, and/or --filter. The"
+            f" following files were provided (up to 10 shown):"
+            f" {[a.file_name for a in analyses[:10]]}"
         )
     analysis = analyses[0]
     if analysis.analysis_spec["AnalysisType"] != AnalysisTypes.RULE:
         return (
             f"Only rules are supported for performance testing, but {analysis.analysis_spec['AnalysisType']}"
-            f" was provided"
+            f" was provided in {analysis.file_name}"
         )
     return analysis
 
