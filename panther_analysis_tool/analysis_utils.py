@@ -210,6 +210,24 @@ class LoadAnalysisSpecsResult:
         self.yaml_ctx = yaml_ctx
         self.error = error
 
+    def __eq__(self, other):
+        if not isinstance(other, LoadAnalysisSpecsResult):
+            return NotImplemented
+
+        # skipping yaml_ctx because it's not relevant to equality of content
+        # in analysis spec files
+        same_spec_filename = self.spec_filename == other.spec_filename
+        same_relative_path = self.relative_path == other.relative_path
+        same_analysis_spec = self.analysis_spec == other.analysis_spec
+        same_error = self.error == other.error
+
+        return all([
+            same_spec_filename,
+            same_relative_path,
+            same_analysis_spec,
+            same_error,
+        ])
+
     def serialize_to_file(self) -> None:
         logging.debug("Writing analysis spec to %s", self.spec_filename)
         with open(self.spec_filename, "w") as f:
