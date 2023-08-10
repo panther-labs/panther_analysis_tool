@@ -9,7 +9,7 @@ from nose.tools import nottest
 
 from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult, get_yaml_loader, AnalysisTypes
 from panther_analysis_tool.backend.client import BackendResponse, Client, GenerateEnrichedEventResponse
-from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
+from panther_analysis_tool.enriched_event_generator import TEST_CASE_FIELD_KEY_LOG, TEST_CASE_FIELD_KEY_RESOURCE, EnrichedEventGenerator
 from panther_analysis_tool.backend.mocks import MockBackend
 
 
@@ -194,13 +194,11 @@ class TestEnrichedEventGenerator(TestCase):
             # we only have a single test case in the test data per detection type
             enriched_event = copy.deepcopy(test_datum.analysis_spec["Tests"][0])
             if key == AnalysisTypes.POLICY:
-                enriched_event["Resource"]["p_enrichment"] = {"p_foo": "bar"}
+                enriched_event[TEST_CASE_FIELD_KEY_RESOURCE]["p_enrichment"] = {"p_foo": "bar"}
+                enriched_test_data.append(enriched_event[TEST_CASE_FIELD_KEY_RESOURCE])
             else:
-                enriched_event["Log"]["p_enrichment"] = {"p_foo": "bar"}
-
-            enriched_test_data.append(enriched_event)
-
-        logging.info("enriched_test_data: %s", enriched_test_data)
+                enriched_event[TEST_CASE_FIELD_KEY_LOG]["p_enrichment"] = {"p_foo": "bar"}
+                enriched_test_data.append(enriched_event[TEST_CASE_FIELD_KEY_LOG])
 
         backend = MockBackend()
         backend.generate_enriched_event_input = mock.MagicMock(
@@ -221,7 +219,7 @@ class TestEnrichedEventGenerator(TestCase):
         # mock `open` and assert on the content from the writes.
         m = mock_open()
         with patch('builtins.open', m):
-            enricher.enrich_test_data(test_data.values())
+            result = enricher.enrich_test_data(test_data.values())
 
         m().write.assert_has_calls([
             call('RuleID'),
