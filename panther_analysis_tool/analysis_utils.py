@@ -221,12 +221,14 @@ class LoadAnalysisSpecsResult:
         same_analysis_spec = self.analysis_spec == other.analysis_spec
         same_error = self.error == other.error
 
-        return all([
-            same_spec_filename,
-            same_relative_path,
-            same_analysis_spec,
-            same_error,
-        ])
+        return all(
+            [
+                same_spec_filename,
+                same_relative_path,
+                same_analysis_spec,
+                same_error,
+            ]
+        )
 
     def serialize_to_file(self) -> None:
         logging.debug("Writing analysis spec to %s", self.spec_filename)

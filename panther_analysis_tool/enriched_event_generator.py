@@ -43,7 +43,9 @@ class EnrichedEventGenerator:
         self.backend = backend
 
     @staticmethod
-    def _filter_analysis_items(analysis_items: list[LoadAnalysisSpecsResult]) -> list[LoadAnalysisSpecsResult]:
+    def _filter_analysis_items(
+        analysis_items: list[LoadAnalysisSpecsResult],
+    ) -> list[LoadAnalysisSpecsResult]:
         """Filters analysis items to only those that need test data enrichment.
 
         Args:
@@ -63,13 +65,15 @@ class EnrichedEventGenerator:
     @staticmethod
     def _convert_inline_json_dict_to_python_dict(data: YAMLCommentedMap) -> dict:
         """Converts YAML-loaded inline JSON to Python dictionaries. This allows them
-           to be re-serialized into YAML instead of maintaining JSON formatting.
+        to be re-serialized into YAML instead of maintaining JSON formatting.
         """
         if isinstance(data, dict):
             new_dict = {}
             for key, value in data.items():
                 if isinstance(value, (dict, list)):
-                    new_dict[key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(value)
+                    new_dict[key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
+                        value
+                    )
                 else:
                     new_dict[key] = value
             return new_dict
@@ -77,7 +81,9 @@ class EnrichedEventGenerator:
             new_list = []
             for item in data:
                 if isinstance(item, (dict, list)):
-                    new_list.append(EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(item))
+                    new_list.append(
+                        EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(item)
+                    )
                 else:
                     new_list.append(item)
             return new_list
@@ -119,7 +125,8 @@ class EnrichedEventGenerator:
         # for those tests that are in JSON format, but it's preferable
         # to the alternative.
         test[test_case_field_key] = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
-            test[test_case_field_key])
+            test[test_case_field_key]
+        )
         return test
 
     def _handle_rule_test(self, analysis_id: str, test: dict) -> dict:

@@ -6,13 +6,13 @@ from panther_analysis_tool.backend.client import (
     BulkUploadParams,
     BulkUploadResponse,
     BulkUploadValidateStatusResponse,
-    GenerateEnrichedEventParams,
-    GenerateEnrichedEventResponse,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
+    GenerateEnrichedEventParams,
+    GenerateEnrichedEventResponse,
     ListSchemasParams,
     MetricsParams,
     MetricsResponse,

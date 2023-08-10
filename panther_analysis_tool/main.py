@@ -112,6 +112,7 @@ from panther_analysis_tool.constants import (
     AnalysisTypes,
 )
 from panther_analysis_tool.destination import FakeDestination
+from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
@@ -121,7 +122,6 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     TYPE_SCHEMA,
 )
-from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
