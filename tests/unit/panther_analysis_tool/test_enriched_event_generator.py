@@ -2,7 +2,6 @@ import copy
 import io
 import logging
 import typing
-import json
 from unittest import mock, TestCase
 from unittest.mock import mock_open, patch, call
 from nose.tools import nottest
@@ -128,7 +127,7 @@ class TestEnrichedEventGenerator(TestCase):
             backend.generate_enriched_event_input = mock.MagicMock(
                 return_value=BackendResponse(
                     data=GenerateEnrichedEventResponse(
-                        enriched_event=mock_result,
+                        enriched_event=mock_result[TEST_CASE_FIELD_KEY_LOG],
                     ),
                     status_code=200,
                 )
@@ -137,8 +136,9 @@ class TestEnrichedEventGenerator(TestCase):
             enricher = EnrichedEventGenerator(backend=backend)
 
             result = enricher._handle_rule_test(test_data.analysis_spec["RuleID"], test_case)
-            test_case["Log"]["p_enrichment"] = {"p_foo": "bar"}
-            self.assertEqual(result, test_case)
+
+            self.assertEqual(result.enriched_test, mock_result)
+            self.assertTrue(result.was_enriched())
 
     def test__handle_policy_test(self) -> None:
         test_data = get_specs_for_test()[AnalysisTypes.POLICY]
@@ -151,7 +151,7 @@ class TestEnrichedEventGenerator(TestCase):
         backend.generate_enriched_event_input = mock.MagicMock(
             return_value=BackendResponse(
                 data=GenerateEnrichedEventResponse(
-                    enriched_event=mock_result,
+                    enriched_event=mock_result[TEST_CASE_FIELD_KEY_RESOURCE],
                 ),
                 status_code=200,
             )
@@ -160,8 +160,9 @@ class TestEnrichedEventGenerator(TestCase):
         enricher = EnrichedEventGenerator(backend=backend)
 
         result = enricher._handle_policy_test(test_data.analysis_spec["PolicyID"], test_case)
-        test_case["Resource"]["p_enrichment"] = {"p_foo": "bar"}
-        self.assertEqual(result, test_case)
+
+        self.assertEqual(result.enriched_test, mock_result)
+        self.assertTrue(result.was_enriched())
 
     def test__filter_analysis_items(self) -> None:
         analysis_items = get_specs_for_test()

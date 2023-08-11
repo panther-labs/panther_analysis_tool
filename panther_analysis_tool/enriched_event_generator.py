@@ -18,13 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import copy
-import json
 import logging
 from pprint import pformat
-from tkinter import E
 from attr import dataclass
 
 from ruamel.yaml import CommentedMap as YAMLCommentedMap
+from yaml import Event
 
 from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -106,14 +105,14 @@ class EnrichedEventGenerator:
             return new_list
         return data
 
-    def _handle_analysis_item(self, analysis_id: str, test: dict, test_case_field_key: str) -> dict:
+    def _handle_analysis_item(self, analysis_id: str, test: dict, test_case_field_key: str) -> EventEnrichmentResult:
         if test_case_field_key not in test:
             logging.error(
                 "Skipping test case '%s' for %s, no event data found",
                 test["Name"],
                 analysis_id,
             )
-            return {}
+            return EventEnrichmentResult(test, test)
 
         params = GenerateEnrichedEventParams(test[test_case_field_key])
         resp = self.backend.generate_enriched_event_input(params)
@@ -124,7 +123,7 @@ class EnrichedEventGenerator:
                 analysis_id,
                 resp.data,
             )
-            return {}
+            return EventEnrichmentResult(test, test)
 
         logging.debug(f"GraphQL Response:\n{pformat(resp)}")
 
@@ -142,7 +141,7 @@ class EnrichedEventGenerator:
                 test["Name"],
                 analysis_id,
             )
-            return test
+            return EventEnrichmentResult(test, test)
 
         # Create a copy of the existing test data so that we can compare before and after.
         enriched_test = copy.deepcopy(test)
@@ -156,14 +155,16 @@ class EnrichedEventGenerator:
         # for those tests that are in JSON format, but it's preferable
         # to the alternative.
         enriched_test[test_case_field_key] = enriched_test_data
-        return EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
+        enriched_test = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
             enriched_test  # type: ignore
         )
 
-    def _handle_rule_test(self, analysis_id: str, test: dict) -> dict:
+        return EventEnrichmentResult(test, enriched_test)
+
+    def _handle_rule_test(self, analysis_id: str, test: dict) -> EventEnrichmentResult:
         return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_LOG)
 
-    def _handle_policy_test(self, analysis_id: str, test: dict) -> dict:
+    def _handle_policy_test(self, analysis_id: str, test: dict) -> EventEnrichmentResult:
         return self._handle_analysis_item(analysis_id, test, TEST_CASE_FIELD_KEY_RESOURCE)
 
     def enrich_test_data(
@@ -198,19 +199,17 @@ class EnrichedEventGenerator:
             for test in tests:
                 logging.info("Enriching test case '%s' for %s", test["Name"], analysis_id)
                 if "Log" in test:
-                    enriched_test = self._handle_rule_test(analysis_id, test)
-                    if enriched_test:
-                        results.append(EventEnrichmentResult(test, enriched_test))
+                    event_enrichment_result = self._handle_rule_test(analysis_id, test)
                 elif "Resource" in test:
-                    enriched_test = self._handle_policy_test(analysis_id, test)
-                    if enriched_test:
-                        results.append(EventEnrichmentResult(test, enriched_test))
+                    event_enrichment_result = self._handle_policy_test(analysis_id, test)
                 else:
                     logging.warn(
                         "Skipping test case '%s' for %s, no event data found",
                         test["Name"],
                         analysis_id,
                     )
+
+                results.append(event_enrichment_result)
 
             logging.debug("Enrichment results:\n%s", pformat(results))
 
