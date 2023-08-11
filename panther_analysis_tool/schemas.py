@@ -188,7 +188,7 @@ POLICY_SCHEMA = Schema(
         "Enabled": bool,
         "Filename": str,
         "PolicyID": And(str, NAME_ID_VALIDATION_REGEX),
-        "ResourceTypes": And([str], [RESOURCE_TYPE_REGEX]),
+        Optional("ResourceTypes"): And([str], [RESOURCE_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("ActionDelaySeconds"): int,
         Optional("AutoRemediationID"): str,
