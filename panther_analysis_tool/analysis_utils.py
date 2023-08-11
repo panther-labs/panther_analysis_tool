@@ -169,7 +169,9 @@ def filter_analysis(
 def load_analysis_specs(
     directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
-    """Loads the analysis specifications from a file.
+    """Loads the analysis specifications from a file. It calls load_analysis_specs_ex
+    and returns the spec_filename, relative_path, analysis_spec, and error to preserve
+    historic callers.
 
     Args:
         directories: The relative path to Panther policies or rules.
@@ -177,6 +179,121 @@ def load_analysis_specs(
 
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
+    """
+    for result in load_analysis_specs_ex(directories, ignore_files, roundtrip_yaml=False):
+        yield result.spec_filename, result.relative_path, result.analysis_spec, result.error
+
+
+@dataclasses.dataclass
+class LoadAnalysisSpecsResult:
+    """The result of loading analysis specifications from a file."""
+
+    spec_filename: str
+    relative_path: str
+    analysis_spec: Any
+    yaml_ctx: YAML
+    error: Exception
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        spec_filename: str,
+        relative_path: str,
+        analysis_spec: Any,
+        yaml_ctx: YAML,
+        error: Any,
+    ):
+        self.spec_filename = spec_filename
+        self.relative_path = relative_path
+        self.analysis_spec = analysis_spec
+        self.yaml_ctx = yaml_ctx
+        self.error = error
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LoadAnalysisSpecsResult):
+            return NotImplemented
+
+        # skipping yaml_ctx because it's not relevant to equality of content
+        # in analysis spec files
+        same_spec_filename = self.spec_filename == other.spec_filename
+        same_relative_path = self.relative_path == other.relative_path
+        same_analysis_spec = self.analysis_spec == other.analysis_spec
+        same_error = self.error == other.error
+
+        return all(
+            [
+                same_spec_filename,
+                same_relative_path,
+                same_analysis_spec,
+                same_error,
+            ]
+        )
+
+    # pylint: disable=no-else-return
+    def analysis_id(self) -> str:
+        """Returns the analysis ID for this analysis spec."""
+        analysis_type = self.analysis_spec["AnalysisType"]
+        if analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
+            return self.analysis_spec["RuleID"]
+        elif analysis_type == AnalysisTypes.POLICY:
+            return self.analysis_spec["PolicyID"]
+
+        raise ValueError(f"Unknown analysis type '{analysis_type}'")
+
+    def analysis_type(self) -> str:
+        """Returns the analysis type for this analysis spec."""
+        return self.analysis_spec["AnalysisType"]
+
+    # pylint: disable=line-too-long
+    def __str__(self) -> str:
+        return f"LoadAnalysisSpecsResult(spec_filename={self.spec_filename}, relative_path={self.relative_path}, analysis_spec={self.analysis_spec['AnalysisType']}, error={self.error})"
+
+    def serialize_to_file(self) -> None:
+        logging.debug("Writing analysis spec to %s", self.spec_filename)
+        with open(self.spec_filename, "w") as file:
+            self.yaml_ctx.dump(self.analysis_spec, file)
+
+
+def get_yaml_loader(roundtrip: bool) -> YAML:
+    """Returns a YAML object with the correct settings for loading analysis specifications.
+
+    Args:
+        roundtrip: Whether or not the YAML parser should be roundtrip safe. Roundtrip safe YAML
+            parser is not compatible with many PAT functions.
+    """
+    if not roundtrip:
+        return YAML(typ="safe")
+
+    # If we need to roundtrip, we have different requirements. Most use cases will not need
+    # round-tripping. We only need a roundtrip safe YAML parser if we are going to update
+    # the YAML files.
+    yaml = YAML(typ="rt")
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.preserve_quotes = True  # type: ignore
+    yaml.default_flow_style = False
+    # allow very long lines to avoid unnecessary line changes
+    yaml.width = 4096  # type: ignore
+    return yaml
+
+
+# pylint: disable=too-many-locals
+def load_analysis_specs_ex(
+    directories: List[str], ignore_files: List[str], roundtrip_yaml: bool
+) -> Iterator[LoadAnalysisSpecsResult]:
+    """Loads the analysis specifications from a file. The _ex variant of this function returns
+    a LoadAnalysisSpecsResult object that contains the yaml_ctx object that was used to load
+    the specific YAML content. This allows us to roundtrip the YAML content back to the file with
+    minimal changes.
+
+    Args:
+        directories: The relative path to Panther policies or rules.
+        ignore_files: Files that Panther Analysis Tool should not process
+        roundtrip_yaml: If True, roundtrip the YAML content back to the file with minimal changes. This
+            is incompatible with most of PAT's YAML loading use-cases. However, if you need to modify
+            YAML code, this is necessary.
+
+    Yields:
+        An instance of LoadAnalysisSpecsResult.
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
@@ -194,8 +311,7 @@ def load_analysis_specs(
                 and relative_path != "."
             ):
                 continue
-            # setup yaml object
-            yaml = YAML(typ="safe")
+
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
@@ -233,18 +349,43 @@ def load_analysis_specs(
                 loaded_specs.append(spec_filename)
                 if fnmatch(filename, "*.y*ml"):
                     with open(spec_filename, "r") as spec_file_obj:
+                        # setup yaml object
+                        yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                         try:
-                            yield spec_filename, relative_path, yaml.load(spec_file_obj), None
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=yaml.load(spec_file_obj),
+                                yaml_ctx=yaml,
+                                error=None,
+                            )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error
-                            yaml = YAML(typ="safe")
-                            yield spec_filename, relative_path, None, err
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=None,
+                                yaml_ctx=yaml,
+                                error=err,
+                            )
                 if fnmatch(filename, "*.json"):
                     with open(spec_filename, "r") as spec_file_obj:
                         try:
-                            yield spec_filename, relative_path, json.load(spec_file_obj), None
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=json.load(spec_file_obj),
+                                yaml_ctx=yaml,
+                                error=None,
+                            )
                         except ValueError as err:
-                            yield spec_filename, relative_path, None, err
+                            yield LoadAnalysisSpecsResult(
+                                spec_filename=spec_filename,
+                                relative_path=relative_path,
+                                analysis_spec=None,
+                                yaml_ctx=yaml,
+                                error=err,
+                            )
 
 
 def to_relative_path(filename: str) -> str:
