@@ -22,6 +22,7 @@ import json
 import logging
 from pprint import pformat
 from tkinter import E
+from attr import dataclass
 
 from ruamel.yaml import CommentedMap as YAMLCommentedMap
 
@@ -32,6 +33,19 @@ from panther_analysis_tool.constants import AnalysisTypes
 
 TEST_CASE_FIELD_KEY_LOG = "Log"
 TEST_CASE_FIELD_KEY_RESOURCE = "Resource"
+
+
+@dataclass
+class EventEnrichmentResult:
+    original_test: dict
+    enriched_test: dict
+
+    def was_enriched(self) -> bool:
+        return self.original_test != self.enriched_test
+
+    def __init__(self, original_test: dict, enriched_test: dict):
+        self.original_test = original_test
+        self.enriched_test = enriched_test
 
 
 class EnrichedEventGenerator:
@@ -179,18 +193,18 @@ class EnrichedEventGenerator:
             logging.info("Processing {} '{}'".format(analysis_type, analysis_id))
             tests = analysis_item.analysis_spec.get("Tests")
 
-            enriched_tests = []
+            results: list[EventEnrichmentResult] = []
 
             for test in tests:
                 logging.info("Enriching test case '%s' for %s", test["Name"], analysis_id)
                 if "Log" in test:
                     enriched_test = self._handle_rule_test(analysis_id, test)
                     if enriched_test:
-                        enriched_tests.append(enriched_test)
+                        results.append(EventEnrichmentResult(test, enriched_test))
                 elif "Resource" in test:
                     enriched_test = self._handle_policy_test(analysis_id, test)
                     if enriched_test:
-                        enriched_tests.append(enriched_test)
+                        results.append(EventEnrichmentResult(test, enriched_test))
                 else:
                     logging.warn(
                         "Skipping test case '%s' for %s, no event data found",
@@ -198,15 +212,15 @@ class EnrichedEventGenerator:
                         analysis_id,
                     )
 
-            logging.debug("tests: %s", tests)
-            logging.debug("enriched_tests: %s", enriched_tests)
+            logging.debug("Enrichment results:\n%s", pformat(results))
 
-            if enriched_tests == tests:
+            if any([result.was_enriched() for result in results]):
+                analysis_item.analysis_spec["Tests"] = [
+                    result.enriched_test for result in results
+                ]
+                analysis_item.serialize_to_file()
+                enriched_analysis_items.append(analysis_item)
+            else:
                 logging.info("No test data enrichment available for rule '%s'", analysis_id)
-                continue
-
-            analysis_item.analysis_spec["Tests"] = enriched_tests
-            analysis_item.serialize_to_file()
-            enriched_analysis_items.append(analysis_item)
 
         return enriched_analysis_items
