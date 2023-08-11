@@ -22,8 +22,6 @@ import logging
 from pprint import pformat
 
 from attr import dataclass
-from ruamel.yaml import CommentedMap as YAMLCommentedMap
-from yaml import Event
 
 from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult
 from panther_analysis_tool.backend.client import Client as BackendClient
