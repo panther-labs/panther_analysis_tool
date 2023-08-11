@@ -72,7 +72,7 @@ class EnrichedEventGenerator:
             item
             for item in analysis_items
             if item.analysis_spec.get("Tests")
-            and item.analysis_spec["AnalysisType"]
+            and item.analysis_type()
             in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
         ]
 
@@ -196,7 +196,7 @@ class EnrichedEventGenerator:
                 "RuleID"
             ) or analysis_item.analysis_spec.get("PolicyID")
 
-            analysis_type = analysis_item.analysis_spec["AnalysisType"]
+            analysis_type = analysis_item.analysis_id()
             logging.info("Processing {} '{}'".format(analysis_type, analysis_id))
             tests = analysis_item.analysis_spec.get("Tests")
 

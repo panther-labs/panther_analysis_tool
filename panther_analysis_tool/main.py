@@ -1100,7 +1100,7 @@ def classify_analysis(
     return all_specs, invalid_specs
 
 
-def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, List[Any]]:
+def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Imports each policy or rule and enriches their test data, if any. The
         modifications are saved in the Analysis YAML files, but not committed
         to git. Users of panther_analysis_tool are expected to commit the changes
@@ -1117,7 +1117,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     if not backend.supports_enrich_test_data():
         msg = "enrich-test-data is only supported through token authentication"
         logging.error(msg)
-        return 1, list(msg)
+        return 1, msg
 
     logging.info("Enriching test data for analysis items in %s\n", args.path)
 
@@ -1143,8 +1143,9 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # If no specs were found, nothing to do
     if specs.empty():
         if invalid_specs:
-            return 1, invalid_specs
-        return 1, ["No analysis content to enrich tests data for in {}".format(args.path)]
+            msg = "Encountered invalid specs: " + ", ".join(invalid_specs)
+            return 1, msg
+        return 1, "No analysis content to enrich tests data for in {}".format(args.path)
 
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
@@ -1153,9 +1154,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
 
     # If no specs after filtering, nothing to do
     if specs.empty():
-        return 1, [
-            f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}"
-        ]
+        return 1, f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}"
 
     # We only used classify_analysis to figure out what to filter out, if anything.
     # We need to filter our own list of items now, using what's left in the `specs` variable.
@@ -1195,7 +1194,12 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     enricher = EnrichedEventGenerator(backend)
     result = enricher.enrich_test_data(list(filtered_raw_analysis_items_by_id.values()))
 
-    return (0, result)
+    # just report the detection IDs that were enriched
+    enriched_analysis_ids = [analysis_spec.analysis_id() for analysis_spec in result]
+    result_str = "No analysis specs enriched"
+    if any(enriched_analysis_ids):
+        result_str = "Analysis specs enriched:\n\t" + "\n\t".join(enriched_analysis_ids)
+    return (0, result_str)
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:

@@ -20,9 +20,7 @@ import dataclasses
 import json
 import logging
 import os
-import sys
 from fnmatch import fnmatch
-from sys import stdout
 from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
@@ -229,6 +227,20 @@ class LoadAnalysisSpecsResult:
                 same_error,
             ]
         )
+
+    def analysis_id(self) -> str:
+        """Returns the analysis ID for this analysis spec."""
+        analysis_type = self.analysis_spec["AnalysisType"]
+        if analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
+            return self.analysis_spec["RuleID"]
+        elif analysis_type == AnalysisTypes.POLICY:
+            return self.analysis_spec["PolicyID"]
+
+        raise ValueError(f"Unknown analysis type '{analysis_type}'")
+
+    def analysis_type(self) -> str:
+        """Returns the analysis type for this analysis spec."""
+        return self.analysis_spec["AnalysisType"]
 
     def __str__(self) -> str:
         return f"LoadAnalysisSpecsResult(spec_filename={self.spec_filename}, relative_path={self.relative_path}, analysis_spec={self.analysis_spec['AnalysisType']}, error={self.error})"
