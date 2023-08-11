@@ -129,6 +129,9 @@ class EnrichedEventGenerator:
 
         enriched_test_data = resp.data.enriched_event
 
+        # Create a copy of the existing test data so that we can compare before and after.
+        enriched_test = copy.deepcopy(test)
+
         # We're only copying the p_enrichment field because it's the only net-new
         # field. This helps reduce unnecessary deserialize/serialize noise.
         #
@@ -141,10 +144,14 @@ class EnrichedEventGenerator:
                 test["Name"],
                 analysis_id,
             )
-            return EventEnrichmentResult(test, test)
-
-        # Create a copy of the existing test data so that we can compare before and after.
-        enriched_test = copy.deepcopy(test)
+            # We're returning (test, enriched_test), but they're identical in content here.
+            # We push enriched_test through _convert_inline_json_dict_to_python_dict so that
+            # we can clean up the inline JSON content. Otherwise, it'll format as flow-style
+            # inline JSON block in the YAML.
+            return EventEnrichmentResult(
+                test,
+                EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(enriched_test)
+            )
 
         # Some test cases are pasted in as JSON. JSON does not roundtrip
         # nicely - often just rendering as one giant line after we add
