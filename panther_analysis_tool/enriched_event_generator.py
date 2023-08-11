@@ -79,7 +79,7 @@ class EnrichedEventGenerator:
         ]
 
     @staticmethod
-    def _convert_inline_json_dict_to_python_dict(data: YAMLCommentedMap) -> dict:
+    def _convert_inline_json_dict_to_python_dict(data: dict) -> dict:
         """Converts YAML-loaded inline JSON to Python dictionaries. This allows them
         to be re-serialized into YAML instead of maintaining JSON formatting.
         """
@@ -163,7 +163,7 @@ class EnrichedEventGenerator:
         # to the alternative.
         enriched_test[test_case_field_key] = enriched_test_data
         enriched_test = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
-            enriched_test  # type: ignore
+            enriched_test
         )
 
         return EventEnrichmentResult(test, enriched_test)
