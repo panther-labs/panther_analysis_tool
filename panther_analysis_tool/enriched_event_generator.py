@@ -20,8 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import copy
 import logging
 from pprint import pformat
-from attr import dataclass
 
+from attr import dataclass
 from ruamel.yaml import CommentedMap as YAMLCommentedMap
 from yaml import Event
 
@@ -105,7 +105,9 @@ class EnrichedEventGenerator:
             return new_list
         return data
 
-    def _handle_analysis_item(self, analysis_id: str, test: dict, test_case_field_key: str) -> EventEnrichmentResult:
+    def _handle_analysis_item(
+        self, analysis_id: str, test: dict, test_case_field_key: str
+    ) -> EventEnrichmentResult:
         if test_case_field_key not in test:
             logging.error(
                 "Skipping test case '%s' for %s, no event data found",
@@ -149,8 +151,7 @@ class EnrichedEventGenerator:
             # we can clean up the inline JSON content. Otherwise, it'll format as flow-style
             # inline JSON block in the YAML.
             return EventEnrichmentResult(
-                test,
-                EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(enriched_test)
+                test, EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(enriched_test)
             )
 
         # Some test cases are pasted in as JSON. JSON does not roundtrip
@@ -221,9 +222,7 @@ class EnrichedEventGenerator:
             logging.debug("Enrichment results:\n%s", pformat(results))
 
             if any([result.was_enriched() for result in results]):
-                analysis_item.analysis_spec["Tests"] = [
-                    result.enriched_test for result in results
-                ]
+                analysis_item.analysis_spec["Tests"] = [result.enriched_test for result in results]
                 analysis_item.serialize_to_file()
                 enriched_analysis_items.append(analysis_item)
             else:
