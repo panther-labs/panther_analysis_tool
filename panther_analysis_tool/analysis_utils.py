@@ -276,6 +276,7 @@ def get_yaml_loader(roundtrip: bool) -> YAML:
     return yaml
 
 
+# pylint: disable=too-many-locals
 def load_analysis_specs_ex(
     directories: List[str], ignore_files: List[str], roundtrip_yaml: bool
 ) -> Iterator[LoadAnalysisSpecsResult]:
