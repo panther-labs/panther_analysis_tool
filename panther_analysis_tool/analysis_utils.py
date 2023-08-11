@@ -194,6 +194,7 @@ class LoadAnalysisSpecsResult:
     yaml_ctx: YAML
     error: Exception
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         spec_filename: str,
@@ -228,6 +229,7 @@ class LoadAnalysisSpecsResult:
             ]
         )
 
+    # pylint: disable=no-else-return
     def analysis_id(self) -> str:
         """Returns the analysis ID for this analysis spec."""
         analysis_type = self.analysis_spec["AnalysisType"]
@@ -242,13 +244,14 @@ class LoadAnalysisSpecsResult:
         """Returns the analysis type for this analysis spec."""
         return self.analysis_spec["AnalysisType"]
 
+    # pylint: disable=line-too-long
     def __str__(self) -> str:
         return f"LoadAnalysisSpecsResult(spec_filename={self.spec_filename}, relative_path={self.relative_path}, analysis_spec={self.analysis_spec['AnalysisType']}, error={self.error})"
 
     def serialize_to_file(self) -> None:
         logging.debug("Writing analysis spec to %s", self.spec_filename)
-        with open(self.spec_filename, "w") as f:
-            self.yaml_ctx.dump(self.analysis_spec, f)
+        with open(self.spec_filename, "w") as file:
+            self.yaml_ctx.dump(self.analysis_spec, file)
 
 
 def get_yaml_loader() -> YAML:

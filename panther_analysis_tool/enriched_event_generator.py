@@ -76,6 +76,7 @@ class EnrichedEventGenerator:
             in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
         ]
 
+    # pylint: disable=no-else-return
     @staticmethod
     def _convert_inline_json_dict_to_python_dict(data: dict) -> dict:
         """Converts YAML-loaded inline JSON to Python dictionaries. This allows them
@@ -125,7 +126,7 @@ class EnrichedEventGenerator:
             )
             return EventEnrichmentResult(test, test)
 
-        logging.debug(f"GraphQL Response:\n{pformat(resp)}")
+        logging.debug("GraphQL Response:\n%s", pformat(resp))
 
         enriched_test_data = resp.data.enriched_event
 
@@ -138,7 +139,7 @@ class EnrichedEventGenerator:
         # If the returned "enriched event" has a p_enrichment field that's empty,
         # we'll just skip it. This reduces git diff noise.
         p_enrichment = enriched_test_data.get("p_enrichment", {})
-        if p_enrichment == {} or p_enrichment == None:
+        if p_enrichment in [{}, None]:
             logging.warning(
                 "Skipping test case '%s' for %s, no enrichment data found",
                 test["Name"],
@@ -197,7 +198,7 @@ class EnrichedEventGenerator:
             ) or analysis_item.analysis_spec.get("PolicyID")
 
             analysis_type = analysis_item.analysis_id()
-            logging.info("Processing {} '{}'".format(analysis_type, analysis_id))
+            logging.info("Processing %s '%s'", analysis_type, analysis_id)
             tests = analysis_item.analysis_spec.get("Tests")
 
             results: list[EventEnrichmentResult] = []
@@ -209,7 +210,8 @@ class EnrichedEventGenerator:
                 elif "Resource" in test:
                     event_enrichment_result = self._handle_policy_test(analysis_id, test)
                 else:
-                    logging.warn(
+
+                    logging.warning(
                         "Skipping test case '%s' for %s, no event data found",
                         test["Name"],
                         analysis_id,
@@ -219,7 +221,7 @@ class EnrichedEventGenerator:
 
             logging.debug("Enrichment results:\n%s", pformat(results))
 
-            if any([result.was_enriched() for result in results]):
+            if any(result.was_enriched() for result in results):
                 analysis_item.analysis_spec["Tests"] = [result.enriched_test for result in results]
                 analysis_item.serialize_to_file()
                 enriched_analysis_items.append(analysis_item)

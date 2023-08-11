@@ -1163,7 +1163,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # We need to filter our own list of items now, using what's left in the `specs` variable.
     raw_analysis_items_by_id = {}
     for item in raw_analysis_items:
-        if item.analysis_spec != None:
+        if item.analysis_spec is not None:
             rule_id = item.analysis_spec.get("RuleID", "")
             if rule_id != "":
                 raw_analysis_items_by_id[rule_id] = item
