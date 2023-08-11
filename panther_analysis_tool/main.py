@@ -1128,7 +1128,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # We use the load_analysis_specs_ex variant to get a nice round object that includes
     # the YAML context for each analysis item. This means we can roundtrip without sadness.
     raw_analysis_items = list(
-        load_analysis_specs_ex(search_directories, ignore_files=ignored_files)
+        load_analysis_specs_ex(search_directories, ignore_files=ignored_files, roundtrip_yaml=True)
     )
     specs, invalid_specs = classify_analysis(
         # unpack the nice dataclass into a tuple because we use Tuples too much everywhere

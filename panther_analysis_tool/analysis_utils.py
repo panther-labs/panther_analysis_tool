@@ -180,7 +180,7 @@ def load_analysis_specs(
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
-    for result in load_analysis_specs_ex(directories, ignore_files):
+    for result in load_analysis_specs_ex(directories, ignore_files, roundtrip_yaml=False):
         yield result.spec_filename, result.relative_path, result.analysis_spec, result.error
 
 
@@ -254,8 +254,19 @@ class LoadAnalysisSpecsResult:
             self.yaml_ctx.dump(self.analysis_spec, file)
 
 
-def get_yaml_loader() -> YAML:
-    """Returns a YAML object with the correct settings for loading analysis specifications."""
+def get_yaml_loader(roundtrip: bool) -> YAML:
+    """Returns a YAML object with the correct settings for loading analysis specifications.
+
+    Args:
+        roundtrip: Whether or not the YAML parser should be roundtrip safe. Roundtrip safe YAML
+            parser is not compatible with many PAT functions.
+    """
+    if not roundtrip:
+        return YAML(typ="safe")
+
+    # If we need to roundtrip, we have different requirements. Most use cases will not need
+    # round-tripping. We only need a roundtrip safe YAML parser if we are going to update
+    # the YAML files.
     yaml = YAML(typ="rt")
     yaml.indent(mapping=2, sequence=4, offset=2)
     yaml.preserve_quotes = True  # type: ignore
@@ -266,7 +277,7 @@ def get_yaml_loader() -> YAML:
 
 
 def load_analysis_specs_ex(
-    directories: List[str], ignore_files: List[str]
+    directories: List[str], ignore_files: List[str], roundtrip_yaml: bool
 ) -> Iterator[LoadAnalysisSpecsResult]:
     """Loads the analysis specifications from a file. The _ex variant of this function returns
     a LoadAnalysisSpecsResult object that contains the yaml_ctx object that was used to load
@@ -276,6 +287,9 @@ def load_analysis_specs_ex(
     Args:
         directories: The relative path to Panther policies or rules.
         ignore_files: Files that Panther Analysis Tool should not process
+        roundtrip_yaml: If True, roundtrip the YAML content back to the file with minimal changes. This
+            is incompatible with most of PAT's YAML loading use-cases. However, if you need to modify
+            YAML code, this is necessary.
 
     Yields:
         An instance of LoadAnalysisSpecsResult.
@@ -335,7 +349,7 @@ def load_analysis_specs_ex(
                 if fnmatch(filename, "*.y*ml"):
                     with open(spec_filename, "r") as spec_file_obj:
                         # setup yaml object
-                        yaml = get_yaml_loader()
+                        yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                         try:
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
