@@ -1154,7 +1154,10 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
 
     # If no specs after filtering, nothing to do
     if specs.empty():
-        return 1, f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}"
+        return (
+            1,
+            f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}",
+        )
 
     # We only used classify_analysis to figure out what to filter out, if anything.
     # We need to filter our own list of items now, using what's left in the `specs` variable.
