@@ -22,6 +22,8 @@ from typing import Any, Dict
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
+from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
+
 
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
@@ -49,71 +51,6 @@ RESOURCE_TYPE_REGEX = Regex(
     r"\.ApplicationLoadBalancer|GuardDuty\.Detector\.Meta|GuardDuty\.Detector|IAM\.Group|IAM"
     r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
     r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
-)
-# pylint: disable=line-too-long
-LOG_TYPE_REGEX = Regex(
-    r"^(Apache\.AccessCombined|Amazon\.EKS\.Audit|Amazon\.EKS\.Authenticator|Apache\.AccessCommon"
-    r"|AlphaSOC\.Alert"
-    r"|Asana\.Audit|Atlassian\.Audit|AWS\.ALB|AWS\.AuroraMySQLAudit"
-    r"|Auth0\.Events"
-    r"|Bitwarden\.Events"
-    r"|CarbonBlack\.Audit"
-    r"|Linux\.Auditd"
-    r"|Netskope\.Audit"
-    r"|AWS\.Config"
-    r"|AWS\.CloudTrail|AWS\.CloudTrailDigest|AWS\.CloudTrailInsight|AWS\.CloudWatchEvents"
-    r"|AWS\.GuardDuty|AWS\.S3ServerAccess|AWS\.VPCDns|AWS\.VPCFlow|AWS\.WAFWebACL|Box\.Event"
-    r"|AWS\.TransitGatewayFlow"
-    r"|CiscoUmbrella\.CloudFirewall|CiscoUmbrella\.DNS|CiscoUmbrella\.IP|CiscoUmbrella\."
-    r"Proxy|Cloudflare\.Audit|Cloudflare\.Firewall|Cloudflare\.HttpRequest|Cloudflare\.Spectrum|Crowdstrike\.FDREvent|"
-    r"Crowdstrike\.ActivityAudit|Crowdstrike\.AIDMaster|Crowdstrike\.AppInfo|Crowdstrike\.CriticalFile"
-    r"|Crowdstrike\.DNSRequest|Crowdstrike\.DetectionSummary|Crowdstrike\.GroupIdentity|"
-    r"Crowdstrike\.ManagedAssets|Crowdstrike\.NetworkConnect|Crowdstrike\.NetworkListen|"
-    r"Crowdstrike\.NotManagedAssets|Crowdstrike\.ProcessRollup2|Crowdstrike\.Process"
-    r"Rollup2Stats|Crowdstrike\.SyntheticProcessRollup2|Crowdstrike\.Unknown|Crowdstrike"
-    r"\.UserIdentity|Crowdstrike\.UserInfo|Crowdstrike\.UserLogonLogoff|Dropbox\.TeamEvent|Duo\.Administrator|Duo"
-    r"\.Authentication|Duo\.OfflineEnrollment|Duo\.Telephony|Fastly\.Access|Fluentd\.Syslog3164"
-    r"|Fluentd\.Syslog5424|GCP\.AuditLog|GCP\.HTTPLoadBalancer|GitHub\.Audit|GitLab\.API|GitLab\.Audit|GitLab\.Exceptions"
-    r"|GitLab\.Git|GitLab\.Integrations|GitLab\.Production|Gravitational\.TeleportAudit|GSuite\."
-    r"ActivityEvent|GSuite\.Reports|Juniper\.Access|Juniper\.Audit|Juniper\.Firewall|Juniper\.MWS"
-    r"|GreyNoise\.Noise|GreyNoise\.RIOT"
-    r"|GSuite\.DirectoryUsers"
-    r"|IPInfo\.ASNCIDR|IPInfo\.ASNRanges|IPInfo\.LocationCIDR|IPInfo\.LocationRanges|IPInfo\.PrivacyCIDR"
-    r"|IPInfo\.PrivacyRanges"
-    r"|Jamfpro\.Login"
-    r"|Juniper\.Postgres|Juniper\.Security|Lacework\.AgentManagement|Lacework\.AlertDetails|Lacework\.AllFiles|"
-    r"Lacework\.Applications|Lacework\.ChangeFiles|Lacework\.CloudCompliance|Lacework\.CloudConfiguration|"
-    r"Lacework\.Cmdline|Lacework\.Connections|Lacework\.ContainerSummary|Lacework\.ContainerVulnDetails|"
-    r"Lacework\.DNSQuery|Lacework\.Events|Lacework\.HostVulnDetails|Lacework\.Image|Lacework\.Interfaces|"
-    r"Lacework\.InternalIPA|Lacework\.MachineDetails|Lacework\.MachineSummary|Lacework\.NewHashes|"
-    r"Lacework\.Package|Lacework\.PodSummary|Lacework\.ProcessSummary|Lacework\.UserDetails|Lacework\.UserLogin"
-    r"|Microsoft365\.Audit\.AzureActiveDirectory|Microsoft365\.Audit\.Exchange"
-    r"|Microsoft365\.Audit\.General|Microsoft365\.Audit\.SharePoint|Microsoft365\.DLP\.All|"
-    r"MicrosoftGraph\.SecurityAlert|"
-    r"MongoDB\.OrganizationEvent|MongoDB\.ProjectEvent|"
-    r"Nginx\.Access|Okta\.SystemLog|OneLogin\.Events|Osquery\.Batch|Osquery\.Differential|"
-    r"Notion\.AuditLogs|"
-    r"Heroku\.Runtime|"
-    r"Docker\.Events|"
-    r"Azure\.Audit|Azure\.SignIn|"
-    r"Okta\.Devices|Okta\.Users|"
-    r"OnePassword\.AuditEvent|"
-    r"Osquery\.Snapshot|Osquery\.Status|OSSEC\.EventInfo|OnePassword\.ItemUsage|OnePassword"
-    r"\.SignInAttempt|Panther\.Audit|Salesforce\.Login|Salesforce\.LoginAs|Salesforce\.Logout|"
-    r"Salesforce\.URI|Slack\.AccessLogs|Slack\.AuditLogs|Slack\.IntegrationLogs|Snyk\.OrgAudit|Snyk\.GroupAudit|Sophos\.Central|Suricata"
-    r"\.Anomaly|Suricata\.DNS|Syslog\.RFC3164|Syslog\.RFC5424|Zendesk\.Audit|Zendesk"
-    r"\.AuditLog|Zoom\.Activity|Zoom\.Operation"
-    r"|Suricata\.Alert|Suricata\.DHCP|Suricata\.FileInfo|Suricata\.Flow|Suricata\.HTTP|Suricata\.SSH|Suricata\.TLS"
-    r"|SentinelOne\.Activity|SentinelOne\.DeepVisibility|SentinelOne\.DeepVisibilityV2"
-    r"|Sysdig\.Audit"
-    r"|Tailscale\.Audit|Tailscale\.Network"
-    r"|Tenable\.Vulnerability"
-    r"|Tor\.ExitNode"
-    r"|Tines\.Audit"
-    r"|Windows\.EventLogs"
-    r"|Workday\.Activity|Workday\.SignOnAttempt"
-    r"|Zeek\.CaptureLoss|Zeek\.Conn|Zeek\.DHCP|Zeek\.DNS|Zeek\.DPD|Zeek\.Files|Zeek\.HTTP|Zeek\.Notice|Zeek\.NTP|Zeek\.OCSP|Zeek\.Reporter|Zeek\.SIP|Zeek\.Software|Zeek\.Ssh|Zeek\.Ssl|Zeek\.Stats|Zeek\.Tunnel|Zeek\.Weird|Zeek\.X509"
-    r"|Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5})$"
 )
 
 TYPE_SCHEMA = Schema(
@@ -188,7 +125,7 @@ POLICY_SCHEMA = Schema(
         "Enabled": bool,
         "Filename": str,
         "PolicyID": And(str, NAME_ID_VALIDATION_REGEX),
-        "ResourceTypes": And([str], [RESOURCE_TYPE_REGEX]),
+        Optional("ResourceTypes"): And([str], [RESOURCE_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("ActionDelaySeconds"): int,
         Optional("AutoRemediationID"): str,

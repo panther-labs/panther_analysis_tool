@@ -259,6 +259,15 @@ class TestPATSchemas(unittest.TestCase):
             "ResourceTypes": ["AWS.DynamoDB.Table"]
         })
 
+    def test_policy_without_resource_types(self):
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+            "ResourceTypes": []
+        })
+        POLICY_SCHEMA.validate({
+            "AnalysisType": "policy", "Enabled": False, "Filename": "hmm", "PolicyID": "h", "Severity": "Info",
+        })
+
 
 # This class was generated in whole or in part by GitHub Copilot
 class TestSimpleDetectionSchemas(unittest.TestCase):
