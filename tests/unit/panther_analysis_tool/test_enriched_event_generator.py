@@ -18,7 +18,7 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
         AnalysisTypes.RULE: LoadAnalysisSpecsResult(
             f"filname.rule",
             f"filepath.rule",
-            get_yaml_loader().load(
+            get_yaml_loader(roundtrip=True).load(
                 """
                 RuleID: foo.bar.rule
                 AnalysisType: rule
@@ -32,13 +32,13 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
                         json: {"foo": "bar"}
                 """
             ),
-            yaml_ctx=get_yaml_loader(),
+            yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None
         ),
         AnalysisTypes.SCHEDULED_RULE: LoadAnalysisSpecsResult(
             f"filname.scheduled_rule",
             f"filepath.scheduled_rule",
-            get_yaml_loader().load(
+            get_yaml_loader(roundtrip=True).load(
                 """
                 RuleID: foo.bar.scheduled_rule
                 AnalysisType: scheduled_rule
@@ -52,13 +52,13 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
                         json: {"foo": "bar"}
                 """
             ),
-            yaml_ctx=get_yaml_loader(),
+            yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None
         ),
         AnalysisTypes.POLICY: LoadAnalysisSpecsResult(
             f"filname.policy",
             f"filepath.policy",
-            get_yaml_loader().load(
+            get_yaml_loader(roundtrip=True).load(
                 """
                 PolicyID: foo.bar.policy
                 AnalysisType: policy
@@ -72,7 +72,7 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
                         json: {"foo": "bar"}
                 """
             ),
-            yaml_ctx=get_yaml_loader(),
+            yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None
         )
     }
@@ -100,7 +100,7 @@ class TestEnrichedEventGenerator(TestCase):
 
         for test in test_data:
             logging.info(f"Running test: {test['name']}")
-            yaml = get_yaml_loader()
+            yaml = get_yaml_loader(roundtrip=True)
             as_commented_map = yaml.load(test['input_yaml'])
             inline_json_test_content = as_commented_map['json']
 
@@ -198,7 +198,7 @@ class TestEnrichedEventGenerator(TestCase):
                 "DataModelID": f"foo.bar.data_model",
                 "AnalysisType": "data_model",
             },
-            yaml_ctx=get_yaml_loader(),
+            yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None
         )
 
