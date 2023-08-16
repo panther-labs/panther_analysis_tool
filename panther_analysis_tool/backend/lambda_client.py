@@ -39,6 +39,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    GenerateEnrichedEventParams,
+    GenerateEnrichedEventResponse,
     ListSchemasParams,
     ListSchemasResponse,
     MetricsParams,
@@ -362,3 +364,11 @@ class LambdaClient(Client):
 
     def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
         raise BaseException("run perf test is not supported with lambda client")
+
+    def supports_enrich_test_data(self) -> bool:
+        return False
+
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
+        raise BaseException("enrich-test-data is not supported with lambda client")

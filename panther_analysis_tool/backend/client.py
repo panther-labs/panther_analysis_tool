@@ -367,6 +367,16 @@ class ReplayResponse:
         )
 
 
+@dataclass(frozen=True)
+class GenerateEnrichedEventParams:
+    event: Dict[str, Any]  # json
+
+
+@dataclass(frozen=True)
+class GenerateEnrichedEventResponse:
+    enriched_event: Dict[str, Any]  # json
+
+
 class Client(ABC):
     @abstractmethod
     def check(self) -> BackendCheckResponse:
@@ -440,6 +450,16 @@ class Client(ABC):
 
     @abstractmethod
     def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        pass
+
+    @abstractmethod
+    def supports_enrich_test_data(self) -> bool:
+        pass
+
+    @abstractmethod
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
         pass
 
 

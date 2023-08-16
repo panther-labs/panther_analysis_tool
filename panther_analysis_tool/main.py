@@ -86,6 +86,7 @@ from panther_analysis_tool.analysis_utils import (
     filter_analysis,
     get_simple_detections_as_python,
     load_analysis_specs,
+    load_analysis_specs_ex,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
@@ -111,6 +112,7 @@ from panther_analysis_tool.constants import (
     AnalysisTypes,
 )
 from panther_analysis_tool.destination import FakeDestination
+from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
@@ -1098,6 +1100,111 @@ def classify_analysis(
     return all_specs, invalid_specs
 
 
+def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+    """Imports each policy or rule and enriches their test data, if any. The
+        modifications are saved in the Analysis YAML files, but not committed
+        to git. Users of panther_analysis_tool are expected to commit the changes
+        after review.
+
+    Args:
+        backend: Backend API client.
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of the return code, and a list of the rules whose test content was enriched.
+    """
+
+    if not backend.supports_enrich_test_data():
+        msg = "enrich-test-data is only supported through token authentication"
+        logging.error(msg)
+        return 1, msg
+
+    logging.info("Enriching test data for analysis items in %s\n", args.path)
+
+    ignored_files = args.ignore_files
+    search_directories = [args.path]
+
+    # Load all of the anlaysis specs based on the search directories and ignored files.
+    # We use the load_analysis_specs_ex variant to get a nice round object that includes
+    # the YAML context for each analysis item. This means we can roundtrip without sadness.
+    raw_analysis_items = list(
+        load_analysis_specs_ex(search_directories, ignore_files=ignored_files, roundtrip_yaml=True)
+    )
+    specs, invalid_specs = classify_analysis(
+        # unpack the nice dataclass into a tuple because we use Tuples too much everywhere
+        [
+            (raw_item.spec_filename, raw_item.relative_path, raw_item.analysis_spec, raw_item.error)
+            for raw_item in raw_analysis_items
+        ],
+        ignore_table_names=args.ignore_table_names,
+        valid_table_names=args.valid_table_names,
+    )
+
+    # If no specs were found, nothing to do
+    if specs.empty():
+        if invalid_specs:
+            msg = "Encountered invalid specs: " + ", ".join(invalid_specs)
+            return 1, msg
+        return 1, "No analysis content to enrich tests data for in {}".format(args.path)
+
+    # Apply the filters as needed
+    if getattr(args, "filter_inverted", None) is None:
+        args.filter_inverted = {}
+    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
+
+    # If no specs after filtering, nothing to do
+    if specs.empty():
+        return (
+            1,
+            f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}",
+        )
+
+    # We only used classify_analysis to figure out what to filter out, if anything.
+    # We need to filter our own list of items now, using what's left in the `specs` variable.
+    raw_analysis_items_by_id = {}
+    for item in raw_analysis_items:
+        if item.analysis_spec is not None:
+            rule_id = item.analysis_spec.get("RuleID", "")
+            if rule_id != "":
+                raw_analysis_items_by_id[rule_id] = item
+                continue
+
+            policy_id = item.analysis_spec.get("PolicyID", "")
+            if policy_id != "":
+                raw_analysis_items_by_id[policy_id] = item
+                continue
+
+            logging.info(
+                "Analysis item %s is not a Rule, Scheduled Rule, or Policy - skipping",
+                item.spec_filename,
+            )
+
+    filtered_raw_analysis_items_by_id = {}
+    all_relevant_specs = specs.detections + specs.simple_detections
+
+    for spec in all_relevant_specs:
+        rule_id = spec.analysis_spec.get("RuleID", "")
+        if rule_id != "":
+            filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[rule_id]
+            continue
+
+        policy_id = spec.analysis_spec.get("PolicyID", "")
+        if policy_id != "":
+            filtered_raw_analysis_items_by_id[policy_id] = raw_analysis_items_by_id[policy_id]
+            continue
+
+    # Enrich the test data for each analysis item
+    enricher = EnrichedEventGenerator(backend)
+    result = enricher.enrich_test_data(list(filtered_raw_analysis_items_by_id.values()))
+
+    # just report the detection IDs that were enriched
+    enriched_analysis_ids = [analysis_spec.analysis_id() for analysis_spec in result]
+    result_str = "No analysis specs enriched"
+    if any(enriched_analysis_ids):
+        result_str = "Analysis specs enriched:\n\t" + "\n\t".join(enriched_analysis_ids)
+    return (0, result_str)
+
+
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     analysis_id = "UNKNOWN_ID"
     if analysis_type == AnalysisTypes.DATA_MODEL:
@@ -1805,6 +1912,20 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     benchmark_parser.set_defaults(func=pat_utils.func_with_backend(benchmark.run))
 
+    # -- enrich-test-data command
+    enrich_test_data_parser = subparsers.add_parser(
+        "enrich-test-data",
+        help="Enrich test data with additional enrichments from the Panther API.",
+    )
+    standard_args.for_public_api(enrich_test_data_parser, required=False)
+
+    enrich_test_data_parser.add_argument(filter_name, **filter_arg)
+    enrich_test_data_parser.add_argument(path_name, **path_arg)
+    enrich_test_data_parser.add_argument(ignore_files_name, **ignore_files_arg)
+    enrich_test_data_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
+    enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
+
     return parser
 
 
@@ -1958,7 +2079,7 @@ def run() -> None:
         return_code, out = args.func(args)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
-        logging.warning('Unhandled exception: "%s"', err)
+        logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
         logging.debug("Full error traceback:", exc_info=err)
         sys.exit(1)
 

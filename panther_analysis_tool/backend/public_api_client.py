@@ -47,6 +47,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    GenerateEnrichedEventParams,
+    GenerateEnrichedEventResponse,
     ListSchemasParams,
     ListSchemasResponse,
     MetricsParams,
@@ -136,6 +138,9 @@ class PublicAPIRequests:
 
     def stop_replay_mutation(self) -> DocumentNode:
         return self._load("stop_replay")
+
+    def generate_enriched_event_query(self) -> DocumentNode:
+        return self._load("generate_enriched_event")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -554,6 +559,25 @@ class PublicAPIClient(Client):
                 [ReplayStatus.EVALUATION_IN_PROGRESS, ReplayStatus.COMPUTATION_IN_PROGRESS]
             ):
                 raise BackendError(f"unexpected status: {status}")
+
+    def supports_enrich_test_data(self) -> bool:
+        return True
+
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
+        query = self._requests.generate_enriched_event_query()
+        query_input = {"input": {"event": params.event}}
+        res = self._safe_execute(query, variable_values=query_input)
+        data = res.data.get("generateEnrichedEvent", {})  # type: ignore
+        enriched_event = data.get("enrichedEvent", {})
+
+        return BackendResponse(
+            status_code=200,
+            data=GenerateEnrichedEventResponse(
+                enriched_event=enriched_event,
+            ),
+        )
 
     def _execute(
         self,

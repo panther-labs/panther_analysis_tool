@@ -1,0 +1,5 @@
+query GenerateEnrichedEvent($input: GenerateEnrichedEventInput!) {
+  generateEnrichedEvent(input: $input) {
+    enrichedEvent
+  }
+}

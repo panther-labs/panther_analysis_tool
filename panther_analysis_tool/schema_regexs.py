@@ -64,6 +64,7 @@ LOG_TYPE_REGEX = Regex(
     r"Duo\.Authentication|"
     r"Duo\.OfflineEnrollment|"
     r"Duo\.Telephony|"
+    r"Envoy\.Access|"
     r"Fastly\.Access|"
     r"Fluentd\.Syslog3164|"
     r"Fluentd\.Syslog5424|"

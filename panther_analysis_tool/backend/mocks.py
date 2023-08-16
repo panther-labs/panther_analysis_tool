@@ -11,6 +11,8 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
+    GenerateEnrichedEventParams,
+    GenerateEnrichedEventResponse,
     ListSchemasParams,
     MetricsParams,
     MetricsResponse,
@@ -75,4 +77,12 @@ class MockBackend(BackendClient):
         pass
 
     def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        pass
+
+    def supports_enrich_test_data(self) -> bool:
+        pass
+
+    def generate_enriched_event_input(
+        self, params: GenerateEnrichedEventParams
+    ) -> BackendResponse[GenerateEnrichedEventResponse]:
         pass
