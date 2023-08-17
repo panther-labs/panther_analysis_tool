@@ -22,13 +22,13 @@ from typing import Any, Dict
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
-from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
+from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX, RESOURCE_TYPE_REGEX
 
 
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
     def validate(
-        self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
+            self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
     ) -> Dict[str, Any]:
         super().validate(data, _is_query_schedule_schema=False)
         if _is_query_schedule_schema:
@@ -44,14 +44,6 @@ class QueryScheduleSchema(Schema):
 
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
-RESOURCE_TYPE_REGEX = Regex(
-    r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
-    r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
-    r"|EC2\.NetworkACL|EC2\.SecurityGroup|EC2\.Volume|EC2\.VPC|ECS\.Cluster|EKS\.Cluster|ELBV2"
-    r"\.ApplicationLoadBalancer|GuardDuty\.Detector\.Meta|GuardDuty\.Detector|IAM\.Group|IAM"
-    r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
-    r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
-)
 
 TYPE_SCHEMA = Schema(
     {
