@@ -362,15 +362,14 @@ def upload_zip(
                     response = backend.bulk_upload(upload_params)
 
                 logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
-                logging.info("Upload success.")
+                # logging.info()
 
-                return_code = 0
-                break
+                return 0, cli_output.success("Upload succeeded")
 
             except BackendError as be_err:
                 err = cli_output.multipart_error_msg(
                     BulkUploadMultipartError.from_json(json.loads(convert_unicode(be_err))),
-                    "upload failed",
+                    "Upload failed",
                 )
                 if be_err.permanent is True:
                     return 1, f"Failed to upload to Panther: {err}"
@@ -393,13 +392,6 @@ def upload_zip(
             # PEP8 guide states it is OK to catch BaseException if you log it.
             except BaseException as err:  # pylint: disable=broad-except
                 return 1, f"Failed to upload to Panther: {err}"
-
-    if return_code != 0:
-        return return_code, ""
-
-    return_code, _ = panthersdk_upload.run(backend=backend, args=args, indirect_invocation=True)
-
-    return return_code, ""
 
 
 def parse_lookup_table(args: argparse.Namespace) -> dict:

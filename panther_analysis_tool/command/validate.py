@@ -29,13 +29,13 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     try:
         result = backend.bulk_validate(params)
         if result.is_valid():
-            return 0, f"{cli_output.BColors.green('validation success')}"
+            return 0, f"{cli_output.success('Validation success')}"
 
-        return 1, cli_output.multipart_error_msg(result, "validation failed")
+        return 1, cli_output.multipart_error_msg(result, "Validation failed")
     except UnsupportedEndpointError as err:
         logging.debug(err)
-        return 1, cli_output.BColors.warning("your panther instance does not support this feature")
+        return 1, cli_output.warning("Your panther instance does not support this feature")
 
     except BaseException as err:  # pylint: disable=broad-except
-        logging.error("failed to upload to backend: %s", err)
+        logging.error("Failed to upload to backend: %s", err)
         return 1, ""
