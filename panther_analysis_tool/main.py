@@ -79,6 +79,7 @@ from schema import (
     SchemaWrongKeyError,
 )
 
+from panther_analysis_tool import cli_output
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
@@ -89,7 +90,11 @@ from panther_analysis_tool.analysis_utils import (
     load_analysis_specs_ex,
     transpile_inline_filters,
 )
-from panther_analysis_tool.backend.client import BackendError, BulkUploadParams
+from panther_analysis_tool.backend.client import (
+    BackendError,
+    BulkUploadMultipartError,
+    BulkUploadParams,
+)
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
@@ -305,7 +310,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
         args: The populated Argparse namespace with parsed command-line arguments.
 
     Returns:
-        A tuple of return code and the archive filename.
+        A tuple of return code and error if applicable.
     """
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
@@ -335,7 +340,6 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 def upload_zip(
     backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
 ) -> Tuple[int, str]:
-    return_archive_fname = ""
     # extract max retries we should handle
     max_retries = 10
     if args.max_retries > 10:
@@ -357,21 +361,22 @@ def upload_zip(
                 else:
                     response = backend.bulk_upload(upload_params)
 
-                logging.info("Upload success.")
                 logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
+                logging.info("Upload success.")
 
                 return_code = 0
-                return_archive_fname = ""
                 break
 
             except BackendError as be_err:
+                err = cli_output.multipart_error_msg(
+                    BulkUploadMultipartError.from_json(json.loads(convert_unicode(be_err))),
+                    "upload failed",
+                )
                 if be_err.permanent is True:
-                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
-                    return_code = 1
-                    break
+                    return 1, f"Failed to upload to Panther: {err}"
 
                 if max_retries - retry_count > 0:
-                    logging.debug("Failed to upload to Panther: %s.", convert_unicode(be_err))
+                    logging.debug("Failed to upload to Panther: %s.", convert_unicode(err))
                     retry_count += 1
 
                     # typical bulk upload takes 30 seconds, allow any currently running one to complete
@@ -383,24 +388,18 @@ def upload_zip(
 
                 else:
                     logging.warning("Exhausted retries attempting to perform bulk upload.")
-                    logging.error("Failed to upload to backend: %s", convert_unicode(be_err))
-                    return_code = 1
-                    return_archive_fname = ""
-                    break
+                    return 1, f"Failed to upload to Panther: {err}"
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
             except BaseException as err:  # pylint: disable=broad-except
-                logging.error("failed to upload to backend: %s", err)
-                return_code = 1
-                return_archive_fname = ""
-                break
+                return 1, f"Failed to upload to Panther: {err}"
 
     if return_code != 0:
-        return return_code, return_archive_fname
+        return return_code, ""
 
     return_code, _ = panthersdk_upload.run(backend=backend, args=args, indirect_invocation=True)
 
-    return return_code, return_archive_fname
+    return return_code, ""
 
 
 def parse_lookup_table(args: argparse.Namespace) -> dict:

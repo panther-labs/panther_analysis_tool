@@ -115,6 +115,59 @@ class BulkUploadIssue:
         return cls(path=data.get("path", ""), error_message=data.get("errorMessage", ""))
 
 
+class BackendMultipartError(ABC):
+    @abstractmethod
+    def has_error(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_error(self) -> Optional[str]:
+        pass
+
+    @abstractmethod
+    def has_issues(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_issues(self) -> List[BulkUploadIssue]:
+        pass
+
+
+@dataclass
+class BulkUploadMultipartError(BackendMultipartError):
+    error: Optional[str] = None
+    issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
+
+    @classmethod
+    def from_json(cls, data: Optional[Dict[str, Any]]) -> "BulkUploadMultipartError":
+        if not data:
+            return cls()
+
+        raw_issues = data.get("issues", []) or []
+        issues: List[BulkUploadIssue] = []
+        for issue in raw_issues:
+            issues.append(BulkUploadIssue.from_json(issue))  # type: ignore
+
+        err = data.get("error") or None
+
+        return cls(issues=issues, error=err)
+
+    def has_error(self) -> bool:
+        return self.error is not None and len(self.error) > 0
+
+    def get_error(self) -> Optional[str]:
+        return self.error
+
+    def has_issues(self) -> bool:
+        return self.issues is not None and len(self.issues) > 0
+
+    def get_issues(self) -> List[BulkUploadIssue]:
+        if not self.has_issues():
+            return []
+
+        return self.issues or []
+
+
 @dataclass(frozen=True)
 class BulkUploadValidateResult:
     issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
@@ -133,7 +186,7 @@ class BulkUploadValidateResult:
 
 
 @dataclass(frozen=True)
-class BulkUploadValidateStatusResponse:
+class BulkUploadValidateStatusResponse(BackendMultipartError):
     status: str
     error: Optional[str] = None
     result: Optional[BulkUploadValidateResult] = None
@@ -141,10 +194,13 @@ class BulkUploadValidateStatusResponse:
     def has_error(self) -> bool:
         return self.error is not None and len(self.error) > 0
 
+    def get_error(self) -> Optional[str]:
+        return self.error
+
     def has_issues(self) -> bool:
         return self.result is not None and len(self.result.issues) > 0
 
-    def issues(self) -> List[BulkUploadIssue]:
+    def get_issues(self) -> List[BulkUploadIssue]:
         if not self.has_issues():
             return []
 
