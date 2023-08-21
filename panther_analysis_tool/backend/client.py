@@ -136,7 +136,7 @@ class BackendMultipartError(ABC):
 
 @dataclass
 class BulkUploadMultipartError(BackendMultipartError):
-    error: Optional[str] = None
+    error: str
     issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
 
     @classmethod
@@ -149,21 +149,15 @@ class BulkUploadMultipartError(BackendMultipartError):
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "BulkUploadMultipartError":
         if not data:
-            return cls()
+            return cls(error="")
 
         raw_issues = data.get("issues", []) or []
         issues: List[BulkUploadIssue] = []
         for issue in raw_issues:
             issues.append(BulkUploadIssue.from_json(issue))  # type: ignore
 
-        err = data.get("error") or None
-        try:
-            # if the backend returns a graphqlerror, it has single quotes which json can't
-            # handle. So we need to use literal eval here and then check if it has the
-            # message field which an error would
-            err = ast.literal_eval(str(err)).get("message") or err
-        except ValueError:
-            pass
+        err = data.get("error") or ""
+        err = parse_graphql_error(err)
 
         return cls(issues=issues, error=err)
 
@@ -203,22 +197,15 @@ class BulkUploadValidateResult:
 @dataclass(frozen=True)
 class BulkUploadValidateStatusResponse(BackendMultipartError):
     status: str
-    error: Optional[str] = None
+    error: str
     result: Optional[BulkUploadValidateResult] = None
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> "BulkUploadValidateStatusResponse":
         result = BulkUploadValidateResult.from_json(data.get("result"))
         status = data.get("status") or ""
-        err = data.get("error", "") or None
-
-        try:
-            # if the backend returns a graphqlerror, it has single quotes which json can't
-            # handle. So we need to use literal eval here and then check if it has the
-            # message field which an error would
-            err = ast.literal_eval(str(err)).get("message") or err
-        except ValueError:
-            pass
+        err = data.get("error") or ""
+        err = parse_graphql_error(err)
 
         if status != "" and status not in ["NOT_PROCESSED", "FAILED", "COMPLETED"]:
             raise BackendError(f"unexpected status: {status}")
@@ -574,3 +561,18 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
 
 def parse_optional_time(time: Optional[str]) -> Optional[datetime.datetime]:
     return None if time is None else dateutil.parser.parse(time)
+
+
+def parse_graphql_error(err: str) -> str:
+    """
+    Attempt to take what might be a graphql error from the backend and turn it into a dict.
+    If it is not a graphql error or could not be turned into a dict, the original error is
+    returned.
+    """
+    try:
+        # if the backend returns a graphqlerror, it has single quotes which json can't
+        # handle. So we need to use literal eval here and then check if it has the
+        # message field which an error would
+        return ast.literal_eval(str(err)).get("message") or err
+    except BaseException:  # pylint: disable=broad-except
+        return err
