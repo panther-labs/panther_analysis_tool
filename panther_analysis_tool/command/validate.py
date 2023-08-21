@@ -5,7 +5,10 @@ import zipfile
 from typing import Tuple
 
 from panther_analysis_tool import cli_output
-from panther_analysis_tool.backend.client import BulkUploadParams
+from panther_analysis_tool.backend.client import (
+    BulkUploadParams,
+    BulkUploadValidateStatusResponse,
+)
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import UnsupportedEndpointError
 from panther_analysis_tool.zip_chunker import ZipArgs, analysis_chunks
@@ -34,8 +37,9 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
         return 1, cli_output.multipart_error_msg(result, "Validation failed")
     except UnsupportedEndpointError as err:
         logging.debug(err)
-        return 1, cli_output.warning("Your panther instance does not support this feature")
+        return 1, cli_output.warning("Your Panther instance does not support this feature")
 
     except BaseException as err:  # pylint: disable=broad-except
-        logging.error("Failed to upload to backend: %s", err)
-        return 1, ""
+        return 1, cli_output.multipart_error_msg(
+            BulkUploadValidateStatusResponse.from_json({"error": str(err)}), "Validation failed"
+        )

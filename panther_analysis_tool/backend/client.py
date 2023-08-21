@@ -16,9 +16,10 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
+import ast
 import base64
 import datetime
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, List, Optional, TypeVar
@@ -139,7 +140,14 @@ class BulkUploadMultipartError(BackendMultipartError):
     issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
 
     @classmethod
-    def from_json(cls, data: Optional[Dict[str, Any]]) -> "BulkUploadMultipartError":
+    def from_jsons(cls, data: str) -> "BulkUploadMultipartError":
+        try:
+            return BulkUploadMultipartError.from_dict(json.loads(data))
+        except json.decoder.JSONDecodeError:
+            return BulkUploadMultipartError.from_dict({"error": data})
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "BulkUploadMultipartError":
         if not data:
             return cls()
 
@@ -149,6 +157,13 @@ class BulkUploadMultipartError(BackendMultipartError):
             issues.append(BulkUploadIssue.from_json(issue))  # type: ignore
 
         err = data.get("error") or None
+        try:
+            # if the backend returns a graphqlerror, it has single quotes which json can't
+            # handle. So we need to use literal eval here and then check if it has the
+            # message field which an error would
+            err = ast.literal_eval(str(err)).get("message") or err
+        except ValueError:
+            pass
 
         return cls(issues=issues, error=err)
 
@@ -190,6 +205,25 @@ class BulkUploadValidateStatusResponse(BackendMultipartError):
     status: str
     error: Optional[str] = None
     result: Optional[BulkUploadValidateResult] = None
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "BulkUploadValidateStatusResponse":
+        result = BulkUploadValidateResult.from_json(data.get("result"))
+        status = data.get("status") or ""
+        err = data.get("error", "") or None
+
+        try:
+            # if the backend returns a graphqlerror, it has single quotes which json can't
+            # handle. So we need to use literal eval here and then check if it has the
+            # message field which an error would
+            err = ast.literal_eval(str(err)).get("message") or err
+        except ValueError:
+            pass
+
+        if status != "" and status not in ["NOT_PROCESSED", "FAILED", "COMPLETED"]:
+            raise BackendError(f"unexpected status: {status}")
+
+        return cls(result=result, status=status, error=err)
 
     def has_error(self) -> bool:
         return self.error is not None and len(self.error) > 0

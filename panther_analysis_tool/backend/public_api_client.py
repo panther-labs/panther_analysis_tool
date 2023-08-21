@@ -40,7 +40,6 @@ from .client import (
     BulkUploadParams,
     BulkUploadResponse,
     BulkUploadStatistics,
-    BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
     Client,
     DeleteDetectionsParams,
@@ -232,20 +231,7 @@ class PublicAPIClient(Client):
             params = {"input": receipt_id}  # type: ignore
             res = self._potentially_supported_execute(query, variable_values=params)  # type: ignore
             result = res.data.get("validateBulkUploadStatus", {})  # type: ignore
-            status = result.get("status", "")
-            error = result.get("error", "")
-
-            response = BulkUploadValidateStatusResponse(
-                error=error,
-                status=status,
-                result=BulkUploadValidateResult.from_json(result.get("result")),
-            )
-
-            if status in ["FAILED", "COMPLETED"]:
-                return response
-
-            if status not in ["NOT_PROCESSED"]:
-                raise BackendError(f"unexpected status: {status}")
+            return BulkUploadValidateStatusResponse.from_json(data=result)
 
     # This function was generated in whole or in part by GitHub Copilot.
     def transpile_simple_detection_to_python(

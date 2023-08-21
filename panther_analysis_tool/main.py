@@ -362,13 +362,11 @@ def upload_zip(
                     response = backend.bulk_upload(upload_params)
 
                 logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
-                # logging.info()
-
                 return 0, cli_output.success("Upload succeeded")
 
             except BackendError as be_err:
                 err = cli_output.multipart_error_msg(
-                    BulkUploadMultipartError.from_json(json.loads(convert_unicode(be_err))),
+                    BulkUploadMultipartError.from_jsons(convert_unicode(be_err)),
                     "Upload failed",
                 )
                 if be_err.permanent is True:
@@ -1124,7 +1122,12 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     specs, invalid_specs = classify_analysis(
         # unpack the nice dataclass into a tuple because we use Tuples too much everywhere
         [
-            (raw_item.spec_filename, raw_item.relative_path, raw_item.analysis_spec, raw_item.error)
+            (
+                raw_item.spec_filename,
+                raw_item.relative_path,
+                raw_item.analysis_spec,
+                raw_item.error,
+            )
             for raw_item in raw_analysis_items
         ],
         ignore_table_names=args.ignore_table_names,
