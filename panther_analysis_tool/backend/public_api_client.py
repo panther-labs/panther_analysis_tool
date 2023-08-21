@@ -231,7 +231,13 @@ class PublicAPIClient(Client):
             params = {"input": receipt_id}  # type: ignore
             res = self._potentially_supported_execute(query, variable_values=params)  # type: ignore
             result = res.data.get("validateBulkUploadStatus", {})  # type: ignore
-            return BulkUploadValidateStatusResponse.from_json(data=result)
+            status = result.get("status")
+
+            if status in ["FAILED", "COMPLETED"]:
+                return BulkUploadValidateStatusResponse.from_json(data=result)
+
+            if status not in ["NOT_PROCESSED"]:
+                raise BackendError(f"unexpected status: {status}")
 
     # This function was generated in whole or in part by GitHub Copilot.
     def transpile_simple_detection_to_python(

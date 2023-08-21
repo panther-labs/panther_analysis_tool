@@ -206,10 +206,6 @@ class BulkUploadValidateStatusResponse(BackendMultipartError):
         status = data.get("status") or ""
         err = data.get("error") or ""
         err = parse_graphql_error(err)
-
-        if status != "" and status not in ["NOT_PROCESSED", "FAILED", "COMPLETED"]:
-            raise BackendError(f"unexpected status: {status}")
-
         return cls(result=result, status=status, error=err)
 
     def has_error(self) -> bool:
