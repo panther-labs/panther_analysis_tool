@@ -42,7 +42,8 @@ def contains_invalid_table_names(
         except Exception:  # pylint: disable=broad-except
             # Intentionally broad exception catch:
             # We want to fall back on original behavior if this third-party parser cannot tell us the table names
-            logging.info("Failed to parse query for scheduled query %s", analysis_id)
+            logging.info("Failed to parse query %s. Skipping table name validation", analysis_id)
+            return []
         tables = nested_lookup("table_reference", parsed_query)
         aliases = [alias[0] for alias in nested_lookup("common_table_expression", parsed_query)]
         for table in tables:
@@ -72,7 +73,7 @@ def contains_invalid_table_names(
                     if not is_public_table and not is_snowflake_account_usage_table:
                         invalid_table_names.append(table_name)
     else:
-        logging.info("No query found for scheduled query %s", analysis_id)
+        logging.info("No query found for %s", analysis_id)
     return invalid_table_names
 
 

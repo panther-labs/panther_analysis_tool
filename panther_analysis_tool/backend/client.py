@@ -16,9 +16,10 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
+import ast
 import base64
 import datetime
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, List, Optional, TypeVar
@@ -115,6 +116,67 @@ class BulkUploadIssue:
         return cls(path=data.get("path", ""), error_message=data.get("errorMessage", ""))
 
 
+class BackendMultipartError(ABC):
+    @abstractmethod
+    def has_error(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_error(self) -> Optional[str]:
+        pass
+
+    @abstractmethod
+    def has_issues(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_issues(self) -> List[BulkUploadIssue]:
+        pass
+
+
+@dataclass
+class BulkUploadMultipartError(BackendMultipartError):
+    error: str
+    issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
+
+    @classmethod
+    def from_jsons(cls, data: str) -> "BulkUploadMultipartError":
+        try:
+            return BulkUploadMultipartError.from_dict(json.loads(data))
+        except json.decoder.JSONDecodeError:
+            return BulkUploadMultipartError.from_dict({"error": data})
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "BulkUploadMultipartError":
+        if not data:
+            return cls(error="")
+
+        raw_issues = data.get("issues", []) or []
+        issues: List[BulkUploadIssue] = []
+        for issue in raw_issues:
+            issues.append(BulkUploadIssue.from_json(issue))  # type: ignore
+
+        err = data.get("error") or ""
+        err = parse_graphql_error(err)
+
+        return cls(issues=issues, error=err)
+
+    def has_error(self) -> bool:
+        return self.error is not None and len(self.error) > 0
+
+    def get_error(self) -> Optional[str]:
+        return self.error
+
+    def has_issues(self) -> bool:
+        return self.issues is not None and len(self.issues) > 0
+
+    def get_issues(self) -> List[BulkUploadIssue]:
+        if not self.has_issues():
+            return []
+
+        return self.issues or []
+
+
 @dataclass(frozen=True)
 class BulkUploadValidateResult:
     issues: List[BulkUploadIssue] = field(default_factory=lambda: [])
@@ -133,18 +195,29 @@ class BulkUploadValidateResult:
 
 
 @dataclass(frozen=True)
-class BulkUploadValidateStatusResponse:
+class BulkUploadValidateStatusResponse(BackendMultipartError):
     status: str
-    error: Optional[str] = None
+    error: str
     result: Optional[BulkUploadValidateResult] = None
+
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> "BulkUploadValidateStatusResponse":
+        result = BulkUploadValidateResult.from_json(data.get("result"))
+        status = data.get("status") or ""
+        err = data.get("error") or ""
+        err = parse_graphql_error(err)
+        return cls(result=result, status=status, error=err)
 
     def has_error(self) -> bool:
         return self.error is not None and len(self.error) > 0
 
+    def get_error(self) -> Optional[str]:
+        return self.error
+
     def has_issues(self) -> bool:
         return self.result is not None and len(self.result.issues) > 0
 
-    def issues(self) -> List[BulkUploadIssue]:
+    def get_issues(self) -> List[BulkUploadIssue]:
         if not self.has_issues():
             return []
 
@@ -484,3 +557,18 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
 
 def parse_optional_time(time: Optional[str]) -> Optional[datetime.datetime]:
     return None if time is None else dateutil.parser.parse(time)
+
+
+def parse_graphql_error(err: str) -> str:
+    """
+    Attempt to take what might be a graphql error from the backend and turn it into a dict.
+    If it is not a graphql error or could not be turned into a dict, the original error is
+    returned.
+    """
+    try:
+        # if the backend returns a graphqlerror, it has single quotes which json can't
+        # handle. So we need to use literal eval here and then check if it has the
+        # message field which an error would
+        return ast.literal_eval(str(err)).get("message") or err
+    except BaseException:  # pylint: disable=broad-except
+        return err
