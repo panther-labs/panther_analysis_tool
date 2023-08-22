@@ -38,7 +38,6 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
-
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -373,7 +372,7 @@ def upload_zip(
                     return 1, f"Failed to upload to Panther: {err}"
 
                 if max_retries - retry_count > 0:
-                    logging.debug("Failed to upload to Panther: %s.", convert_unicode(err))
+                    logging.debug("Failed to upload to Panther: %s.", err)
                     retry_count += 1
 
                     # typical bulk upload takes 30 seconds, allow any currently running one to complete
