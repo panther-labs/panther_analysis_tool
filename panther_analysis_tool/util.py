@@ -122,7 +122,6 @@ def func_with_optional_backend(
 
 
 def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
-
     if args.api_token:
         return PublicAPIClient(
             PublicAPIClientOptions(
@@ -134,7 +133,6 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
 
 
 def get_backend(args: argparse.Namespace) -> BackendClient:
-
     if args.api_token:
         return PublicAPIClient(
             PublicAPIClientOptions(

@@ -1,6 +1,9 @@
 import unittest
 
-from panther_analysis_tool.validation import contains_invalid_table_names, matches_valid_table_name
+from panther_analysis_tool.validation import (
+    contains_invalid_table_names,
+    matches_valid_table_name,
+)
 
 
 class TestContainsInvalidTableNames(unittest.TestCase):
@@ -88,7 +91,13 @@ class TestMatchesValidTableName(unittest.TestCase):
                 self.name = name
                 self.should_match = should_match
 
-        valid_table_names = ["foo.bar.baz", "bar.baz.*", "foo.*bar.baz", "baz.*", "*.foo.*",]
+        valid_table_names = [
+            "foo.bar.baz",
+            "bar.baz.*",
+            "foo.*bar.baz",
+            "baz.*",
+            "*.foo.*",
+        ]
         test_table_names = [
             TestTableName("foo.bar.baz", True),
             TestTableName("foo.dar.baz", False),
@@ -107,5 +116,5 @@ class TestMatchesValidTableName(unittest.TestCase):
         for test_table_name in test_table_names:
             self.assertEqual(
                 matches_valid_table_name(test_table_name.name, valid_table_names),
-                test_table_name.should_match
+                test_table_name.should_match,
             )

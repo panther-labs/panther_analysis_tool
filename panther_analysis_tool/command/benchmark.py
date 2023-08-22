@@ -101,7 +101,7 @@ def run(  # pylint: disable=too-many-locals
     return 0, ""
 
 
-def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> (Union[ClassifiedAnalysis, str]):
+def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> Union[ClassifiedAnalysis, str]:
     if len(analyses) != 1:
         return (
             f"Only 1 detection must be specified for benchmarking, but {len(analyses)} were specified. The rule must"

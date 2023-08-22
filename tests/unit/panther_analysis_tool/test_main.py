@@ -26,7 +26,7 @@ from unittest import mock
 import jsonschema
 from nose.tools import assert_equal, assert_is_instance, assert_true
 from panther_core.data_model import _DATAMODEL_FOLDER
-from pyfakefs.fake_filesystem_unittest import TestCase, Pause
+from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
@@ -34,10 +34,10 @@ from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
     BackendError,
     BackendResponse,
-    TranspileToPythonResponse,
-    TranspileFiltersResponse,
-    BulkUploadValidateStatusResponse,
     BulkUploadValidateResult,
+    BulkUploadValidateStatusResponse,
+    TranspileFiltersResponse,
+    TranspileToPythonResponse,
     UnsupportedEndpointError,
 )
 from panther_analysis_tool.backend.mocks import MockBackend
