@@ -1,6 +1,7 @@
-import boto3
 from datetime import date
 from unittest.mock import MagicMock
+
+import boto3
 
 IGNORED_USERS = {}
 
@@ -10,6 +11,8 @@ def rule(event):
 
 
 def title(event):
-    return f"BOTO3: {isinstance(boto3, MagicMock)} - " \
-           f"BOTO3.CLIENT: {isinstance(boto3.client, MagicMock)} - " \
-           f"DATE: {isinstance(date, MagicMock)}"
+    return (
+        f"BOTO3: {isinstance(boto3, MagicMock)} - "
+        f"BOTO3.CLIENT: {isinstance(boto3.client, MagicMock)} - "
+        f"DATE: {isinstance(date, MagicMock)}"
+    )

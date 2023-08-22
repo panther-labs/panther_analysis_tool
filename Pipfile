@@ -5,8 +5,8 @@ verify_ssl = true
 
 [dev-packages]
 bandit = "==1.7.0"
-black = "==22.10.0"
-isort = "==5.8.0"
+black = "==23.7.0"
+isort = "==5.12.0"
 mypy = "==0.812"
 panther-core = "==0.5.0"
 pylint = "==2.7.2"
@@ -16,7 +16,7 @@ PyYAML = "==5.4.1"
 coverage = "==6.4.2"
 twine = "*"
 responses = "*"
-typed-ast = {version = "==1.4.3", markers = "python_version < '3.8' and implementation_name == 'cpython'"}
+typed-ast = { version = "==1.4.3", markers = "python_version < '3.8' and implementation_name == 'cpython'" }
 
 [packages]
 boto3 = "==1.21.42"
@@ -36,7 +36,7 @@ dynaconf = "==3.1.8"
 idna = "==3.3"
 jmespath = "==1.0.0"
 jsonschema = "4.17.3"
-packaging="==23.0"
+packaging = "==23.0"
 ply = "==3.11"
 policyuniverse = "==1.5.0.20220613"
 python-dateutil = "==2.8.2"

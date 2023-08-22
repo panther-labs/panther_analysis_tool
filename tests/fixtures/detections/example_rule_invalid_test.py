@@ -1,2 +1,2 @@
 def rule(event):
-    return event.udm('any_field')
+    return event.udm("any_field")

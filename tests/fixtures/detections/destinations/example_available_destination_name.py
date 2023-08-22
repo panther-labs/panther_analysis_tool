@@ -3,4 +3,4 @@ def rule(event):
 
 
 def destinations(event):
-    return ['Pagerduty']
+    return ["Pagerduty"]

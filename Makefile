@@ -35,8 +35,8 @@ venv: ## Install dependencies (including dev dependencies) using pipenv
 
 .PHONY: fmt
 fmt: ## Format panther_analysis_tool (black)
-	pipenv run isort --profile=black $(packages)
-	pipenv run black --line-length=100 $(packages)
+	pipenv run isort --profile=black .
+	pipenv run black --line-length=100 .
 
 .PHONY: install
 install: ## Install dependencies (including dev dependencies) using pipenv

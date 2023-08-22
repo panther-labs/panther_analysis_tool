@@ -6,19 +6,29 @@ from unittest import mock
 import dateutil.parser
 
 from panther_analysis_tool.analysis_utils import ClassifiedAnalysis
-from panther_analysis_tool.backend.client import BackendResponse, MetricsResponse, SeriesWithBreakdown
+from panther_analysis_tool.backend.client import (
+    BackendResponse,
+    MetricsResponse,
+    SeriesWithBreakdown,
+)
 from panther_analysis_tool.backend.mocks import MockBackend
-from panther_analysis_tool.command.benchmark import validate_rule_count, validate_log_type, validate_hour
+from panther_analysis_tool.command.benchmark import (
+    validate_hour,
+    validate_log_type,
+    validate_rule_count,
+)
 from panther_analysis_tool.constants import AnalysisTypes
 
 
 class TestBenchmark(unittest.TestCase):
     def test_validate_rule_count_happy_path(self) -> None:
-        analyses = [ClassifiedAnalysis(
-            file_name="fake_file.yml",
-            dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE}
-        )]
+        analyses = [
+            ClassifiedAnalysis(
+                file_name="fake_file.yml",
+                dir_name="fake_dir",
+                analysis_spec={"AnalysisType": AnalysisTypes.RULE},
+            )
+        ]
         ret = validate_rule_count(analyses)
         self.assertIsInstance(ret, ClassifiedAnalysis)
         self.assertEqual(analyses[0], ret)
@@ -34,12 +44,12 @@ class TestBenchmark(unittest.TestCase):
             ClassifiedAnalysis(
                 file_name="fake_file1.yml",
                 dir_name="fake_dir",
-                analysis_spec={"AnalysisType": AnalysisTypes.RULE}
+                analysis_spec={"AnalysisType": AnalysisTypes.RULE},
             ),
             ClassifiedAnalysis(
                 file_name="fake_file2.yml",
                 dir_name="fake_dir",
-                analysis_spec={"AnalysisType": AnalysisTypes.RULE}
+                analysis_spec={"AnalysisType": AnalysisTypes.RULE},
             ),
         ]
         ret = validate_rule_count(analyses)
@@ -47,11 +57,13 @@ class TestBenchmark(unittest.TestCase):
         self.assertIn("2", ret)
 
     def test_validate_rule_count_wrong_type(self) -> None:
-        analyses = [ClassifiedAnalysis(
-            file_name="fake_file.yml",
-            dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.POLICY}
-        )]
+        analyses = [
+            ClassifiedAnalysis(
+                file_name="fake_file.yml",
+                dir_name="fake_dir",
+                analysis_spec={"AnalysisType": AnalysisTypes.POLICY},
+            )
+        ]
         ret = validate_rule_count(analyses)
         self.assertIsInstance(ret, str)
         self.assertIn(AnalysisTypes.POLICY, ret)
@@ -62,7 +74,7 @@ class TestBenchmark(unittest.TestCase):
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type]}
+            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type]},
         )
         log_type_ret, err = validate_log_type(args, rule)
         self.assertEqual(log_type, log_type_ret)
@@ -74,7 +86,10 @@ class TestBenchmark(unittest.TestCase):
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type, "other.log.type"]}
+            analysis_spec={
+                "AnalysisType": AnalysisTypes.RULE,
+                "LogTypes": [log_type, "other.log.type"],
+            },
         )
         log_type_ret, err = validate_log_type(args, rule)
         self.assertEqual(log_type, log_type_ret)
@@ -86,7 +101,7 @@ class TestBenchmark(unittest.TestCase):
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type]}
+            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type]},
         )
         log_type_ret, err = validate_log_type(args, rule)
         self.assertEqual(log_type, log_type_ret)
@@ -98,7 +113,10 @@ class TestBenchmark(unittest.TestCase):
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type, "other.log.type"]}
+            analysis_spec={
+                "AnalysisType": AnalysisTypes.RULE,
+                "LogTypes": [log_type, "other.log.type"],
+            },
         )
         log_type_ret, err = validate_log_type(args, rule)
         self.assertIsNotNone(err)
@@ -110,7 +128,7 @@ class TestBenchmark(unittest.TestCase):
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": ["other.log.type"]}
+            analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": ["other.log.type"]},
         )
         log_type_ret, err = validate_log_type(args, rule)
         self.assertIsNotNone(err)
@@ -121,50 +139,58 @@ class TestBenchmark(unittest.TestCase):
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
-            analysis_spec={"AnalysisType": AnalysisTypes.RULE}
+            analysis_spec={"AnalysisType": AnalysisTypes.RULE},
         )
         log_type_ret, err = validate_log_type(args, rule)
         self.assertIsNotNone(err)
 
     def test_validate_hour_happy_path_provided(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={hour.isoformat(): 100},
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={hour.isoformat(): 100}, label=log_type, value=150
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, datetime.datetime)
         self.assertEqual(hour, ret)
 
     def test_validate_hour_happy_path_default(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={
-                            hour.isoformat(): 100,
-                            (hour + datetime.timedelta(hours=1)).isoformat(): 50
-                        },
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={
+                                hour.isoformat(): 100,
+                                (hour + datetime.timedelta(hours=1)).isoformat(): 50,
+                            },
+                            label=log_type,
+                            value=150,
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, datetime.datetime)
         self.assertEqual(hour, ret)
@@ -175,184 +201,212 @@ class TestBenchmark(unittest.TestCase):
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={truncated_hour.isoformat(): 100},
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={truncated_hour.isoformat(): 100}, label=log_type, value=150
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, datetime.datetime)
         self.assertEqual(truncated_hour, ret)
 
     def test_validate_hour_provided_missing_log_type(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={hour.isoformat(): 100},
-                        label=log_type+"1",
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={hour.isoformat(): 100}, label=log_type + "1", value=150
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
     def test_validate_hour_default_missing_log_type(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={
-                            hour.isoformat(): 100,
-                            (hour + datetime.timedelta(hours=1)).isoformat(): 50
-                        },
-                        label=log_type+"1",
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={
+                                hour.isoformat(): 100,
+                                (hour + datetime.timedelta(hours=1)).isoformat(): 50,
+                            },
+                            label=log_type + "1",
+                            value=150,
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
     def test_validate_hour_provided_too_old(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(weeks=3)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(weeks=3)
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={hour.isoformat(): 100},
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={hour.isoformat(): 100}, label=log_type, value=150
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(hour.isoformat(), ret)
 
     def test_validate_hour_provided_empty_series(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown=dict(),
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(breakdown=dict(), label=log_type, value=150)
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
     def test_validate_hour_default_empty_series(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown=dict(),
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(breakdown=dict(), label=log_type, value=150)
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
     def test_validate_hour_provided_zeroed_series(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={hour.isoformat(): 0},
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={hour.isoformat(): 0}, label=log_type, value=150
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
     def test_validate_hour_default_zeroed_series(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={
-                            hour.isoformat(): 0,
-                            (hour + datetime.timedelta(hours=1)).isoformat(): 0
-                        },
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={
+                                hour.isoformat(): 0,
+                                (hour + datetime.timedelta(hours=1)).isoformat(): 0,
+                            },
+                            label=log_type,
+                            value=150,
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
     def test_validate_hour_provided_too_many_stats(self) -> None:
-        hour = datetime.datetime.now().astimezone().replace(minute=0, second=0, microsecond=0) \
-               - datetime.timedelta(days=2)
+        hour = datetime.datetime.now().astimezone().replace(
+            minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
         args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
-        backend.get_metrics = mock.MagicMock(return_value=BackendResponse(
+        backend.get_metrics = mock.MagicMock(
+            return_value=BackendResponse(
                 data=MetricsResponse(
-                    bytes_processed_per_source=[SeriesWithBreakdown(
-                        breakdown={
-                            hour.isoformat(): 100,
-                            (hour + datetime.timedelta(hours=1)).isoformat(): 50
-                        },
-                        label=log_type,
-                        value=150
-                    )]
+                    bytes_processed_per_source=[
+                        SeriesWithBreakdown(
+                            breakdown={
+                                hour.isoformat(): 100,
+                                (hour + datetime.timedelta(hours=1)).isoformat(): 50,
+                            },
+                            label=log_type,
+                            value=150,
+                        )
+                    ]
                 ),
                 status_code=200,
-            ))
+            )
+        )
         ret = validate_hour(args, log_type, backend)
         self.assertIsInstance(ret, str)

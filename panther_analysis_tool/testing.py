@@ -195,7 +195,6 @@ class TestCaseEvaluator:
         # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
         if self._spec.expectations.detection == self._get_detection_alert_value():
-
             function_results.update(
                 dict(
                     titleFunction=FunctionTestResult.new(

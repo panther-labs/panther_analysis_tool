@@ -210,7 +210,6 @@ class EnrichedEventGenerator:
                 elif "Resource" in test:
                     event_enrichment_result = self._handle_policy_test(analysis_id, test)
                 else:
-
                     logging.warning(
                         "Skipping test case '%s' for %s, no event data found",
                         test["Name"],
