@@ -1,14 +1,19 @@
 import unittest
-
 from unittest import mock
 
+from panther_analysis_tool.backend.client import (
+    BackendResponse,
+    DeleteDetectionsResponse,
+    DeleteSavedQueriesResponse,
+)
 from panther_analysis_tool.backend.mocks import MockBackend
-from panther_analysis_tool.backend.client import BackendResponse, DeleteDetectionsResponse, DeleteSavedQueriesResponse
-from panther_analysis_tool.command.bulk_delete import _delete_detections_dry_run, _delete_queries_dry_run
+from panther_analysis_tool.command.bulk_delete import (
+    _delete_detections_dry_run,
+    _delete_queries_dry_run,
+)
 
 
 class TestBulkDelete(unittest.TestCase):
-
     def test_delete_detections_dry_run(self) -> None:
         mock_ids = ["1", "2", "3"]
         backend = MockBackend()
@@ -36,5 +41,3 @@ class TestBulkDelete(unittest.TestCase):
         code, msg = _delete_queries_dry_run(backend, mock_names)
         self.assertEqual(code, 0)
         self.assertEqual(msg, "")
-
-

@@ -19,18 +19,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # This file was generated in whole or in part by GitHub Copilot.
 
 import json
-from unittest import mock, TestCase
+from unittest import TestCase, mock
 
-from panther_analysis_tool.analysis_utils import get_simple_detections_as_python, ClassifiedAnalysis, \
-    transpile_inline_filters, ClassifiedAnalysisContainer
-from panther_analysis_tool.backend.client import BackendResponse, BackendError, TranspileToPythonResponse, \
-    TranspileFiltersResponse
+from panther_analysis_tool.analysis_utils import (
+    ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
+    get_simple_detections_as_python,
+    transpile_inline_filters,
+)
+from panther_analysis_tool.backend.client import (
+    BackendError,
+    BackendResponse,
+    TranspileFiltersResponse,
+    TranspileToPythonResponse,
+)
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.constants import BACKEND_FILTERS_ANALYSIS_SPEC_KEY
 
 
 class TestGetSimpleDetectionsAsPython(TestCase):
-
     def get_specs_for_test(self):
         specs = []
         for i in range(10):
@@ -43,13 +50,13 @@ class TestGetSimpleDetectionsAsPython(TestCase):
                             {
                                 "Key": "event_type",
                                 "Condition": "Equals",
-                                "Value": f"team_privacy_settings_changed-{i}"
+                                "Value": f"team_privacy_settings_changed-{i}",
                             },
                             {
                                 "DeepKey": ["details", "new_value"],
                                 "Condition": "Equals",
-                                "Value": f"public-{i}"
-                            }
+                                "Value": f"public-{i}",
+                            },
                         ]
                     },
                 )
@@ -105,16 +112,16 @@ class TestTranspileInlineFilters(TestCase):
                             {
                                 "PathSpecifier": "event_type",
                                 "Condition": "Equals",
-                                "Value": "team_privacy_settings_changed"
+                                "Value": "team_privacy_settings_changed",
                             }
                         ],
                         "Detection": [
                             {
                                 "Key": "event_type",
                                 "Condition": "Equals",
-                                "Value": "team_privacy_settings_changed"
+                                "Value": "team_privacy_settings_changed",
                             },
-                        ]
+                        ],
                     },
                 )
             )
@@ -127,7 +134,7 @@ class TestTranspileInlineFilters(TestCase):
                             {
                                 "Key": "event_type",
                                 "Condition": "Equals",
-                                "Value": "team_privacy_settings_changed"
+                                "Value": "team_privacy_settings_changed",
                             },
                         ]
                     },
@@ -142,10 +149,10 @@ class TestTranspileInlineFilters(TestCase):
                             {
                                 "PathSpecifier": "event_type",
                                 "Condition": "Equals",
-                                "Value": "team_privacy_settings_changed"
+                                "Value": "team_privacy_settings_changed",
                             }
                         ],
-                        "Filename": "python.py"
+                        "Filename": "python.py",
                     },
                 )
             )
@@ -153,21 +160,21 @@ class TestTranspileInlineFilters(TestCase):
                 ClassifiedAnalysis(
                     f"filname-{i}",
                     f"filepath-{i}",
-                    {
-                        "Filename": "python.py"
-                    },
+                    {"Filename": "python.py"},
                 )
             )
         return specs
 
     def get_transpiled_filter(self) -> str:
-        return json.dumps({
-            "statement": {
-                "target": "event_type",
-                "operator": "Equals",
-                "value": "team_privacy_settings_changed"
+        return json.dumps(
+            {
+                "statement": {
+                    "target": "event_type",
+                    "operator": "Equals",
+                    "value": "team_privacy_settings_changed",
+                }
             }
-        })
+        )
 
     def test_happy_path(self) -> None:
         specs = self.get_specs_for_test()
@@ -177,7 +184,8 @@ class TestTranspileInlineFilters(TestCase):
             return_value=BackendResponse(
                 data=TranspileFiltersResponse(
                     transpiled_filters=[
-                        filters for d in specs.detections + specs.simple_detections
+                        filters
+                        for d in specs.detections + specs.simple_detections
                         if "InlineFilters" in d.analysis_spec
                     ],
                 ),
@@ -188,31 +196,35 @@ class TestTranspileInlineFilters(TestCase):
 
         for actual in specs.detections + specs.simple_detections:
             if "InlineFilters" in actual.analysis_spec:
-                self.assertEqual(json.loads(filters), actual.analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY))
+                self.assertEqual(
+                    json.loads(filters), actual.analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY)
+                )
             else:
                 self.assertEqual(None, actual.analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY))
 
     def test_no_filters(self) -> None:
         import logging
+
         specs = ClassifiedAnalysisContainer()
         backend = MockBackend()
         specs.simple_detections = [
-            ClassifiedAnalysis("filname", "filepath", {
-                "Detection": [
-                    {
-                        "Key": "event_type",
-                        "Condition": "Equals",
-                        "Value": "team_privacy_settings_changed"
-                    },
-                ]
-            })
+            ClassifiedAnalysis(
+                "filname",
+                "filepath",
+                {
+                    "Detection": [
+                        {
+                            "Key": "event_type",
+                            "Condition": "Equals",
+                            "Value": "team_privacy_settings_changed",
+                        },
+                    ]
+                },
+            )
         ]
-        specs.detections = [
-            ClassifiedAnalysis("filname", "filepath", {
-                "Filename": "python.py"
-            })
-        ]
-        with mock.patch.multiple(logging, debug=mock.DEFAULT, warning=mock.DEFAULT,
-                                 info=mock.DEFAULT) as logging_mocks:
+        specs.detections = [ClassifiedAnalysis("filname", "filepath", {"Filename": "python.py"})]
+        with mock.patch.multiple(
+            logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
+        ) as logging_mocks:
             transpile_inline_filters(specs, backend)
-            self.assertEqual(logging_mocks['warning'].call_count, 0)
+            self.assertEqual(logging_mocks["warning"].call_count, 0)

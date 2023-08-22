@@ -1,5 +1,6 @@
-import boto3
 from datetime import date
+
+import boto3
 
 IGNORED_USERS = {}
 
