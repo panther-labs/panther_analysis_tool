@@ -43,7 +43,7 @@ setup(
     url="https://github.com/panther-labs/panther_analysis_tool",
     download_url=f"https://github.com/panther-labs/panther_analysis_tool/archive/v{PAT_VERSION}.tar.gz",
     keywords=["Security", "CLI"],
-    scripts=["bin/panther_analysis_tool"],
+    scripts=["bin/panther_analysis_tool", "bin/pat"],
     install_requires=install_requires,
     classifiers=[
         "Development Status :: 4 - Beta",
