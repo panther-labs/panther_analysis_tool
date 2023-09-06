@@ -45,7 +45,7 @@ pipenv run -- pip3 install -e .
 $ panther_analysis_tool -h
 
 
-usage: panther_analysis_tool [-h] [--version] [--debug] {release,test,upload,delete,test-lookup-table,zip} ...
+usage: panther_analysis_tool [-h] [--version] [--debug] {release,test,upload,delete,test-lookup-table,zip, obfuscate, deobfuscate} ...
 
 Panther Analysis Tool: A command line tool for managing Panther policies and rules.
 
@@ -58,6 +58,8 @@ positional arguments:
     test-lookup-table   Validate a Lookup Table spec file.
     validate            Validate your bulk uploads against your panther instance
     zip                 Create an archive of local policies and rules for uploading to Panther.
+    obfuscate           Obfuscate a file
+    deobfuscate         Deobfuscate a file
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -125,6 +127,17 @@ AWS.CloudTrail.MFAEnabled
   "totalRules": 1
 }
 ```
+
+## Obfuscate/Deobfuscate Files
+
+```bash
+$  panther_analysis_tool obfuscate okta_user_account_locked.yml
+Obfuscation completed successfully.
+
+$  panther_analysis_tool deobfuscate okta_user_account_locked.yml
+Deobfuscation completed successfully.
+```
+
 ## Filtering
 
 The `test`, `zip`, and `upload` commands all support filtering. Filtering works by passing the `--filter` argument with a list of filters specified in the format `KEY=VALUE1,VALUE2`. The keys can be any valid field in a policy or rule. When using a filter, only anaylsis that matches each filter specified will be considered. For example, the following command will test only items with the AnalysisType of policy AND the severity of High:
