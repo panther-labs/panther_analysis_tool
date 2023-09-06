@@ -104,6 +104,7 @@ from panther_analysis_tool.command import (
     panthersdk_upload,
     standard_args,
     validate,
+    obfuscate,
 )
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
@@ -1919,6 +1920,20 @@ def setup_parser() -> argparse.ArgumentParser:
     enrich_test_data_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
+
+
+    # -- obfuscate/deobfuscate commands
+    # -- obfuscate command
+    obfuscate_parser = subparsers.add_parser('obfuscate', help='Obfuscate the Tests key in a YAML file')
+    obfuscate_parser.add_argument('file', help='Path to the YAML file')
+    obfuscate_parser.add_argument('--key', default='ATBABERS', help='Custom alphanumeric key for obfuscation')
+    obfuscate_parser.set_defaults(func=obfuscate.obfuscate_data)
+
+    # -- deobfuscate command
+    deobfuscate_parser = subparsers.add_parser('deobfuscate', help='Deobfuscate the Tests key in a YAML file')
+    deobfuscate_parser.add_argument('file', help='Path to the YAML file')
+    deobfuscate_parser.add_argument('--key', default='ATBABERS', help='Custom alphanumeric key for obfuscation')
+    deobfuscate_parser.set_defaults(func=obfuscate.deobfuscate_data)
 
     return parser
 
