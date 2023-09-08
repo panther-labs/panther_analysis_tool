@@ -172,7 +172,9 @@ class TestCaseEvaluator:
             return Policy.matcher_alert_value
         return Rule.matcher_alert_value
 
-    def interpret(self, ignore_exception_types: List[Type[Exception]] = None) -> TestResult:
+    def interpret(
+        self, ignore_exception_types: Optional[List[Type[Exception]]] = None
+    ) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""
@@ -182,13 +184,13 @@ class TestCaseEvaluator:
         if ignore_exception_types:
             self._detection_result.ignore_errors(ignore_exception_types)
 
-        function_results = dict(
-            detectionFunction=FunctionTestResult.new(
+        function_results = {
+            "detectionFunction": FunctionTestResult.new(
                 self._spec.expectations.detection == self._detection_result.detection_output,
                 self._detection_result.detection_output,
                 self._detection_result.detection_exception,
             )
-        )
+        }
 
         # We don't include output from other functions
         # unless the test was expected to match and trigger an alert.
@@ -196,48 +198,46 @@ class TestCaseEvaluator:
         # on possible additional failures.
         if self._spec.expectations.detection == self._get_detection_alert_value():
             function_results.update(
-                dict(
-                    titleFunction=FunctionTestResult.new(
-                        self._detection_result.title_exception is None,
-                        self._detection_result.title_output,
-                        self._detection_result.title_exception,
-                    ),
-                    descriptionFunction=FunctionTestResult.new(
-                        self._detection_result.description_exception is None,
-                        self._detection_result.description_output,
-                        self._detection_result.description_exception,
-                    ),
-                    referenceFunction=FunctionTestResult.new(
-                        self._detection_result.reference_exception is None,
-                        self._detection_result.reference_output,
-                        self._detection_result.reference_exception,
-                    ),
-                    severityFunction=FunctionTestResult.new(
-                        self._detection_result.severity_exception is None,
-                        self._detection_result.severity_output,
-                        self._detection_result.severity_exception,
-                    ),
-                    runbookFunction=FunctionTestResult.new(
-                        self._detection_result.runbook_exception is None,
-                        self._detection_result.runbook_output,
-                        self._detection_result.runbook_exception,
-                    ),
-                    destinationsFunction=FunctionTestResult.new(
-                        self._detection_result.destinations_exception is None,
-                        self._detection_result.destinations_output,
-                        self._detection_result.destinations_exception,
-                    ),
-                    dedupFunction=FunctionTestResult.new(
-                        self._detection_result.dedup_exception is None,
-                        self._detection_result.dedup_output,
-                        self._detection_result.dedup_exception,
-                    ),
-                    alertContextFunction=FunctionTestResult.new(
-                        self._detection_result.alert_context_exception is None,
-                        self._detection_result.alert_context_output,
-                        self._detection_result.alert_context_exception,
-                    ),
-                )
+                titleFunction=FunctionTestResult.new(
+                    self._detection_result.title_exception is None,
+                    self._detection_result.title_output,
+                    self._detection_result.title_exception,
+                ),
+                descriptionFunction=FunctionTestResult.new(
+                    self._detection_result.description_exception is None,
+                    self._detection_result.description_output,
+                    self._detection_result.description_exception,
+                ),
+                referenceFunction=FunctionTestResult.new(
+                    self._detection_result.reference_exception is None,
+                    self._detection_result.reference_output,
+                    self._detection_result.reference_exception,
+                ),
+                severityFunction=FunctionTestResult.new(
+                    self._detection_result.severity_exception is None,
+                    self._detection_result.severity_output,
+                    self._detection_result.severity_exception,
+                ),
+                runbookFunction=FunctionTestResult.new(
+                    self._detection_result.runbook_exception is None,
+                    self._detection_result.runbook_output,
+                    self._detection_result.runbook_exception,
+                ),
+                destinationsFunction=FunctionTestResult.new(
+                    self._detection_result.destinations_exception is None,
+                    self._detection_result.destinations_output,
+                    self._detection_result.destinations_exception,
+                ),
+                dedupFunction=FunctionTestResult.new(
+                    self._detection_result.dedup_exception is None,
+                    self._detection_result.dedup_output,
+                    self._detection_result.dedup_exception,
+                ),
+                alertContextFunction=FunctionTestResult.new(
+                    self._detection_result.alert_context_exception is None,
+                    self._detection_result.alert_context_output,
+                    self._detection_result.alert_context_exception,
+                ),
             )
 
         generic_error, generic_error_title = self._get_generic_error_details()

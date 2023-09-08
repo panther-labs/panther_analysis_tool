@@ -59,7 +59,7 @@ def id_to_path(directory: str, object_id: str) -> str:
 
 def get_latest_version() -> str:
     try:
-        response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json")
+        response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json", timeout=10)
         if response.status_code == 200:
             return response.json().get("info", {}).get("version", UNKNOWN_VERSION)
     except Exception:  # pylint: disable=broad-except
@@ -84,7 +84,7 @@ def import_file_as_module(path: str, object_id: str) -> Any:
     """
 
     spec = import_util.spec_from_file_location(object_id, path)
-    mod = import_util.module_from_spec(spec)
+    mod = import_util.module_from_spec(spec)  # type: ignore
     spec.loader.exec_module(mod)  # type: ignore
     return mod
 
@@ -93,7 +93,7 @@ def store_modules(path: str, body: str) -> None:
     """Stores modules to disk."""
     # Create dir if it doesn't exist
     Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as py_file:
+    with open(path, "w", encoding="utf-8") as py_file:
         py_file.write(body)
 
 
@@ -176,7 +176,7 @@ def convert_keys_to_lowercase(mapping: Dict[str, Any]) -> Dict[str, Any]:
     return {k.lower(): v for k, v in mapping.items()}
 
 
-def deep_get(obj: Dict, path: List[str], default: Any = None) -> Any:
+def deep_get(obj: Dict, path: List[str], default: Optional[Any] = None) -> Any:
     result = reduce(lambda val, key: val.get(key) if val else None, path, obj)  # type: ignore
     return result if result is not None else default
 

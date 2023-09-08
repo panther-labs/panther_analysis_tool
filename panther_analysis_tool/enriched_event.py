@@ -82,10 +82,9 @@ class PantherEvent(ImmutableCaseInsensitiveDict):  # pylint: disable=R0901
             return None
         if len(matches) == 1:
             return matches[0]
+        # pylint: disable=broad-exception-raised
         raise Exception(
-            "JSONPath [{}] in DataModel [{}], matched multiple fields.".format(
-                json_path, self.data_model.data_model_id
-            )
+            f"JSONPath [{json_path}] in DataModel [{self.data_model.data_model_id}], matched multiple fields."
         )
 
     def _get_method(self, key: str) -> Any:

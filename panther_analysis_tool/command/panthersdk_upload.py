@@ -42,7 +42,7 @@ def run(
         logging.error(err_message)
         return 1, ""
 
-    with open(panther_sdk_cache_path) as sdk_cache_file:
+    with open(panther_sdk_cache_path, encoding="utf-8") as sdk_cache_file:
         try:
             result = backend.panthersdk_bulk_upload(
                 params=PantherSDKBulkUploadParams(content=sdk_cache_file.read())
