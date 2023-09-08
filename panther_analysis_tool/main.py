@@ -1926,12 +1926,14 @@ def setup_parser() -> argparse.ArgumentParser:
     # -- obfuscate command
     obfuscate_parser = subparsers.add_parser('obfuscate', help='Obfuscate the Tests key in a YAML file')
     obfuscate_parser.add_argument('file', help='Path to the YAML file')
+    obfuscate_parser.add_argument('-p', '--patterns', help='Path to the patterns JSON file')
     obfuscate_parser.add_argument('--key', default='ATBABERS', help='Custom alphanumeric key for obfuscation')
     obfuscate_parser.set_defaults(func=obfuscate.obfuscate_data)
 
     # -- deobfuscate command
     deobfuscate_parser = subparsers.add_parser('deobfuscate', help='Deobfuscate the Tests key in a YAML file')
     deobfuscate_parser.add_argument('file', help='Path to the YAML file')
+    deobfuscate_parser.add_argument('-p', '--patterns', help='Path to the patterns JSON file')
     deobfuscate_parser.add_argument('--key', default='ATBABERS', help='Custom alphanumeric key for obfuscation')
     deobfuscate_parser.set_defaults(func=obfuscate.deobfuscate_data)
 
