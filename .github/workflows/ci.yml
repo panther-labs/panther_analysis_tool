@@ -21,5 +21,4 @@ jobs:
       - name: Install Panther CLI
         run: pipenv run -- pip3 install -e .
       - name: Run CLI Tests
-        run: |
-          make ci
+        run: make ci
