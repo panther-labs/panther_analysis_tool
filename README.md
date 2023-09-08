@@ -136,6 +136,12 @@ Obfuscation completed successfully.
 
 $  panther_analysis_tool deobfuscate okta_user_account_locked.yml
 Deobfuscation completed successfully.
+
+$ panther_analysis_tool obfuscate okta_user_account_locked.yml --key My_SecRETK3Y
+Obfuscation completed successfully.
+
+$ panther_analysis_tool obfuscate okta_user_account_locked.yml --patterns ./patterns/default_patterns.json
+Debfuscation completed successfully.
 ```
 
 ## Filtering
