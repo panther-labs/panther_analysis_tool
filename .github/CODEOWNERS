@@ -3,5 +3,3 @@
 
 # These owners will be the default owners for everything in the repo.
 * @panther-labs/detections
-
-VERSION @panther-labs/security
