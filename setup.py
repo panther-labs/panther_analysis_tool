@@ -3,6 +3,8 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
 PAT_VERSION = (this_directory / "VERSION").read_text().strip()
 
 install_requires = [
@@ -38,6 +40,8 @@ setup(
     packages=find_packages(),
     license="AGPL-3.0",
     description="Panther command line interface for writing, testing, and packaging policies/rules.",
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author="Panther Labs Inc",
     author_email="pypi@runpanther.io",
     url="https://github.com/panther-labs/panther_analysis_tool",
