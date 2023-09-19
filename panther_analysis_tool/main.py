@@ -783,7 +783,6 @@ def test_analysis(
     )
 
     #  if the classic format was invalid, just exit
-    #  otherwise, run sdk too
     if invalid_specs:
         return 1, invalid_specs
 

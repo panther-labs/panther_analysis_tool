@@ -123,14 +123,6 @@ class TestPantherAnalysisTool(TestCase):
                 loaded_spec != "example_ignored.yml" and loaded_spec != "example_ignored_multi.yml"
             )
 
-    def test_sdk_file_is_read_and_overrides_cli(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
-            [DETECTIONS_FIXTURES_PATH], ignore_files=[]
-        ):
-            assert_true(
-                loaded_spec != "example_ignored.yml" and loaded_spec != "example_ignored_multi.yml"
-            )
-
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
