@@ -31,6 +31,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
+from ..constants import VERSION_STRING, ReplayStatus
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -64,7 +65,6 @@ from .client import (
     to_bulk_upload_response,
 )
 from .errors import is_retryable_error, is_retryable_error_str
-from ..constants import VERSION_STRING, ReplayStatus
 
 
 @dataclass(frozen=True)
