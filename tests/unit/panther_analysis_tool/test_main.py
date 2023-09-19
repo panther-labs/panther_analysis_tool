@@ -481,7 +481,7 @@ class TestPantherAnalysisTool(TestCase):
             ) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(logging_mocks["debug"].call_count, 21)
+                assert_equal(logging_mocks["debug"].call_count, 20)
                 assert_equal(logging_mocks["warning"].call_count, 1)
                 # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
                 # which can be removed by pausing the fake file system
@@ -498,7 +498,7 @@ class TestPantherAnalysisTool(TestCase):
             ) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(logging_mocks["debug"].call_count, 1)
+                assert_equal(logging_mocks["debug"].call_count, 0)
                 assert_equal(logging_mocks["warning"].call_count, 2)
                 assert_equal(logging_mocks["info"].call_count, 5)
                 assert_equal(time_mock.call_count, 0)
@@ -513,7 +513,7 @@ class TestPantherAnalysisTool(TestCase):
             ) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
-                assert_equal(logging_mocks["debug"].call_count, 21)
+                assert_equal(logging_mocks["debug"].call_count, 20)
                 # warning about max and final error
                 assert_equal(logging_mocks["warning"].call_count, 2)
                 assert_equal(logging_mocks["info"].call_count, 5)

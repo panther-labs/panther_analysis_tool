@@ -38,7 +38,6 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
-
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -100,8 +99,6 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
-    panthersdk_test,
-    panthersdk_upload,
     standard_args,
     validate,
 )
@@ -790,8 +787,7 @@ def test_analysis(
     if invalid_specs:
         return 1, invalid_specs
 
-    code, invalids = panthersdk_test.run(args, indirect_invocation=True)
-    return int(bool(failed_tests) or bool(code)), invalid_specs + invalids
+    return int(bool(failed_tests)), invalid_specs
 
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
@@ -1827,41 +1823,6 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.for_public_api(check_conn_parser, required=False)
 
     check_conn_parser.set_defaults(func=pat_utils.func_with_backend(check_connection.run))
-
-    # -- sdk command
-
-    sdk_help_text = (
-        "Perform operations using the Panther SDK exclusively (pass sdk --help for more)"
-    )
-    panthersdk_parser = subparsers.add_parser(
-        "sdk",
-        help=sdk_help_text,
-        description=sdk_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    standard_args.for_public_api(panthersdk_parser, required=False)
-    standard_args.using_aws_profile(panthersdk_parser)
-    panthersdk_subparsers = panthersdk_parser.add_subparsers()
-
-    sdk_upload_help_text = "Upload policies and rules generated from your Panther content"
-    panthersdk_upload_parser = panthersdk_subparsers.add_parser(
-        "upload",
-        help=sdk_upload_help_text,
-        description=sdk_upload_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    panthersdk_upload_parser.set_defaults(func=pat_utils.func_with_backend(panthersdk_upload.run))
-
-    sdk_test_help_text = "Validate analysis specifications and run policy and rule tests."
-    panthersdk_test_parser = panthersdk_subparsers.add_parser(
-        "test",
-        help=sdk_test_help_text,
-        description=sdk_test_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    panthersdk_test_parser.add_argument(min_test_name, **min_test_arg)
-    panthersdk_test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    panthersdk_test_parser.set_defaults(func=panthersdk_test.run)
 
     # -- benchmark command
     benchmark_help_text = (

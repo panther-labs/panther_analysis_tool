@@ -16,7 +16,6 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-import base64
 import json
 import logging
 import os
@@ -32,7 +31,6 @@ from .client import (
     BackendResponse,
     BulkUploadParams,
     BulkUploadResponse,
-    BulkUploadStatistics,
     BulkUploadValidateStatusResponse,
     Client,
     DeleteDetectionsParams,
@@ -45,8 +43,6 @@ from .client import (
     ListSchemasResponse,
     MetricsParams,
     MetricsResponse,
-    PantherSDKBulkUploadParams,
-    PantherSDKBulkUploadResponse,
     PerfTestParams,
     PermanentBackendError,
     ReplayResponse,
@@ -273,45 +269,6 @@ class LambdaClient(Client):
                     updated_at=schema.get("updatedAt", ""),
                     field_discovery_enabled=schema.get("fieldDiscoveryEnabled", False),
                 )
-            ),
-        )
-
-    def panthersdk_bulk_upload(
-        self, params: PantherSDKBulkUploadParams
-    ) -> BackendResponse[PantherSDKBulkUploadResponse]:
-        resp = self._parse_response(
-            self._lambda_client.invoke(
-                FunctionName="panther-analysis-api",
-                InvocationType="RequestResponse",
-                LogType="None",
-                Payload=self._serialize_request(
-                    {
-                        "sdkUpload": {
-                            "data": base64.b64encode(params.content.encode("utf-8")).decode(
-                                "utf-8"
-                            ),
-                            "userId": self._user_id,
-                        },
-                    }
-                ),
-            )
-        )
-
-        if backend_response_failed(resp):
-            err = BackendError(resp.data)
-            err.permanent = True
-            raise err
-
-        body = decode_body(resp)
-        default_stats = dict(total=0, new=0, modified=0)
-
-        return BackendResponse(
-            status_code=resp.status_code,
-            data=PantherSDKBulkUploadResponse(
-                rules=BulkUploadStatistics(**body.get("rules", default_stats)),
-                queries=BulkUploadStatistics(**body.get("queries", default_stats)),
-                policies=BulkUploadStatistics(**body.get("policies", default_stats)),
-                data_models=BulkUploadStatistics(**body.get("dataModels", default_stats)),
             ),
         )
 

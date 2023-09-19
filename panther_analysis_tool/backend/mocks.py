@@ -16,7 +16,6 @@ from panther_analysis_tool.backend.client import (
     ListSchemasParams,
     MetricsParams,
     MetricsResponse,
-    PantherSDKBulkUploadParams,
     PerfTestParams,
     ReplayResponse,
     TranspileFiltersParams,
@@ -46,9 +45,6 @@ class MockBackend(BackendClient):
         pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[Any]:
-        pass
-
-    def panthersdk_bulk_upload(self, params: PantherSDKBulkUploadParams) -> BackendResponse[Any]:
         pass
 
     def supports_async_uploads(self) -> bool:
