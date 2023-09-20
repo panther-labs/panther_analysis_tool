@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import os
 import random
 
@@ -57,13 +58,13 @@ def validate_patterns(patterns_file):
 
     except FileNotFoundError:
         # If the file is not found, use the default patterns.
-        print(f"Patterns file not found: {patterns_file}. Using default patterns.")
+        logging.debug("Patterns file not found: %s. Using default patterns.", patterns_file)
         with open(PATTERNS_FILE_PATH, "r") as f:
             patterns = json.load(f)
 
     except Exception as e:
         # If there's any other error, revert to using the default patterns.
-        print(
+        logging.error(
             f"Error loading or validating patterns from {patterns_file}. "
             f"Exception: {e}. Using default patterns."
         )
@@ -181,6 +182,12 @@ def obfuscate_data(args):
     patterns = validate_patterns(args.patterns if args.patterns else PATTERNS_FILE_PATH)
     with open(args.file, "r") as f:
         data = yaml.safe_load(f)
+
+    # Add a debug log statement to print the patterns being used
+    logging.debug(
+        "Using patterns file: %s", (args.patterns if args.patterns else PATTERNS_FILE_PATH)
+    )
+
     obfuscated_data = obfuscate_recursive(data, patterns, key=args.key)
     with open(args.file, "w") as f:
         yaml.dump(obfuscated_data, f)
@@ -224,6 +231,12 @@ def deobfuscate_data(args):
     patterns = validate_patterns(args.patterns if args.patterns else PATTERNS_FILE_PATH)
     with open(args.file, "r") as f:
         data = yaml.safe_load(f)
+
+    # Add a debug log statement to print the patterns being used
+    logging.debug(
+        "Using patterns file: %s", (args.patterns if args.patterns else PATTERNS_FILE_PATH)
+    )
+
     deobfuscated_data = deobfuscate_recursive(data, patterns, key=args.key)
     with open(args.file, "w") as f:
         yaml.dump(deobfuscated_data, f)
