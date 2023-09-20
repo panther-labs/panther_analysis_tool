@@ -1,15 +1,34 @@
 import hashlib
 import json
 import os
+import random
 
 import yaml
 
+
+# Define the path to the default patterns file.
+def find_project_root():
+    """Find the project root directory."""
+    marker = "panther_analysis_tool"
+    current_path = os.path.abspath(__file__)  # Get the absolute path of the current file
+
+    # If current_path is a file, get its directory
+    if os.path.isfile(current_path):
+        current_path = os.path.dirname(current_path)
+
+    while current_path != os.path.dirname(current_path):  # Check until we reach the root directory
+        if marker in os.listdir(current_path):
+            return current_path
+        current_path = os.path.dirname(current_path)
+    return None
+
+
+# Find the project root directory.
+project_root = find_project_root()
+
 # Define the path to the default patterns file.
 PATTERNS_FILE_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..",
-    "PATTERNS",
-    "default_PATTERNS.json",
+    project_root, "panther_analysis_tool", "patterns", "default_PATTERNS.json"
 )
 
 
@@ -33,12 +52,17 @@ def validate_patterns(patterns_file):
         for key, value in patterns.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 raise ValueError(
-                    f"Invalid key-value pair: {key}: {value}. "
-                    f"Both should be strings."
+                    f"Invalid key-value pair: {key}: {value}. " f"Both should be strings."
                 )
 
+    except FileNotFoundError:
+        # If the file is not found, use the default patterns.
+        print(f"Patterns file not found: {patterns_file}. Using default patterns.")
+        with open(PATTERNS_FILE_PATH, "r") as f:
+            patterns = json.load(f)
+
     except Exception as e:
-        # If there's an error, revert to using the default patterns.
+        # If there's any other error, revert to using the default patterns.
         print(
             f"Error loading or validating patterns from {patterns_file}. "
             f"Exception: {e}. Using default patterns."
@@ -50,36 +74,36 @@ def validate_patterns(patterns_file):
 
 
 class Base62:
-    """
-    Class for Base62 obfuscation and deobfuscation.
-    """
-
     DEFAULT_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
     @classmethod
     def generate_charset(cls, key):
         """
-        Generate a custom charset based on a key.
+        Generate a random character set based on a key.
 
-        :param key: Key for generating the charset.
-        :return: Custom charset.
+        :param key: Key used to seed the random character set.
+        :return: Generated character set.
         """
         charset = list(cls.DEFAULT_CHARSET)
         key_hash = hashlib.sha256(key.encode()).digest()
         seed = int.from_bytes(key_hash, "little")
-        return "".join(sorted(charset, key=lambda x: (x + str(seed)).encode()))
+        random.seed(seed)
+        random.shuffle(charset)
+        return "".join(charset)
 
     @classmethod
     def obfuscate(cls, input_data, key=None):
         """
-        Obfuscate a number or a string into Base62 format.
+        Obfuscate input data using Base62 encoding.
 
-        :param input_data: Data to obfuscate.
-        :param key: Optional key for obfuscation.
-        :return: Obfuscated data.
+        :param input_data: Input data to obfuscate.
+        :param key: Optional key for character set generation.
+        :return: Obfuscated data as a Base62 string.
         """
         charset = cls.generate_charset(key) if key else cls.DEFAULT_CHARSET
-        if isinstance(input_data, str):
+        if isinstance(input_data, int):
+            input_data = str(input_data).encode("utf-8")
+        elif isinstance(input_data, str):
             input_data = input_data.encode("utf-8")
 
         num = int.from_bytes(input_data, "big")
@@ -101,6 +125,9 @@ class Base62:
         :param key: Optional key for deobfuscation.
         :return: Deobfuscated data.
         """
+        if not isinstance(base62_string, str):
+            raise ValueError("Input must be a string")
+
         charset = cls.generate_charset(key) if key else cls.DEFAULT_CHARSET
         base = len(charset)
         strlen = len(base62_string)
@@ -108,23 +135,26 @@ class Base62:
 
         idx = 0
         for char in base62_string:
+            if char not in charset:
+                raise ValueError(f"Invalid character '{char}' in input")
             power = strlen - (idx + 1)
             num += charset.index(char) * (base**power)
             idx += 1
 
-        return num.to_bytes((num.bit_length() + 7) // 8, "big").decode(
-            "utf-8", "ignore"
-        )
+        return num.to_bytes((num.bit_length() + 7) // 8, "big").decode("utf-8", "ignore")
 
 
 def obfuscate_recursive(data, patterns, key="ATBABERS"):
     """
     Recursively obfuscate data based on patterns.
 
-    :param data: Data to obfuscate.
-    :param patterns: Patterns to match for obfuscation.
-    :param key: Key for obfuscation.
-    :return: Obfuscated data.
+    Args:
+        data (Union[dict, list]): Data to obfuscate.
+        patterns (dict): Obfuscation patterns.
+        key (str, optional): Key for obfuscation. Defaults to "ATBABERS".
+
+    Returns:
+        Union[dict, list]: Obfuscated data.
     """
     if isinstance(data, dict):
         for k, value in data.items():
@@ -140,10 +170,13 @@ def obfuscate_recursive(data, patterns, key="ATBABERS"):
 
 def obfuscate_data(args):
     """
-    Obfuscate data in a file based on patterns.
+    Obfuscate data in a YAML file.
 
-    :param args: Arguments containing file path, patterns, and key.
-    :return: Status and message.
+    Args:
+        args: Command line arguments.
+
+    Returns:
+        tuple: Status code and message.
     """
     patterns = validate_patterns(args.patterns if args.patterns else PATTERNS_FILE_PATH)
     with open(args.file, "r") as f:
@@ -158,10 +191,13 @@ def deobfuscate_recursive(data, patterns, key="ATBABERS"):
     """
     Recursively deobfuscate data based on patterns.
 
-    :param data: Data to deobfuscate.
-    :param patterns: Patterns to match for deobfuscation.
-    :param key: Key for deobfuscation.
-    :return: Deobfuscated data.
+    Args:
+        data (Union[dict, list]): Data to deobfuscate.
+        patterns (dict): Deobfuscation patterns.
+        key (str, optional): Key for deobfuscation. Defaults to "ATBABERS".
+
+    Returns:
+        Union[dict, list]: Deobfuscated data.
     """
     if isinstance(data, dict):
         for k, value in data.items():
@@ -177,10 +213,13 @@ def deobfuscate_recursive(data, patterns, key="ATBABERS"):
 
 def deobfuscate_data(args):
     """
-    Deobfuscate data in a file based on patterns.
+    Deobfuscate data in a YAML file.
 
-    :param args: Arguments containing file path, patterns, and key.
-    :return: Status and message.
+    Args:
+        args: Command line arguments.
+
+    Returns:
+        tuple: Status code and message.
     """
     patterns = validate_patterns(args.patterns if args.patterns else PATTERNS_FILE_PATH)
     with open(args.file, "r") as f:
