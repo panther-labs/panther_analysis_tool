@@ -280,19 +280,6 @@ class UpdateSchemaResponse:
 
 
 @dataclass(frozen=True)
-class PantherSDKBulkUploadParams:
-    content: str
-
-
-@dataclass(frozen=True)
-class PantherSDKBulkUploadResponse:
-    rules: BulkUploadStatistics
-    policies: BulkUploadStatistics
-    queries: BulkUploadStatistics
-    data_models: BulkUploadStatistics
-
-
-@dataclass(frozen=True)
 class TranspileToPythonParams:
     data: List[str]
 
@@ -497,12 +484,6 @@ class Client(ABC):
 
     @abstractmethod
     def update_schema(self, params: UpdateSchemaParams) -> BackendResponse[Any]:
-        pass
-
-    @abstractmethod
-    def panthersdk_bulk_upload(
-        self, params: PantherSDKBulkUploadParams
-    ) -> BackendResponse[PantherSDKBulkUploadResponse]:
         pass
 
     @abstractmethod
