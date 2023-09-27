@@ -15,6 +15,8 @@ from panther_analysis_tool.zip_chunker import ZipArgs, analysis_chunks
 
 
 def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+    if not backend:
+        return 1, "Validate requires an API key, AWS role assumption will not work."
     if not backend.supports_bulk_validate():
         return 1, "bulk validate is only supported via the api token"
 

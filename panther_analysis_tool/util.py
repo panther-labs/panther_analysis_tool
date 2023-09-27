@@ -140,6 +140,9 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
             )
         )
 
+    if not hasattr(args, 'aws_profile'):
+        return False
+
     datalake_lambda = get_datalake_lambda(args)
 
     return LambdaClient(
