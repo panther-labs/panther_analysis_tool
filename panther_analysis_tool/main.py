@@ -1,5 +1,5 @@
 """
- Analysis Tool is a command line interface for writing,
+Panther Analysis Tool is a command line interface for writing,
 testing, and packaging policies/rules.
 Copyright (C) 2020 Panther Labs Inc
 
@@ -17,180 +17,147 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import argparse
-import base64
-import contextlib
-import hashlib
-import importlib.util
-import io
-import json
-import logging
-import mimetypes
-import os
-import re
-import shutil
-import subprocess  # nosec
-import sys
-import time
-import typing  # 'from typing import Optional' conflicts with 'from schema import Optional', below
-import zipfile
+# Standard Library
+from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
-
-# Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
-# It seems to be unable to import the distutils module, however the module is present and importable
-# in the Python Repl.
 from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, List, Tuple, Type
+from typing import Any, DefaultDict, Tuple, Type
+from schema import Optional as SchemaOptional
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+# Third-Party Libraries
+import argparse
+import base64
 import botocore
+import contextlib
 import dateutil.parser
+import hashlib
+import importlib.util
+import io
+import json
 import jsonschema
+import logging
+import mimetypes
+import os
+import re
 import requests
 import schema
+import shutil
+import subprocess  # nosec
+import sys
+import time
+import zipfile
 from dynaconf import Dynaconf, Validator
 from gql.transport.aiohttp import log as aiohttp_logger
 from jsonschema.validators import Draft202012Validator
+from ruamel.yaml import (YAML, SafeConstructor, constructor,
+                         parser as YAMLParser, scanner as YAMLScanner)
+from schema import (Optional, SchemaError, SchemaForbiddenKeyError,
+                    SchemaMissingKeyError, SchemaUnexpectedTypeError,
+                    SchemaWrongKeyError)
+
+# Panther Core
 from panther_core.data_model import DataModel
 from panther_core.enriched_event import PantherEvent
 from panther_core.exceptions import UnknownDestinationError
 from panther_core.policy import TYPE_POLICY, Policy
 from panther_core.rule import Detection, Rule
-from panther_core.testing import (
-    TestCaseEvaluator,
-    TestExpectations,
-    TestResult,
-    TestSpecification,
-)
-from ruamel.yaml import YAML, SafeConstructor, constructor
-from ruamel.yaml import parser as YAMLParser
-from ruamel.yaml import scanner as YAMLScanner
-from schema import (
-    Optional,
-    SchemaError,
-    SchemaForbiddenKeyError,
-    SchemaMissingKeyError,
-    SchemaUnexpectedTypeError,
-    SchemaWrongKeyError,
-)
+from panther_core.testing import (TestCaseEvaluator, TestExpectations,
+                                  TestResult, TestSpecification)
 
-from panther_analysis_tool import cli_output
-from panther_analysis_tool import util as pat_utils
-from panther_analysis_tool.analysis_utils import (
-    ClassifiedAnalysis,
-    ClassifiedAnalysisContainer,
-    filter_analysis,
-    get_simple_detections_as_python,
-    load_analysis_specs,
-    load_analysis_specs_ex,
-    transpile_inline_filters,
-)
-from panther_analysis_tool.backend.client import (
-    BackendError,
-    BulkUploadMultipartError,
-    BulkUploadParams,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.command import (
-    benchmark,
-    bulk_delete,
-    check_connection,
-    standard_args,
-    validate,
-)
-from panther_analysis_tool.constants import (
-    BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
-    CONFIG_FILE,
-    DATA_MODEL_LOCATION,
-    HELPERS_LOCATION,
-    PACKAGE_NAME,
-    SCHEMAS,
-    TMP_HELPER_MODULE_LOCATION,
-    VERSION_STRING,
-    AnalysisTypes,
-)
+# Panther Analysis Tool
+from panther_analysis_tool import cli_output, util as pat_utils
+from panther_analysis_tool.analysis_utils import (ClassifiedAnalysis,
+                                                  ClassifiedAnalysisContainer,
+                                                  filter_analysis,
+                                                  get_simple_detections_as_python,
+                                                  load_analysis_specs,
+                                                  load_analysis_specs_ex,
+                                                  transpile_inline_filters)
+from panther_analysis_tool.backend.client import (BackendError,
+                                                  BulkUploadMultipartError,
+                                                  BulkUploadParams,
+                                                  Client as BackendClient)
+from panther_analysis_tool.command import (benchmark, bulk_delete,
+                                           check_connection, standard_args,
+                                           validate)
+from panther_analysis_tool.constants import (BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
+                                             CONFIG_FILE, DATA_MODEL_LOCATION,
+                                             HELPERS_LOCATION, PACKAGE_NAME,
+                                             SCHEMAS, TMP_HELPER_MODULE_LOCATION,
+                                             VERSION_STRING, AnalysisTypes)
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.schemas import (
-    ANALYSIS_CONFIG_SCHEMA,
-    GLOBAL_SCHEMA,
-    LOOKUP_TABLE_SCHEMA,
-    POLICY_SCHEMA,
-    RULE_SCHEMA,
-    TYPE_SCHEMA,
-)
-from panther_analysis_tool.util import (
-    add_path_to_filename,
-    convert_unicode,
-    is_simple_detection,
-)
-from panther_analysis_tool.validation import (
-    contains_invalid_field_set,
-    contains_invalid_table_names,
-    validate_packs,
-)
+from panther_analysis_tool.schemas import (ANALYSIS_CONFIG_SCHEMA,
+                                           GLOBAL_SCHEMA, LOOKUP_TABLE_SCHEMA,
+                                           POLICY_SCHEMA, RULE_SCHEMA,
+                                           TYPE_SCHEMA)
+from panther_analysis_tool.util import (add_path_to_filename, convert_unicode,
+                                        is_simple_detection)
+from panther_analysis_tool.validation import (contains_invalid_field_set,
+                                              contains_invalid_table_names,
+                                              validate_packs)
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 
-# This file was generated in whole or in part by GitHub Copilot.
 
-# interpret datetime as str, the backend uses the default behavior for json.loads, which
-# interprets these as str.  This sets global config for ruamel SafeConstructor
+# Configures ruamel's SafeConstructor to treat YAML date-time objects as strings
+# Ensures backend compatibility using date-time objects as strings on `json.load``
 constructor.SafeConstructor.add_constructor(
     "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
 )
 
+class AnalysisExceptionBase(Exception):
+    """Base exception for analysis-related issues."""
+    pass
 
-# exception for conflicting ids
-class AnalysisIDConflictException(Exception):
+class AnalysisIDConflictException(AnalysisExceptionBase):
+    """Raised when there are conflicting Analysis IDs."""
+
     def __init__(self, analysis_id: str):
-        self.message = "Conflicting AnalysisID: [{}]".format(analysis_id)
-        super().__init__(self.message)
+        message = f"Conflicting AnalysisID: [{analysis_id}]"
+        super().__init__(message)
 
 
-# exception for conflicting ids
-class AnalysisContainsDuplicatesException(Exception):
+class AnalysisContainsDuplicatesException(AnalysisExceptionBase):
+    """Raised when an analysis specification contains fields with duplicate values."""
+
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = (
-            "Specification file for [{}] contains fields with duplicate values: [{}]".format(
-                analysis_id, ", ".join(x for x in invalid_fields)
-            )
-        )
-        super().__init__(self.message)
+        message = f"Specification file for [{analysis_id}] contains fields with duplicate values: [{', '.join(invalid_fields)}]"
+        super().__init__(message)
 
 
-# Exception for invalid Panther Snowflake table names
-class AnalysisContainsInvalidTableNamesException(Exception):
+class AnalysisContainsInvalidTableNamesException(AnalysisExceptionBase):
+    """Raised when an analysis specification contains invalid Panther or Snowflake table names."""
+
     def __init__(self, analysis_id: str, invalid_table_names: List[str]):
-        self.message = (
-            "Specification file for [{}] contains invalid Panther table names: [{}]. "
-            "Try using a fully qualified table name such as 'panther_logs.public.log_type' "
-            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables.".format(
-                analysis_id, ", ".join(x for x in invalid_table_names)
-            )
-        )
-        super().__init__(self.message)
+        message = (f"Specification file for [{analysis_id}] contains invalid Panther table names: [{', '.join(invalid_table_names)}]. "
+                   "Use fully qualified table names like 'panther_logs.public.log_type' or set --ignore-table-names for non-standard tables.")
+        super().__init__(message)
 
 
 @dataclass
 class TestResultContainer:
-    detection: Detection
-    result: TestResult
+    """Holds the test results for a single detection."""
+    
+    detection: 'Detection'  # Assuming Detection is defined elsewhere
+    result: 'TestResult'    # Assuming TestResult is defined elsewhere
     failed_tests: DefaultDict[str, list]
     output: str
 
 
 @dataclass
 class TestResultsContainer:
-    """A container for all test results"""
-
+    """Holds all test results, categorized into 'passed' and 'errored'."""
+    
     passed: Dict[str, List[TestResultContainer]]
     errored: Dict[str, List[TestResultContainer]]
+
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -1974,79 +1941,58 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 parsed_filters[key] = [bool_value]
     return parsed_filters, parsed_filters_inverted
 
+def setup_logging(debug: bool) -> None:
+    level = logging.DEBUG if debug else logging.WARNING
+    logging.getLogger().setLevel(level)
+    if not debug:
+        for logger_name in ["sqlfluff.parser", "sqlfluff.linter", "sqlfluff.lexer", "sqlfluff.templater"]:
+            logging.getLogger(logger_name).setLevel(level)
+    logging.basicConfig(format="[%(levelname)s][%(name)s]: %(message)s", level=level)
+
+def set_filters(args) -> None:
+    args.filter, args.filter_inverted = parse_filter(args.filter) if args.filter else (None, {})
+    args.filter_inverted = args.filter_inverted or {}
+
+def check_env_and_config() -> None:
+    if any(key.startswith("PANTHER_") for key in os.environ):
+        logging.info("Found Environment Variables prefixed with 'PANTHER'.")
+    if os.path.exists(CONFIG_FILE):
+        logging.info(f"Found Config File {CONFIG_FILE}. NOTE: COMMAND LINE OPTIONS WILL OVERRIDE SETTINGS.")
 
 def run() -> None:
-    # setup logger and print version info as necessary
-    logging.basicConfig(
-        format="[%(levelname)s][%(name)s]: %(message)s",
-        level=logging.INFO,
-    )
     latest = pat_utils.get_latest_version()
     if not pat_utils.is_latest(latest):
-        logging.warning(
-            "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
-            "pip3 install %s --upgrade\n",
-            PACKAGE_NAME,
-            VERSION_STRING,
-            latest,
-            PACKAGE_NAME,
-        )
+        logging.warning(f"A new version is available. Upgrade: pip3 install {PACKAGE_NAME} --upgrade from {VERSION_STRING} to {latest}")
 
     parser = setup_parser()
-    # if no args are passed, print the help output
-    args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
+    args = parser.parse_args() if sys.argv[1:] else parser.parse_args(["--help"])
+    setup_logging(args.debug)
 
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        aiohttp_logger.setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
+    set_filters(args)
+    check_env_and_config()
 
-    if getattr(args, "filter", None) is not None:
-        args.filter, args.filter_inverted = parse_filter(args.filter)
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
-
-    for key in os.environ:
-        if key.startswith("PANTHER_"):
-            logging.info("Found Environment Variables prefixed with 'PANTHER'.")
-            break
-    if os.path.exists(CONFIG_FILE):
-        logging.info(
-            "Found Config File %s . NOTE: COMMAND LINE OPTIONS WILL OVERRIDE SETTINGS IN CONFIG FILE",
-            CONFIG_FILE,
-        )
     config_file_settings = setup_dynaconf()
     dynaconf_argparse_merge(vars(args), config_file_settings)
-    if args.debug:
-        for key, value in vars(args).items():
-            logging.debug(f"{key}={value}")  # pylint: disable=W1203
 
-    # Although not best practice, the alternative is ugly and significantly harder to maintain.
-    if bool(getattr(args, "ignore_extra_keys", None)):
-        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+    if args.debug:
+        for k, v in vars(args).items():
+            logging.debug(f"{k}={v}")
+
+    if getattr(args, "ignore_extra_keys", None):
+        RULE_SCHEMA._ignore_extra_keys = POLICY_SCHEMA._ignore_extra_keys = True
 
     try:
         return_code, out = args.func(args)
-    except Exception as err:  # pylint: disable=broad-except
-        # Catch arbitrary exceptions without printing help message
-        logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
-        logging.debug("Full error traceback:", exc_info=err)
+    except Exception as e:
+        logging.warning(f'Unhandled exception: "{e}"', exc_info=e, stack_info=True)
         sys.exit(1)
 
-    if return_code == 1:
-        if out:
-            logging.error(out)
-    elif return_code == 0:
-        if out:
-            logging.info(out)
+    if out:
+        log_func = logging.error if return_code else logging.info
+        log_func(out)
 
     sys.exit(return_code)
 
-
 if __name__ == "__main__":
     run()
+
