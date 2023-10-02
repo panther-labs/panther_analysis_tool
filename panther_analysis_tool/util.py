@@ -141,7 +141,7 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
         )
 
     if not hasattr(args, "aws_profile"):
-        return False
+        return 1, "--aws-profile wasn't set to a valid aws profile, please include a valid aws-profile in your arguments and try again."
 
     datalake_lambda = get_datalake_lambda(args)
 
