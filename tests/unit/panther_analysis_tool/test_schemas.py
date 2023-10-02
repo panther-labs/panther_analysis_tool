@@ -498,6 +498,28 @@ class TestPATSchemas(unittest.TestCase):
             }
         )
 
+    def test_percent_sign_banned(self):
+        with self.assertRaises(SchemaError):
+            RULE_SCHEMA.validate({
+                "AnalysisType": "scheduled_rule",
+                "Enabled": False,
+                "Filename": "hmm",
+                "RuleID": "%s",
+                "Severity": "Info",
+                "LogTypes": ["AWS.ALB"],
+            })
+        with self.assertRaises(SchemaError):
+            POLICY_SCHEMA.validate(
+                {
+                    "AnalysisType": "policy",
+                    "Enabled": False,
+                    "Filename": "hmm",
+                    "PolicyID": "%s",
+                    "Severity": "Info",
+                    "ResourceTypes": ["AWS.DynamoDB.Table"],
+                }
+            )
+
 
 # This class was generated in whole or in part by GitHub Copilot
 class TestSimpleDetectionSchemas(unittest.TestCase):
