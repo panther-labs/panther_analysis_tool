@@ -550,8 +550,12 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
         "accept": "application/vnd.github.v3+json",
         "Authorization": f"token {api_token}",
     }
-    # check this tag doesn't already exist
-    response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers)
+    # check this tag doesn't already exist with a 10 second timeout
+    try:
+        response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10)
+    except requests.Timeout:
+        logging.error("The request to check the tag timed out.")
+        return 1, ""
     if response.status_code == 200:
         logging.error("tag already exists %s", args.github_tag)
         return 1, ""
@@ -628,7 +632,11 @@ def publish_github(tag: str, body: str, headers: dict, release_url: str, release
     payload = {"tag_name": tag, "draft": True}
     if body:
         payload["body"] = body
-    response = requests.post(release_url, data=json.dumps(payload), headers=headers)
+    try:
+        response = requests.post(release_url, data=json.dumps(payload), headers=headers, timeout=10)
+    except requests.Timeout:
+        logging.error("The request to create the release timed out.")
+        return 1
     if response.status_code != 201:
         logging.error("error creating release (%s) in repo (%s)", tag, release_url)
         logging.error(response.json())
@@ -654,7 +662,11 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
         headers["Content-Type"] = mimetypes.guess_type(filename)[0]
         params = [("name", filename)]
         data = open(release_dir + "/" + filename, "rb").read()
-        response = requests.post(upload_url, data=data, headers=headers, params=params)
+        try:
+            response = requests.post(upload_url, data=data, headers=headers, params=params, timeout=10)
+        except requests.Timeout:
+            logging.error("The request to upload the release asset timed out.")
+            return 1
         if response.status_code != 201:
             logging.error("error uploading release asset (%s)", filename)
             logging.error(response.json())

@@ -59,9 +59,11 @@ def id_to_path(directory: str, object_id: str) -> str:
 
 def get_latest_version() -> str:
     try:
-        response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json")
+        response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json", timeout=10)
         if response.status_code == 200:
             return response.json().get("info", {}).get("version", UNKNOWN_VERSION)
+    except requests.Timeout:
+        logging.warning("Request to determine latest version timed out.")
     except Exception:  # pylint: disable=broad-except
         logging.debug("Unable to determine latest version", exc_info=True)
     return UNKNOWN_VERSION
