@@ -191,7 +191,7 @@ RULE_SCHEMA = Schema(
         Optional("GroupBy"): object,
     },
     ignore_extra_keys=False,
-)
+)  # Prevent user typos on optional fields
 
 DERIVED_SCHEMA = Schema(
     {
