@@ -660,7 +660,9 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
         params = [("name", filename)]
         with open(release_dir + "/" + filename, "rb") as data:
             try:
-                response = requests.post(upload_url, data=data.read(), headers=headers, params=params, timeout=10)
+                response = requests.post(
+                    upload_url, data=data.read(), headers=headers, params=params, timeout=10
+                )
             except requests.Timeout:
                 logging.error("The request to upload the release asset timed out.")
                 return 1
@@ -1390,7 +1392,9 @@ def _print_test_result(
             if function_result.get("error"):
                 # add this as output to the failed test spec as well
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
-                print(f'\t\t[{status_fail}] [{printable_name}] {function_result.get("error", {}).get("message")}')
+                print(
+                    f'\t\t[{status_fail}] [{printable_name}] {function_result.get("error", {}).get("message")}'
+                )
             # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
