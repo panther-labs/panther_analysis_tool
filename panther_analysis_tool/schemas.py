@@ -20,7 +20,7 @@ import json
 import pkgutil
 from typing import Any, Dict
 
-from schema import And, Optional, Or, Regex, Schema, SchemaError
+from schema import And, Optional, Or, Regex, Schema, SchemaError, Use
 
 from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
 
@@ -154,44 +154,54 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
+def validate_derived_detection(data: Dict[str, Any]) -> Dict[str, Any]:
+    if "BaseDetection" in data:
+        disallowed_fields = ["Tests", "LogTypes", "Detection", "AnalysisType"]
+        for field in disallowed_fields:
+            if field in data:
+                raise SchemaError(f"Field '{field}' cannot be set when 'BaseDetection' is set.")
+    return data
+
 RULE_SCHEMA = Schema(
-    {
-        "AnalysisType": Or("rule", "scheduled_rule"),
-        "Enabled": bool,
-        Or("Filename", "Detection", only_one=True): Or(str, object),
-        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
-        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): int,
-        Optional("InlineFilters"): object,
-        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("OnlyUseBaseRiskScore"): bool,
-        Optional("OutputIds"): [str],
-        Optional("Reference"): str,
-        Optional("Runbook"): str,
-        Optional("SummaryAttributes"): [str],
-        Optional("Threshold"): int,
-        Optional("Tags"): [str],
-        Optional("Reports"): {str: list},
-        Optional("Tests"): [
-            {
-                "Name": str,
-                Optional(
-                    "LogType"
-                ): str,  # Not needed anymore, optional for backwards compatibility
-                "ExpectedResult": bool,
-                "Log": object,
-                Optional("Mocks"): [MOCK_SCHEMA],
-            }
-        ],
-        Optional("DynamicSeverities"): object,
-        Optional("AlertTitle"): str,
-        Optional("AlertContext"): object,
-        Optional("GroupBy"): object,
-    },
-    ignore_extra_keys=False,
-)  # Prevent user typos on optional fields
+    And(
+        {
+            "AnalysisType": Or("rule", "scheduled_rule"),
+            "Enabled": bool,
+            Or("Filename", "Detection", only_one=True): Or(str, object),
+            "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+            Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
+            "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+            Optional("Description"): str,
+            Optional("DedupPeriodMinutes"): int,
+            Optional("InlineFilters"): object,
+            Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+            Optional("OnlyUseBaseRiskScore"): bool,
+            Optional("OutputIds"): [str],
+            Optional("Reference"): str,
+            Optional("Runbook"): str,
+            Optional("SummaryAttributes"): [str],
+            Optional("Threshold"): int,
+            Optional("Tags"): [str],
+            Optional("Reports"): {str: list},
+            Optional("Tests"): [
+                {
+                    "Name": str,
+                    Optional("LogType"): str,
+                    "ExpectedResult": bool,
+                    "Log": object,
+                    Optional("Mocks"): [MOCK_SCHEMA],
+                }
+            ],
+            Optional("DynamicSeverities"): object,
+            Optional("AlertTitle"): str,
+            Optional("AlertContext"): object,
+            Optional("GroupBy"): object,
+            Optional("BaseDetection"): object,  # Add this field
+        },
+        ignore_extra_keys=False,
+    ),
+    Use(validate_derived_detection),
+) # Prevent user typos on optional fields
 
 SAVED_QUERY_SCHEMA = Schema(
     {
