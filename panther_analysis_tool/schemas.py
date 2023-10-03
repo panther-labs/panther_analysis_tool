@@ -154,15 +154,17 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
+
 def validate_rule(rule):
-    if "BaseDetection" in rule: # derived detection
+    if "BaseDetection" in rule:  # derived detection
         for field in ["Tests", "LogTypes", "Detection", "AnalysisType"]:
             if field in rule:
                 raise ValueError(f"Field '{field}' can not be set for derived detections.")
-    else: # base detection
+    else:  # base detection
         for field in ["AnalysisType", "Enabled", "RuleID", "Severity"]:
             if field not in rule:
                 raise ValueError(f"Field '{field}' is required for base detetions.")
+
 
 RULE_SCHEMA = Schema(
     {
@@ -199,7 +201,7 @@ RULE_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
     },
-    ignore_extra_keys=False
+    ignore_extra_keys=False,
 )
 
 SAVED_QUERY_SCHEMA = Schema(
