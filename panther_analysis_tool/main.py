@@ -156,11 +156,8 @@ class AnalysisIDConflictException(Exception):
 # exception for conflicting ids
 class AnalysisContainsDuplicatesException(Exception):
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = (
-            "Specification file for [{}] contains fields with duplicate values: [{}]".format(
-                analysis_id, ", ".join(x for x in invalid_fields)
-            )
-        )
+        self.message = f'Specification file for [{analysis_id}] contains fields \
+        with duplicate values: [{", ".join(x for x in invalid_fields)}]'
         super().__init__(self.message)
 
 
@@ -168,11 +165,9 @@ class AnalysisContainsDuplicatesException(Exception):
 class AnalysisContainsInvalidTableNamesException(Exception):
     def __init__(self, analysis_id: str, invalid_table_names: List[str]):
         self.message = (
-            "Specification file for [{}] contains invalid Panther table names: [{}]. "
-            "Try using a fully qualified table name such as 'panther_logs.public.log_type' "
-            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables.".format(
-                analysis_id, ", ".join(x for x in invalid_table_names)
-            )
+            f'Specification file for [{analysis_id}] contains invalid Panther table names: [{", ".join(x for x in invalid_table_names)}]. '
+            'Try using a fully qualified table name such as "panther_logs.public.log_type" '
+            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables."
         )
         super().__init__(self.message)
 
@@ -234,7 +229,7 @@ def datetime_converted(obj: Any) -> Any:
         A string representation of the datetime.
     """
     if isinstance(obj, datetime):
-        return obj.__str__()
+        return str(obj)
     return obj
 
 
@@ -289,7 +284,7 @@ def zip_analysis(
     # example: 2019-08-05T18-23-25
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    filename = "panther-analysis-{}.zip".format(current_time)
+    filename = f"panther-analysis-{current_time}.zip"
     filename = add_path_to_filename(args.out, filename)
 
     typed_args = ZipArgs.from_args(args)
@@ -409,7 +404,7 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
     """
 
     logging.info("Parsing the Lookup Table spec defined in %s", args.path)
-    with open(args.path, "r") as input_file:
+    with open(args.path, "r", encoding="utf-8") as input_file:
         try:
             yaml = YAML(typ="safe")
             lookup_spec = yaml.load(input_file)
@@ -661,12 +656,12 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     for filename in assets:
         headers["Content-Type"] = mimetypes.guess_type(filename)[0]
         params = [("name", filename)]
-        data = open(release_dir + "/" + filename, "rb").read()
-        try:
-            response = requests.post(upload_url, data=data, headers=headers, params=params, timeout=10)
-        except requests.Timeout:
-            logging.error("The request to upload the release asset timed out.")
-            return 1
+        with open(release_dir + "/" + filename, "rb") as data:
+            try:
+                response = requests.post(upload_url, data=data.read(), headers=headers, params=params, timeout=10)
+            except requests.Timeout:
+                logging.error("The request to upload the release asset timed out.")
+                return 1
         if response.status_code != 201:
             logging.error("error uploading release asset (%s)", filename)
             logging.error(response.json())
@@ -717,7 +712,7 @@ def test_analysis(
     if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
-        return 1, ["Nothing to test in {}".format(args.path)]
+        return 1, [f"Nothing to test in {args.path}"]
 
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
@@ -850,7 +845,7 @@ def setup_data_models(
     invalid_specs = []
     # log_type_to_data_model is a dict used to map LogType to a unique
     # data model, ensuring there is at most one DataModel per LogType
-    log_type_to_data_model: Dict[str, DataModel] = dict()
+    log_type_to_data_model: Dict[str, DataModel] = {}
     for item in data_models:
         analysis_spec_filename = item.file_name
         dir_name = item.dir_name
@@ -865,7 +860,7 @@ def setup_data_models(
                     invalid_specs.append((analysis_spec_filename, load_err))
                     continue
                 data_model_module_path = os.path.join(dir_name, analysis_spec["Filename"])
-                with open(data_model_module_path, "r") as python_module_file:
+                with open(data_model_module_path, "r", encoding="utf-8") as python_module_file:
                     body = python_module_file.read()
 
             # setup the mapping lookups
@@ -889,9 +884,7 @@ def setup_data_models(
                     invalid_specs.append(
                         (
                             analysis_spec_filename,
-                            "Conflicting Enabled LogType [{}] in Data Model [{}]".format(
-                                log_type, analysis_id
-                            ),
+                            f"Conflicting Enabled LogType [{log_type}] in Data Model [{analysis_id}]",
                         )
                     )
                     continue
@@ -918,12 +911,12 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             continue
         analysis_type = analysis_spec["AnalysisType"]
 
-        detection_args = dict(
-            id=analysis_spec.get("PolicyID") or analysis_spec["RuleID"],
-            analysisType=analysis_type.upper(),
-            versionId="0000-0000-0000",
-            filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
-        )
+        detection_args = {
+            "id": analysis_spec.get("PolicyID") or analysis_spec["RuleID"],
+            "analysisType": analysis_type.upper(),
+            "versionId": "0000-0000-0000",
+            "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
+        }
 
         if is_simple_detection(analysis_spec):
             # skip tests when the body is empty
@@ -973,10 +966,10 @@ def print_summary(
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
     print("Panther CLI Test Summary")
-    print("\tPath: {}".format(test_path))
-    print("\tPassed: {}".format(num_tests - (len(failed_tests) + len(invalid_specs))))
-    print("\tFailed: {}".format(len(failed_tests)))
-    print("\tInvalid: {}\n".format(len(invalid_specs)))
+    print(f"\tPath: {test_path}")
+    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs))}")
+    print(f"\tFailed: {len(failed_tests)}")
+    print(f"\tInvalid: {len(invalid_specs)}\n")
 
     err_message = "\t{}\n\t\t{}\n"
 
@@ -1014,7 +1007,7 @@ def classify_analysis(
 
     # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
-        keys: List[Any] = list()
+        keys: List[Any] = []
         tmp_logtypes: Any = None
         tmp_logtypes_key: Any = None
         try:
@@ -1076,8 +1069,8 @@ def classify_analysis(
             # Intercept the error, otherwise the error message becomes confusing and unreadable
             error = err
             err_str = str(err)
-            first_half = err_str.split(":")[0]
-            second_half = err_str.split(")")[-1]
+            first_half = err_str.split(":", maxsplit=1)[0]
+            second_half = err_str.split(")", maxsplit=1)[-1]
             if "LogTypes" in str(err):
                 error = SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
             elif "ResourceTypes" in str(err):
@@ -1153,7 +1146,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
         if invalid_specs:
             msg = "Encountered invalid specs: " + ", ".join(invalid_specs)
             return 1, msg
-        return 1, "No analysis content to enrich tests data for in {}".format(args.path)
+        return 1, f"No analysis content to enrich tests data for in {args.path}"
 
     # Apply the filters as needed
     if getattr(args, "filter_inverted", None) is None:
@@ -1256,14 +1249,12 @@ def run_tests(  # pylint: disable=too-many-arguments
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection.detection_id].append(
-            "Insufficient test coverage: {} tests required but only {} found".format(
-                minimum_tests, len(analysis.get("Tests", []))
-            )
+            f'Insufficient test coverage: {minimum_tests} tests required but only {len(analysis.get("Tests", []))} found'
         )
 
     # First check if any tests exist, so we can print a helpful message if not
     if "Tests" not in analysis:
-        print("\tNo tests configured for {}".format(detection.detection_id))
+        print(f"\tNo tests configured for {detection.detection_id}")
         return failed_tests
 
     failed_tests = _run_tests(
@@ -1384,7 +1375,7 @@ def _print_test_result(
     else:
         outcome = status_fail
     # print overall status for this test
-    print("\t[{}] {}".format(outcome, test_result.name))
+    print(f"\t[{outcome}] {test_result.name}")
 
     # print function output and status as necessary
     functions = asdict(test_result.functions)
@@ -1397,27 +1388,13 @@ def _print_test_result(
             if function_result.get("error"):
                 # add this as output to the failed test spec as well
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
-                print(
-                    "\t\t[{}] [{}] {}".format(
-                        status_fail,
-                        printable_name,
-                        function_result.get("error", {}).get("message"),
-                    )
-                )
+                print(f'\t\t[{status_fail}] [{printable_name}] {function_result.get("error", {}).get("message")}')
             # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
-                print(
-                    "\t\t[{}] [{}] {}".format(
-                        status_fail, printable_name, function_result.get("output")
-                    )
-                )
+                print(f'\t\t[{status_fail}] [{printable_name}] {function_result.get("output")}')
             else:
-                print(
-                    "\t\t[{}] [{}] {}".format(
-                        status_pass, printable_name, function_result.get("output")
-                    )
-                )
+                print(f'\t\t[{status_pass}] [{printable_name}] {function_result.get("output")}')
 
 
 def setup_parser() -> argparse.ArgumentParser:

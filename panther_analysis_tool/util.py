@@ -98,7 +98,7 @@ def store_modules(path: str, body: str) -> None:
     """Stores modules to disk."""
     # Create dir if it doesn't exist
     Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as py_file:
+    with open(path, "w", encoding="utf-8") as py_file:
         py_file.write(body)
 
 

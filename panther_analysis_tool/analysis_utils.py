@@ -250,7 +250,7 @@ class LoadAnalysisSpecsResult:
 
     def serialize_to_file(self) -> None:
         logging.debug("Writing analysis spec to %s", self.spec_filename)
-        with open(self.spec_filename, "w") as file:
+        with open(self.spec_filename, "w", encoding="utf-8") as file:
             self.yaml_ctx.dump(self.analysis_spec, file)
 
 
@@ -348,7 +348,7 @@ def load_analysis_specs_ex(
                     continue
                 loaded_specs.append(spec_filename)
                 if fnmatch(filename, "*.y*ml"):
-                    with open(spec_filename, "r") as spec_file_obj:
+                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
                         # setup yaml object
                         yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                         try:
@@ -369,7 +369,7 @@ def load_analysis_specs_ex(
                                 error=err,
                             )
                 if fnmatch(filename, "*.json"):
-                    with open(spec_filename, "r") as spec_file_obj:
+                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
                         try:
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,

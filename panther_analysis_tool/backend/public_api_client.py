@@ -78,7 +78,7 @@ class PublicAPIRequests:
     _cache: Dict[str, str]
 
     def __init__(self) -> None:
-        self._cache = dict()
+        self._cache = {}
 
     def version_query(self) -> DocumentNode:
         return self._load("get_version")
@@ -136,7 +136,9 @@ class PublicAPIRequests:
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
-            self._cache[name] = Path(_get_graphql_content_filepath(name)).read_text()
+            file_path = _get_graphql_content_filepath(name)
+            with open(file_path, "r", encoding="utf-8") as file:
+                self._cache[name] = file.read()
 
         return gql(self._cache[name])
 
