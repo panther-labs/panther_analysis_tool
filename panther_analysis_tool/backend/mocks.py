@@ -75,7 +75,6 @@ class MockBackend(BackendClient):
         pass
 
     def generate_enriched_event_input(
-        self, 
-        params: GenerateEnrichedEventParams
+        self, params: GenerateEnrichedEventParams
     ) -> BackendResponse[GenerateEnrichedEventResponse]:  # type: ignore
         pass
