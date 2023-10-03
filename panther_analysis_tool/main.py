@@ -149,7 +149,7 @@ constructor.SafeConstructor.add_constructor(
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
     def __init__(self, analysis_id: str):
-        self.message = "Conflicting AnalysisID: [{}]".format(analysis_id)
+        self.message = f"Conflicting AnalysisID: [{analysis_id}]"
         super().__init__(self.message)
 
 

@@ -286,6 +286,7 @@ class LambdaClient(Client):
     def transpile_filters(
         self, params: TranspileFiltersParams
     ) -> BackendResponse[TranspileFiltersResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("transpile filters is not supported with lambda client")
 
     @staticmethod
