@@ -154,6 +154,7 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
+
 def validate_derived_detection(data: Dict[str, Any]) -> Dict[str, Any]:
     if "BaseDetection" in data:
         disallowed_fields = ["Tests", "LogTypes", "Detection", "AnalysisType"]
@@ -161,6 +162,7 @@ def validate_derived_detection(data: Dict[str, Any]) -> Dict[str, Any]:
             if field in data:
                 raise SchemaError(f"Field '{field}' cannot be set when 'BaseDetection' is set.")
     return data
+
 
 RULE_SCHEMA = Schema(
     And(
@@ -201,7 +203,7 @@ RULE_SCHEMA = Schema(
         ignore_extra_keys=False,
     ),
     Use(validate_derived_detection),
-) # Prevent user typos on optional fields
+)  # Prevent user typos on optional fields
 
 SAVED_QUERY_SCHEMA = Schema(
     {
