@@ -26,59 +26,59 @@ from panther_analysis_tool.backend.client import (
 
 
 class MockBackend(BackendClient):
-    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+    def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]: # type: ignore[empty-body]
         pass
 
-    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+    def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]: # type: ignore[empty-body]
         pass
 
-    def check(self) -> BackendCheckResponse:
+    def check(self) -> BackendCheckResponse: # type: ignore[empty-body]
         pass
 
-    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]:
+    def list_schemas(self, params: ListSchemasParams) -> BackendResponse[Any]: # type: ignore[empty-body]
         pass
 
-    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse[Any]:
+    def update_schema(self, params: UpdateSchemaParams) -> BackendResponse[Any]: # type: ignore[empty-body]
         pass
 
-    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[Any]:
+    def delete_saved_queries(self, params: DeleteSavedQueriesParams) -> BackendResponse[Any]: # type: ignore[empty-body]
         pass
 
-    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[Any]:
+    def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[Any]: # type: ignore[empty-body]
         pass
 
-    def supports_async_uploads(self) -> bool:
+    def supports_async_uploads(self) -> bool: # type: ignore[empty-body]
         pass
 
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
-    ) -> BackendResponse[Any]:
+    ) -> BackendResponse[Any]: # type: ignore[empty-body]
         pass
 
     def transpile_filters(
         self, params: TranspileFiltersParams
-    ) -> BackendResponse[TranspileFiltersResponse]:
+    ) -> BackendResponse[TranspileFiltersResponse]: # type: ignore[empty-body]
         pass
 
-    def supports_bulk_validate(self) -> bool:
+    def supports_bulk_validate(self) -> bool: # type: ignore[empty-body]
         pass
 
-    def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+    def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse: # type: ignore[empty-body]
         pass
 
-    def supports_perf_test(self) -> bool:
+    def supports_perf_test(self) -> bool: # type: ignore[empty-body]
         pass
 
-    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+    def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]: # type: ignore[empty-body]
         pass
 
-    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+    def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]: # type: ignore[empty-body]
         pass
 
-    def supports_enrich_test_data(self) -> bool:
+    def supports_enrich_test_data(self) -> bool: # type: ignore[empty-body]
         pass
 
     def generate_enriched_event_input(
         self, params: GenerateEnrichedEventParams
-    ) -> BackendResponse[GenerateEnrichedEventResponse]:
+    ) -> BackendResponse[GenerateEnrichedEventResponse]: # type: ignore[empty-body]
         pass
