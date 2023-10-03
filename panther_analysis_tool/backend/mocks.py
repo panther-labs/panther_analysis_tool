@@ -50,14 +50,10 @@ class MockBackend(BackendClient):
     def supports_async_uploads(self) -> bool:  # type: ignore[empty-body]
         pass
 
-    def transpile_simple_detection_to_python(
-        self, params: TranspileToPythonParams
-    ) -> BackendResponse[Any]:  # type: ignore[empty-body]
+    def transpile_simple_detection_to_python(self, params: TranspileToPythonParams) -> BackendResponse[Any]:  # type: ignore[empty-body]
         pass
 
-    def transpile_filters(
-        self, params: TranspileFiltersParams
-    ) -> BackendResponse[TranspileFiltersResponse]:  # type: ignore[empty-body]
+    def transpile_filters(self, params: TranspileFiltersParams) -> BackendResponse[TranspileFiltersResponse]:  # type: ignore[empty-body]
         pass
 
     def supports_bulk_validate(self) -> bool:  # type: ignore[empty-body]
@@ -78,7 +74,5 @@ class MockBackend(BackendClient):
     def supports_enrich_test_data(self) -> bool:  # type: ignore[empty-body]
         pass
 
-    def generate_enriched_event_input(
-        self, params: GenerateEnrichedEventParams
-    ) -> BackendResponse[GenerateEnrichedEventResponse]:  # type: ignore[empty-body]
+    def generate_enriched_event_input(self, params: GenerateEnrichedEventParams) -> BackendResponse[GenerateEnrichedEventResponse]:  # type: ignore[empty-body]
         pass
