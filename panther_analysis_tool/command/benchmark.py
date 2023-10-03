@@ -189,9 +189,7 @@ def validate_hour(
             "Internal error: time window too large. Please report this error to someone at Panther."
         )
 
-    max_data_hour = max(
-        data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None
-    )  # type: ignore[arg-type]
+    max_data_hour = max(data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None)  # type: ignore[arg-type]
     if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
         return err_msg
     hour = dateutil.parser.parse(max_data_hour)
