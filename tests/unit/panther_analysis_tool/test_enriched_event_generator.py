@@ -5,8 +5,6 @@ import typing
 from unittest import TestCase, mock
 from unittest.mock import call, mock_open, patch
 
-from nose.tools import nottest
-
 from panther_analysis_tool.analysis_utils import (
     AnalysisTypes,
     LoadAnalysisSpecsResult,
@@ -25,7 +23,6 @@ from panther_analysis_tool.enriched_event_generator import (
 )
 
 
-@nottest
 def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
     return {
         AnalysisTypes.RULE: LoadAnalysisSpecsResult(
