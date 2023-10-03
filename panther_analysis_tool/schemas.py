@@ -201,7 +201,7 @@ RULE_SCHEMA = Schema(
             Optional("AlertTitle"): str,
             Optional("AlertContext"): object,
             Optional("GroupBy"): object,
-            Optional("BaseDetection"): object,
+            Optional("BaseDetection"): And(str, NAME_ID_VALIDATION_REGEX),
         },
         validate_rule,
     ),
