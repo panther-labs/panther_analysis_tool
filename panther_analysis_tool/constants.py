@@ -6,12 +6,12 @@ from schema import Schema
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
-    DERIVED_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
 )

@@ -119,11 +119,11 @@ from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerato
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
-    DERIVED_SCHEMA,
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
@@ -2030,7 +2030,7 @@ def run() -> None:
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        DERIVED_SCHEMA._ignore_extra_keys = True  #pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
