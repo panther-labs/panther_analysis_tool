@@ -56,5 +56,5 @@ toml==0.10.2 ; python_version < '3.11'
 tomli==2.0.1 ; python_version < '3.11'
 tqdm==4.66.1 ; python_version >= '3.7'
 typing-extensions==4.3.0
-urllib3==1.26.9
+urllib3==1.26.17
 yarl==1.9.2 ; python_version >= '3.7'
