@@ -199,16 +199,10 @@ def load_module(filename: str) -> Tuple[Any, Any]:
     """
     module_name = filename.split(".")[0]
     spec = importlib.util.spec_from_file_location(module_name, filename)
-
-    # Check if spec is None
-    if spec is None:
-        print(f"\t[ERROR] Couldn't create a module spec for {filename}, skipping\n")
-        return None, ImportError(f"Failed to generate module spec for {filename}")
-
-    module = importlib.util.module_from_spec(spec)
+    module = importlib.util.module_from_spec(spec)  # type: ignore
     try:
-        assert isinstance(spec.loader, Loader)  # nosec
-        spec.loader.exec_module(module)
+        assert isinstance(spec.loader, Loader)  # type: ignore # nosec
+        spec.loader.exec_module(module)  # type: ignore
     except FileNotFoundError as err:
         print("\t[ERROR] File not found: " + filename + ", skipping\n")
         return None, err
