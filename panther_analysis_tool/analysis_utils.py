@@ -269,10 +269,10 @@ def get_yaml_loader(roundtrip: bool) -> YAML:
     # the YAML files.
     yaml = YAML(typ="rt")
     yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.preserve_quotes = True  # type: ignore
+    yaml.preserve_quotes = True
     yaml.default_flow_style = False
     # allow very long lines to avoid unnecessary line changes
-    yaml.width = 4096  # type: ignore
+    yaml.width = 4096
     return yaml
 
 

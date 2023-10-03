@@ -172,7 +172,7 @@ class TestCaseEvaluator:
             return Policy.matcher_alert_value
         return Rule.matcher_alert_value
 
-    def interpret(self, ignore_exception_types: List[Type[Exception]] = None) -> TestResult:
+    def interpret(self, ignore_exception_types: List[Type[Exception]] = []) -> TestResult:
         """Evaluate the detection result taking into account
         the errors raised during evaluation and
         the test specification expectations"""
