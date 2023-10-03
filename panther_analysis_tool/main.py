@@ -547,7 +547,9 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     }
     # check this tag doesn't already exist with a 10 second timeout
     try:
-        response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10)
+        response = requests.get(
+            release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10
+        )
     except requests.Timeout:
         logging.error("The request to check the tag timed out.")
         return 1, ""
