@@ -86,7 +86,7 @@ def import_file_as_module(path: str, object_id: str) -> Any:
     spec = import_util.spec_from_file_location(object_id, path)
     if spec is None:
         raise ImportError(f"Cannot find module spec for file {path} with object ID {object_id}")
-    
+
     mod = import_util.module_from_spec(spec)
     spec.loader.exec_module(mod)  # type: ignore
     return mod
