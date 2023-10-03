@@ -552,7 +552,9 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     }
     # check this tag doesn't already exist with a 10 second timeout
     try:
-        response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10)
+        response = requests.get(
+            release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10
+        )
     except requests.Timeout:
         logging.error("The request to check the tag timed out.")
         return 1, ""
@@ -663,7 +665,9 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
         params = [("name", filename)]
         data = open(release_dir + "/" + filename, "rb").read()
         try:
-            response = requests.post(upload_url, data=data, headers=headers, params=params, timeout=10)
+            response = requests.post(
+                upload_url, data=data, headers=headers, params=params, timeout=10
+            )
         except requests.Timeout:
             logging.error("The request to upload the release asset timed out.")
             return 1
