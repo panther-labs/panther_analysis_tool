@@ -67,3 +67,4 @@ coverage.xml
 .vscode
 
 *.orig
+.panther_settings.yml
