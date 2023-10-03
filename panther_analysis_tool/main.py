@@ -123,6 +123,7 @@ from panther_analysis_tool.schemas import (
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    DERIVED_SCHEMA,
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
@@ -1951,6 +1952,7 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     list(GLOBAL_SCHEMA.schema.keys())
                     + list(POLICY_SCHEMA.schema.keys())
                     + list(RULE_SCHEMA.schema.keys())
+                    + list(DERIVED_SCHEMA.schema.keys())
                 )
                 for key in (key, Optional(key))
             )
@@ -2028,6 +2030,7 @@ def run() -> None:
     # Although not best practice, the alternative is ugly and significantly harder to maintain.
     if bool(getattr(args, "ignore_extra_keys", None)):
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  #pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
