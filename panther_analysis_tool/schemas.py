@@ -154,14 +154,27 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
+def base_vs_derived_validation(rule_data: dict) -> bool:
+    derived_forbidden_fields = {"Tests", "LogTypes", "Detection"}
+    base_required_fields = {"Enabled", "Severity", "Filename", "Detection", "LogTypes", "ScheduledQueries"}
+
+    if "BaseDetection" in rule_data:
+        return not derived_forbidden_fields & rule_data.keys()
+
+    return base_required_fields <= rule_data.keys()
+
 RULE_SCHEMA = Schema(
+    Use(base_vs_derived_validation, error="Validation failed based on BaseDetection"),
     {
-        "AnalysisType": Or("rule", "scheduled_rule"),
-        "Enabled": bool,
-        Or("Filename", "Detection", only_one=True): Or(str, object),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
-        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("AnalysisType"): Or("rule", "scheduled_rule"),
+        Optional("Enabled"): bool,
+        Optional("BaseDetection"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Filename"): Or(str, object),
+        Optional("Detection"): Or(str, object),
+        Optional("LogTypes"): And([str], [LOG_TYPE_REGEX]),
+        Optional("ScheduledQueries"): And([str], [LOG_TYPE_REGEX]),
+        Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
         Optional("InlineFilters"): object,
@@ -177,41 +190,12 @@ RULE_SCHEMA = Schema(
         Optional("Tests"): [
             {
                 "Name": str,
-                Optional(
-                    "LogType"
-                ): str,  # Not needed anymore, optional for backwards compatibility
+                Optional("LogType"): str,
                 "ExpectedResult": bool,
                 "Log": object,
                 Optional("Mocks"): [MOCK_SCHEMA],
             }
         ],
-        Optional("DynamicSeverities"): object,
-        Optional("AlertTitle"): str,
-        Optional("AlertContext"): object,
-        Optional("GroupBy"): object,
-    },
-    ignore_extra_keys=False,
-)  # Prevent user typos on optional fields
-
-DERIVED_SCHEMA = Schema(
-    {
-        "AnalysisType": Or("rule", "scheduled_rule"),
-        "Enabled": bool,
-        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): int,
-        Optional("InlineFilters"): object,
-        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("OnlyUseBaseRiskScore"): bool,
-        Optional("OutputIds"): [str],
-        Optional("Reference"): str,
-        Optional("Runbook"): str,
-        Optional("SummaryAttributes"): [str],
-        Optional("Threshold"): int,
-        Optional("Tags"): [str],
-        Optional("Reports"): {str: list},
         Optional("DynamicSeverities"): object,
         Optional("AlertTitle"): str,
         Optional("AlertContext"): object,
