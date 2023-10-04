@@ -20,7 +20,7 @@ import json
 import pkgutil
 from typing import Any, Dict
 
-from schema import And, Optional, Or, Regex, Schema, SchemaError, Use
+from schema import And, Optional, Or, Regex, Schema, SchemaError
 
 from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
 
@@ -43,7 +43,7 @@ class QueryScheduleSchema(Schema):
         return data
 
 
-NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
+NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
 RESOURCE_TYPE_REGEX = Regex(
     r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
     r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
@@ -154,95 +154,71 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
+RULE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("rule", "scheduled_rule"),
+        "Enabled": bool,
+        Or("Filename", "Detection", only_one=True): Or(str, object),
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("Tests"): [
+            {
+                "Name": str,
+                Optional(
+                    "LogType"
+                ): str,  # Not needed anymore, optional for backwards compatibility
+                "ExpectedResult": bool,
+                "Log": object,
+                Optional("Mocks"): [MOCK_SCHEMA],
+            }
+        ],
+        Optional("DynamicSeverities"): object,
+        Optional("AlertTitle"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
 
-def rule_validator(d):
-    if "BaseDetection" in d:
-        derived_forbidden_fields = {"Tests", "LogTypes", "Detection"}
-        for field in derived_forbidden_fields:
-            if field in d:
-                raise SchemaError(f"'{field}' is forbidden when 'BaseDetection' is present.")
-    else:
-        base_required_fields = {
-            "Enabled",
-            "Severity",
-            "Filename",
-            "Detection",
-            "LogTypes",
-            "ScheduledQueries",
-        }
-        for field in base_required_fields:
-            if field not in d:
-                raise SchemaError(f"'{field}' is required when 'BaseDetection' is not present.")
-    return True
-
-
-def optional_if_base(field_name, field_schema):
-    def validator(d):
-        if "BaseDetection" in d and field_name not in d:
-            return True
-        if field_name in d:
-            return field_schema.validate(d[field_name])
-        return False
-
-    return validator
-
-
-def log_type_validator(log_types):
-    for log_type in log_types:
-        if not LOG_TYPE_REGEX.match(log_type):
-            return False
-    return True
-
-
-dict_schema = {
-    "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-    "AnalysisType": Or("rule", "scheduled_rule"),
-    Optional("Enabled"): Use(optional_if_base("Enabled", Schema(bool))),
-    Optional(Or("Filename", "Detection", only_one=True)): Use(
-        optional_if_base("Filename", Schema(Or(str, object)))
-    ),
-    Optional(Or("LogTypes", "ScheduledQueries", only_one=True)): Use(
-        optional_if_base("LogTypes", Schema(Use(log_type_validator)))
-    ),
-    Optional("Severity"): Use(
-        optional_if_base("Severity", Schema(Or("Info", "Low", "Medium", "High", "Critical")))
-    ),
-    Optional("Description"): str,
-    Optional("DedupPeriodMinutes"): int,
-    Optional("InlineFilters"): object,
-    Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-    Optional("OnlyUseBaseRiskScore"): bool,
-    Optional("OutputIds"): [str],
-    Optional("Reference"): str,
-    Optional("Runbook"): str,
-    Optional("SummaryAttributes"): [str],
-    Optional("Threshold"): int,
-    Optional("Tags"): [str],
-    Optional("Reports"): {str: list},
-    Optional("Tests"): [
-        {
-            "Name": str,
-            Optional("LogType"): str,
-            "ExpectedResult": bool,
-            "Log": object,
-            Optional("Mocks"): [object],
-        }
-    ],
-    Optional("DynamicSeverities"): object,
-    Optional("AlertTitle"): str,
-    Optional("AlertContext"): object,
-    Optional("GroupBy"): object,
-    Optional("BaseDetection"): And(str, NAME_ID_VALIDATION_REGEX),
-}
-
-RULE_SCHEMA = Schema(dict_schema, ignore_extra_keys=False)
-
-
-def validate_rule(data):
-    validated_data = RULE_SCHEMA.validate(data)
-    rule_validator(validated_data)
-    return validated_data
-
+DERIVED_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("rule", "scheduled_rule"),
+        "Enabled": bool,
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("DynamicSeverities"): object,
+        Optional("AlertTitle"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
+    },
+    ignore_extra_keys=False,
+)
 
 SAVED_QUERY_SCHEMA = Schema(
     {
