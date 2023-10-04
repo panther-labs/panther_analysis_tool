@@ -197,50 +197,48 @@ class TestCaseEvaluator:
         # If the test fails, providing all the output provides a faster feedback loop,
         # on possible additional failures.
         if self._spec.expectations.detection == self._get_detection_alert_value():
-            {
-                function_results.update(
-                    titleFunction=FunctionTestResult.new(
-                        self._detection_result.title_exception is None,
-                        self._detection_result.title_output,
-                        self._detection_result.title_exception,
-                    ),
-                    descriptionFunction=FunctionTestResult.new(
-                        self._detection_result.description_exception is None,
-                        self._detection_result.description_output,
-                        self._detection_result.description_exception,
-                    ),
-                    referenceFunction=FunctionTestResult.new(
-                        self._detection_result.reference_exception is None,
-                        self._detection_result.reference_output,
-                        self._detection_result.reference_exception,
-                    ),
-                    severityFunction=FunctionTestResult.new(
-                        self._detection_result.severity_exception is None,
-                        self._detection_result.severity_output,
-                        self._detection_result.severity_exception,
-                    ),
-                    runbookFunction=FunctionTestResult.new(
-                        self._detection_result.runbook_exception is None,
-                        self._detection_result.runbook_output,
-                        self._detection_result.runbook_exception,
-                    ),
-                    destinationsFunction=FunctionTestResult.new(
-                        self._detection_result.destinations_exception is None,
-                        self._detection_result.destinations_output,
-                        self._detection_result.destinations_exception,
-                    ),
-                    dedupFunction=FunctionTestResult.new(
-                        self._detection_result.dedup_exception is None,
-                        self._detection_result.dedup_output,
-                        self._detection_result.dedup_exception,
-                    ),
-                    alertContextFunction=FunctionTestResult.new(
-                        self._detection_result.alert_context_exception is None,
-                        self._detection_result.alert_context_output,
-                        self._detection_result.alert_context_exception,
-                    ),
-                )
-            }
+            function_results.update({
+                'titleFunction': FunctionTestResult.new(
+                    self._detection_result.title_exception is None,
+                    self._detection_result.title_output,
+                    self._detection_result.title_exception,
+                ),
+                'descriptionFunction': FunctionTestResult.new(
+                    self._detection_result.description_exception is None,
+                    self._detection_result.description_output,
+                    self._detection_result.description_exception,
+                ),
+                'referenceFunction': FunctionTestResult.new(
+                    self._detection_result.reference_exception is None,
+                    self._detection_result.reference_output,
+                    self._detection_result.reference_exception,
+                ),
+                'severityFunction': FunctionTestResult.new(
+                    self._detection_result.severity_exception is None,
+                    self._detection_result.severity_output,
+                    self._detection_result.severity_exception,
+                ),
+                'runbookFunction': FunctionTestResult.new(
+                    self._detection_result.runbook_exception is None,
+                    self._detection_result.runbook_output,
+                    self._detection_result.runbook_exception,
+                ),
+                'destinationsFunction': FunctionTestResult.new(
+                    self._detection_result.destinations_exception is None,
+                    self._detection_result.destinations_output,
+                    self._detection_result.destinations_exception,
+                ),
+                'dedupFunction': FunctionTestResult.new(
+                    self._detection_result.dedup_exception is None,
+                    self._detection_result.dedup_output,
+                    self._detection_result.dedup_exception,
+                ),
+                'alertContextFunction': FunctionTestResult.new(
+                    self._detection_result.alert_context_exception is None,
+                    self._detection_result.alert_context_output,
+                    self._detection_result.alert_context_exception,
+                ),
+            })
 
         generic_error, generic_error_title = self._get_generic_error_details()
 
