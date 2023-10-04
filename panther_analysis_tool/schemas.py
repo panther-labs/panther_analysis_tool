@@ -154,7 +154,6 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
-<<<<<<< HEAD
 def rule_validator(d):
     if "BaseDetection" in d:
         derived_forbidden_fields = {"Tests", "LogTypes", "Detection"}
@@ -167,19 +166,6 @@ def rule_validator(d):
             if field not in d:
                 raise SchemaError(f"'{field}' is required when 'BaseDetection' is not present.")
     return True
-=======
-
-def base_vs_derived_validation(rule_data: dict) -> bool:
-    derived_forbidden_fields = {"Tests", "LogTypes", "Detection"}
-    base_required_fields = {
-        "Enabled",
-        "Severity",
-        "Filename",
-        "Detection",
-        "LogTypes",
-        "ScheduledQueries",
-    }
->>>>>>> refs/remotes/origin/dac_inheritance
 
 def optional_if_base(field_name, field_schema):
     def validator(d):
@@ -196,7 +182,6 @@ def log_type_validator(log_types):
             return False
     return True
 
-<<<<<<< HEAD
 dict_schema = {
     "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
     "AnalysisType": Or("rule", "scheduled_rule"),
@@ -232,49 +217,6 @@ def validate_rule(data):
     validated_data = RULE_SCHEMA.validate(data)
     rule_validator(validated_data)
     return validated_data
-=======
-
-RULE_SCHEMA = Schema(
-    Use(base_vs_derived_validation, error="Validation failed based on BaseDetection"),
-    {
-        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("AnalysisType"): Or("rule", "scheduled_rule"),
-        Optional("Enabled"): bool,
-        Optional("BaseDetection"): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("Filename"): Or(str, object),
-        Optional("Detection"): Or(str, object),
-        Optional("LogTypes"): And([str], [LOG_TYPE_REGEX]),
-        Optional("ScheduledQueries"): And([str], [LOG_TYPE_REGEX]),
-        Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
-        Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): int,
-        Optional("InlineFilters"): object,
-        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
-        Optional("OnlyUseBaseRiskScore"): bool,
-        Optional("OutputIds"): [str],
-        Optional("Reference"): str,
-        Optional("Runbook"): str,
-        Optional("SummaryAttributes"): [str],
-        Optional("Threshold"): int,
-        Optional("Tags"): [str],
-        Optional("Reports"): {str: list},
-        Optional("Tests"): [
-            {
-                "Name": str,
-                Optional("LogType"): str,
-                "ExpectedResult": bool,
-                "Log": object,
-                Optional("Mocks"): [MOCK_SCHEMA],
-            }
-        ],
-        Optional("DynamicSeverities"): object,
-        Optional("AlertTitle"): str,
-        Optional("AlertContext"): object,
-        Optional("GroupBy"): object,
-    },
-    ignore_extra_keys=False,
-)
->>>>>>> refs/remotes/origin/dac_inheritance
 
 SAVED_QUERY_SCHEMA = Schema(
     {
