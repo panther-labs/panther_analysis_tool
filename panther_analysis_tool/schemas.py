@@ -154,14 +154,23 @@ POLICY_SCHEMA = Schema(
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
 
+
 def base_vs_derived_validation(rule_data: dict) -> bool:
     derived_forbidden_fields = {"Tests", "LogTypes", "Detection"}
-    base_required_fields = {"Enabled", "Severity", "Filename", "Detection", "LogTypes", "ScheduledQueries"}
+    base_required_fields = {
+        "Enabled",
+        "Severity",
+        "Filename",
+        "Detection",
+        "LogTypes",
+        "ScheduledQueries",
+    }
 
     if "BaseDetection" in rule_data:
         return not derived_forbidden_fields & rule_data.keys()
 
     return base_required_fields <= rule_data.keys()
+
 
 RULE_SCHEMA = Schema(
     Use(base_vs_derived_validation, error="Validation failed based on BaseDetection"),
