@@ -11,6 +11,7 @@ from panther_analysis_tool.schemas import (
     PACK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    DERIVED_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
 )
@@ -43,6 +44,7 @@ class AnalysisTypes:
     SAVED_QUERY = "saved_query"
     SCHEDULED_QUERY = "scheduled_query"
     RULE = "rule"
+    DERIVED = "derived"
     SCHEDULED_RULE = "scheduled_rule"
     SIMPLE_DETECTION = "simple_detection"
 
@@ -74,6 +76,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.SAVED_QUERY: SAVED_QUERY_SCHEMA,
     AnalysisTypes.SCHEDULED_QUERY: SCHEDULED_QUERY_SCHEMA,
     AnalysisTypes.RULE: RULE_SCHEMA,
+    AnalysisTypes.DERIVED: DERIVED_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
 }
 

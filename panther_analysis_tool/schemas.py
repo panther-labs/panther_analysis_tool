@@ -196,9 +196,9 @@ RULE_SCHEMA = Schema(
 DERIVED_SCHEMA = Schema(
     {
         "AnalysisType": Or("rule", "scheduled_rule"),
-        "Enabled": bool,
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
         "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Enabled"): bool,
         Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,

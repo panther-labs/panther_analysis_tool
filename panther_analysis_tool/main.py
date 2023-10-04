@@ -1007,9 +1007,9 @@ def classify_analysis(
             TYPE_SCHEMA.validate(analysis_spec)
             analysis_type = analysis_spec["AnalysisType"]
             if analysis_spec.get("BaseDetection"):
-                analysis_type = "derived"
-            # validate the particular analysis type schema
-            analysis_schema = SCHEMAS[analysis_type]
+                analysis_schema = SCHEMAS["derived"]
+            else:
+                analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
             # Special case for ScheduledQueries to only validate the types
             if "ScheduledQueries" in analysis_spec:
