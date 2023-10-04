@@ -6,7 +6,6 @@ from schema import Schema
 
 from panther_analysis_tool.schemas import (
     DATA_MODEL_SCHEMA,
-    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     PACK_SCHEMA,
@@ -44,7 +43,6 @@ class AnalysisTypes:
     SAVED_QUERY = "saved_query"
     SCHEDULED_QUERY = "scheduled_query"
     RULE = "rule"
-    DERIVED_SCHEMA = "derived_rule"
     SCHEDULED_RULE = "scheduled_rule"
     SIMPLE_DETECTION = "simple_detection"
 
@@ -76,7 +74,6 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.SAVED_QUERY: SAVED_QUERY_SCHEMA,
     AnalysisTypes.SCHEDULED_QUERY: SCHEDULED_QUERY_SCHEMA,
     AnalysisTypes.RULE: RULE_SCHEMA,
-    AnalysisTypes.DERIVED_SCHEMA: DERIVED_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
 }
 
