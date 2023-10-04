@@ -43,7 +43,7 @@ class QueryScheduleSchema(Schema):
         return data
 
 
-NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
+NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
 RESOURCE_TYPE_REGEX = Regex(
     r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
     r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
