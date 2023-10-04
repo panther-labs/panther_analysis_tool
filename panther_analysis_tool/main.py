@@ -1006,8 +1006,8 @@ def classify_analysis(
             # validate the schema has a valid analysis type
             TYPE_SCHEMA.validate(analysis_spec)
             analysis_type = analysis_spec["AnalysisType"]
-            if analysis_spec.get('BaseDetection'):
-                analysis_type = 'derived'
+            if analysis_spec.get("BaseDetection"):
+                analysis_type = "derived"
             # validate the particular analysis type schema
             analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
