@@ -500,14 +500,16 @@ class TestPATSchemas(unittest.TestCase):
 
     def test_percent_sign_banned(self):
         with self.assertRaises(SchemaError):
-            RULE_SCHEMA.validate({
-                "AnalysisType": "scheduled_rule",
-                "Enabled": False,
-                "Filename": "hmm",
-                "RuleID": "%s",
-                "Severity": "Info",
-                "LogTypes": ["AWS.ALB"],
-            })
+            RULE_SCHEMA.validate(
+                {
+                    "AnalysisType": "scheduled_rule",
+                    "Enabled": False,
+                    "Filename": "hmm",
+                    "RuleID": "%s",
+                    "Severity": "Info",
+                    "LogTypes": ["AWS.ALB"],
+                }
+            )
         with self.assertRaises(SchemaError):
             POLICY_SCHEMA.validate(
                 {
