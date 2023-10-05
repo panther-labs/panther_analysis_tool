@@ -119,6 +119,7 @@ from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerato
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
@@ -128,6 +129,7 @@ from panther_analysis_tool.schemas import (
 from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
+    is_derived_detection,
     is_simple_detection,
 )
 from panther_analysis_tool.validation import (
@@ -907,7 +909,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         )
 
-        if is_simple_detection(analysis_spec):
+        if is_simple_detection(analysis_spec) or is_derived_detection(analysis_spec):
             # skip tests when the body is empty
             if not analysis_spec.get("body"):
                 continue
@@ -1006,8 +1008,10 @@ def classify_analysis(
             # validate the schema has a valid analysis type
             TYPE_SCHEMA.validate(analysis_spec)
             analysis_type = analysis_spec["AnalysisType"]
-            # validate the particular analysis type schema
-            analysis_schema = SCHEMAS[analysis_type]
+            if analysis_spec.get("BaseDetection"):
+                analysis_schema = SCHEMAS["derived"]
+            else:
+                analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
             # Special case for ScheduledQueries to only validate the types
             if "ScheduledQueries" in analysis_spec:
@@ -2029,6 +2033,7 @@ def run() -> None:
     if bool(getattr(args, "ignore_extra_keys", None)):
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
         return_code, out = args.func(args)
