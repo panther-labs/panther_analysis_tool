@@ -128,8 +128,8 @@ from panther_analysis_tool.schemas import (
 from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
-    is_simple_detection,
     is_derived_detection,
+    is_simple_detection,
 )
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
