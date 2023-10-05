@@ -119,12 +119,12 @@ from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerato
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
     TYPE_SCHEMA,
-    DERIVED_SCHEMA,
 )
 from panther_analysis_tool.util import (
     add_path_to_filename,
