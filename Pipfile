@@ -48,6 +48,7 @@ urllib3 = "==1.26.9"
 typing-extensions = "==4.3.0"
 jsonlines = "==3.0.0"
 panther-core = "==0.6.0"
+panther-analysis-tool = {file = ".", editable = true}
 
 [requires]
 python_version = "3.9"

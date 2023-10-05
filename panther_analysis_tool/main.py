@@ -129,6 +129,7 @@ from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
     is_simple_detection,
+    is_derived_detection,
 )
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
@@ -907,7 +908,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         )
 
-        if is_simple_detection(analysis_spec):
+        if is_simple_detection(analysis_spec) or is_derived_detection(analysis_spec):
             # skip tests when the body is empty
             if not analysis_spec.get("body"):
                 continue
