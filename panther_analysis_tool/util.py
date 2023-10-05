@@ -196,8 +196,10 @@ def convert_unicode(obj: Any) -> str:
 def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
     return analysis_item.get("Detection") is not None
 
+
 def is_derived_detection(analysis_item: Dict[str, Any]) -> bool:
     return analysis_item.get("BaseDetection") is not None
+
 
 def add_path_to_filename(output_path: str, filename: str) -> str:
     if output_path:
