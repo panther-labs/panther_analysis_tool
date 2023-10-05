@@ -124,6 +124,7 @@ from panther_analysis_tool.schemas import (
     POLICY_SCHEMA,
     RULE_SCHEMA,
     TYPE_SCHEMA,
+    DERIVED_SCHEMA,
 )
 from panther_analysis_tool.util import (
     add_path_to_filename,
@@ -2032,6 +2033,7 @@ def run() -> None:
     if bool(getattr(args, "ignore_extra_keys", None)):
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
         return_code, out = args.func(args)

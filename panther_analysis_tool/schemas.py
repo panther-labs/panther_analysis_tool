@@ -195,7 +195,7 @@ RULE_SCHEMA = Schema(
 
 DERIVED_SCHEMA = Schema(
     {
-        "AnalysisType": Or("rule", "scheduled_rule"),
+        "AnalysisType": "rule",
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
         "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
         Optional("Enabled"): bool,
