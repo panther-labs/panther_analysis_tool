@@ -17,21 +17,30 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from functools import partial, reduce
-from importlib import util as import_util
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple
 import argparse
 import logging
 import os
 import re
+from functools import partial, reduce
+from importlib import util as import_util
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple
+
 import boto3
 import requests
 from packaging import version
+
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.lambda_client import LambdaClient, LambdaClientOpts
-from panther_analysis_tool.backend.public_api_client import PublicAPIClient, PublicAPIClientOptions
-from panther_analysis_tool.constants import PACKAGE_NAME, PANTHER_USER_ID, VERSION_STRING
+from panther_analysis_tool.backend.public_api_client import (
+    PublicAPIClient,
+    PublicAPIClientOptions,
+)
+from panther_analysis_tool.constants import (
+    PACKAGE_NAME,
+    PANTHER_USER_ID,
+    VERSION_STRING,
+)
 
 
 def allowed_char(char: str) -> bool:
@@ -41,7 +50,7 @@ def allowed_char(char: str) -> bool:
 
 def id_to_path(directory: str, object_id: str) -> str:
     """Convert an object id to a path in the given directory"""
-    safe_id = ''.join(x if allowed_char(x) else '_' for x in object_id)
+    safe_id = "".join(x if allowed_char(x) else "_" for x in object_id)
     return os.path.join(directory, f"{safe_id}.py")
 
 
@@ -51,11 +60,10 @@ def get_latest_version() -> str:
     try:
         res = requests.get(url, timeout=30)
         res.raise_for_status()
-        info = res.json().get('info', {})
-        return info.get('version', "unknown")
+        info = res.json().get("info", {})
+        return info.get("version", "unknown")
     except requests.exceptions.RequestException:
-        logging.debug(
-            "Unable to retrieve package version from pypi", exc_info=True)
+        logging.debug("Unable to retrieve package version from pypi", exc_info=True)
         return "unknown"
 
 
@@ -79,13 +87,13 @@ def import_file_as_module(path: str, object_id: str) -> Any:
 def store_modules(path: str, body: str) -> None:
     """Store a file at the given path with the given body"""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(body)
 
 
 def get_client(service: str, args: argparse.Namespace) -> boto3.client:
     """Get a boto3 client for the given service"""
-    aws_profile = getattr(args, 'aws_profile', None)
+    aws_profile = getattr(args, "aws_profile", None)
     if aws_profile:
         logging.info("Using AWS profile: %s", aws_profile)
         os.environ["AWS_PROFILE"] = aws_profile
@@ -104,17 +112,27 @@ def get_datalake_lambda(athena_datalake: Optional[bool] = None) -> str:
 
 
 def get_backend(args: argparse.Namespace, athena_datalake: Optional[bool] = None) -> BackendClient:
-    api_token = getattr(args, 'api_token', None)
-    aws_profile = getattr(args, 'aws_profile', None)
+    api_token = getattr(args, "api_token", None)
+    aws_profile = getattr(args, "aws_profile", None)
     if api_token:
-        return create_client(PublicAPIClient, PublicAPIClientOptions, api_token=api_token, user_id=PANTHER_USER_ID)
+        return create_client(
+            PublicAPIClient, PublicAPIClientOptions, api_token=api_token, user_id=PANTHER_USER_ID
+        )
     if aws_profile:
         lambda_opts = get_datalake_lambda(athena_datalake)
-        return create_client(LambdaClient, LambdaClientOpts, aws_profile=aws_profile, datalake_lambda=lambda_opts, user_id=PANTHER_USER_ID)
+        return create_client(
+            LambdaClient,
+            LambdaClientOpts,
+            aws_profile=aws_profile,
+            datalake_lambda=lambda_opts,
+            user_id=PANTHER_USER_ID,
+        )
     raise ValueError("Neither api_token nor aws_profile provided.")
 
 
-def func_with_backend_or_optional(func: Callable, backend_getter: Callable, args: argparse.Namespace) -> Tuple[int, str]:
+def func_with_backend_or_optional(
+    func: Callable, backend_getter: Callable, args: argparse.Namespace
+) -> Tuple[int, str]:
     return func(args, backend_getter(args.api_token, args.aws_profile, args.athena_datalake))
 
 
@@ -129,16 +147,16 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
     return None
 
 
-def func_with_backend(func: Callable[[BackendClient, argparse.Namespace], Any]) -> Callable[[argparse.Namespace], Tuple[int, str]]:
+def func_with_backend(
+    func: Callable[[BackendClient, argparse.Namespace], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     """Wrap a function that takes a backend client and args with a function that takes args and returns a tuple of exit code and output"""
     return partial(func_with_backend_or_optional, func, get_backend)
 
 
-def func_with_optional_backend(func: Callable[[argparse.Namespace,
-                                               Optional[BackendClient]],
-                                              Any]) -> Callable[[argparse.Namespace],
-                                                                Tuple[int,
-                                                                      str]]:
+def func_with_optional_backend(
+    func: Callable[[argparse.Namespace, Optional[BackendClient]], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
     """Wrap a function that takes a backend client and args with a function that takes args and returns a tuple of exit code and output"""
     return partial(func_with_backend_or_optional, func, get_optional_backend)
 
@@ -168,10 +186,7 @@ def convert_unicode(obj: Any) -> str:
     """Swap unicode 4 byte strings with arbitrary numbers of leading slashes with the actual character
     e.g. \\\\u003c => <"""
     string_to_convert = str(obj)
-    return re.sub(r"\\*\\u([0-9a-f]{4})",
-                  lambda m: chr(int(m.group(1),
-                                    16)),
-                  string_to_convert)
+    return re.sub(r"\\*\\u([0-9a-f]{4})", lambda m: chr(int(m.group(1), 16)), string_to_convert)
 
 
 def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
