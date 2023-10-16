@@ -142,7 +142,7 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
 
     datalake_lambda = get_datalake_lambda(args)
 
-    if hasattr(args, 'aws_profile') and args.aws_profile is not None:
+    if hasattr(args, "aws_profile") and args.aws_profile is not None:
         return LambdaClient(
             LambdaClientOpts(
                 user_id=PANTHER_USER_ID,
