@@ -15,8 +15,8 @@ from panther_analysis_tool.zip_chunker import ZipArgs, analysis_chunks
 
 
 def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
-    if not backend.supports_bulk_validate():
-        return 1, "bulk validate is only supported via the api token"
+    if backend is None or not backend.supports_bulk_validate():
+        return 1, "Invalid backend: `validate` is only supported via API token"
 
     typed_args = ZipArgs.from_args(args)
     chunks = analysis_chunks(typed_args)
