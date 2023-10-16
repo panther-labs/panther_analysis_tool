@@ -45,6 +45,10 @@ from panther_analysis_tool.constants import (
 UNKNOWN_VERSION = "unknown"
 
 
+class BackendNotFoundException(Exception):
+    pass
+
+
 def allowed_char(char: str) -> bool:
     """Return true if the character is part of a valid ID."""
     return char.isalnum() or char in {" ", "-", "."}
@@ -150,8 +154,8 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
                 datalake_lambda=datalake_lambda,
             )
         )
-    else:
-        return None
+
+    raise BackendNotFoundException("Backend not found.")
 
 
 def get_datalake_lambda(args: argparse.Namespace) -> str:

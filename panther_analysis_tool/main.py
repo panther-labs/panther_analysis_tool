@@ -131,6 +131,7 @@ from panther_analysis_tool.util import (
     convert_unicode,
     is_derived_detection,
     is_simple_detection,
+    BackendNotFoundException
 )
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
@@ -2040,6 +2041,9 @@ def run() -> None:
 
     try:
         return_code, out = args.func(args)
+    except BackendNotFoundException as err:
+        logging.error('Backend not found: "%s"', err)
+        sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
