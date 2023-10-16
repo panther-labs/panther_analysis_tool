@@ -1994,14 +1994,14 @@ def run() -> None:
     if not args.skip_version_check:
         latest = pat_utils.get_latest_version()
         if not pat_utils.is_latest(latest):
-           logging.warning(
-               "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
-               "pip3 install %s --upgrade\n",
-               PACKAGE_NAME,
-               VERSION_STRING,
-               latest,
-               PACKAGE_NAME,
-           )
+            logging.warning(
+                "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
+                "pip3 install %s --upgrade\n",
+                PACKAGE_NAME,
+                VERSION_STRING,
+                latest,
+                PACKAGE_NAME,
+            )
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
