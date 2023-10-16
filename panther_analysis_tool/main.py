@@ -1532,6 +1532,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=VERSION_STRING)
     parser.add_argument("--debug", action="store_true", dest="debug")
+    parser.add_argument("--skip-version-check", dest="skip_version_check", action="store_true")
     subparsers = parser.add_subparsers()
 
     # -- release command
@@ -1985,20 +1986,22 @@ def run() -> None:
         format="[%(levelname)s][%(name)s]: %(message)s",
         level=logging.INFO,
     )
-    latest = pat_utils.get_latest_version()
-    if not pat_utils.is_latest(latest):
-        logging.warning(
-            "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
-            "pip3 install %s --upgrade\n",
-            PACKAGE_NAME,
-            VERSION_STRING,
-            latest,
-            PACKAGE_NAME,
-        )
 
     parser = setup_parser()
     # if no args are passed, print the help output
     args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
+
+    if not args.skip_version_check:
+        latest = pat_utils.get_latest_version()
+        if not pat_utils.is_latest(latest):
+           logging.warning(
+               "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
+               "pip3 install %s --upgrade\n",
+               PACKAGE_NAME,
+               VERSION_STRING,
+               latest,
+               PACKAGE_NAME,
+           )
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
