@@ -36,7 +36,7 @@ def run(  # pylint: disable=too-many-locals
     backend: BackendClient, args: argparse.Namespace
 ) -> Tuple[int, str]:
     if backend is None or not backend.supports_perf_test():
-        return 1, "Invalid backend: `benchmark` is only supported via API token"
+        return 1, "Invalid backend. `benchmark` is only supported via API token"
 
     if args.iterations <= 0:
         return 1, f"benchmark must perform at least 1 iteration, {args.iterations} requested"
