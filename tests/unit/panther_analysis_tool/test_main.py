@@ -721,7 +721,7 @@ class TestPantherAnalysisTool(TestCase):
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 1)
         assert_true(
-            "bulk validate is only supported via the api token" in return_str,
+            "Invalid backend. `validate` is only supported via API token" in return_str,
             f"match not found in {return_str}",
         )
 
