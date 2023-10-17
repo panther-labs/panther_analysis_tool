@@ -127,6 +127,7 @@ from panther_analysis_tool.schemas import (
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
+    BackendNotFoundException,
     add_path_to_filename,
     convert_unicode,
     is_derived_detection,
@@ -2040,6 +2041,9 @@ def run() -> None:
 
     try:
         return_code, out = args.func(args)
+    except BackendNotFoundException as err:
+        logging.error('Backend not found: "%s"', err)
+        sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
