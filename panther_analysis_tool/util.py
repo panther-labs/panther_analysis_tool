@@ -112,6 +112,7 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
         client = boto3.client(service)
     return client
 
+
 def func_with_api_backend(
     func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
@@ -146,9 +147,7 @@ def get_api_backend(args: argparse.Namespace) -> BackendClient:
         raise BackendNotFoundException("This function requires an API token. API token not found.")
 
     return PublicAPIClient(
-        PublicAPIClientOptions(
-            token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
-        )
+        PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
     )
 
 
