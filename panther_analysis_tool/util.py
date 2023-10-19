@@ -143,7 +143,7 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
 
 def get_api_backend(args: argparse.Namespace) -> BackendClient:
     if not args.api_token:
-        raise BackendNotFoundException("Backend not found.")
+        raise BackendNotFoundException("This function requires an API token. API token not found.")
 
     return PublicAPIClient(
         PublicAPIClientOptions(
