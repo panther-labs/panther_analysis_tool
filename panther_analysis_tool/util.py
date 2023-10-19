@@ -112,6 +112,11 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
         client = boto3.client(service)
     return client
 
+def func_with_api_backend(
+    func: Callable[[BackendClient, argparse.Namespace], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
+    return lambda args: func(get_api_backend(args), args)
+
 
 def func_with_backend(
     func: Callable[[BackendClient, argparse.Namespace], Any]
@@ -136,6 +141,17 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
     return None
 
 
+def get_api_backend(args: argparse.Namespace) -> BackendClient:
+    if not args.api_token:
+        raise BackendNotFoundException("Backend not found.")
+
+    return PublicAPIClient(
+        PublicAPIClientOptions(
+            token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
+        )
+    )
+
+
 def get_backend(args: argparse.Namespace) -> BackendClient:
     if args.api_token:
         return PublicAPIClient(
@@ -146,16 +162,13 @@ def get_backend(args: argparse.Namespace) -> BackendClient:
 
     datalake_lambda = get_datalake_lambda(args)
 
-    if hasattr(args, "aws_profile") and args.aws_profile is not None:
-        return LambdaClient(
-            LambdaClientOpts(
-                user_id=PANTHER_USER_ID,
-                aws_profile=args.aws_profile,
-                datalake_lambda=datalake_lambda,
-            )
+    return LambdaClient(
+        LambdaClientOpts(
+            user_id=PANTHER_USER_ID,
+            aws_profile=args.aws_profile,
+            datalake_lambda=datalake_lambda,
         )
-
-    raise BackendNotFoundException("Backend not found.")
+    )
 
 
 def get_datalake_lambda(args: argparse.Namespace) -> str:
