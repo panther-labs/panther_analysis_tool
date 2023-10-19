@@ -1791,7 +1791,7 @@ def setup_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument(filter_name, **filter_arg)
     validate_parser.add_argument(ignore_files_name, **ignore_files_arg)
     validate_parser.add_argument(path_name, **path_arg)
-    validate_parser.set_defaults(func=pat_utils.func_with_backend(validate.run))
+    validate_parser.set_defaults(func=pat_utils.func_with_api_backend(validate.run))
 
     # -- zip command
 
@@ -1871,7 +1871,7 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Required if the rule supports multiple log types, optional otherwise. Must be one of the rule's log"
         " types.",
     )
-    benchmark_parser.set_defaults(func=pat_utils.func_with_backend(benchmark.run))
+    benchmark_parser.set_defaults(func=pat_utils.func_with_api_backend(benchmark.run))
 
     # -- enrich-test-data command
     enrich_test_data_parser = subparsers.add_parser(
