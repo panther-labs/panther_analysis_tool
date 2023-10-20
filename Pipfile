@@ -51,7 +51,6 @@ sqlfluff = "==2.3.1"
 typing-extensions = "==4.7.1"
 urllib3 = "==1.26.16"
 wrapt = "==1.15.0"
-panther-analysis-tool = {file = "."}
 
 [requires]
 python_version = "3.9"

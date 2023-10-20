@@ -45,6 +45,10 @@ from panther_analysis_tool.constants import (
 UNKNOWN_VERSION = "unknown"
 
 
+class BackendNotFoundException(Exception):
+    pass
+
+
 def allowed_char(char: str) -> bool:
     """Return true if the character is part of a valid ID."""
     return char.isalnum() or char in {" ", "-", "."}
@@ -114,6 +118,12 @@ def get_client(aws_profile: str, service: str) -> boto3.client:
     return client
 
 
+def func_with_api_backend(
+    func: Callable[[BackendClient, argparse.Namespace], Any]
+) -> Callable[[argparse.Namespace], Tuple[int, str]]:
+    return lambda args: func(get_api_backend(args), args)
+
+
 def func_with_backend(
     func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
@@ -135,6 +145,15 @@ def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
         )
 
     return None
+
+
+def get_api_backend(args: argparse.Namespace) -> BackendClient:
+    if not args.api_token:
+        raise BackendNotFoundException("This function requires an API token. API token not found.")
+
+    return PublicAPIClient(
+        PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
+    )
 
 
 def get_backend(args: argparse.Namespace) -> BackendClient:
@@ -200,6 +219,10 @@ def convert_unicode(obj: Any) -> str:
 
 def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
     return analysis_item.get("Detection") is not None
+
+
+def is_derived_detection(analysis_item: Dict[str, Any]) -> bool:
+    return analysis_item.get("BaseDetection") is not None
 
 
 def add_path_to_filename(output_path: str, filename: str) -> str:

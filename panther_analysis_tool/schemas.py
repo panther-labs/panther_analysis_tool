@@ -43,7 +43,7 @@ class QueryScheduleSchema(Schema):
         return data
 
 
-NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"]+$")
+NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
 RESOURCE_TYPE_REGEX = Regex(
     r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
     r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
@@ -192,6 +192,33 @@ RULE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+DERIVED_SCHEMA = Schema(
+    {
+        "AnalysisType": "rule",
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Enabled"): bool,
+        Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("DynamicSeverities"): object,
+        Optional("AlertTitle"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
+    },
+    ignore_extra_keys=False,
+)
 
 SAVED_QUERY_SCHEMA = Schema(
     {

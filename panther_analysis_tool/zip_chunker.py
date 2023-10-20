@@ -186,8 +186,7 @@ def chunk_analysis(
         for chunk in chunk_files:
             if chunk.matches_file(analysis_spec_filename, analysis_spec):
                 chunk.add_file(main_file)
-                # datamodels may not have python body
-                if "Filename" in analysis_spec:
+                if analysis_spec is not None and "Filename" in analysis_spec:
                     chunk.add_file(
                         to_relative_path(os.path.join(dir_name, analysis_spec["Filename"])),
                         parent=main_file,

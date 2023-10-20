@@ -119,6 +119,7 @@ from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerato
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
@@ -126,8 +127,10 @@ from panther_analysis_tool.schemas import (
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
+    BackendNotFoundException,
     add_path_to_filename,
     convert_unicode,
+    is_derived_detection,
     is_simple_detection,
 )
 from panther_analysis_tool.validation import (
@@ -916,7 +919,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         }
 
-        if is_simple_detection(analysis_spec):
+        if is_simple_detection(analysis_spec) or is_derived_detection(analysis_spec):
             # skip tests when the body is empty
             if not analysis_spec.get("body"):
                 continue
@@ -1015,8 +1018,10 @@ def classify_analysis(
             # validate the schema has a valid analysis type
             TYPE_SCHEMA.validate(analysis_spec)
             analysis_type = analysis_spec["AnalysisType"]
-            # validate the particular analysis type schema
-            analysis_schema = SCHEMAS[analysis_type]
+            if analysis_spec.get("BaseDetection"):
+                analysis_schema = SCHEMAS["derived"]
+            else:
+                analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
             # Special case for ScheduledQueries to only validate the types
             if "ScheduledQueries" in analysis_spec:
@@ -1523,6 +1528,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=VERSION_STRING)
     parser.add_argument("--debug", action="store_true", dest="debug")
+    parser.add_argument("--skip-version-check", dest="skip_version_check", action="store_true")
     subparsers = parser.add_subparsers()
 
     # -- release command
@@ -1780,7 +1786,7 @@ def setup_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument(filter_name, **filter_arg)
     validate_parser.add_argument(ignore_files_name, **ignore_files_arg)
     validate_parser.add_argument(path_name, **path_arg)
-    validate_parser.set_defaults(func=pat_utils.func_with_backend(validate.run))
+    validate_parser.set_defaults(func=pat_utils.func_with_api_backend(validate.run))
 
     # -- zip command
 
@@ -1860,7 +1866,7 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Required if the rule supports multiple log types, optional otherwise. Must be one of the rule's log"
         " types.",
     )
-    benchmark_parser.set_defaults(func=pat_utils.func_with_backend(benchmark.run))
+    benchmark_parser.set_defaults(func=pat_utils.func_with_api_backend(benchmark.run))
 
     # -- enrich-test-data command
     enrich_test_data_parser = subparsers.add_parser(
@@ -1976,20 +1982,22 @@ def run() -> None:
         format="[%(levelname)s][%(name)s]: %(message)s",
         level=logging.INFO,
     )
-    latest = pat_utils.get_latest_version()
-    if not pat_utils.is_latest(latest):
-        logging.warning(
-            "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
-            "pip3 install %s --upgrade\n",
-            PACKAGE_NAME,
-            VERSION_STRING,
-            latest,
-            PACKAGE_NAME,
-        )
 
     parser = setup_parser()
     # if no args are passed, print the help output
     args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
+
+    if not args.skip_version_check:
+        latest = pat_utils.get_latest_version()
+        if not pat_utils.is_latest(latest):
+            logging.warning(
+                "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
+                "pip3 install %s --upgrade\n",
+                PACKAGE_NAME,
+                VERSION_STRING,
+                latest,
+                PACKAGE_NAME,
+            )
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -2024,9 +2032,13 @@ def run() -> None:
     if bool(getattr(args, "ignore_extra_keys", None)):
         RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
         return_code, out = args.func(args)
+    except BackendNotFoundException as err:
+        logging.error('Backend not found: "%s"', err)
+        sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
