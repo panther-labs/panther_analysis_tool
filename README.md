@@ -1,11 +1,13 @@
 # Panther Analysis Tool
 *Command Line Panther Analysis Management*
 
-[Panther Analysis Tool](https://github.com/panther-labs/panther_analysis_tool) is a Python application for testing, packaging, and deploying Panther Detections. For further details, see [Quick Start](https://docs.runpanther.io/quick-start) and [Panther Documentation](https://docs.panther.com/).
+[Panther Analysis Tool](https://github.com/panther-labs/panther_analysis_tool) is a Python application for testing, packaging, and deploying Panther Detections.
+
+For further details, see [Quick Start](https://docs.runpanther.io/quick-start) and [Panther Documentation](https://docs.panther.com/).
 
 # Installation
 
-## From PyPi
+### From PyPi
 
 Use pip to install [panther_analysis_tool package](https://pypi.org/project/panther-analysis-tool/) from PyPi:
 
@@ -20,16 +22,16 @@ make deps
 pip3 install -e .
 ```
 
-Or from source:
+### From source:
 
 ```shell
 make install
 pipenv run -- pip3 install -e .
 ```
 
-# Usage
+## Usage
 
-## Help
+### Help
 
 Show available commands and their options:
 
@@ -64,7 +66,7 @@ optional arguments:
   --skip-version-check
 ```
 
-## Test
+### Test
 
 Run tests for a given path:
 
@@ -77,7 +79,7 @@ AWS.IAM.MFAEnabled
 	[PASS] User MFA not enabled fails compliance
 ```
 
-## Upload 
+### Upload 
 
 Create packages to upload through the Panther UI:
 
@@ -127,7 +129,7 @@ AWS.CloudTrail.MFAEnabled
   "totalRules": 1
 }
 ```
-## Filtering
+### Filtering
 
 The `test`, `zip`, and `upload` commands all support filtering. Filtering works by passing the `--filter` argument with a list of filters specified in the format `KEY=VALUE1,VALUE2`. The keys can be any valid field in a policy or rule. When using a filter, only anaylsis that matches each filter specified will be considered. For example, the following command will test only items with the AnalysisType as `policy` AND severity as `High``:
 
@@ -221,7 +223,7 @@ Failed Tests Summary
 
 In this case, even though the rules passed all their tests, they are still considered failing because they do not have the correct test coverage.
 
-## Delete Rules, Policies, or Saved Queries
+### Delete Rules, Policies, or Saved Queries
 _Like the Upload commands mentioned above, this option requires your environment to be configured as if you are using AWS-CLI_
 ```
 $ panther_analysis_tool delete
@@ -248,16 +250,16 @@ optional arguments:
 
 Pass a space-separated list of Analysis IDs (RuleID or PolicyID) or QueryIDs. Use the --no-confirm flag to bypass confirmation prompts. Rules and their associated saved queries will be matched and deleted. The default configuration targets a Snowflake datalake; for an Athena datalake, use the --athena-datalake flag.
 
-# Configuration File
+## Configuration File
 Panther Analysis Tool will also read options from a configuration file called `.panther_settings.yml` located in the root of your working directory. An example configuration file is included in this repo, [example_panther_config.yml](example_panther_config.yml), that contains example syntax for supported options.
 
 Options in the configuration file take precedence over command-line options. For instance, if minimum_tests: 2 is set in the configuration file and --minimum-tests 1 is specified on the command line, the minimum number of tests will be 2.
 
-# Contributing
+## Contributing
 
 All contributions are welcome. Prior to submitting pull requests, consult the  [contributing guidelines](https://github.com/panther-labs/panther-analysis/blob/master/CONTRIBUTING.md). For steps to open a pull request from a fork, refer to [GitHub's guide](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
 
-## Local Development
+### Local Development
 
 To develop with the panther_analysis_tool locally, prepare two repositories: this one and another containing the panther analysis content for PAT testing.
 
