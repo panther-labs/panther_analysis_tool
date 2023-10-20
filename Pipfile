@@ -20,7 +20,7 @@ typed-ast = { version = "==1.4.3", markers = "python_version < '3.8' and impleme
 [packages]
 boto3 = "==1.21.42"
 jsonpath-ng = "==1.5.3"
-requests = "==2.27.1"
+requests = "==2.31.0"
 schema = "==0.7.5"
 semver = "==2.13.0"
 gql = { extras = ["aiohttp"], version = "==3.3.0" }
