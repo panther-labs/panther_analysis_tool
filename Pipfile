@@ -20,7 +20,7 @@ typed-ast = { version = "==1.4.3", markers = "python_version < '3.8' and impleme
 [packages]
 boto3 = "==1.21.42"
 jsonpath-ng = "==1.5.3"
-requests = "==2.27.1"
+requests = "==2.31.0"
 schema = "==0.7.5"
 semver = "==2.13.0"
 gql = { extras = ["aiohttp"], version = "==3.3.0" }
@@ -42,7 +42,7 @@ python-dateutil = "==2.8.2"
 "ruamel.yaml.clib" = "==0.2.7"
 s3transfer = "==0.5.2"
 six = "==1.16.0"
-sqlfluff = "==2.0.5"
+sqlfluff = "==2.1.2"
 nested-lookup = "==0.2.25"
 urllib3 = "==1.26.18"
 typing-extensions = "==4.3.0"
