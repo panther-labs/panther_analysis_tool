@@ -1,0 +1,43 @@
+name: Release PR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release_pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+      run: |
+        python -m pip install --upgrade pip
+        pip install pipenv
+
+    - name: Bump version and test
+      run: |
+        export NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%d.0", $1, $2+1}')
+        git checkout -b "$NEW_VERSION"
+        echo $NEW_VERSION > VERSION
+        sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
+        make venv
+        pipenv run python setup.py sdist
+        pipenv run pip install dist/panther_analysis_tool-$NEW_VERSION.tar.gz
+        pipenv run make test
+        git commit -a -m "version bump"
+        git push
+
+#    - name: Create Pull Request
+#      run: |
+#        gh pr create -t "Version bump to v$NEW_VERSION"
+#      env:
+#        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        GIT_COMMITTER_NAME: github-actions[bot]
+#        GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
