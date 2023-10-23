@@ -97,8 +97,6 @@ AWS.IAM.MFAEnabled
 
 Or upload packages directly into Panther:
 
-_Note, this expects your environment to be setup the same way as if you were using the AWS CLI, see the setup instructions [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html). We also recommend using a credentials manager such as [aws-vault](https://github.com/99designs/aws-vault)._
-
 ```
 $ panther_analysis_tool upload --path tests/fixtures/valid_policies/ --out tmp
 [INFO]: Testing analysis packs in tests/fixtures/valid_policies/
@@ -224,7 +222,7 @@ Failed Tests Summary
 In this case, even though the rules passed all their tests, they are still considered failing because they do not have the correct test coverage.
 
 ### Delete Rules, Policies, or Saved Queries
-_Like the Upload commands mentioned above, this option requires your environment to be configured as if you are using AWS-CLI_
+
 ```
 $ panther_analysis_tool delete
 
@@ -251,7 +249,7 @@ optional arguments:
 Pass a space-separated list of Analysis IDs (RuleID or PolicyID) or QueryIDs. Use the --no-confirm flag to bypass confirmation prompts. Rules and their associated saved queries will be matched and deleted. The default configuration targets a Snowflake datalake; for an Athena datalake, use the --athena-datalake flag.
 
 ## Configuration File
-Panther Analysis Tool will also read options from a configuration file called `.panther_settings.yml` located in the root of your working directory. An example configuration file is included in this repo, [example_panther_config.yml](example_panther_config.yml), that contains example syntax for supported options.
+Panther Analysis Tool will also read options from a configuration file `.panther_settings.yml` in the current working directory. An example configuration file is included in this repo, [example_panther_config.yml](example_panther_config.yml), that contains example syntax for supported options.
 
 Options in the configuration file take precedence over command-line options. For instance, if minimum_tests: 2 is set in the configuration file and --minimum-tests 1 is specified on the command line, the minimum number of tests will be 2.
 
@@ -268,7 +266,7 @@ From your (panther_analysis)[https://github.com/panther-labs/panther-analysis] c
 pipenv install --editable ../relative/path/to/panther_analysis_tool
 ```
 
-Then test your changes to PAT:
+Then test changes to PAT:
 ```shell
 pipenv run panther_analysis_tool <cmd>
 ```
