@@ -24,22 +24,26 @@ jobs:
         pip install pipenv
 
     - name: Bump version and test
+      id: bump_version
       run: |
         export NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%d.0", $1, $2+1}')
-        git checkout -b "$NEW_VERSION"
+        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+        echo "::set-output name=new_version::$NEW_VERSION"
         echo $NEW_VERSION > VERSION
         sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
         make venv
         pipenv run python setup.py sdist
         pipenv run pip install dist/panther_analysis_tool-$NEW_VERSION.tar.gz
         pipenv run make test
-        git commit -a -m "version bump"
-        git push
 
-#    - name: Create Pull Request
-#      run: |
-#        gh pr create -t "Version bump to v$NEW_VERSION"
-#      env:
-#        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        GIT_COMMITTER_NAME: github-actions[bot]
-#        GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+    - name: Create Branch and Pull Request
+      run: |
+        NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
+        git config user.name "dac-bot"
+        git config user.email "dac-bot@panther.com"
+        git checkout -b "$NEW_VERSION"
+        git commit -a -m "version bump"
+        git push --set-upstream origin "$NEW_VERSION"
+        gh pr create -t "Version bump to v$NEW_VERSION"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
