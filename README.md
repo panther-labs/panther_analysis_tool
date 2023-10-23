@@ -37,7 +37,6 @@ Show available commands and their options:
 
 ```
 $ panther_analysis_tool -h
-
 usage: panther_analysis_tool [-h] [--version] [--debug] [--skip-version-check] {release,test,publish,upload,delete,update-custom-schemas,test-lookup-table,validate,zip,check-connection,benchmark,enrich-test-data} ...
 
 Panther Analysis Tool: A command line tool for managing Panther policies and rules.
@@ -143,7 +142,7 @@ AWS.IAM.BetaTest
 Alternately, the following command will test items with the AnalysisType `policy` OR `rule`, AND the severity `High`:
 
 ```
-panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,rule Severity=High
+$ panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,rule Severity=High
 [INFO]: Testing analysis packs in tests/fixtures/valid_policies
 
 AWS.IAM.BetaTest
@@ -158,7 +157,7 @@ AWS.CloudTrail.MFAEnabled
 When writing policies or rules that refer to the global analysis types, include them in the filter. An empty string as a filter value means the filter applies only if the field exists. The following command returns an error: the policy imports a global, but the global lacks a severity and thus is excluded by the filter.
 
 ```
-panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,global Severity=Critical
+$ panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,global Severity=Critical
 [INFO]: Testing analysis packs in tests/fixtures/valid_policies
 
 AWS.IAM.MFAEnabled
@@ -261,14 +260,10 @@ All contributions are welcome. Prior to submitting pull requests, consult the  [
 
 To develop with the panther_analysis_tool locally, prepare two repositories: this one and another containing the panther analysis content for PAT testing.
 
-From your (panther_analysis)[https://github.com/panther-labs/panther-analysis] content repository, run:
-```shell
-pipenv install --editable ../relative/path/to/panther_analysis_tool
+From your (panther_analysis)[https://github.com/panther-labs/panther-analysis] content repository, install as editable (and test, for example):
 ```
-
-Then test changes to PAT:
-```shell
-pipenv run panther_analysis_tool test
+$ pipenv install --editable ../relative/path/to/panther_analysis_tool
+$ pipenv run panther_analysis_tool test
 ```
 
 ## License
