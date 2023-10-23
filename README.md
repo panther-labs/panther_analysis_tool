@@ -129,7 +129,7 @@ AWS.CloudTrail.MFAEnabled
 ```
 ### Filtering
 
-The `test`, `zip`, and `upload` commands all support filtering. Filtering works by passing the `--filter` argument with a list of filters specified in the format `KEY=VALUE1,VALUE2`. The keys can be any valid field in a policy or rule. When using a filter, only anaylsis that matches each filter specified will be considered. For example, the following command will test only items with the AnalysisType as `policy` AND severity as `High``:
+The `test`, `zip`, and `upload` commands all support filtering. Filtering works by passing the `--filter` argument with a list of filters specified in the format `KEY=VALUE1,VALUE2`. The keys can be any valid field in a policy or rule. When using a filter, only anaylsis that matches each filter specified will be considered. For example, the following command will test only items with the AnalysisType as `policy` AND severity as `High`:
 
 ```
 $ panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy Severity=High
@@ -140,7 +140,7 @@ AWS.IAM.BetaTest
 	[PASS] User MFA not enabled fails compliance
 ```
 
-Alternately, the following command will test items with the AnalysisType `policy` OR `rule``, AND the severity `High``:
+Alternately, the following command will test items with the AnalysisType `policy` OR `rule`, AND the severity `High`:
 
 ```
 panther_analysis_tool test --path tests/fixtures/valid_policies --filter AnalysisType=policy,rule Severity=High
@@ -268,7 +268,7 @@ pipenv install --editable ../relative/path/to/panther_analysis_tool
 
 Then test changes to PAT:
 ```shell
-pipenv run panther_analysis_tool <cmd>
+pipenv run panther_analysis_tool test
 ```
 
 ## License
