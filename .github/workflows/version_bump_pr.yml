@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release_pr:
+  version_bump_pr:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +17,6 @@ jobs:
       id: bump_version
       run: |
         export NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%d.0", $1, $2+1}')
-        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
         echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
         echo $NEW_VERSION > VERSION
         sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
