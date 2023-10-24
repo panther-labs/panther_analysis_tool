@@ -18,7 +18,7 @@ jobs:
       run: |
         export NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%d.0", $1, $2+1}')
         echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-        echo "::set-output name=new_version::$NEW_VERSION"
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
         echo $NEW_VERSION > VERSION
         sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
 
@@ -28,7 +28,7 @@ jobs:
         git config user.name "dac-bot"
         git config user.email "dac-bot@panther.com"
         git checkout -b "$NEW_VERSION"
-        git commit -a -m "version bump"
+        git commit -a -m "Bump version to $NEW_VERSION"
         git push --set-upstream origin "$NEW_VERSION"
         gh pr create -t "Version bump to v$NEW_VERSION"
       env:
