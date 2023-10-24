@@ -51,6 +51,6 @@ jobs:
         git checkout -b "$NEW_VERSION"
         git commit -a -m "Bump version to $NEW_VERSION"
         git push --set-upstream origin "$NEW_VERSION"
-        gh pr create -t "Version bump to v$NEW_VERSION"
+        gh pr create -t "Version bump to v$NEW_VERSION" -b "Bumping Version to v$NEW_VERSION ahead of release."
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
