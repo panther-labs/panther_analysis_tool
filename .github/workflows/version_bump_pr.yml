@@ -46,7 +46,7 @@ jobs:
     - name: Create Branch and Pull Request
       run: |
         NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
-        git config user.name "dac-bot"
+        git config user.name "github-actions"
         git config user.email "dac-bot@panther.com"
         git checkout -b "$NEW_VERSION"
         git commit -a -m "Bump version to $NEW_VERSION"
