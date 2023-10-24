@@ -53,4 +53,4 @@ jobs:
         git push --set-upstream origin "$NEW_VERSION"
         gh pr create -t "Version bump to v$NEW_VERSION" -b "Bumping Version to v$NEW_VERSION ahead of release."
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
