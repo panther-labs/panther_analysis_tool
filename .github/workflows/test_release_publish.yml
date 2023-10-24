@@ -1,0 +1,50 @@
+name: Build, Test, Publish Github and PyPI Releases
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish_github_release_and_pypi:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install pip and pipenv
+      run: |
+        python -m pip install --root-user-action=ignore --upgrade pip
+        pip install --root-user-action=ignore pipenv
+        make venv
+
+    - name: Build Release tar.gz
+      run: |
+        pipenv run python setup.py sdist
+
+    - name: Install Build and Run PAT Tests
+      run: |
+        pipenv run pip install --root-user-action=ignore dist/panther_analysis_tool-*.tar.gz
+        pipenv run make test
+
+    - name: Create Github Release
+      run: |
+        export NEW_VERSION=$(cat VERSION)
+        git config user.name "dac-bot"
+        git config user.email "dac-bot@panther.com"
+        gh release create v$NEW_VERSION -t v$NEW_VERSION
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Publish to PyPI
+      run: |
+        pipenv run twine upload dist/*
+      env:
+        TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}

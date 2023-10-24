@@ -1,0 +1,56 @@
+name: Version Bump PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version Bump Type (major, minor, patch)'
+        required: true
+        default: 'minor'
+
+jobs:
+  version_bump_pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Bump version
+      id: bump_version
+      run: |
+        BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+        
+        case "$BUMP_TYPE" in
+          major)
+            NEW_VERSION=$(cat VERSION | awk -F. '{printf "%d.0.0", $1+1}')
+            ;;
+          minor)
+            NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%d.0", $1, $2+1}')
+            ;;
+          patch)
+            NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%s.%d", $1, $2, $3+1}')
+            ;;
+          *)
+            echo "Error: Invalid bump type"
+            exit 1
+            ;;
+        esac
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo $NEW_VERSION > VERSION
+        sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
+
+    - name: Create Branch and Pull Request
+      run: |
+        NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
+        git config user.name "dac-bot"
+        git config user.email "dac-bot@panther.com"
+        git checkout -b "$NEW_VERSION"
+        git commit -a -m "Bump version to $NEW_VERSION"
+        git push --set-upstream origin "$NEW_VERSION"
+        gh pr create -t "Version bump to v$NEW_VERSION"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
