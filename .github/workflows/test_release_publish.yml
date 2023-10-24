@@ -38,7 +38,7 @@ jobs:
         export NEW_VERSION=$(cat VERSION)
         git config user.name "dac-bot"
         git config user.email "dac-bot@panther.com"
-        gh release create v$NEW_VERSION dist/* -t v$NEW_VERSION
+        gh release create v$NEW_VERSION dist/* -t v$NEW_VERSION --draft
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
