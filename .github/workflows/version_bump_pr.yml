@@ -1,4 +1,4 @@
-name: Release PR
+name: Version Bump PR
 
 on:
   workflow_dispatch:
@@ -13,17 +13,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-
-    - name: Install pip and pipenv
-      run: |
-        python -m pip install --upgrade pip
-        pip install pipenv
-
-    - name: Bump version and test
+    - name: Bump version
       id: bump_version
       run: |
         export NEW_VERSION=$(cat VERSION | awk -F. '{printf "%s.%d.0", $1, $2+1}')
@@ -31,10 +21,6 @@ jobs:
         echo "::set-output name=new_version::$NEW_VERSION"
         echo $NEW_VERSION > VERSION
         sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
-        make venv
-        pipenv run python setup.py sdist
-        pipenv run pip install dist/panther_analysis_tool-$NEW_VERSION.tar.gz
-        pipenv run make test
 
     - name: Create Branch and Pull Request
       run: |
