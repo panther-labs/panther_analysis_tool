@@ -38,7 +38,7 @@ echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
     - name: Create Branch and Pull Request
       run: |
-        NEW_VERSION="${{ steps.bump_version.outputs.NEW_VERSION }}"
+        NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
         git config user.name "dac-bot"
         git config user.email "dac-bot@panther.com"
         git checkout -b "$NEW_VERSION"
