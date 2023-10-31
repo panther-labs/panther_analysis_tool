@@ -1,7 +1,7 @@
 on:
   push:
     branches:
-      - master  # Splitting out master here ensures we do not redundantly run this workflow on merge from a PR
+      - main  # Splitting out main here ensures we do not redundantly run this workflow on merge from a PR
   pull_request:
     branches:
       - '*' # Match all branches
