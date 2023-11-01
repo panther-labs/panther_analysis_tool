@@ -47,7 +47,7 @@ nested-lookup = "==0.2.25"
 urllib3 = "==1.26.18"
 typing-extensions = "==4.3.0"
 jsonlines = "==3.0.0"
-panther-core = "==0.6.0"
+panther-core = "~=0.6.0"
 
 [requires]
 python_version = "3.9"
