@@ -1214,6 +1214,8 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
         analysis_id = analysis_spec["PolicyID"]
     elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
         analysis_id = analysis_spec["QueryName"]
+    elif analysis_type == AnalysisTypes.SAVED_QUERY:
+        analysis_id = analysis_spec["QueryName"]
     elif analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
