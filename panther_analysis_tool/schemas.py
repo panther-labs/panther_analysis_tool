@@ -216,6 +216,7 @@ DERIVED_SCHEMA = Schema(
         Optional("AlertTitle"): str,
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
+        Optional("Tests"): object,
     },
     ignore_extra_keys=False,
 )
