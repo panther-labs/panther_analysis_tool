@@ -234,7 +234,11 @@ class LoadAnalysisSpecsResult:
     def analysis_id(self) -> str:
         """Returns the analysis ID for this analysis spec."""
         analysis_type = self.analysis_spec["AnalysisType"]
-        if analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE, AnalysisTypes.CORRELATION_RULE]:
+        if analysis_type in [
+            AnalysisTypes.RULE,
+            AnalysisTypes.SCHEDULED_RULE,
+            AnalysisTypes.CORRELATION_RULE,
+        ]:
             return self.analysis_spec["RuleID"]
         elif analysis_type == AnalysisTypes.POLICY:
             return self.analysis_spec["PolicyID"]
