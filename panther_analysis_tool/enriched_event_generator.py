@@ -73,7 +73,11 @@ class EnrichedEventGenerator:
             for item in analysis_items
             if item.analysis_spec.get("Tests")
             and item.analysis_type()
-            in [AnalysisTypes.RULE, AnalysisTypes.POLICY, AnalysisTypes.SCHEDULED_RULE]
+            in [AnalysisTypes.RULE,
+                AnalysisTypes.POLICY,
+                AnalysisTypes.SCHEDULED_RULE,
+                AnalysisTypes.CORRELATION_RULE,
+            ]
         ]
 
     # pylint: disable=no-else-return

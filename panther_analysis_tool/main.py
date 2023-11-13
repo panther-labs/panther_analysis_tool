@@ -248,6 +248,7 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
         ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_QUERY, max_size=100),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_RULE, max_size=200),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.LOOKUP_TABLE, max_size=100),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.CORRELATION_RULE, max_size=200),  # type: ignore
     ]
 
     filenames = []
@@ -1216,7 +1217,7 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
         analysis_id = analysis_spec["QueryName"]
     elif analysis_type == AnalysisTypes.SAVED_QUERY:
         analysis_id = analysis_spec["QueryName"]
-    elif analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE]:
+    elif analysis_type in [AnalysisTypes.RULE, AnalysisTypes.SCHEDULED_RULE, AnalysisTypes.CORRELATION_RULE]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
 
