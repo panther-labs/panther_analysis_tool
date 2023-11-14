@@ -47,6 +47,7 @@ class AnalysisTypes:
     DERIVED = "derived"
     SCHEDULED_RULE = "scheduled_rule"
     SIMPLE_DETECTION = "simple_detection"
+    CORRELATION_RULE = "correlation_rule"
 
 
 # The UserID is required by Panther for some API calls, but we have no way of

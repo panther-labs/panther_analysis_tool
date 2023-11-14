@@ -436,7 +436,7 @@ class TestPantherAnalysisTool(TestCase):
             assert_true(statinfo.st_size > 0)
             assert_true(out_filename.endswith(".zip"))
 
-        assert_equal(6, len(results))
+        assert_equal(7, len(results))
 
     def test_generate_release_assets(self):
         # Note: This is a workaround for CI
