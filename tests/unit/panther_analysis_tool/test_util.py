@@ -134,3 +134,69 @@ class TestConvertUnicode(unittest.TestCase):
            }]}'}
         """
         self.assertEqual(convert_unicode(error_str), expected_str)
+
+
+class TestAnalysisTypePredicates(unittest.TestCase):
+    def test_is_simple_detection(self):
+        test_cases = [
+            {
+                "analysis_type": {"AnalysisType": "rule", "Detection": "something"},
+                "expected": True,
+            },
+            {
+                "analysis_type": {"AnalysisType": "rule", "Filename": "foo.py"},
+                "expected": False,
+            },
+            {
+                "analysis_type": {"AnalysisType": "correlation_rule", "Detection": "hurgledurgle"},
+                "expected": False,
+            },
+            {
+                "analysis_type": {"AnalysisType": "policy", "Filename": "foo.py"},
+                "expected": False,
+            },
+        ]
+
+        for case in test_cases:
+            res = pat_utils.is_simple_detection(case["analysis_type"])
+            self.assertEqual(case["expected"], res)
+
+    def test_is_correlation_rule(self):
+        test_cases = [
+            {
+                "analysis_type": {"AnalysisType": "correlation_rule", "Detection": "something"},
+                "expected": True,
+            },
+            {
+                "analysis_type": {"AnalysisType": "rule", "Filename": "foo.py"},
+                "expected": False,
+            },
+            {
+                "analysis_type": {"AnalysisType": "policy", "Filename": "foo.py"},
+                "expected": False,
+            },
+        ]
+
+        for case in test_cases:
+            res = pat_utils.is_correlation_rule(case["analysis_type"])
+            self.assertEqual(case["expected"], res)
+
+    def test_is_policy(self):
+        test_cases = [
+            {
+                "analysis_type": {"AnalysisType": "policy", "Filename": "something.py"},
+                "expected": True,
+            },
+            {
+                "analysis_type": {"AnalysisType": "rule", "Filename": "foo.py"},
+                "expected": False,
+            },
+            {
+                "analysis_type": {"AnalysisType": "correlation_rule", "Filename": "foo.py"},
+                "expected": False,
+            },
+        ]
+
+        for case in test_cases:
+            res = pat_utils.is_policy(case["analysis_type"])
+            self.assertEqual(case["expected"], res)

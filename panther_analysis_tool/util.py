@@ -40,6 +40,7 @@ from panther_analysis_tool.constants import (
     PACKAGE_NAME,
     PANTHER_USER_ID,
     VERSION_STRING,
+    AnalysisTypes,
 )
 
 UNKNOWN_VERSION = "unknown"
@@ -213,7 +214,21 @@ def convert_unicode(obj: Any) -> str:
 
 
 def is_simple_detection(analysis_item: Dict[str, Any]) -> bool:
-    return analysis_item.get("Detection") is not None
+    return all(
+        [
+            analysis_item.get("Detection") is not None,
+            is_correlation_rule(analysis_item) is False,
+            is_policy(analysis_item) is False,
+        ]
+    )
+
+
+def is_correlation_rule(analysis_item: Dict[str, Any]) -> bool:
+    return analysis_item.get("AnalysisType") == AnalysisTypes.CORRELATION_RULE
+
+
+def is_policy(analysis_item: Dict[str, Any]) -> bool:
+    return analysis_item.get("AnalysisType") == AnalysisTypes.POLICY
 
 
 def is_derived_detection(analysis_item: Dict[str, Any]) -> bool:
