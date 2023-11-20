@@ -41,7 +41,6 @@ class TestPATSchemas(unittest.TestCase):
             "Atlassian.Audit",
             "Auth0.Events",
             "Azure.Audit",
-            "Azure.SignIn",
             "Bitwarden.Events",
             "Box.Event",
             "CarbonBlack.Audit",
