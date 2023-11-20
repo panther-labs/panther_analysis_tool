@@ -29,7 +29,6 @@ LOG_TYPE_REGEX = Regex(
     r"Atlassian\.Audit|"
     r"Auth0\.Events|"
     r"Azure\.Audit|"
-    r"Azure\.SignIn|"
     r"Bitwarden\.Events|"
     r"Box\.Event|"
     r"CarbonBlack\.AlertV2|"
