@@ -18,7 +18,7 @@ from panther_analysis_tool.schemas import (
 
 PACKAGE_NAME: Final = "panther_analysis_tool"
 
-VERSION_STRING: Final = "0.32.1"
+VERSION_STRING: Final = "0.33.0"
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
