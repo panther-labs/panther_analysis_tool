@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/panther-labs/panther/pkg/detections/sdl/schema/simple-detection-schema",
   "$ref": "#/$defs/SimpleDetectionSchema",
   "$defs": {
     "AssociatedLogType": {
@@ -566,6 +567,17 @@
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
+              "None": {
+                "$ref": "#/$defs/MatchExpressions"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["None"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
               "Key": {
                 "type": "string"
               },
@@ -899,6 +911,185 @@
             "additionalProperties": false,
             "type": "object",
             "required": ["Condition", "Values"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "EventEvaluationOrder": {
+                "type": "string",
+                "enum": ["Chronological", "ReverseChronological"]
+              },
+              "LookbackWindowMinutes": {
+                "type": "integer"
+              },
+              "Schedule": {
+                "properties": {
+                  "CronExpression": {
+                    "type": "string"
+                  },
+                  "RateMinutes": {
+                    "type": "integer"
+                  },
+                  "TimeoutMinutes": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["TimeoutMinutes"]
+              },
+              "Sequence": {
+                "items": {
+                  "properties": {
+                    "ID": {
+                      "type": "string"
+                    },
+                    "RuleID": {
+                      "type": "string"
+                    },
+                    "SignalMatch": {
+                      "type": "string"
+                    },
+                    "MinMatchCount": {
+                      "type": "integer"
+                    },
+                    "MaxMatchCount": {
+                      "type": "integer"
+                    },
+                    "Absence": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "Transitions": {
+                "items": {
+                  "properties": {
+                    "ID": {
+                      "type": "string"
+                    },
+                    "From": {
+                      "type": "string"
+                    },
+                    "To": {
+                      "type": "string"
+                    },
+                    "WithinTimeFrameMinutes": {
+                      "type": "integer"
+                    },
+                    "Match": {
+                      "items": {
+                        "properties": {
+                          "On": {
+                            "type": "string"
+                          },
+                          "From": {
+                            "type": "string"
+                          },
+                          "To": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object"
+                      },
+                      "type": "array",
+                      "maxItems": 1,
+                      "minItems": 1
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": ["From", "To"]
+                },
+                "type": "array"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Schedule", "Sequence"]
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {
+              "EventEvaluationOrder": {
+                "type": "string",
+                "enum": ["Chronological", "ReverseChronological"]
+              },
+              "LookbackWindowMinutes": {
+                "type": "integer"
+              },
+              "Schedule": {
+                "properties": {
+                  "CronExpression": {
+                    "type": "string"
+                  },
+                  "RateMinutes": {
+                    "type": "integer"
+                  },
+                  "TimeoutMinutes": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["TimeoutMinutes"]
+              },
+              "Group": {
+                "items": {
+                  "properties": {
+                    "ID": {
+                      "type": "string"
+                    },
+                    "RuleID": {
+                      "type": "string"
+                    },
+                    "SignalMatch": {
+                      "type": "string"
+                    },
+                    "MinMatchCount": {
+                      "type": "integer"
+                    },
+                    "MaxMatchCount": {
+                      "type": "integer"
+                    },
+                    "Absence": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "MatchCriteria": {
+                "patternProperties": {
+                  ".*": {
+                    "items": {
+                      "properties": {
+                        "GroupID": {
+                          "type": "string"
+                        },
+                        "Match": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["GroupID", "Match"]
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["Schedule", "Group"]
           }
         ],
         "type": "object"
@@ -1020,7 +1211,8 @@
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
-            "saved_query"
+            "saved_query",
+            "correlation_rule"
           ]
         },
         "Description": {
@@ -1054,7 +1246,19 @@
           "type": "string"
         },
         "Severity": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Info",
+            "INFO",
+            "Low",
+            "LOW",
+            "Medium",
+            "MEDIUM",
+            "High",
+            "HIGH",
+            "Critical",
+            "CRITICAL"
+          ]
         },
         "Tags": {
           "items": {
@@ -1155,11 +1359,11 @@
         "Schema": {
           "type": "string"
         },
-        "PackDefinition": {
-          "$ref": "#/$defs/PackDefinition"
-        },
         "PackID": {
           "type": "string"
+        },
+        "PackDefinition": {
+          "$ref": "#/$defs/PackDefinition"
         },
         "Detection": {
           "$ref": "#/$defs/MatchExpressions"
@@ -1195,27 +1399,27 @@
     },
     "Test": {
       "properties": {
+        "Name": {
+          "type": "string"
+        },
         "ExpectedResult": {
           "type": "boolean"
         },
-        "Log": true,
         "LogType": {
+          "type": "string"
+        },
+        "ResourceType": {
           "type": "string"
         },
         "Mocks": {
           "$ref": "#/$defs/Mocks"
         },
-        "Name": {
-          "type": "string"
-        },
-        "Resource": true,
-        "ResourceType": {
-          "type": "string"
-        }
+        "Log": true,
+        "Resource": true
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["ExpectedResult", "Name"]
+      "required": ["Name", "ExpectedResult"]
     }
   }
 }

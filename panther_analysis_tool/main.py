@@ -130,6 +130,7 @@ from panther_analysis_tool.util import (
     BackendNotFoundException,
     add_path_to_filename,
     convert_unicode,
+    is_correlation_rule,
     is_derived_detection,
     is_simple_detection,
 )
@@ -910,6 +911,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             versionId="0000-0000-0000",
             filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         )
+
+        if is_correlation_rule(analysis_spec):
+            logging.warning("Skipping Correlation Rule '%s', testing not supported", analysis_spec.get("RuleID"))
+            continue
 
         if is_simple_detection(analysis_spec) or is_derived_detection(analysis_spec):
             # skip tests when the body is empty

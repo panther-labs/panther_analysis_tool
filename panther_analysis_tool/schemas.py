@@ -56,6 +56,7 @@ RESOURCE_TYPE_REGEX = Regex(
 TYPE_SCHEMA = Schema(
     {
         "AnalysisType": Or(
+            "correlation_rule",
             "datamodel",
             "global",
             "pack",
@@ -217,6 +218,44 @@ DERIVED_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
         Optional("Tests"): object,
+    },
+    ignore_extra_keys=False,
+)
+
+CORRELATION_RULE_SCHEMA = Schema(
+    {
+        "AnalysisType": "correlation_rule",
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        "Detection": object,
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("Tests"): [
+            {
+                "Name": str,
+                Optional(
+                    "LogType"
+                ): str,  # Not needed anymore, optional for backwards compatibility
+                "ExpectedResult": bool,
+                "Log": object,
+                Optional("Mocks"): [MOCK_SCHEMA],
+            }
+        ],
+        Optional("DynamicSeverities"): object,
+        Optional("AlertTitle"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
     },
     ignore_extra_keys=False,
 )
