@@ -913,7 +913,9 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
         )
 
         if is_correlation_rule(analysis_spec):
-            logging.warning("Skipping Correlation Rule '%s', testing not supported", analysis_spec.get("RuleID"))
+            logging.warning(
+                "Skipping Correlation Rule '%s', testing not supported", analysis_spec.get("RuleID")
+            )
             continue
 
         if is_simple_detection(analysis_spec) or is_derived_detection(analysis_spec):
