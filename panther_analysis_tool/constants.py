@@ -5,6 +5,7 @@ from typing import Dict, Final
 from schema import Schema
 
 from panther_analysis_tool.schemas import (
+    CORRELATION_RULE_SCHEMA,
     DATA_MODEL_SCHEMA,
     DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
@@ -79,6 +80,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.RULE: RULE_SCHEMA,
     AnalysisTypes.DERIVED: DERIVED_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
+    AnalysisTypes.CORRELATION_RULE: CORRELATION_RULE_SCHEMA,
 }
 
 SET_FIELDS = [
