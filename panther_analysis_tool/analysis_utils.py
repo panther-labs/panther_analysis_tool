@@ -201,7 +201,9 @@ def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> No
         for analysis_spec_res in analysis_specs:
             rule: Dict[str, Any] = analysis_spec_res.analysis_spec
             if rule.get(rule_id_key, "") == base_detection_id:
-                logging.info("Setting %s=False for %s", enabled_key, analysis_spec_res.spec_filename)
+                logging.info(
+                    "Setting %s=False for %s", enabled_key, analysis_spec_res.spec_filename
+                )
                 rule[enabled_key] = False
                 analysis_spec_res.serialize_to_file()
 
