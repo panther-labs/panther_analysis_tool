@@ -184,6 +184,26 @@ def load_analysis_specs(
     for result in load_analysis_specs_ex(directories, ignore_files, roundtrip_yaml=False):
         yield result.spec_filename, result.relative_path, result.analysis_spec, result.error
 
+def disable_all_base_detections(paths: List[str], ignore_files: List[str]):
+    analysis_specs = list(load_analysis_specs_ex(paths, ignore_files, roundtrip_yaml=True))
+    base_ids_to_disable = set()
+    base_detection_key = 'BaseDetection'
+    rule_id_key = 'RuleID'
+    enabled_key = 'Enabled'
+    for analysis_spec_res in analysis_specs:
+        spec: Dict[str, Any] = analysis_spec_res.analysis_spec
+        base_id = spec.get(base_detection_key, "")
+        if base_id == "":
+            continue
+        base_ids_to_disable.add(base_id)
+    for base_detection_id in base_ids_to_disable:
+        for analysis_spec_res in analysis_specs:
+            spec: Dict[str, Any] = analysis_spec_res.analysis_spec
+            if spec.get(rule_id_key, "") == base_detection_id:
+                logging.info(f"Setting {enabled_key}=False for {analysis_spec_res.spec_filename}")
+                spec[enabled_key] = False
+                analysis_spec_res.serialize_to_file()
+    pass
 
 @dataclasses.dataclass
 class LoadAnalysisSpecsResult:

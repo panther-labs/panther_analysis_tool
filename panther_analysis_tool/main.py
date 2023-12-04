@@ -84,6 +84,7 @@ from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
+    disable_all_base_detections,
     filter_analysis,
     get_simple_detections_as_python,
     load_analysis_specs,
@@ -315,6 +316,10 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     Returns:
         A tuple of return code and error if applicable.
     """
+    if args.auto_disable_base:
+        zipargs = ZipArgs.from_args(args)
+        disable_all_base_detections([zipargs.path], zipargs.ignore_files)
+
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
         if not args.skip_tests:
@@ -1668,6 +1673,13 @@ def setup_parser() -> argparse.ArgumentParser:
         help=upload_help_text,
         description=upload_help_text,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    upload_parser.add_argument(
+        "--auto-disable-base",
+        help="If uploading derived detections, set the corresponding base detection's Enabled status to false prior to upload",
+        default=False,
+        required=False,
+        action="store_true",
     )
     upload_parser.add_argument(
         "--max-retries",
