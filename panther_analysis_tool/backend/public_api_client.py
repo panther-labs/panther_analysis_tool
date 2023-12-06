@@ -20,7 +20,7 @@ import datetime
 import logging
 import os
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -525,7 +525,14 @@ class PublicAPIClient(Client):
 
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
         query = self._requests.feature_flags_query()
-        query_input = {"input": asdict(params)}
+        query_input = {
+            "input": {
+                "flags": [
+                    {"flag": flag.flag, "defaultTreatment": flag.default_treatment}
+                    for flag in params.flags
+                ]
+            }
+        }
         res = self._safe_execute(query, variable_values=query_input)
         data = res.data.get("featureFlags", {})  # type: ignore
 

@@ -441,7 +441,7 @@ class GenerateEnrichedEventResponse:
 @dataclass(frozen=True)
 class FeatureFlagWithDefault:
     flag: str
-    defaultTreatment: Optional[bool] = None
+    default_treatment: Optional[bool] = None
 
 
 @dataclass(frozen=True)

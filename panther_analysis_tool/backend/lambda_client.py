@@ -55,6 +55,8 @@ from .client import (
     UpdateSchemaResponse,
     backend_response_failed,
     to_bulk_upload_response,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
 )
 from .errors import is_retryable_error
 
@@ -329,3 +331,6 @@ class LambdaClient(Client):
         self, params: GenerateEnrichedEventParams
     ) -> BackendResponse[GenerateEnrichedEventResponse]:
         raise BaseException("enrich-test-data is not supported with lambda client")
+
+    def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
+        raise BaseException("feature-flags is not supported with lambda client")
