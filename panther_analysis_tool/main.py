@@ -38,7 +38,6 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
-
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -95,6 +94,8 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
+    FeatureFlagsParams,
+    FeatureFlagWithDefault,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
@@ -114,6 +115,7 @@ from panther_analysis_tool.constants import (
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
     AnalysisTypes,
+    ENABLE_CORRELATION_RULES_FLAG,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
@@ -369,7 +371,14 @@ def upload_zip(
                 else:
                     response = backend.bulk_upload(upload_params)
 
-                logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
+                resp_dict = asdict(response.data)
+                flags_params = FeatureFlagsParams(
+                    flags=[FeatureFlagWithDefault(flag=ENABLE_CORRELATION_RULES_FLAG)]
+                )
+                if not backend.feature_flags(flags_params).data.flags[0].treatment:
+                    del resp_dict["correlation_rules"]
+
+                logging.info("API Response:\n%s", json.dumps(resp_dict, indent=4))
                 return 0, cli_output.success("Upload succeeded")
 
             except BackendError as be_err:
@@ -1036,7 +1045,9 @@ def classify_analysis(
                 if not tmp_logtypes:
                     tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
                 analysis_schema.schema[tmp_logtypes_key] = [str]
+
             analysis_schema.validate(analysis_spec)
+
             # lookup the analysis type id and validate there aren't any conflicts
             analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
             if analysis_id in analysis_ids:

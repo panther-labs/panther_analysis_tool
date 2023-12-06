@@ -1,0 +1,8 @@
+query GetFeatureFlags($input: GetFeatureFlagsInput!) {
+    featureFlags(input: $input) {
+        flags {
+            flag
+            treatment
+        }
+    }
+}

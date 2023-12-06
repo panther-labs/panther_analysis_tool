@@ -20,7 +20,7 @@ import datetime
 import logging
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -31,7 +31,6 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
-from ..constants import VERSION_STRING, ReplayStatus
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -63,8 +62,12 @@ from .client import (
     UpdateSchemaParams,
     UpdateSchemaResponse,
     to_bulk_upload_response,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
+    FeatureFlagTreatment,
 )
 from .errors import is_retryable_error, is_retryable_error_str
+from ..constants import VERSION_STRING, ReplayStatus
 
 
 @dataclass(frozen=True)
@@ -133,6 +136,9 @@ class PublicAPIRequests:
 
     def generate_enriched_event_query(self) -> DocumentNode:
         return self._load("generate_enriched_event")
+
+    def feature_flags_query(self) -> DocumentNode:
+        return self._load("feature_flags")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -514,6 +520,22 @@ class PublicAPIClient(Client):
             status_code=200,
             data=GenerateEnrichedEventResponse(
                 enriched_event=enriched_event,
+            ),
+        )
+
+    def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
+        query = self._requests.feature_flags_query()
+        query_input = {"input": asdict(params)}
+        res = self._safe_execute(query, variable_values=query_input)
+        data = res.data.get("featureFlags", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=FeatureFlagsResponse(
+                flags=[
+                    FeatureFlagTreatment(flag=flag.get("flag"), treatment=flag.get("treatment"))
+                    for flag in data.get("flags") or []
+                ]
             ),
         )
 
