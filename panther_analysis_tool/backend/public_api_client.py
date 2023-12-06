@@ -31,6 +31,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode, ExecutionResult
 
+from ..constants import VERSION_STRING, ReplayStatus
 from .client import (
     BackendCheckResponse,
     BackendError,
@@ -43,6 +44,9 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
+    FeatureFlagTreatment,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
     ListSchemasParams,
@@ -62,12 +66,8 @@ from .client import (
     UpdateSchemaParams,
     UpdateSchemaResponse,
     to_bulk_upload_response,
-    FeatureFlagsParams,
-    FeatureFlagsResponse,
-    FeatureFlagTreatment,
 )
 from .errors import is_retryable_error, is_retryable_error_str
-from ..constants import VERSION_STRING, ReplayStatus
 
 
 @dataclass(frozen=True)

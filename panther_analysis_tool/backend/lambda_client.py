@@ -37,6 +37,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
     ListSchemasParams,
@@ -55,8 +57,6 @@ from .client import (
     UpdateSchemaResponse,
     backend_response_failed,
     to_bulk_upload_response,
-    FeatureFlagsParams,
-    FeatureFlagsResponse,
 )
 from .errors import is_retryable_error
 

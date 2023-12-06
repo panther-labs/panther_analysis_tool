@@ -38,6 +38,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
+
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
@@ -94,10 +95,12 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
+)
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -109,13 +112,13 @@ from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     CONFIG_FILE,
     DATA_MODEL_LOCATION,
+    ENABLE_CORRELATION_RULES_FLAG,
     HELPERS_LOCATION,
     PACKAGE_NAME,
     SCHEMAS,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
     AnalysisTypes,
-    ENABLE_CORRELATION_RULES_FLAG,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator

@@ -11,6 +11,8 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
     ListSchemasParams,
@@ -81,4 +83,7 @@ class MockBackend(BackendClient):
     def generate_enriched_event_input(
         self, params: GenerateEnrichedEventParams
     ) -> BackendResponse[GenerateEnrichedEventResponse]:
+        pass
+
+    def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
         pass
