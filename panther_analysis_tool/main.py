@@ -956,9 +956,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             if "body" in found_base_detection:
                 detection_args["body"] = found_base_detection.get("body")
             else:
-                found_base_path: str = found_base_path
                 detection_args["path"] = os.path.join(
-                    found_base_path, found_base_detection["Filename"]
+                    found_base_path, found_base_detection["Filename"]  # type: ignore
                 )
         elif is_simple_detection(analysis_spec):
             # skip tests when the body is empty

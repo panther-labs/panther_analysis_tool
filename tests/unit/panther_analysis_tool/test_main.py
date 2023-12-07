@@ -724,7 +724,7 @@ class TestPantherAnalysisTool(TestCase):
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
-                # assert that we were able to look up the base of this derived detection
+                # assert that we skipped because we could not lookup base
                 assert_true(any("Skipping Derived Detection" in s for s in warning_logs))
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
