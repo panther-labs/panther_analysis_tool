@@ -89,6 +89,7 @@ from panther_analysis_tool.analysis_utils import (
     get_simple_detections_as_python,
     load_analysis_specs,
     load_analysis_specs_ex,
+    lookup_base_detection,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import (
@@ -132,7 +133,6 @@ from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
     is_correlation_rule,
-    is_derived_detection,
     is_simple_detection,
 )
 from panther_analysis_tool.validation import (
@@ -761,6 +761,7 @@ def test_analysis(
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
+        backend=backend,
     )
     invalid_specs.extend(invalid_detections)
 
@@ -891,7 +892,7 @@ def setup_data_models(
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
+def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-many-statements
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[ClassifiedAnalysis],
     minimum_tests: int,
@@ -899,6 +900,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer] = None,
+    backend: typing.Optional[BackendClient] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -923,7 +925,40 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             )
             continue
 
-        if is_simple_detection(analysis_spec) or is_derived_detection(analysis_spec):
+        base_id = analysis_spec.get("BaseDetection", "")
+        if base_id != "":
+            # this is a derived detection
+            found_base_detection = None
+            found_base_path = None
+            found_base_tests = None
+            for other_item in analysis:
+                if other_item.analysis_spec.get("RuleID", "") != base_id:
+                    continue
+                found_base_detection = other_item.analysis_spec
+                found_base_path = other_item.dir_name
+                found_base_tests = other_item.analysis_spec.get("Tests")
+                break
+            # inherit the tests from the base if we dont have any
+            if "Tests" not in analysis_spec and found_base_tests:
+                analysis_spec["Tests"] = found_base_tests
+            if not found_base_detection:
+                base_lookup = lookup_base_detection(base_id, backend)
+                if "body" in base_lookup:
+                    found_base_detection = base_lookup
+            if not found_base_detection:
+                logging.warning(
+                    "Skipping Derived Detection '%s', could not lookup base detection '%s'",
+                    analysis_spec.get("RuleID"),
+                    base_id,
+                )
+                continue
+            if "body" in found_base_detection:
+                detection_args["body"] = found_base_detection.get("body")
+            else:
+                detection_args["path"] = os.path.join(
+                    found_base_path, found_base_detection["Filename"]  # type: ignore
+                )
+        elif is_simple_detection(analysis_spec):
             # skip tests when the body is empty
             if not analysis_spec.get("body"):
                 continue

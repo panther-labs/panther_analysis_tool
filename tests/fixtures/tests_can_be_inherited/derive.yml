@@ -1,0 +1,5 @@
+AnalysisType: rule
+RuleID: 'Sus.Login.Derived'
+BaseDetection: 'Sus.Login.Base'
+Severity: High
+Enabled: true
