@@ -291,7 +291,7 @@ class TranspileToPythonResponse:
 
 @dataclass(frozen=True)
 class GetRuleBodyParams:
-    id: str
+    id: str  # pylint: disable=invalid-name
 
 
 @dataclass(frozen=True)
