@@ -454,9 +454,7 @@ def get_simple_detections_as_python(
     return enriched_specs if enriched_specs else specs
 
 
-def lookup_base_detection(
-    id: str, backend: Optional[BackendClient] = None
-) -> Dict[str, Any]:
+def lookup_base_detection(id: str, backend: Optional[BackendClient] = None) -> Dict[str, Any]:
     """Attempts to lookup base detection via its id"""
     out = {}
     if backend is not None:
@@ -466,7 +464,9 @@ def lookup_base_detection(
             if response.status_code == 200:
                 out["body"] = response.data.body
             else:
-                logging.warning("Unexpected error getting base detection, status code %s", response.status_code)
+                logging.warning(
+                    "Unexpected error getting base detection, status code %s", response.status_code
+                )
         except (BackendError, BaseException) as be_err:  # pylint: disable=broad-except
             logging.warning(
                 "Error getting base detection %s: %s",

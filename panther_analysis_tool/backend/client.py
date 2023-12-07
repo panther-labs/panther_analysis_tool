@@ -465,9 +465,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def get_rule_body(
-        self, params: GetRuleBodyParams
-    ) -> BackendResponse[GetRuleBodyResponse]:
+    def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
         pass
 
     @abstractmethod

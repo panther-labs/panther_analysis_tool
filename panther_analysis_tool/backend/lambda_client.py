@@ -286,9 +286,7 @@ class LambdaClient(Client):
     ) -> BackendResponse[TranspileFiltersResponse]:
         raise BaseException("transpile filters is not supported with lambda client")
 
-    def get_rule_body(
-        self, params: GetRuleBodyParams
-    ) -> BackendResponse[GetRuleBodyResponse]:
+    def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
         raise BaseException("get rule body is not supported with lambda client")
 
     @staticmethod

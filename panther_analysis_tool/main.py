@@ -944,13 +944,16 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             if not found_base_detection:
                 logging.warning(
                     "Skipping Derived Detection '%s', could not lookup base detection '%s'",
-                    analysis_spec.get("RuleID"), base_id
+                    analysis_spec.get("RuleID"),
+                    base_id,
                 )
                 continue
             if "body" in found_base_detection:
                 detection_args["body"] = found_base_detection.get("body")
             else:
-                detection_args["path"] = os.path.join(found_base_path, found_base_detection["Filename"])
+                detection_args["path"] = os.path.join(
+                    found_base_path, found_base_detection["Filename"]
+                )
         elif is_simple_detection(analysis_spec):
             # skip tests when the body is empty
             if not analysis_spec.get("body"):
