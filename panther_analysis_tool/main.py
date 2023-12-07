@@ -133,7 +133,6 @@ from panther_analysis_tool.util import (
     add_path_to_filename,
     convert_unicode,
     is_correlation_rule,
-    is_derived_detection,
     is_simple_detection,
 )
 from panther_analysis_tool.validation import (
@@ -893,7 +892,7 @@ def setup_data_models(
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
+def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-many-statements
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[ClassifiedAnalysis],
     minimum_tests: int,
