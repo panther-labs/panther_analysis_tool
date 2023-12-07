@@ -729,6 +729,24 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
+    
+    def test_can_inherit_tests_from_base(self):
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = mystdout = StringIO()
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/tests_can_be_inherited"
+            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            return_code, invalid_specs = pat.test_analysis(args)
+        sys.stdout = old_stdout
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+        stdout_str = mystdout.getvalue()
+        assert_equal(stdout_str.count("[PASS] t1"), 2)
+        assert_equal(stdout_str.count("[PASS] t2"), 2)
+
     def test_bulk_validate_happy_path(self):
         backend = MockBackend()
         backend.supports_bulk_validate = mock.MagicMock(return_value=True)

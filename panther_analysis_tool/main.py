@@ -931,12 +931,17 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments
             # this is a derived detection
             found_base_detection = None
             found_base_path = None
+            found_base_tests = None
             for other_item in analysis:
                 if other_item.analysis_spec.get("RuleID", "") != base_id:
                     continue
                 found_base_detection = other_item.analysis_spec
                 found_base_path = other_item.dir_name
+                found_base_tests = other_item.analysis_spec.get("Tests")
                 break
+            # inherit the tests from the base if we dont have any
+            if "Tests" not in analysis_spec and found_base_tests:
+                analysis_spec["Tests"] = found_base_tests
             if not found_base_detection:
                 base_lookup = lookup_base_detection(base_id, backend)
                 if "body" in base_lookup:
