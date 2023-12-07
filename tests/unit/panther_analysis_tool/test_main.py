@@ -680,14 +680,13 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_can_retrieve_base_detection_for_test(self):
         import logging
+
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/derived_without_base"
             backend = MockBackend()
             backend.get_rule_body = mock.MagicMock(
                 return_value=BackendResponse(
-                    data=GetRuleBodyResponse(
-                        body="def rule(_):\n\treturn False"
-                    ),
+                    data=GetRuleBodyResponse(body="def rule(_):\n\treturn False"),
                     status_code=200,
                 )
             )
@@ -705,6 +704,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_logs_warning_if_cannot_retrieve_base(self):
         import logging
+
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/derived_without_base"
             backend = MockBackend()
@@ -729,7 +729,6 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
 
-    
     def test_can_inherit_tests_from_base(self):
         import sys
         from io import StringIO
