@@ -44,6 +44,9 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
+    FeatureFlagTreatment,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
     GetRuleBodyParams,
@@ -138,6 +141,9 @@ class PublicAPIRequests:
 
     def generate_enriched_event_query(self) -> DocumentNode:
         return self._load("generate_enriched_event")
+
+    def feature_flags_query(self) -> DocumentNode:
+        return self._load("feature_flags")
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
@@ -533,6 +539,29 @@ class PublicAPIClient(Client):
             status_code=200,
             data=GenerateEnrichedEventResponse(
                 enriched_event=enriched_event,
+            ),
+        )
+
+    def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
+        query = self._requests.feature_flags_query()
+        query_input = {
+            "input": {
+                "flags": [
+                    {"flag": flag.flag, "defaultTreatment": flag.default_treatment}
+                    for flag in params.flags
+                ]
+            }
+        }
+        res = self._safe_execute(query, variable_values=query_input)
+        data = res.data.get("featureFlags", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=FeatureFlagsResponse(
+                flags=[
+                    FeatureFlagTreatment(flag=flag.get("flag"), treatment=flag.get("treatment"))
+                    for flag in data.get("flags") or []
+                ]
             ),
         )
 

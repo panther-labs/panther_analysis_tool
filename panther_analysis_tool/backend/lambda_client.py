@@ -37,6 +37,8 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    FeatureFlagsParams,
+    FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
     GetRuleBodyParams,
@@ -334,3 +336,6 @@ class LambdaClient(Client):
         self, params: GenerateEnrichedEventParams
     ) -> BackendResponse[GenerateEnrichedEventResponse]:
         raise BaseException("enrich-test-data is not supported with lambda client")
+
+    def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
+        raise BaseException("feature-flags is not supported with lambda client")

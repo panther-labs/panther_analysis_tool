@@ -98,6 +98,10 @@ from panther_analysis_tool.backend.client import (
     BulkUploadParams,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import (
+    FeatureFlagsParams,
+    FeatureFlagWithDefault,
+)
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -109,6 +113,7 @@ from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     CONFIG_FILE,
     DATA_MODEL_LOCATION,
+    ENABLE_CORRELATION_RULES_FLAG,
     HELPERS_LOCATION,
     PACKAGE_NAME,
     SCHEMAS,
@@ -369,7 +374,14 @@ def upload_zip(
                 else:
                     response = backend.bulk_upload(upload_params)
 
-                logging.info("API Response:\n%s", json.dumps(asdict(response.data), indent=4))
+                resp_dict = asdict(response.data)
+                flags_params = FeatureFlagsParams(
+                    flags=[FeatureFlagWithDefault(flag=ENABLE_CORRELATION_RULES_FLAG)]
+                )
+                if not backend.feature_flags(flags_params).data.flags[0].treatment:
+                    del resp_dict["correlation_rules"]
+
+                logging.info("API Response:\n%s", json.dumps(resp_dict, indent=4))
                 return 0, cli_output.success("Upload succeeded")
 
             except BackendError as be_err:
@@ -1071,7 +1083,9 @@ def classify_analysis(
                 if not tmp_logtypes:
                     tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
                 analysis_schema.schema[tmp_logtypes_key] = [str]
+
             analysis_schema.validate(analysis_spec)
+
             # lookup the analysis type id and validate there aren't any conflicts
             analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
             if analysis_id in analysis_ids:
