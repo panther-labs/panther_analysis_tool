@@ -15,6 +15,8 @@ from panther_analysis_tool.backend.client import (
     FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
+    GetRuleBodyParams,
+    GetRuleBodyResponse,
     ListSchemasParams,
     MetricsParams,
     MetricsResponse,
@@ -50,6 +52,9 @@ class MockBackend(BackendClient):
         pass
 
     def supports_async_uploads(self) -> bool:
+        pass
+
+    def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
         pass
 
     def transpile_simple_detection_to_python(

@@ -1,0 +1,21 @@
+AnalysisType: rule
+Description: This rule alerts for suspicious login activity
+DisplayName: 'Suspicious Logins'
+Enabled: false
+Runbook: Examine other activities done by this user to determine whether or not activity is suspicious.
+Severity: Medium
+DedupPeriodMinutes: 60
+LogTypes:
+  - AWS.CloudTrail
+  - Azure.Audit
+RuleID: 'Sus.Login.Base'
+Threshold: 1
+Filename: base.py
+Tests:
+    - ExpectedResult: false
+      Log: {}
+      Name: t1
+    - ExpectedResult: true
+      Log:
+        operationName: "Sign-in activity"
+      Name: t2

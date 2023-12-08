@@ -41,6 +41,8 @@ from .client import (
     FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
+    GetRuleBodyParams,
+    GetRuleBodyResponse,
     ListSchemasParams,
     ListSchemasResponse,
     MetricsParams,
@@ -285,6 +287,9 @@ class LambdaClient(Client):
         self, params: TranspileFiltersParams
     ) -> BackendResponse[TranspileFiltersResponse]:
         raise BaseException("transpile filters is not supported with lambda client")
+
+    def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
+        raise BaseException("get rule body is not supported with lambda client")
 
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:

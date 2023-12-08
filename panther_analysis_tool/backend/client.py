@@ -291,6 +291,16 @@ class TranspileToPythonResponse:
 
 
 @dataclass(frozen=True)
+class GetRuleBodyParams:
+    id: str  # pylint: disable=invalid-name
+
+
+@dataclass(frozen=True)
+class GetRuleBodyResponse:
+    body: str
+
+
+@dataclass(frozen=True)
 class TranspileFiltersParams:
     data: List[str]
     pat_version: str
@@ -475,6 +485,10 @@ class Client(ABC):
 
     @abstractmethod
     def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        pass
+
+    @abstractmethod
+    def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
         pass
 
     @abstractmethod

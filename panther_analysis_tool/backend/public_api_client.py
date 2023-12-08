@@ -49,6 +49,8 @@ from .client import (
     FeatureFlagTreatment,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
+    GetRuleBodyParams,
+    GetRuleBodyResponse,
     ListSchemasParams,
     ListSchemasResponse,
     MetricsParams,
@@ -112,6 +114,9 @@ class PublicAPIRequests:
 
     def delete_saved_queries(self) -> DocumentNode:
         return self._load("delete_saved_queries")
+
+    def get_rule_body(self) -> DocumentNode:
+        return self._load("get_rule_body")
 
     def transpile_simple_detection_to_python(self) -> DocumentNode:
         return self._load("transpile_sdl")
@@ -237,6 +242,20 @@ class PublicAPIClient(Client):
 
             if status not in ["NOT_PROCESSED"]:
                 raise BackendError(f"unexpected status: {status}")
+
+    # This function was generated in whole or in part by GitHub Copilot.
+    def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
+        query: DocumentNode = self._requests.get_rule_body()
+        params = {"input": params.id}  # type: ignore
+        res = self._safe_execute(query, variable_values=params)  # type: ignore
+        data = res.data.get("rulePythonBody", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=GetRuleBodyResponse(
+                body=data.get("pythonBody") or "",
+            ),
+        )
 
     # This function was generated in whole or in part by GitHub Copilot.
     def transpile_simple_detection_to_python(

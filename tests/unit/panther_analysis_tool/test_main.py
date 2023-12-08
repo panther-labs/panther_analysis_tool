@@ -36,6 +36,8 @@ from panther_analysis_tool.backend.client import (
     BackendResponse,
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
+    GetRuleBodyParams,
+    GetRuleBodyResponse,
     TranspileFiltersResponse,
     TranspileToPythonResponse,
     UnsupportedEndpointError,
@@ -675,6 +677,74 @@ class TestPantherAnalysisTool(TestCase):
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
+
+    def test_can_retrieve_base_detection_for_test(self):
+        import logging
+
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/derived_without_base"
+            backend = MockBackend()
+            backend.get_rule_body = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=GetRuleBodyResponse(body="def rule(_):\n\treturn False"),
+                    status_code=200,
+                )
+            )
+            with mock.patch.multiple(
+                logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
+            ) as logging_mocks:
+                logging.warn("to instantiate the warning call args")
+                args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+                return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+                warning_logs = logging_mocks["warning"].call_args.args
+                # assert that we were able to look up the base of this derived detection
+                assert_true(all("Skipping Derived Detection" not in s for s in warning_logs))
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_logs_warning_if_cannot_retrieve_base(self):
+        import logging
+
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/derived_without_base"
+            backend = MockBackend()
+            # we mock a response for getting an error when retrieving the base
+            backend.get_rule_body = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=GetRuleBodyResponse(
+                        body="i am writing a unit test i can write anything i want here"
+                    ),
+                    status_code=403,
+                )
+            )
+            with mock.patch.multiple(
+                logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
+            ) as logging_mocks:
+                logging.warn("to instantiate the warning call args")
+                args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+                return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+                warning_logs = logging_mocks["warning"].call_args.args
+                # assert that we skipped because we could not lookup base
+                assert_true(any("Skipping Derived Detection" in s for s in warning_logs))
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_can_inherit_tests_from_base(self):
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = mystdout = StringIO()
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/tests_can_be_inherited"
+            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            return_code, invalid_specs = pat.test_analysis(args)
+        sys.stdout = old_stdout
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+        stdout_str = mystdout.getvalue()
+        assert_equal(stdout_str.count("[PASS] t1"), 2)
+        assert_equal(stdout_str.count("[PASS] t2"), 2)
 
     def test_bulk_validate_happy_path(self):
         backend = MockBackend()
