@@ -684,6 +684,34 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
+def load_analysis(
+    path: str, ignore_table_names: bool, valid_table_names: List[str]
+) -> Tuple[Any, List[Any]]:
+    search_directories = [path]
+    for directory in (
+        HELPERS_LOCATION,
+        "." + HELPERS_LOCATION,  # Try the parent directory as well
+        DATA_MODEL_LOCATION,
+        "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
+    ):
+        absolute_dir_path = os.path.abspath(os.path.join(path, directory))
+        absolute_helper_path = os.path.abspath(directory)
+
+        if os.path.exists(absolute_dir_path):
+            search_directories.append(absolute_dir_path)
+        if os.path.exists(absolute_helper_path):
+            search_directories.append(absolute_helper_path)
+
+    # First classify each file, always include globals and data models location
+    specs, invalid_specs = classify_analysis(
+        list(load_analysis_specs(search_directories, ignore_files=[])),
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
+    )
+
+    return specs, invalid_specs
+
+
 # pylint: disable=too-many-locals
 def test_analysis(
     args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
@@ -698,30 +726,8 @@ def test_analysis(
     """
     logging.info("Testing analysis items in %s\n", args.path)
 
-    ignored_files = args.ignore_files
-    search_directories = [args.path]
-
-    for directory in (
-        HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,  # Try the parent directory as well
-        DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
-    ):
-        absolute_dir_path = os.path.abspath(os.path.join(args.path, directory))
-        absolute_helper_path = os.path.abspath(directory)
-
-        if os.path.exists(absolute_dir_path):
-            search_directories.append(absolute_dir_path)
-        if os.path.exists(absolute_helper_path):
-            search_directories.append(absolute_helper_path)
-
     # First classify each file, always include globals and data models location
-    specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files=ignored_files)),
-        ignore_table_names=args.ignore_table_names,
-        valid_table_names=args.valid_table_names,
-    )
-
+    specs, invalid_specs = load_analysis(args.path, args.ignore_table_names, args.valid_table_names)
     if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
@@ -1268,6 +1274,47 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     if any(enriched_analysis_ids):
         result_str = "Analysis specs enriched:\n\t" + "\n\t".join(enriched_analysis_ids)
     return (0, result_str)
+
+
+def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
+    specs, _ = load_analysis(args.path, False, [])
+
+    analysis_type_to_key_mapping = {
+        AnalysisTypes.POLICY: "PolicyID",
+        AnalysisTypes.RULE: "RuleID",
+        AnalysisTypes.SCHEDULED_RULE: "RuleID",
+    }
+    packs_with_missing_detections = {}
+    for pack in specs.packs:
+        pack_name = pack.file_name.replace(".yml", "").split("/")[-1]
+        included_rules = []
+        detections = [detection for detection in specs.detections if not detection.is_deprecated()]
+        for detection in detections:
+            # remove leading ./
+            # ./some-dir -> some-dir
+            dir_name = detection.dir_name.strip("./")
+
+            # rules/asana_rules/asana_service_account_created -> [rules, asana_rules, asana_service_account_created]
+            # if pack name is "asana" we can assume that the detection is part of the pack
+            path_to_detection = detection.file_name[detection.file_name.find(dir_name) :]
+            pieces = path_to_detection.split("/")
+
+            matching_pieces = [piece.startswith(pack_name) for piece in pieces]
+            if any(matching_pieces):
+                key = analysis_type_to_key_mapping[detection.analysis_spec["AnalysisType"]]
+                included_rules.append(detection.analysis_spec[key])
+
+        diff = set(included_rules).difference(set(pack.analysis_spec["PackDefinition"]["IDs"]))
+        if diff:
+            packs_with_missing_detections[pack_name] = list(diff)
+
+    if packs_with_missing_detections:
+        error_string = "There are packs that are potentially missing detections:\n"
+        for pack_name, detections in packs_with_missing_detections.items():
+            detections_str = ",".join(detections)
+            error_string += f"{pack_name}.yml: {detections_str}\n\n"
+        return 1, error_string
+    return 0, "Looks like packs are up to date"
 
 
 def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
@@ -1969,6 +2016,15 @@ def setup_parser() -> argparse.ArgumentParser:
     enrich_test_data_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
+
+    check_packs_parser = subparsers.add_parser(
+        "check-packs",
+        help="Update Packs content, rules and policies",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    check_packs_parser.add_argument(path_name, **path_arg)
+    check_packs_parser.set_defaults(func=check_packs)
+    standard_args.for_public_api(check_packs_parser, required=False)
 
     return parser
 
