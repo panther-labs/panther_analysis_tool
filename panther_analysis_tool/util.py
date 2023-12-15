@@ -39,6 +39,7 @@ from panther_analysis_tool.backend.public_api_client import (
 from panther_analysis_tool.constants import (
     PACKAGE_NAME,
     PANTHER_USER_ID,
+    UNKNOWN_ANALYSIS_ID,
     VERSION_STRING,
     AnalysisTypes,
 )
@@ -252,3 +253,31 @@ def log_and_write_to_file(msgs: List[str], filename: TextIO) -> None:
     for msg in msgs:
         filename.write(msg + "\n")
         logging.info(msg)
+
+
+def lookup_analysis_id(analysis_spec: Any) -> str:
+    analysis_type = analysis_spec.get("AnalysisType")
+    analysis_id = UNKNOWN_ANALYSIS_ID
+    if analysis_type == AnalysisTypes.DATA_MODEL:
+        analysis_id = analysis_spec["DataModelID"]
+    elif analysis_type == AnalysisTypes.GLOBAL:
+        analysis_id = analysis_spec["GlobalID"]
+    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
+        analysis_id = analysis_spec["LookupName"]
+    elif analysis_type == AnalysisTypes.PACK:
+        analysis_id = analysis_spec["PackID"]
+    elif analysis_type == AnalysisTypes.POLICY:
+        analysis_id = analysis_spec["PolicyID"]
+    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
+        analysis_id = analysis_spec["QueryName"]
+    elif analysis_type == AnalysisTypes.SAVED_QUERY:
+        analysis_id = analysis_spec["QueryName"]
+    elif analysis_type == AnalysisTypes.SIGNAL:
+        analysis_id = analysis_spec["SignalID"]
+    elif analysis_type in [
+        AnalysisTypes.RULE,
+        AnalysisTypes.SCHEDULED_RULE,
+        AnalysisTypes.CORRELATION_RULE,
+    ]:
+        analysis_id = analysis_spec["RuleID"]
+    return analysis_id

@@ -15,6 +15,7 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
+    SIGNAL_SCHEMA,
 )
 
 PACKAGE_NAME: Final = "panther_analysis_tool"
@@ -49,6 +50,7 @@ class AnalysisTypes:
     SCHEDULED_RULE = "scheduled_rule"
     SIMPLE_DETECTION = "simple_detection"
     CORRELATION_RULE = "correlation_rule"
+    SIGNAL = "signal"
 
 
 # The UserID is required by Panther for some API calls, but we have no way of
@@ -81,6 +83,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.DERIVED: DERIVED_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
     AnalysisTypes.CORRELATION_RULE: CORRELATION_RULE_SCHEMA,
+    AnalysisTypes.SIGNAL: SIGNAL_SCHEMA,
 }
 
 SET_FIELDS = [
@@ -105,3 +108,5 @@ class ReplayStatus:
 
 
 ENABLE_CORRELATION_RULES_FLAG = "EnableCorrelationRules"
+
+UNKNOWN_ANALYSIS_ID = "UNKNOWN_ID"

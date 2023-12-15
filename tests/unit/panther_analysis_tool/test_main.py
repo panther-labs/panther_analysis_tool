@@ -36,7 +36,6 @@ from panther_analysis_tool.backend.client import (
     BackendResponse,
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
-    GetRuleBodyParams,
     GetRuleBodyResponse,
     TranspileFiltersResponse,
     TranspileToPythonResponse,
@@ -205,6 +204,15 @@ class TestPantherAnalysisTool(TestCase):
     def test_scheduled_rules_from_folder(self):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_signals_from_folder(self):
+        args = pat.setup_parser().parse_args(
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/signals".split()
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
@@ -438,7 +446,7 @@ class TestPantherAnalysisTool(TestCase):
             assert_true(statinfo.st_size > 0)
             assert_true(out_filename.endswith(".zip"))
 
-        assert_equal(7, len(results))
+        assert_equal(8, len(results))
 
     def test_generate_release_assets(self):
         # Note: This is a workaround for CI
@@ -476,7 +484,7 @@ class TestPantherAnalysisTool(TestCase):
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks["debug"].call_count, 20)
-                assert_equal(logging_mocks["warning"].call_count, 1)
+                assert_equal(logging_mocks["warning"].call_count, 3)
                 # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
                 # which can be removed by pausing the fake file system
                 assert_equal(logging_mocks["info"].call_count, 5)
@@ -493,7 +501,7 @@ class TestPantherAnalysisTool(TestCase):
                 return_code, _ = pat.upload_analysis(backend, args)
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks["debug"].call_count, 0)
-                assert_equal(logging_mocks["warning"].call_count, 2)
+                assert_equal(logging_mocks["warning"].call_count, 4)
                 assert_equal(logging_mocks["info"].call_count, 5)
                 assert_equal(time_mock.call_count, 0)
 
@@ -509,7 +517,7 @@ class TestPantherAnalysisTool(TestCase):
                 assert_equal(return_code, 1)
                 assert_equal(logging_mocks["debug"].call_count, 20)
                 # warning about max and final error
-                assert_equal(logging_mocks["warning"].call_count, 2)
+                assert_equal(logging_mocks["warning"].call_count, 4)
                 assert_equal(logging_mocks["info"].call_count, 5)
                 assert_equal(time_mock.call_count, 10)
 

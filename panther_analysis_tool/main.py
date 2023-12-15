@@ -118,6 +118,7 @@ from panther_analysis_tool.constants import (
     PACKAGE_NAME,
     SCHEMAS,
     TMP_HELPER_MODULE_LOCATION,
+    UNKNOWN_ANALYSIS_ID,
     VERSION_STRING,
     AnalysisTypes,
 )
@@ -139,6 +140,7 @@ from panther_analysis_tool.util import (
     convert_unicode,
     is_correlation_rule,
     is_simple_detection,
+    lookup_analysis_id,
 )
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
@@ -252,6 +254,7 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
         ZipChunk(patterns=[], types=(AnalysisTypes.DATA_MODEL, AnalysisTypes.GLOBAL)),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.RULE, max_size=200),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.POLICY, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SIGNAL, max_size=200),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_QUERY, max_size=100),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_RULE, max_size=200),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.LOOKUP_TABLE, max_size=100),  # type: ignore
@@ -380,6 +383,7 @@ def upload_zip(
                 )
                 if not backend.feature_flags(flags_params).data.flags[0].treatment:
                     del resp_dict["correlation_rules"]
+                    del resp_dict["signals"]
 
                 logging.info("API Response:\n%s", json.dumps(resp_dict, indent=4))
                 return 0, cli_output.success("Upload succeeded")
@@ -925,7 +929,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         analysis_type = analysis_spec["AnalysisType"]
 
         detection_args = dict(
-            id=analysis_spec.get("PolicyID") or analysis_spec["RuleID"],
+            id=lookup_analysis_id(analysis_spec),
             analysisType=analysis_type.upper(),
             versionId="0000-0000-0000",
             filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
@@ -1087,7 +1091,7 @@ def classify_analysis(
             analysis_schema.validate(analysis_spec)
 
             # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+            analysis_id = lookup_analysis_id(analysis_spec)
             if analysis_id in analysis_ids:
                 raise AnalysisIDConflictException(analysis_id)
             # check for duplicates where panther expects a unique set
@@ -1221,15 +1225,9 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     raw_analysis_items_by_id = {}
     for item in raw_analysis_items:
         if item.analysis_spec is not None:
-            rule_id = item.analysis_spec.get("RuleID", "")
-            if rule_id != "":
-                raw_analysis_items_by_id[rule_id] = item
-                continue
-
-            policy_id = item.analysis_spec.get("PolicyID", "")
-            if policy_id != "":
-                raw_analysis_items_by_id[policy_id] = item
-                continue
+            analysis_id = lookup_analysis_id(item.analysis_spec)
+            if analysis_id != UNKNOWN_ANALYSIS_ID:
+                raw_analysis_items_by_id[analysis_id] = item
 
             logging.info(
                 "Analysis item %s is not a Rule, Scheduled Rule, or Policy - skipping",
@@ -1240,15 +1238,9 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     all_relevant_specs = specs.detections + specs.simple_detections
 
     for spec in all_relevant_specs:
-        rule_id = spec.analysis_spec.get("RuleID", "")
-        if rule_id != "":
-            filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[rule_id]
-            continue
-
-        policy_id = spec.analysis_spec.get("PolicyID", "")
-        if policy_id != "":
-            filtered_raw_analysis_items_by_id[policy_id] = raw_analysis_items_by_id[policy_id]
-            continue
+        analysis_id = lookup_analysis_id(spec.analysis_spec)
+        if analysis_id != UNKNOWN_ANALYSIS_ID:
+            filtered_raw_analysis_items_by_id[analysis_id] = raw_analysis_items_by_id[analysis_id]
 
     # Enrich the test data for each analysis item
     enricher = EnrichedEventGenerator(backend)
@@ -1260,31 +1252,6 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     if any(enriched_analysis_ids):
         result_str = "Analysis specs enriched:\n\t" + "\n\t".join(enriched_analysis_ids)
     return (0, result_str)
-
-
-def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
-    analysis_id = "UNKNOWN_ID"
-    if analysis_type == AnalysisTypes.DATA_MODEL:
-        analysis_id = analysis_spec["DataModelID"]
-    elif analysis_type == AnalysisTypes.GLOBAL:
-        analysis_id = analysis_spec["GlobalID"]
-    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
-        analysis_id = analysis_spec["LookupName"]
-    elif analysis_type == AnalysisTypes.PACK:
-        analysis_id = analysis_spec["PackID"]
-    elif analysis_type == AnalysisTypes.POLICY:
-        analysis_id = analysis_spec["PolicyID"]
-    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type == AnalysisTypes.SAVED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type in [
-        AnalysisTypes.RULE,
-        AnalysisTypes.SCHEDULED_RULE,
-        AnalysisTypes.CORRELATION_RULE,
-    ]:
-        analysis_id = analysis_spec["RuleID"]
-    return analysis_id
 
 
 def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:

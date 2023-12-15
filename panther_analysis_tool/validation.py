@@ -6,7 +6,9 @@ from nested_lookup import nested_lookup
 from sqlfluff import parse
 
 from panther_analysis_tool.analysis_utils import ClassifiedAnalysisContainer
-from panther_analysis_tool.constants import SET_FIELDS
+from panther_analysis_tool.constants import SET_FIELDS, UNKNOWN_ANALYSIS_ID
+from panther_analysis_tool.errors import UnknownAnalysisIdError
+from panther_analysis_tool.util import lookup_analysis_id
 
 # This file was generated in whole or in part by GitHub Copilot.
 
@@ -101,15 +103,9 @@ def validate_packs(analysis_specs: ClassifiedAnalysisContainer) -> List[Any]:
     id_to_detection = {}
     for item in analysis_specs.items():
         analysis_spec = item.analysis_spec
-        analysis_id = (
-            analysis_spec.get("PolicyID")
-            or analysis_spec.get("RuleID")
-            or analysis_spec.get("DataModelID")
-            or analysis_spec.get("GlobalID")
-            or analysis_spec.get("PackID")
-            or analysis_spec.get("QueryName")
-            or analysis_spec["LookupName"]
-        )
+        analysis_id = lookup_analysis_id(analysis_spec)
+        if analysis_id == UNKNOWN_ANALYSIS_ID:
+            raise UnknownAnalysisIdError(f"Unknown analysis id from analysis item {analysis_spec}")
         id_to_detection[analysis_id] = analysis_spec
     for item in analysis_specs.packs:
         analysis_spec = item.analysis_spec

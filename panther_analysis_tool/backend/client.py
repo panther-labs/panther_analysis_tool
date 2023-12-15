@@ -233,6 +233,7 @@ class BulkUploadValidateStatusResponse(BackendMultipartError):
         return True
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
 class BulkUploadResponse:
     rules: BulkUploadStatistics
@@ -242,6 +243,7 @@ class BulkUploadResponse:
     lookup_tables: BulkUploadStatistics
     global_helpers: BulkUploadStatistics
     correlation_rules: BulkUploadStatistics
+    signals: BulkUploadStatistics
 
 
 @dataclass(frozen=True)
@@ -574,6 +576,7 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
             lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
             global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
             correlation_rules=BulkUploadStatistics(**data.get("correlationRules", default_stats)),
+            signals=BulkUploadStatistics(**data.get("signals", default_stats)),
         ),
     )
 

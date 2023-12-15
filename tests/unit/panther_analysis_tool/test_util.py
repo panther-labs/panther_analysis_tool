@@ -3,7 +3,6 @@ from unittest import mock
 
 import responses
 
-import panther_analysis_tool.constants
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.util import convert_unicode
 
@@ -154,6 +153,13 @@ class TestAnalysisTypePredicates(unittest.TestCase):
             {
                 "analysis_type": {"AnalysisType": "policy", "Filename": "foo.py"},
                 "expected": False,
+            },
+            {
+                "analysis_type": {
+                    "AnalysisType": "signal",
+                    "Detection": "hurgledurgle 2: reverge of the durgle",
+                },
+                "expected": True,
             },
         ]
 

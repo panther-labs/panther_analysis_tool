@@ -1391,7 +1391,8 @@
             "scheduled_query",
             "lookup_table",
             "saved_query",
-            "correlation_rule"
+            "correlation_rule",
+            "signal"
           ]
         },
         "Description": {
@@ -1536,6 +1537,9 @@
           "$ref": "#/$defs/Refresh"
         },
         "Schema": {
+          "type": "string"
+        },
+        "SignalID": {
           "type": "string"
         },
         "PackID": {

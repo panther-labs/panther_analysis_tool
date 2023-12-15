@@ -1,0 +1,23 @@
+AnalysisType: signal
+Enabled: true
+SignalID: list.detections
+DisplayName: list detections
+InlineFilters:
+  - KeyPath: actionName
+    Condition: Equals
+    Value: LIST_DETECTIONS
+Detection:
+  - KeyPath: actionName
+    Condition: Equals
+    Value: LIST_DETECTIONS
+LogTypes:
+  - Panther.Audit
+Tags:
+  - panther.audit.signals
+Tests:
+  - Name: pass
+    ExpectedResult: true
+    Log: { "actionName": "LIST_DETECTIONS" }
+  - Name: fail
+    ExpectedResult: false
+    Log: { "actionName": "LIST_BANANAS" }

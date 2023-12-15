@@ -66,6 +66,7 @@ TYPE_SCHEMA = Schema(
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
+            "signal",
         ),
     },
     ignore_extra_keys=True,
@@ -241,6 +242,29 @@ CORRELATION_RULE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )
+
+SIGNAL_SCHEMA = Schema(
+    {
+        "AnalysisType": "signal",
+        "Enabled": bool,
+        "Detection": object,
+        "SignalID": And(str, NAME_ID_VALIDATION_REGEX),
+        "LogTypes": And([str], [LOG_TYPE_REGEX]),
+        Optional("Description"): str,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Tags"): [str],
+        Optional("Tests"): [
+            {
+                "Name": str,
+                "ExpectedResult": bool,
+                "Log": object,
+                Optional("Mocks"): [MOCK_SCHEMA],
+            }
+        ],
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
 
 SAVED_QUERY_SCHEMA = Schema(
     {

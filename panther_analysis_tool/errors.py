@@ -1,0 +1,2 @@
+class UnknownAnalysisIdError(Exception):
+    pass
