@@ -5,6 +5,7 @@ from fnmatch import fnmatch
 from typing import Any, Dict, Generator, List, Optional, Set
 
 from panther_analysis_tool.analysis_utils import (
+    AnalysisFilters,
     ClassifiedAnalysis,
     filter_analysis,
     load_analysis_specs,
@@ -48,23 +49,11 @@ class ZipArgs:
     out: Any
     path: Any
     ignore_files: List[str]
-    filters: Dict[str, List]
-    filters_inverted: Dict[str, List]
+    analysis_filters: AnalysisFilters
 
     @classmethod
-    def from_args(cls, args: argparse.Namespace) -> Any:
-        filters = []
-        filters_inverted = {}
+    def from_args(cls, args: argparse.Namespace) -> "ZipArgs":
         out = "./"
-        try:
-            filters = args.filter
-        except:  # pylint: disable=bare-except # nosec
-            pass
-
-        try:
-            filters_inverted = args.filter_inverted
-        except:  # pylint: disable=bare-except # nosec
-            pass
 
         try:
             out = args.out
@@ -74,8 +63,7 @@ class ZipArgs:
             out=out,
             path=args.path,
             ignore_files=args.ignore_files,
-            filters=filters,  # type: ignore
-            filters_inverted=filters_inverted,
+            analysis_filters=args.analysis_filters,
         )
 
 
@@ -169,7 +157,7 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
             analysis.append(ClassifiedAnalysis(file_name, f_path, spec))
             files.add(file_name)
             files.add("./" + file_name)
-    return filter_analysis(analysis, args.filters, args.filters_inverted)
+    return filter_analysis(analysis, args.analysis_filters)
 
 
 def chunk_analysis(

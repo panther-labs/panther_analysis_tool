@@ -83,6 +83,7 @@ from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
+    add_analysis_filters_to_args,
     disable_all_base_detections,
     filter_analysis,
     get_simple_detections_as_python,
@@ -90,7 +91,6 @@ from panther_analysis_tool.analysis_utils import (
     load_analysis_specs_ex,
     lookup_base_detection,
     transpile_inline_filters,
-    AnalysisFilters,
 )
 from panther_analysis_tool.backend.client import (
     BackendError,
@@ -2001,7 +2001,7 @@ def run() -> None:
         logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
         logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
 
-    args.analysis_filters = AnalysisFilters.from_filter_list(getattr(args, "filter", None))
+    add_analysis_filters_to_args(args)
 
     for key in os.environ:
         if key.startswith("PANTHER_"):

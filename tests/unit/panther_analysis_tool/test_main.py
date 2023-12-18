@@ -31,6 +31,7 @@ from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
+from panther_analysis_tool.analysis_utils import add_analysis_filters_to_args
 from panther_analysis_tool.backend.client import (
     BackendError,
     BackendResponse,
@@ -166,7 +167,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args(f"test --path {DETECTIONS_FIXTURES_PATH}".split())
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(
@@ -178,7 +179,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -187,7 +188,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -196,7 +197,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -205,7 +206,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -214,7 +215,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/signals".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -230,7 +231,7 @@ class TestPantherAnalysisTool(TestCase):
             try:
                 os.chdir(valid_rule_path)
                 args = pat.setup_parser().parse_args("test".split())
-                args.filter_inverted = {}
+                add_analysis_filters_to_args(args)
                 return_code, invalid_specs = pat.test_analysis(args)
             finally:
                 os.chdir(original_path)
@@ -244,7 +245,7 @@ class TestPantherAnalysisTool(TestCase):
             original_path = os.getcwd()
             os.chdir(valid_rule_path)
             args = pat.setup_parser().parse_args("test --path ./".split())
-            args.filter_inverted = {}
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
             os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
@@ -255,20 +256,21 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical Enabled=true".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
-        assert_true("AnalysisType" in args.filter.keys())
-        assert_true("policy" in args.filter["AnalysisType"])
-        assert_true("global" in args.filter["AnalysisType"])
-        assert_true("Severity" in args.filter.keys())
-        assert_true("Critical" in args.filter["Severity"])
-        assert_true("Enabled" in args.filter.keys())
-        assert_true(True in args.filter["Enabled"])
+        add_analysis_filters_to_args(args)
+        filters = args.analysis_filters.filters
+        assert_true("AnalysisType" in filters.keys())
+        assert_true("policy" in filters["AnalysisType"])
+        assert_true("global" in filters["AnalysisType"])
+        assert_true("Severity" in filters.keys())
+        assert_true("Critical" in filters["Severity"])
+        assert_true("Enabled" in filters.keys())
+        assert_true(True in filters["Enabled"])
 
     def test_with_filters(self):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -277,7 +279,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled=true".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -286,7 +288,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled!=false".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -304,7 +306,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 9)
@@ -313,7 +315,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 9)
@@ -322,7 +324,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=High ResourceTypes=AWS.IAM.User".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 10)
@@ -331,7 +333,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 9)
@@ -340,7 +342,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 9)
@@ -349,7 +351,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -360,7 +362,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS Tags!=SOC2".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -369,7 +371,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -378,7 +380,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 2".split()
         )
-        args.filter_inverted = {}
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
         assert_equal(return_code, 1)
@@ -388,7 +390,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
         assert_equal(return_code, 1)
@@ -398,7 +400,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 9)
@@ -407,7 +409,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split()
         )
-        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         self.equal = assert_equal(len(invalid_specs), 9)
@@ -421,6 +423,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/".split()
         )
+        add_analysis_filters_to_args(args)
 
         return_code, out_filename = pat.zip_analysis(args)
         assert_true(out_filename.startswith("tmp/"))
@@ -438,6 +441,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/ --batch".split()
         )
+        add_analysis_filters_to_args(args)
 
         results = pat.zip_analysis_chunks(args)
         for out_filename in results:
@@ -458,6 +462,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"release --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/release/".split()
         )
+        add_analysis_filters_to_args(args)
         return_code, _ = pat.generate_release_assets(args)
         analysis_file = "tmp/release/panther-analysis-all.zip"
         statinfo = os.stat(analysis_file)
@@ -475,6 +480,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
+        add_analysis_filters_to_args(args)
 
         # fails max of 10 times on default
         with mock.patch("time.sleep", return_value=None) as time_mock:
@@ -494,6 +500,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1".split()
         )
+        add_analysis_filters_to_args(args)
         with mock.patch("time.sleep", return_value=None) as time_mock:
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
@@ -509,6 +516,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100".split()
         )
+        add_analysis_filters_to_args(args)
         with mock.patch("time.sleep", return_value=None) as time_mock:
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
@@ -527,6 +535,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis "
             "--available-destination Pagerduty".split()
         )
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
 
@@ -538,6 +547,7 @@ class TestPantherAnalysisTool(TestCase):
             f" {DETECTIONS_FIXTURES_PATH}/destinations "
             "--available-destination Pagerduty".split()
         )
+        add_analysis_filters_to_args(args)
         return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
 
@@ -547,7 +557,7 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(
                 f"test --path {FIXTURES_PATH}/queries/invalid".split()
             )
-            args.filter_inverted = {}
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 4)
@@ -558,7 +568,7 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(
                 f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
             )
-            args.filter_inverted = {}
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -569,7 +579,7 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(
                 f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history".split()
             )
-            args.filter_inverted = {}
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
@@ -580,7 +590,7 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(
                 f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
             )
-            args.filter_inverted = {}
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 1)
@@ -590,6 +600,7 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(
                 f"test " f"--path " f" {FIXTURES_PATH}/simple-detections/valid ".split()
             )
+            add_analysis_filters_to_args(args)
             # Force the PAT schema explicitly to ignore extra keys.
             pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             return_code, invalid_specs = pat.test_analysis(args)
@@ -601,6 +612,7 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(
                 f"test " f"--path " f" {FIXTURES_PATH}/simple-detections/invalid ".split()
             )
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
         assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 3)
@@ -628,6 +640,7 @@ class TestPantherAnalysisTool(TestCase):
                 )
             )
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            add_analysis_filters_to_args(args)
             # Force the PAT schema explicitly to ignore extra keys.
             pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
@@ -681,6 +694,7 @@ class TestPantherAnalysisTool(TestCase):
                 )
             )
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 0)
@@ -703,6 +717,7 @@ class TestPantherAnalysisTool(TestCase):
             ) as logging_mocks:
                 logging.warn("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+                add_analysis_filters_to_args(args)
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
                 # assert that we were able to look up the base of this derived detection
@@ -730,6 +745,7 @@ class TestPantherAnalysisTool(TestCase):
             ) as logging_mocks:
                 logging.warn("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+                add_analysis_filters_to_args(args)
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
                 # assert that we skipped because we could not lookup base
@@ -746,6 +762,7 @@ class TestPantherAnalysisTool(TestCase):
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/tests_can_be_inherited"
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            add_analysis_filters_to_args(args)
             return_code, invalid_specs = pat.test_analysis(args)
         sys.stdout = old_stdout
         assert_equal(return_code, 0)
@@ -764,6 +781,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
+        add_analysis_filters_to_args(args)
 
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 0)
@@ -782,6 +800,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
+        add_analysis_filters_to_args(args)
 
         return_code, _ = validate.run(backend, args)
         assert_equal(return_code, 1)
@@ -795,6 +814,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
+        add_analysis_filters_to_args(args)
 
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 1)
@@ -813,6 +833,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
+        add_analysis_filters_to_args(args)
 
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 1)
@@ -841,6 +862,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
+        add_analysis_filters_to_args(args)
 
         return_code, return_str = validate.run(backend, args)
         assert_equal(return_code, 1)

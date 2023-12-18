@@ -16,6 +16,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+import argparse
 import dataclasses
 import json
 import logging
@@ -49,12 +50,12 @@ from panther_analysis_tool.constants import (
     AnalysisTypes,
 )
 from panther_analysis_tool.schemas import (
+    CORRELATION_RULE_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
-    CORRELATION_RULE_SCHEMA,
     SIGNAL_SCHEMA,
-    DERIVED_SCHEMA,
 )
 from panther_analysis_tool.util import is_simple_detection
 
@@ -193,6 +194,10 @@ class AnalysisFilters:
 
     def empty(self) -> bool:
         return len(self.filters) == 0 and len(self.filters_inverted) == 0
+
+
+def add_analysis_filters_to_args(args: argparse.Namespace) -> None:
+    args.analysis_filters = AnalysisFilters.from_filter_list(getattr(args, "filter") or [])
 
 
 def filter_analysis(
