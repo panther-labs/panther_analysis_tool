@@ -71,7 +71,6 @@ from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
-    Optional,
     SchemaError,
     SchemaForbiddenKeyError,
     SchemaMissingKeyError,
@@ -91,6 +90,7 @@ from panther_analysis_tool.analysis_utils import (
     load_analysis_specs_ex,
     lookup_base_detection,
     transpile_inline_filters,
+    AnalysisFilters,
 )
 from panther_analysis_tool.backend.client import (
     BackendError,
@@ -128,7 +128,6 @@ from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
     DERIVED_SCHEMA,
-    GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
@@ -727,15 +726,10 @@ def test_analysis(
             return 1, invalid_specs
         return 1, ["Nothing to test in {}".format(args.path)]
 
-    # Apply the filters as needed
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
-    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
+    specs = specs.apply(lambda l: filter_analysis(l, args.analysis_filters))
 
     if specs.empty():
-        return 1, [
-            f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
-        ]
+        return 1, [f"No analysis in {args.path} matched filters {args.filter}"]
 
     # enrich simple detections with transpiled python as necessary
     if len(specs.simple_detections) > 0:
@@ -1208,16 +1202,13 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
             return 1, msg
         return 1, "No analysis content to enrich tests data for in {}".format(args.path)
 
-    # Apply the filters as needed
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
-    specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
+    specs = specs.apply(lambda l: filter_analysis(l, args.analysis_filters))
 
     # If no specs after filtering, nothing to do
     if specs.empty():
         return (
             1,
-            f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}",
+            f"No analysis content in {args.path} matched filters {args.filter}",
         )
 
     # We only used classify_analysis to figure out what to filter out, if anything.
@@ -1978,51 +1969,6 @@ def dynaconf_argparse_merge(
             argparse_dict[key] = value
 
 
-# Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    parsed_filters: Dict[str, Any] = {}
-    parsed_filters_inverted: Dict[str, Any] = {}
-    for filt in filters:
-        split = filt.split("=")
-        if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
-            continue
-        # Check for "!="
-        invert_filter = split[0].endswith("!")
-        if invert_filter:
-            split[0] = split[0][:-1]  # Remove the trailing "!"
-        key = split[0]
-        if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
-                )
-                for key in (key, Optional(key))
-            )
-        ):
-            logging.warning("Filter key %s is not a valid filter field, skipping", key)
-            continue
-        if invert_filter:
-            parsed_filters_inverted[key] = split[1].split(",")
-        else:
-            parsed_filters[key] = split[1].split(",")
-        # Handle boolean fields
-        if key == "Enabled":
-            try:
-                bool_value = bool(strtobool(split[1]))
-            except ValueError:
-                logging.warning("Filter key %s should have either true or false, skipping", key)
-                continue
-            if invert_filter:
-                parsed_filters_inverted[key] = [bool_value]
-            else:
-                parsed_filters[key] = [bool_value]
-    return parsed_filters, parsed_filters_inverted
-
-
 def run() -> None:
     # setup logger and print version info as necessary
     logging.basicConfig(
@@ -2055,10 +2001,7 @@ def run() -> None:
         logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
         logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
 
-    if getattr(args, "filter", None) is not None:
-        args.filter, args.filter_inverted = parse_filter(args.filter)
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
+    args.analysis_filters = AnalysisFilters.from_filter_list(getattr(args, "filter", None))
 
     for key in os.environ:
         if key.startswith("PANTHER_"):

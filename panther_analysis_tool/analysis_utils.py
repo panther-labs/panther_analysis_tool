@@ -20,9 +20,11 @@ import dataclasses
 import json
 import logging
 import os
+from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from fnmatch import fnmatch
 from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
 
+import schema
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -46,7 +48,24 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.schemas import (
+    GLOBAL_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
+    CORRELATION_RULE_SCHEMA,
+    SIGNAL_SCHEMA,
+    DERIVED_SCHEMA,
+)
 from panther_analysis_tool.util import is_simple_detection
+
+_VALID_FILTER_KEYS = (
+    list(GLOBAL_SCHEMA.schema.keys())
+    + list(POLICY_SCHEMA.schema.keys())
+    + list(RULE_SCHEMA.schema.keys())
+    + list(CORRELATION_RULE_SCHEMA.schema.keys())
+    + list(SIGNAL_SCHEMA.schema.keys())
+    + list(DERIVED_SCHEMA.schema.keys())
+)
 
 
 class ClassifiedAnalysis:
@@ -129,10 +148,57 @@ class ClassifiedAnalysisContainer:
             self.queries.append(classified_analysis)
 
 
+@dataclasses.dataclass
+class AnalysisFilters:
+    filters: Dict[str, List]
+    filters_inverted: Dict[str, List]
+
+    @staticmethod
+    def from_filter_list(filters: List[str]) -> "AnalysisFilters":
+        parsed_filters: Dict[str, List[Any]] = {}
+        parsed_filters_inverted: Dict[str, List[Any]] = {}
+
+        for filt in filters:
+            split = filt.split("=")
+            if len(split) != 2 or split[0] == "" or split[1] == "":
+                logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
+                continue
+            # Check for "!="
+            invert_filter = split[0].endswith("!")
+            if invert_filter:
+                split[0] = split[0][:-1]  # Remove the trailing "!"
+            key = split[0]
+
+            if key not in _VALID_FILTER_KEYS and schema.Optional(key) not in _VALID_FILTER_KEYS:
+                logging.warning("Filter key %s is not a valid filter field, skipping", key)
+                continue
+
+            if invert_filter:
+                parsed_filters_inverted[key] = split[1].split(",")
+            else:
+                parsed_filters[key] = split[1].split(",")
+
+            # Handle boolean fields
+            if key == "Enabled":
+                try:
+                    bool_value = bool(strtobool(split[1]))
+                except ValueError:
+                    logging.warning("Filter key %s should have either true or false, skipping", key)
+                    continue
+                if invert_filter:
+                    parsed_filters_inverted[key] = [bool_value]
+                else:
+                    parsed_filters[key] = [bool_value]
+        return AnalysisFilters(parsed_filters, parsed_filters_inverted)
+
+    def empty(self) -> bool:
+        return len(self.filters) == 0 and len(self.filters_inverted) == 0
+
+
 def filter_analysis(
-    analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
+    analysis: List[ClassifiedAnalysis], analysis_filters: AnalysisFilters
 ) -> List[ClassifiedAnalysis]:
-    if filters is None:
+    if analysis_filters.empty():
         return analysis
 
     filtered_analysis = []
@@ -149,13 +215,13 @@ def filter_analysis(
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         match = True
-        for key, values in filters.items():
+        for key, values in analysis_filters.filters.items():
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
             if not set(spec_value).intersection(values):
                 match = False
                 break
-        for key, values in filters_inverted.items():
+        for key, values in analysis_filters.filters_inverted.items():
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
             if set(spec_value).intersection(values):
