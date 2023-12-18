@@ -46,6 +46,7 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+    SIGNALS_PATH_PATTERN,
     VERSION_STRING,
     AnalysisTypes,
 )
@@ -425,6 +426,7 @@ def load_analysis_specs_ex(
                             HELPERS_PATH_PATTERN,
                             LUTS_PATH_PATTERN,
                             RULES_PATH_PATTERN,
+                            SIGNALS_PATH_PATTERN,
                             PACKS_PATH_PATTERN,
                             POLICIES_PATH_PATTERN,
                             QUERIES_PATH_PATTERN,
