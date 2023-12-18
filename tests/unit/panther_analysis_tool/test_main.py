@@ -414,6 +414,15 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 1)
         self.equal = assert_equal(len(invalid_specs), 9)
 
+    def test_signal_filter(self):
+        args = pat.setup_parser().parse_args(
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/signals --filter SignalID=list.detections".split()
+        )
+        add_analysis_filters_to_args(args)
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
     def test_zip_analysis(self):
         # Note: This is a workaround for CI
         try:
@@ -698,6 +707,36 @@ class TestPantherAnalysisTool(TestCase):
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+
+    def test_signals_with_transpile(self):
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/detections/valid_analysis/signals"
+            number_of_test_files = len(
+                [
+                    name
+                    for name in os.listdir(file_path)
+                    if os.path.isfile(os.path.join(file_path, name))
+                ]
+            )
+            backend = MockBackend()
+            backend.transpile_simple_detection_to_python = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=TranspileToPythonResponse(
+                        transpiled_python=[
+                            "def rule(event): return True" for _ in range(number_of_test_files)
+                        ],
+                    ),
+                    status_code=200,
+                )
+            )
+            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            add_analysis_filters_to_args(args)
+            # Force the PAT schema explicitly to ignore extra keys.
+            # pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+            return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+        # our mock transpiled code always returns true, so we should have some failing tests
+        assert_equal(return_code, 1)
         assert_equal(len(invalid_specs), 0)
 
     def test_can_retrieve_base_detection_for_test(self):
