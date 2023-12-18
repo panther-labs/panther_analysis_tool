@@ -1289,6 +1289,9 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
         pack_name = pack.file_name.replace(".yml", "").split("/")[-1]
         included_rules = []
         detections = [detection for detection in specs.detections if not detection.is_deprecated()]
+        detections.extend(
+            [detection for detection in specs.simple_detections if not detection.is_deprecated()]
+        )
         for detection in detections:
             # remove leading ./
             # ./some-dir -> some-dir
