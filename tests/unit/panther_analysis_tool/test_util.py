@@ -4,6 +4,7 @@ from unittest import mock
 import responses
 
 from panther_analysis_tool import util as pat_utils
+from panther_analysis_tool.constants import UNKNOWN_ANALYSIS_ID, AnalysisTypes
 from panther_analysis_tool.util import convert_unicode
 
 
@@ -206,3 +207,61 @@ class TestAnalysisTypePredicates(unittest.TestCase):
         for case in test_cases:
             res = pat_utils.is_policy(case["analysis_type"])
             self.assertEqual(case["expected"], res)
+
+
+class TestLookupAnalysisId(unittest.TestCase):
+    def test_lookup_analysis_id(self) -> None:
+        test_cases = [
+            {
+                "spec": {"AnalysisType": AnalysisTypes.DATA_MODEL, "DataModelID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.GLOBAL, "GlobalID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.LOOKUP_TABLE, "LookupName": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.PACK, "PackID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.POLICY, "PolicyID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.SCHEDULED_QUERY, "QueryName": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.SAVED_QUERY, "QueryName": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.SIGNAL, "SignalID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.RULE, "RuleID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.SCHEDULED_RULE, "RuleID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": AnalysisTypes.CORRELATION_RULE, "RuleID": "foo"},
+                "exp": "foo",
+            },
+            {
+                "spec": {"AnalysisType": "BAD", "DataModelID": "foo"},
+                "exp": UNKNOWN_ANALYSIS_ID,
+            },
+        ]
+
+        for case in test_cases:
+            result = pat_utils.lookup_analysis_id(case["spec"])
+            self.assertEqual(result, case["exp"], f"for spec={case['spec']} expected={case['exp']}")

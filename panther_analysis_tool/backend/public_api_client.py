@@ -46,6 +46,7 @@ from .client import (
     FeatureFlagsParams,
     FeatureFlagsResponse,
     FeatureFlagTreatment,
+    FeatureFlagWithDefault,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
     GetRuleBodyParams,
@@ -152,6 +153,7 @@ class PublicAPIRequests:
         return gql(self._cache[name])
 
 
+# pylint: disable=too-many-public-methods
 class PublicAPIClient(Client):
     _user_id: str
     _requests: PublicAPIRequests
@@ -564,6 +566,10 @@ class PublicAPIClient(Client):
                 ]
             ),
         )
+
+    def is_feature_enabled(self, flag_name: str) -> bool:
+        flags_params = FeatureFlagsParams(flags=[FeatureFlagWithDefault(flag=flag_name)])
+        return self.feature_flags(flags_params).data.flags[0].treatment
 
     def _execute(
         self,

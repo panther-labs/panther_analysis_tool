@@ -92,3 +92,6 @@ class MockBackend(BackendClient):
 
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
         pass
+
+    def is_feature_enabled(self, flag_name: str) -> bool:
+        pass

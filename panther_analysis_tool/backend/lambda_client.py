@@ -339,3 +339,6 @@ class LambdaClient(Client):
 
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
         raise BaseException("feature-flags is not supported with lambda client")
+
+    def is_feature_enabled(self, flag_name: str) -> bool:
+        return False

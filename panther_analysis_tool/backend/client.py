@@ -559,6 +559,10 @@ class Client(ABC):
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
         pass
 
+    @abstractmethod
+    def is_feature_enabled(self, flag_name: str) -> bool:
+        pass
+
 
 def backend_response_failed(resp: BackendResponse) -> bool:
     return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400

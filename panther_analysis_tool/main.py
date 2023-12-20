@@ -98,10 +98,6 @@ from panther_analysis_tool.backend.client import (
     BulkUploadParams,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
-    FeatureFlagsParams,
-    FeatureFlagWithDefault,
-)
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -377,10 +373,8 @@ def upload_zip(
                     response = backend.bulk_upload(upload_params)
 
                 resp_dict = asdict(response.data)
-                flags_params = FeatureFlagsParams(
-                    flags=[FeatureFlagWithDefault(flag=ENABLE_CORRELATION_RULES_FLAG)]
-                )
-                if not backend.feature_flags(flags_params).data.flags[0].treatment:
+
+                if not backend.is_feature_enabled(ENABLE_CORRELATION_RULES_FLAG):
                     del resp_dict["correlation_rules"]
                     del resp_dict["signals"]
 
@@ -1215,15 +1209,26 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # We need to filter our own list of items now, using what's left in the `specs` variable.
     raw_analysis_items_by_id = {}
     for item in raw_analysis_items:
-        if item.analysis_spec is not None:
-            analysis_id = lookup_analysis_id(item.analysis_spec)
-            if analysis_id != UNKNOWN_ANALYSIS_ID:
-                raw_analysis_items_by_id[analysis_id] = item
+        if item.analysis_spec is None:
+            continue
 
+        if item.analysis_spec.get("AnalysisType") not in (
+            AnalysisTypes.SIGNAL,
+            AnalysisTypes.RULE,
+            AnalysisTypes.SCHEDULED_RULE,
+            AnalysisTypes.POLICY,
+        ):
+            logging.info("Analysis item %s cannot be enriched - skipping", item.spec_filename)
+            continue
+
+        analysis_id = lookup_analysis_id(item.analysis_spec)
+        if analysis_id == UNKNOWN_ANALYSIS_ID:
             logging.info(
-                "Analysis item %s is not a Rule, Scheduled Rule, or Policy - skipping",
-                item.spec_filename,
+                "Analysis item %s does not have a known analysis ID - skipping", item.spec_filename
             )
+            continue
+
+        raw_analysis_items_by_id[analysis_id] = item
 
     filtered_raw_analysis_items_by_id = {}
     all_relevant_specs = specs.detections + specs.simple_detections
