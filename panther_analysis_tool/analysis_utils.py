@@ -462,6 +462,7 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
             response = backend.get_rule_body(params)
             if response.status_code == 200:
                 out["body"] = response.data.body
+                out["tests"] = response.data.tests
             else:
                 logging.warning(
                     "Unexpected error getting base detection, status code %s", response.status_code

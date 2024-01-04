@@ -17,6 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import datetime
+import json
 import logging
 import os
 import time
@@ -249,11 +250,26 @@ class PublicAPIClient(Client):
         params = {"input": params.id}  # type: ignore
         res = self._safe_execute(query, variable_values=params)  # type: ignore
         data = res.data.get("rulePythonBody", {})  # type: ignore
+        tests = data.get("tests", [])
+        out_tests = []
+        for test in tests:
+            out_mocks = []
+            for mock in test.get("mocks") or []:
+                out_mock = dict()
+                out_mock["ObjectName"] = mock["objectName"]
+                out_mock["ReturnValue"] = mock["returnValue"]
+                out_mocks.append(out_mock)
+            out_test = dict()
+            out_test["ExpectedResult"] = test["expectedResult"]
+            out_test["Name"] = test["name"]
+            out_test["Log"] = json.loads(test["resource"])
+            out_tests.append(out_test)
 
         return BackendResponse(
             status_code=200,
             data=GetRuleBodyResponse(
                 body=data.get("pythonBody") or "",
+                tests=out_tests,
             ),
         )
 

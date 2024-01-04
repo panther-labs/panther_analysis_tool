@@ -298,6 +298,7 @@ class GetRuleBodyParams:
 @dataclass(frozen=True)
 class GetRuleBodyResponse:
     body: str
+    tests: List[Dict[str, Any]]
 
 
 @dataclass(frozen=True)
