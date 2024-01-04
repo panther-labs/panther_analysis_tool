@@ -455,7 +455,7 @@ def get_simple_detections_as_python(
 
 def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) -> Dict[str, Any]:
     """Attempts to lookup base detection via its id"""
-    out = {}
+    out: Dict[str, Any] = {}
     if backend is not None:
         try:
             params = GetRuleBodyParams(id=the_id)
