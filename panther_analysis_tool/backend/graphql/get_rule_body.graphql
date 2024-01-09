@@ -1,5 +1,14 @@
 query GetRuleBody($input: ID!) {
     rulePythonBody(input: $input) {
         pythonBody
+        tests {
+            expectedResult
+            name
+            resource
+            mocks {
+                objectName
+                returnValue
+            }
+        }
     }
 }

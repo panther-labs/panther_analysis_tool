@@ -686,7 +686,7 @@ class TestPantherAnalysisTool(TestCase):
             backend = MockBackend()
             backend.get_rule_body = mock.MagicMock(
                 return_value=BackendResponse(
-                    data=GetRuleBodyResponse(body="def rule(_):\n\treturn False"),
+                    data=GetRuleBodyResponse(body="def rule(_):\n\treturn False", tests=[]),
                     status_code=200,
                 )
             )
@@ -712,7 +712,7 @@ class TestPantherAnalysisTool(TestCase):
             backend.get_rule_body = mock.MagicMock(
                 return_value=BackendResponse(
                     data=GetRuleBodyResponse(
-                        body="i am writing a unit test i can write anything i want here"
+                        body="i am writing a unit test i can write anything i want here", tests=[]
                     ),
                     status_code=403,
                 )

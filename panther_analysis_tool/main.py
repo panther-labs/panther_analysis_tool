@@ -957,6 +957,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
                 base_lookup = lookup_base_detection(base_id, backend)
                 if "body" in base_lookup:
                     found_base_detection = base_lookup
+                if "tests" in base_lookup and "Tests" not in analysis_spec:
+                    tests = base_lookup["tests"]
+                    if len(tests) > 0:
+                        analysis_spec["Tests"] = tests
             if not found_base_detection:
                 logging.warning(
                     "Skipping Derived Detection '%s', could not lookup base detection '%s'",
