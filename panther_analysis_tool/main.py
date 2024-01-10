@@ -1286,13 +1286,18 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     }
     packs_with_missing_detections = {}
     for pack in specs.packs:
-        pack_name = pack.file_name.replace(".yml", "").split("/")[-1]
+        pack_file_name = pack.file_name.replace(".yml", "").split("/")[-1]
         included_rules = []
         detections = [detection for detection in specs.detections if not detection.is_deprecated()]
         detections.extend(
             [detection for detection in specs.simple_detections if not detection.is_deprecated()]
         )
+        is_simple_pack = "Simple" in pack.analysis_spec.get("PackID", "").split(".")
         for detection in detections:
+            is_simple_rule = "Simple" in detection.analysis_spec.get("RuleID", "").split(".")
+            if is_simple_pack != is_simple_rule:
+                # simple rules should be in simple packs
+                continue
             # remove leading ./
             # ./some-dir -> some-dir
             dir_name = detection.dir_name.strip("./")
@@ -1302,6 +1307,10 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
             path_to_detection = detection.file_name[detection.file_name.find(dir_name) :]
             pieces = path_to_detection.split("/")
 
+            # packs with "simple" rules have "_simple" suffix
+            pack_name = pack_file_name
+            if is_simple_pack:
+                pack_name = pack_file_name.replace("_simple", "")
             matching_pieces = [piece.startswith(pack_name) for piece in pieces]
             if any(matching_pieces):
                 key = analysis_type_to_key_mapping[detection.analysis_spec["AnalysisType"]]
@@ -1309,13 +1318,13 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
 
         diff = set(included_rules).difference(set(pack.analysis_spec["PackDefinition"]["IDs"]))
         if diff:
-            packs_with_missing_detections[pack_name] = list(diff)
+            packs_with_missing_detections[pack_file_name] = list(diff)
 
     if packs_with_missing_detections:
         error_string = "There are packs that are potentially missing detections:\n"
-        for pack_name, detections in packs_with_missing_detections.items():
+        for pack_file_name, detections in packs_with_missing_detections.items():
             detections_str = ",".join(detections)
-            error_string += f"{pack_name}.yml: {detections_str}\n\n"
+            error_string += f"{pack_file_name}.yml: {detections_str}\n\n"
         return 1, error_string
     return 0, "Looks like packs are up to date"
 
