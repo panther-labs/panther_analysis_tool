@@ -378,7 +378,10 @@ def upload_zip(
                 flags_params = FeatureFlagsParams(
                     flags=[FeatureFlagWithDefault(flag=ENABLE_CORRELATION_RULES_FLAG)]
                 )
-                if not backend.feature_flags(flags_params).data.flags[0].treatment:
+                try:
+                    if not backend.feature_flags(flags_params).data.flags[0].treatment:
+                        del resp_dict["correlation_rules"]
+                except BaseException:
                     del resp_dict["correlation_rules"]
 
                 logging.info("API Response:\n%s", json.dumps(resp_dict, indent=4))
