@@ -34,6 +34,8 @@ from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
     BackendError,
     BackendResponse,
+    BulkUploadResponse,
+    BulkUploadStatistics,
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
     GetRuleBodyParams,
@@ -454,6 +456,37 @@ class TestPantherAnalysisTool(TestCase):
         analysis_file = "tmp/release/panther-analysis-all.zip"
         statinfo = os.stat(analysis_file)
         assert_true(statinfo.st_size > 0)
+        assert_equal(return_code, 0)
+
+    def test_feature_flags_dont_err_the_upload(self):
+        backend = MockBackend()
+        backend.feature_flags = mock.MagicMock(
+            side_effect=BaseException("something about the lambda doesnt support your request")
+        )
+        stats = BulkUploadStatistics(
+            new=2,
+            total=3,
+            modified=4,
+        )
+        backend.bulk_upload = mock.MagicMock(
+            return_value=BackendResponse(
+                data=BulkUploadResponse(
+                    rules=stats,
+                    queries=stats,
+                    policies=stats,
+                    data_models=stats,
+                    lookup_tables=stats,
+                    global_helpers=stats,
+                    correlation_rules=stats,
+                ),
+                status_code=200,
+            )
+        )
+
+        args = pat.setup_parser().parse_args(
+            f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+        )
+        return_code, _ = pat.upload_analysis(backend, args)
         assert_equal(return_code, 0)
 
     def test_retry_uploads(self):
