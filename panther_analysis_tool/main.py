@@ -381,6 +381,7 @@ def upload_zip(
                 try:
                     if not backend.feature_flags(flags_params).data.flags[0].treatment:
                         del resp_dict["correlation_rules"]
+                # pylint: disable=broad-except
                 except BaseException:
                     del resp_dict["correlation_rules"]
 
