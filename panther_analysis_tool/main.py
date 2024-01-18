@@ -687,6 +687,16 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 def load_analysis(
     path: str, ignore_table_names: bool, valid_table_names: List[str]
 ) -> Tuple[Any, List[Any]]:
+    """Loads each policy or rule into memory.
+
+    Args:
+        path: path to root folder with rules and policies
+        ignore_table_names: validate or ignore table names
+        valid_table_names: list of valid table names, other will be treated as invalid
+
+    Returns:
+        A tuple of the valid and invalid rules and policies
+    """
     search_directories = [path]
     for directory in (
         HELPERS_LOCATION,
@@ -1277,6 +1287,9 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
 
 
 def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
+    """
+    Checks each existing pack whether it includes all necessary rules.
+    """
     specs, _ = load_analysis(args.path, False, [])
 
     analysis_type_to_key_mapping = {
@@ -2031,7 +2044,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     check_packs_parser = subparsers.add_parser(
         "check-packs",
-        help="Update Packs content, rules and policies",
+        help="Ensure that packs don't have missing detections.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     check_packs_parser.add_argument(path_name, **path_arg)
