@@ -1496,6 +1496,9 @@
         "Threshold": {
           "type": "integer"
         },
+        "CreateAlert": {
+          "type": "boolean"
+        },
         "ScheduledQueries": {
           "items": {
             "type": "string"
