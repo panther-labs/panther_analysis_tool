@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -25,6 +26,7 @@ from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple
+from unittest.mock import MagicMock
 
 import boto3
 import requests
@@ -252,3 +254,20 @@ def log_and_write_to_file(msgs: List[str], filename: TextIO) -> None:
     for msg in msgs:
         filename.write(msg + "\n")
         logging.info(msg)
+
+
+def convert_mocks(mocks: Any) -> Dict[str, Any]:
+    mock_methods: Dict[str, Any] = {}
+    if mocks:
+        for each_mock in mocks:
+            if "objectName" in each_mock and "returnValue" in each_mock:
+                key = each_mock["objectName"]
+                value = each_mock["returnValue"]
+                if isinstance(value, bool):
+                    value = json.dumps(value)
+                if not isinstance(key, str):
+                    raise KeyError("objectName must be a string value for mocks")
+                if not isinstance(value, str):
+                    raise KeyError("returnValue must be a string for mocks")
+                mock_methods[key] = MagicMock(return_value=value)
+    return mock_methods

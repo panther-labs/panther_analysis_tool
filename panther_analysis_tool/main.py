@@ -45,7 +45,7 @@ from datetime import datetime
 from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, List, Tuple, Type
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import botocore
@@ -136,6 +136,7 @@ from panther_analysis_tool.schemas import (
 from panther_analysis_tool.util import (
     BackendNotFoundException,
     add_path_to_filename,
+    convert_mocks,
     convert_unicode,
     is_correlation_rule,
     is_simple_detection,
@@ -1441,19 +1442,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
             entry = unit_test.get("Resource") or unit_test["Log"]
             log_type = entry.get("p_log_type", "")
             mocks = unit_test.get("Mocks")
-            mock_methods: Dict[str, Any] = {}
-            if mocks:
-                for each_mock in mocks:
-                    if "objectName" in each_mock and "returnValue" in each_mock:
-                        key = each_mock["objectName"]
-                        value = each_mock["returnValue"]
-                        if isinstance(value, bool):
-                            value = json.dumps(value)
-                        if not isinstance(key, str):
-                            raise KeyError("objectName must be a string value for mocks")
-                        if not isinstance(value, str):
-                            raise KeyError("returnValue must be a string for mocks")
-                        mock_methods[key] = value
+            mock_methods: Dict[str, Any] = convert_mocks(mocks)
 
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
