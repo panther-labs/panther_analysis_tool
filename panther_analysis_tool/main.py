@@ -1443,11 +1443,18 @@ def _run_tests(  # pylint: disable=too-many-arguments
             mocks = unit_test.get("Mocks")
             mock_methods: Dict[str, Any] = {}
             if mocks:
-                mock_methods = {
-                    each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
-                    for each_mock in mocks
-                    if "objectName" in each_mock and "returnValue" in each_mock
-                }
+                for each_mock in mocks:
+                    if "objectName" in each_mock and "returnValue" in each_mock:
+                        key = each_mock["objectName"]
+                        value = each_mock["returnValue"]
+                        if isinstance(value, bool):
+                            value = json.dumps(value)
+                        if not isinstance(key, str):
+                            raise KeyError("objectName must be a string value for mocks")
+                        if not isinstance(value, str):
+                            raise KeyError("returnValue must be a string for mocks")
+                        mock_methods[key] = value
+
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
