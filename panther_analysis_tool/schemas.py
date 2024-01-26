@@ -190,7 +190,6 @@ RULE_SCHEMA = Schema(
         Optional("AlertTitle"): str,
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
-        Optional("CreateAlert"): bool,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -219,7 +218,6 @@ DERIVED_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
         Optional("Tests"): object,
-        Optional("CreateAlert"): bool,
     },
     ignore_extra_keys=False,
 )
@@ -240,7 +238,6 @@ CORRELATION_RULE_SCHEMA = Schema(
         Optional("SummaryAttributes"): [str],
         Optional("Tags"): [str],
         Optional("Reports"): {str: list},
-        Optional("CreateAlert"): bool,
     },
     ignore_extra_keys=False,
 )

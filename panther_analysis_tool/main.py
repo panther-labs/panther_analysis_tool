@@ -1001,8 +1001,6 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             detection_args["body"] = analysis_spec.get("body")
         else:
             detection_args["path"] = os.path.join(dir_name, analysis_spec["Filename"])
-        if "CreateAlert" in analysis_spec:
-            detection_args["suppressAlert"] = not bool(analysis_spec["CreateAlert"])
 
         detection = (
             Policy(detection_args)
@@ -1491,15 +1489,6 @@ def _run_tests(  # pylint: disable=too-many-arguments
         test_result = TestCaseEvaluator(spec, result).interpret(
             ignore_exception_types=ignore_exception_types
         )
-        if detection.suppress_alert:
-            # only keep alert context function
-            test_result.functions.dedupFunction = None
-            test_result.functions.destinationsFunction = None
-            test_result.functions.runbookFunction = None
-            test_result.functions.titleFunction = None
-            test_result.functions.severityFunction = None
-            test_result.functions.descriptionFunction = None
-            test_result.functions.referenceFunction = None
 
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored
