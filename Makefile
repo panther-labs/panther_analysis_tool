@@ -23,6 +23,10 @@ deps-update: ## Update dependencies using pipenv
 	pipenv lock
 	pipenv requirements > requirements.txt
 
+.PHONY: reqs
+reqs:
+	pipenv requirements > requirements.txt
+
 .PHONY: lint
 lint: ## Lint panther_analysis_tool (mypy, bandit, pylint)
 	pipenv run mypy $(packages) --disallow-untyped-defs --ignore-missing-imports --warn-unused-ignores
@@ -67,6 +71,6 @@ integration: ## Run panther_analysis_tool integration tests (from included fixtu
 	rm -rf panther-analysis
 
 .PHONY: pypi
-pypi: ## Publish to PyPi
+pypi: reqs ## Publish to PyPi
 	pipenv run python3 setup.py sdist
 	pipenv run twine upload dist/*

@@ -21,7 +21,7 @@ install_requires = [
     "schema",
     "semver",
     "sqlfluff",
-    "panther_core",
+    "panther-core>=0.6.7",
     "typing-extensions",
     "jsonlines",
 ]
