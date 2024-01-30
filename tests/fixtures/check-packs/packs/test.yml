@@ -1,0 +1,7 @@
+AnalysisType: pack
+PackID: PantherManaged.Test
+Description: Group of all Test detections
+PackDefinition:
+  IDs:
+    - Test.Included
+DisplayName: "Panther Test Pack"

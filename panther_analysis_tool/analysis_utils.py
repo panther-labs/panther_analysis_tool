@@ -55,6 +55,17 @@ class ClassifiedAnalysis:
         self.dir_name = dir_name
         self.analysis_spec = analysis_spec
 
+    def is_deprecated(self) -> bool:
+        display_name = self.analysis_spec["DisplayName"]
+        description = self.analysis_spec.get("Description", "")
+        if "deprecated" in display_name.lower() or "deprecated" in description.lower():
+            return True
+
+        tags = {tag.lower() for tag in self.analysis_spec.get("Tags", [])}
+        if "deprecated" in tags:
+            return True
+        return False
+
 
 @dataclasses.dataclass
 class ClassifiedAnalysisContainer:

@@ -1,0 +1,15 @@
+AnalysisType: rule
+Description: test description
+DisplayName: "Test"
+Enabled: true
+Severity: Medium
+DedupPeriodMinutes: 60
+Detection:
+  - All:
+    - Condition: Equals
+      KeyPath: IntegrityLevel
+      Value: System
+LogTypes:
+    - Asana.Audit
+RuleID: "Test.Included"
+Threshold: 1
