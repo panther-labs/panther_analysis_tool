@@ -24,7 +24,6 @@ install_requires = [
     "panther-core>=0.6.7",
     "typing-extensions",
     "jsonlines",
-    "panther-detection-helpers>=0.1.3",
 ]
 
 setup(
