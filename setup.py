@@ -24,15 +24,8 @@ install_requires = [
     "panther-core>=0.6.7",
     "typing-extensions",
     "jsonlines",
+    "panther-detection-helpers>=0.1.3",
 ]
-
-with open("requirements.txt") as f:
-    dependencies_with_versions = []
-    for dependency in f.readlines():
-        dependency_with_version = dependency.strip()
-        package_name = dependency_with_version.split("==")[0]
-        if package_name in install_requires:
-            dependencies_with_versions.append(dependency_with_version)
 
 setup(
     name="panther_analysis_tool",
