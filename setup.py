@@ -21,13 +21,13 @@ install_requires = [
     "schema",
     "semver",
     "sqlfluff",
-    "panther_core",
+    "panther-core",
     "typing-extensions",
     "jsonlines",
 ]
 
+dependencies_with_versions = []
 with open("requirements.txt") as f:
-    dependencies_with_versions = []
     for dependency in f.readlines():
         dependency_with_version = dependency.strip()
         package_name = dependency_with_version.split("==")[0]
@@ -48,7 +48,7 @@ setup(
     download_url=f"https://github.com/panther-labs/panther_analysis_tool/archive/v{PAT_VERSION}.tar.gz",
     keywords=["Security", "CLI"],
     scripts=["bin/panther_analysis_tool", "bin/pat"],
-    install_requires=install_requires,
+    install_requires=dependencies_with_versions,
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
