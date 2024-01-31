@@ -21,10 +21,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 from unittest import TestCase, mock
 
+from nose.tools import assert_true
+
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
     get_simple_detections_as_python,
+    load_analysis_specs,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import (
@@ -35,6 +38,7 @@ from panther_analysis_tool.backend.client import (
 )
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.constants import BACKEND_FILTERS_ANALYSIS_SPEC_KEY
+from tests.unit.panther_analysis_tool.test_main import DETECTIONS_FIXTURES_PATH
 
 
 class TestGetSimpleDetectionsAsPython(TestCase):
@@ -228,3 +232,21 @@ class TestTranspileInlineFilters(TestCase):
         ) as logging_mocks:
             transpile_inline_filters(specs, backend)
             self.assertEqual(logging_mocks["warning"].call_count, 0)
+
+
+class TestMiscUtils(TestCase):
+    def test_ignored_files_are_not_loaded(self):
+        for spec_filename, _, _, _ in load_analysis_specs(
+            [DETECTIONS_FIXTURES_PATH], ignore_files=["./example_ignored.yml"]
+        ):
+            assert_true(spec_filename != "example_ignored.yml")
+
+    def test_multiple_ignored_files_are_not_loaded(self):
+        for spec_filename, _, _, _ in load_analysis_specs(
+            [DETECTIONS_FIXTURES_PATH],
+            ignore_files=["./example_ignored.yml", "./example_ignored_multi.yml"],
+        ):
+            assert_true(
+                spec_filename != "example_ignored.yml"
+                and spec_filename != "example_ignored_multi.yml"
+            )
