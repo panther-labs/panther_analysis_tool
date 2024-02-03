@@ -1312,6 +1312,44 @@
         "IDs"
       ]
     },
+    "PythonOverrides": {
+      "type": "object",
+      "properties": {
+        "AlertContext": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Dedup": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Description": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Destinations": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Reference": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Runbook": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Severity": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        },
+        "Title": {
+          "type": "string",
+          "pattern": ".*\\.py$"
+        }
+      },
+      "additionalProperties": false
+    },
     "QuerySchedule": {
       "properties": {
         "CronExpression": {
@@ -1414,6 +1452,9 @@
         },
         "OnlyUseBaseRiskScore": {
           "type": "boolean"
+        },
+        "PythonOverrides": {
+          "$ref": "#/$defs/PythonOverrides"
         },
         "Reference": {
           "type": "string"

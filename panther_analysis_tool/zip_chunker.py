@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from typing import Any, Dict, Generator, List, Optional, Set
+from schema import SchemaForbiddenKeyError
 
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
@@ -191,4 +192,36 @@ def chunk_analysis(
                         to_relative_path(os.path.join(dir_name, analysis_spec["Filename"])),
                         parent=main_file,
                     )
+                python_override_files = get_python_override_files(item)
+                for python_override_file in python_override_files:
+                    # FIXME: figure out if parent=main_file is correct
+                    chunk.add_file(to_relative_path(python_override_file), parent=main_file)
     return create_additional_chunks_if_needed(chunk_files)
+
+def get_python_override_files(analysis_item: ClassifiedAnalysis) -> List[str]:
+    # FIXME: docstring
+    analysis_spec = analysis_item.analysis_spec
+    if analysis_spec is None or "PythonOverrides" not in analysis_spec:
+        return []
+    python_overrides = analysis_spec["PythonOverrides"]
+    override_file_paths = []
+    for key, file_name in python_overrides.items():
+        # TODO: use an enum here
+        if key not in ["Severity", "Title", "Dedup", "Destinations", "Runbook", "Reference", "Description", "AlertContext"]:
+            # TODO: handle this better up the chain
+            raise SchemaForbiddenKeyError(f'Unknown key {key} in PythonOverrides')
+        file_path = get_python_override_file_path(file_name, analysis_item.dir_name)
+        override_file_paths.append(file_path)
+    print('override_file_paths', override_file_paths)
+    return override_file_paths
+
+def get_python_override_file_path(file_name: str, analysis_item_path: str) -> str:
+    # FIXME: docstring
+    # if string given is file path relative to the current directory
+    if os.path.isfile(os.path.join(os.getcwd(), file_name)):
+        return os.path.join(os.getcwd(), file_name)
+    # if string given assumes file is within the same directory as the analysis item
+    if os.path.isfile(os.path.join(analysis_item_path, file_name)):
+        return os.path.join(analysis_item_path, file_name)
+    # TODO: need to handle this exception better further up the chain
+    raise FileNotFoundError(f'File "{file_name}" not found in the current directory or the analysis item directory')

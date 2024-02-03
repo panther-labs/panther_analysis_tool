@@ -218,6 +218,7 @@ DERIVED_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
         Optional("Tests"): object,
+        Optional("PythonOverrides"): object,
     },
     ignore_extra_keys=False,
 )
