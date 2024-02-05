@@ -17,7 +17,7 @@ diff-cover==8.0.2 ; python_full_version >= '3.8.10' and python_full_version < '4
 dynaconf==3.1.8
 exceptiongroup==1.2.0 ; python_version < '3.11'
 frozenlist==1.4.1 ; python_version >= '3.8'
-gql[aiohttp]==3.3.0
+gql[aiohttp]==3.5.0
 graphql-core==3.2.1
 idna==3.3
 iniconfig==2.0.0 ; python_version >= '3.7'
