@@ -3,7 +3,7 @@
 
 [Panther Analysis Tool](https://github.com/panther-labs/panther_analysis_tool) is a Python application for testing, packaging, and deploying Panther Detections.
 
-For further details, see [Quick Start](https://docs.runpanther.io/quick-start) and [Panther Documentation](https://docs.panther.com/).
+For further details, see [Quick Start](https://docs.runpanther.io/quick-start) and [Panther Documentation](https://https://docs.panther.com/panther-developer-workflows/ci-cd/deployment-workflows/pat.panther.com/).
 
 # Installation
 
