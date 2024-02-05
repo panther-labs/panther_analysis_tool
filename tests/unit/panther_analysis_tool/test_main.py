@@ -24,7 +24,7 @@ from datetime import datetime
 from unittest import mock
 
 import jsonschema
-from nose.tools import assert_equal, assert_is_instance, assert_true
+from nose.tools import assert_equal, assert_in, assert_is_instance, assert_true
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from schema import SchemaWrongKeyError
@@ -113,19 +113,13 @@ class TestPantherAnalysisTool(TestCase):
                 assert_true(loaded_spec != {})
 
     def test_ignored_files_are_not_loaded(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
-            [DETECTIONS_FIXTURES_PATH], ignore_files=["./example_ignored.yml"]
-        ):
-            assert_true(loaded_spec != "example_ignored.yml")
-
-    def test_multiple_ignored_files_are_not_loaded(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
-            [DETECTIONS_FIXTURES_PATH],
-            ignore_files=["./example_ignored.yml", "./example_ignored_multi.yml"],
-        ):
-            assert_true(
-                loaded_spec != "example_ignored.yml" and loaded_spec != "example_ignored_multi.yml"
-            )
+        args = pat.setup_parser().parse_args(
+            f"test --path {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml --ignore-files {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
+        assert_equal(return_code, 1)  # no specs throws error
+        assert_in("Nothing to test in", invalid_specs[0])
 
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(

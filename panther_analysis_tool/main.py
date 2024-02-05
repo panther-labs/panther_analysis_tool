@@ -685,7 +685,7 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
 
 
 def load_analysis(
-    path: str, ignore_table_names: bool, valid_table_names: List[str]
+    path: str, ignore_table_names: bool, valid_table_names: List[str], ignore_files: List[str]
 ) -> Tuple[Any, List[Any]]:
     """Loads each policy or rule into memory.
 
@@ -693,6 +693,7 @@ def load_analysis(
         path: path to root folder with rules and policies
         ignore_table_names: validate or ignore table names
         valid_table_names: list of valid table names, other will be treated as invalid
+        ignore_files: Files that Panther Analysis Tool should not process
 
     Returns:
         A tuple of the valid and invalid rules and policies
@@ -714,7 +715,7 @@ def load_analysis(
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files=[])),
+        list(load_analysis_specs(search_directories, ignore_files)),
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
     )
@@ -737,7 +738,9 @@ def test_analysis(
     logging.info("Testing analysis items in %s\n", args.path)
 
     # First classify each file, always include globals and data models location
-    specs, invalid_specs = load_analysis(args.path, args.ignore_table_names, args.valid_table_names)
+    specs, invalid_specs = load_analysis(
+        args.path, args.ignore_table_names, args.valid_table_names, args.ignore_files
+    )
     if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
@@ -1292,7 +1295,7 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     """
     Checks each existing pack whether it includes all necessary rules.
     """
-    specs, _ = load_analysis(args.path, False, [])
+    specs, _ = load_analysis(args.path, True, [], [])
 
     analysis_type_to_key_mapping = {
         AnalysisTypes.POLICY: "PolicyID",
