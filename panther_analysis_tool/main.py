@@ -1316,6 +1316,12 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
             if is_simple_pack != is_simple_rule:
                 # simple rules should be in simple packs
                 continue
+            requires_configuration = [
+                x for x in detection.analysis_spec.get("Tags", []) if "Configuration Required" in x
+            ]
+            if requires_configuration:
+                # skip detections that require configuration
+                continue
             # remove leading ./
             # ./some-dir -> some-dir
             dir_name = detection.dir_name.strip("./")
