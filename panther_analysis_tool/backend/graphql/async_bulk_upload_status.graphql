@@ -21,12 +21,15 @@ query status($input: ID!) {
             queries {
                 ...UploadStatisticDetails
             }
+            correlationRules {
+                ...UploadStatisticDetails
+            }
         }
     }
 }
 
 fragment UploadStatisticDetails on UploadStatistics {
-  modified
-  new
-  total
+    modified
+    new
+    total
 }
