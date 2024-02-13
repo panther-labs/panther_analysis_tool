@@ -40,7 +40,7 @@ jobs:
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files"
-            git push origin HEAD:${{ github.ref }}
+            git push origin HEAD:${{ github.head_ref }}
           fi
         env:
           GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
