@@ -1312,6 +1312,10 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
         )
         is_simple_pack = "Simple" in pack.analysis_spec.get("PackID", "").split(".")
         for detection in detections:
+            # if rule is disabled (not Enabled) - no need to include it in the pack
+            if not detection.analysis_spec.get("Enabled", False):
+                continue
+
             is_simple_rule = "Simple" in detection.analysis_spec.get("RuleID", "").split(".")
             if is_simple_pack != is_simple_rule:
                 # simple rules should be in simple packs
