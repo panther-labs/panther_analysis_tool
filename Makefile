@@ -63,11 +63,12 @@ integration: ## Run panther_analysis_tool integration tests (from included fixtu
 	pipenv run panther_analysis_tool test --path tests/fixtures/detections/valid_analysis
 	rm -rf panther-analysis
 	git clone https://github.com/panther-labs/panther-analysis.git
-	cd panther-analysis && pipenv lock
-	cd panther-analysis && pipenv requirements | grep -v 'panther-analysis-tool==' > requirements.ci.txt
-	cd panther-analysis && pipenv install -r requirements.ci.txt
-	cd panther-analysis && pipenv install -e ..
-	cd panther-analysis && pipenv run panther_analysis_tool --version && pipenv run panther_analysis_tool test --path .
+	cd panther-analysis;\
+		pipenv requirements | grep -v 'panther-analysis-tool==' > requirements.ci.txt; \
+		pipenv install -r requirements.ci.txt; \
+		pipenv install -e ..; \
+		pipenv run panther_analysis_tool --version; \
+		pipenv run panther_analysis_tool test --path .
 	rm -rf panther-analysis
 
 .PHONY: pypi
