@@ -64,6 +64,7 @@ integration: ## Run panther_analysis_tool integration tests (from included fixtu
 	rm -rf panther-analysis
 	git clone https://github.com/panther-labs/panther-analysis.git
 	cd panther-analysis;\
+		pipenv lock; \
 		pipenv requirements | grep -v 'panther-analysis-tool==' > requirements.ci.txt; \
 		pipenv install -r requirements.ci.txt; \
 		pipenv install -e ..; \
