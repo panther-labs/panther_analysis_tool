@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "637b57d2cc10d919a7aad669768e48c628342dd8582b32c759296115f1890870"
+            "sha256": "8a9250a3398d6c0ba0c28a517c60a9e83b2dc9729e7d75f3e4ee1caa4709b194"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -1423,11 +1423,11 @@
         },
         "importlib-metadata": {
             "hashes": [
-                "sha256:4805911c3a4ec7c3966410053e9ec6a1fecd629117df5adee56dfc9432a1081e",
-                "sha256:f238736bb06590ae52ac1fab06a3a9ef1d8dce2b7a35b5ab329371d6c8f5d2cc"
+                "sha256:198f568f3230878cb1b44fbd7975f87906c22336dba2e4a7f05278c281fbd792",
+                "sha256:f4bc4c0c070c490abf4ce96d715f68e95923320370efb66143df00199bb6c100"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==7.0.1"
+            "version": "==7.0.2"
         },
         "isort": {
             "hashes": [
@@ -1621,11 +1621,11 @@
         },
         "pkginfo": {
             "hashes": [
-                "sha256:4b7a555a6d5a22169fcc9cf7bfd78d296b0361adad412a346c1226849af5e546",
-                "sha256:8fd5896e8718a4372f0ea9cc9d96f6417c9b986e23a4d116dda26b62cc29d046"
+                "sha256:5df73835398d10db79f8eecd5cd86b1f6d29317589ea70796994d49399af6297",
+                "sha256:889a6da2ed7ffc58ab5b900d888ddce90bce912f2d2de1dc1c26f4cb9fe65097"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==1.9.6"
+            "version": "==1.10.0"
         },
         "platformdirs": {
             "hashes": [

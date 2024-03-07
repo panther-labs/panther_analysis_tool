@@ -14,7 +14,7 @@ nose = "==1.3.7"
 PyYAML = "==6.0.0"
 coverage = "==6.4.2"
 twine = "==4.0.2"
-responses = "*"
+responses = "==0.25.0"
 typed-ast = { version = "==1.4.3", markers = "python_version < '3.8' and implementation_name == 'cpython'" }
 
 [packages]
