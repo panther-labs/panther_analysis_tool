@@ -387,10 +387,10 @@ def load_analysis_specs_ex(
                     logging.info("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
+                # setup yaml object
+                yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                 if fnmatch(filename, "*.y*ml"):
                     with open(spec_filename, "r") as spec_file_obj:
-                        # setup yaml object
-                        yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                         try:
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
