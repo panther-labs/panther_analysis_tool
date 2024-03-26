@@ -68,6 +68,7 @@ integration: ## Run panther_analysis_tool integration tests (from included fixtu
 		pipenv requirements | grep -v 'panther-analysis-tool==' > requirements.ci.txt; \
 		pipenv install -r requirements.ci.txt; \
 		pipenv install -e ..; \
+		pip install schema==0.7.5; \
 		pipenv run panther_analysis_tool --version; \
 		pipenv run panther_analysis_tool test --path .
 	rm -rf panther-analysis
