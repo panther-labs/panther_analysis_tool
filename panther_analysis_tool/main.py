@@ -1541,8 +1541,8 @@ def _run_tests(  # pylint: disable=too-many-arguments
 def _print_test_result(
     detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
 ) -> None:
-    status_pass = Fore.GREEN + "PASS" + Style.RESET_ALL  # nosec
-    status_fail = Fore.RED + "FAIL" + Style.RESET_ALL  # nosec
+    status_pass = Fore.GREEN + "PASS" + Style.RESET_ALL
+    status_fail = Fore.RED + "FAIL" + Style.RESET_ALL
 
     if test_result.passed:
         outcome = status_pass

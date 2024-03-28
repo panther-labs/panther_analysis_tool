@@ -24,6 +24,7 @@ from datetime import datetime
 from unittest import mock
 
 import jsonschema
+from colorama import Fore, Style
 from nose.tools import assert_equal, assert_in, assert_is_instance, assert_true
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
@@ -770,8 +771,8 @@ class TestPantherAnalysisTool(TestCase):
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
         stdout_str = mystdout.getvalue()
-        assert_equal(stdout_str.count("[PASS] t1"), 2)
-        assert_equal(stdout_str.count("[PASS] t2"), 2)
+        assert_equal(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 2)
+        assert_equal(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t2"), 2)
 
     def test_bulk_validate_happy_path(self):
         backend = MockBackend()
