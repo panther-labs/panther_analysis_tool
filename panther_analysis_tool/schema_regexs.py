@@ -185,6 +185,7 @@ LOG_TYPE_REGEX = Regex(
     r"Tenable\.Vulnerability|"
     r"Tines\.Audit|"
     r"Tor\.ExitNode|"
+    r"TrailDiscover\.TrailDiscover"
     r"Windows\.EventLogs|"
     r"Workday\.Activity|"
     r"Workday\.SignOnAttempt|"
