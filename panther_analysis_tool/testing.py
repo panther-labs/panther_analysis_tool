@@ -17,7 +17,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, Union

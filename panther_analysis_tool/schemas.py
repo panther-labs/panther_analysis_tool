@@ -16,6 +16,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 import json
 import pkgutil
 from typing import Any, Dict
@@ -275,7 +276,7 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         Optional("Lookback"): bool,
         Optional("LookbackWindowSeconds"): int,
     },
-    ignore_extra_keys=False
+    ignore_extra_keys=False,
     # Prevent user typos on optional fields
 )
 
