@@ -13,6 +13,7 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
+    CORRELATION_RULE_SCHEMA,
 )
 
 
@@ -494,6 +495,96 @@ class TestPATSchemas(unittest.TestCase):
                 "Filename": "hmm",
                 "PolicyID": "h",
                 "Severity": "Info",
+            }
+        )
+
+    def test_correlation_rule_unit_tests(self):
+        # works without unit tests
+        CORRELATION_RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "correlation_rule",
+                "DisplayName": "Example Correlation Rule",
+                "Enabled": True,
+                "RuleID": "My.Correlation.Rule",
+                "Severity": "High",
+                "Detection": [
+                    {
+                        "Sequence": [
+                            {
+                                "ID": "First",
+                                "RuleID": "Okta.Global.MFA.Disabled",
+                                "MinMatchCount": 7,
+                            },
+                            {
+                                "ID": "Second",
+                                "RuleID": "Okta.Support.Access",
+                                "MinMatchCount": 1,
+                            },
+                        ],
+                        "LookbackWindowMinutes": 15,
+                        "Schedule": {
+                            "RateMinutes": 5,
+                            "TimeoutMinutes": 3,
+                        },
+                    }
+                ],
+            }
+        )
+
+        # works with unit tests
+        CORRELATION_RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "correlation_rule",
+                "DisplayName": "Example Correlation Rule",
+                "Enabled": True,
+                "RuleID": "My.Correlation.Rule",
+                "Severity": "High",
+                "Detection": [
+                    {
+                        "Sequence": [
+                            {
+                                "ID": "First",
+                                "RuleID": "Okta.Global.MFA.Disabled",
+                                "MinMatchCount": 7,
+                            },
+                            {
+                                "ID": "Second",
+                                "RuleID": "Okta.Support.Access",
+                                "MinMatchCount": 1,
+                            },
+                        ],
+                        "LookbackWindowMinutes": 15,
+                        "Schedule": {
+                            "RateMinutes": 5,
+                            "TimeoutMinutes": 3,
+                        },
+                    }
+                ],
+                "Tests": [
+                    {
+                        "Name": "alert because the other fields are absent",
+                        "ExpectedResult": True,
+                        "RuleOutputs": [
+                            {
+                                "ID": "First",
+                                "Matches": {
+                                    "p_actor": {
+                                        "jane.smith": [1,2,3,4],
+                                    },
+                                },
+                            },
+                            {
+                                "ID": "Second",
+                                "Matches": {
+                                    "p_enrichment.endpoint_mapping.aid.assigned_user": {
+                                        "jane.smith": [6],
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                ]
+
             }
         )
 
