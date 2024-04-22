@@ -242,6 +242,18 @@ CORRELATION_RULE_SCHEMA = Schema(
         Optional("Tags"): [str],
         Optional("Reports"): {str: list},
         Optional("CreateAlert"): bool,
+        Optional("Tests"): [
+            {
+                "Name": str,
+                "ExpectedResult": bool,
+                "RuleOutputs": [
+                    {
+                        "ID": str,
+                        Optional("Matches"): object,
+                    }
+                ],
+            }
+        ],
     },
     ignore_extra_keys=False,
 )
