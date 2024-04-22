@@ -6,6 +6,7 @@ from schema import SchemaError
 
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
+    CORRELATION_RULE_SCHEMA,
     DATA_MODEL_SCHEMA,
     LOG_TYPE_REGEX,
     MOCK_SCHEMA,
@@ -13,7 +14,6 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
-    CORRELATION_RULE_SCHEMA,
 )
 
 
@@ -569,7 +569,7 @@ class TestPATSchemas(unittest.TestCase):
                                 "ID": "First",
                                 "Matches": {
                                     "p_actor": {
-                                        "jane.smith": [1,2,3,4],
+                                        "jane.smith": [1, 2, 3, 4],
                                     },
                                 },
                             },
@@ -583,8 +583,7 @@ class TestPATSchemas(unittest.TestCase):
                             },
                         ],
                     },
-                ]
-
+                ],
             }
         )
 
