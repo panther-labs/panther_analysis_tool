@@ -22,6 +22,37 @@
         "Selectors"
       ]
     },
+    "CorrelationRuleTestCaseMatch": {
+      "patternProperties": {
+        ".*": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "CorrelationRuleTestCaseOutput": {
+      "properties": {
+        "ID": {
+          "type": "string"
+        },
+        "Matches": {
+          "patternProperties": {
+            ".*": {
+              "$ref": "#/$defs/CorrelationRuleTestCaseMatch"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ID"
+      ]
+    },
     "DynamicSeverity": {
       "properties": {
         "ChangeTo": {
@@ -1101,9 +1132,6 @@
                     "RuleID": {
                       "type": "string"
                     },
-                    "SignalMatch": {
-                      "type": "string"
-                    },
                     "MinMatchCount": {
                       "type": "integer"
                     },
@@ -1115,7 +1143,10 @@
                     }
                   },
                   "additionalProperties": false,
-                  "type": "object"
+                  "type": "object",
+                  "required": [
+                    "RuleID"
+                  ]
                 },
                 "type": "array"
               },
@@ -1212,9 +1243,6 @@
                     "RuleID": {
                       "type": "string"
                     },
-                    "SignalMatch": {
-                      "type": "string"
-                    },
                     "MinMatchCount": {
                       "type": "integer"
                     },
@@ -1226,7 +1254,10 @@
                     }
                   },
                   "additionalProperties": false,
-                  "type": "object"
+                  "type": "object",
+                  "required": [
+                    "RuleID"
+                  ]
                 },
                 "type": "array"
               },
@@ -1599,7 +1630,13 @@
           "$ref": "#/$defs/Mocks"
         },
         "Log": true,
-        "Resource": true
+        "Resource": true,
+        "RuleOutputs": {
+          "items": {
+            "$ref": "#/$defs/CorrelationRuleTestCaseOutput"
+          },
+          "type": "array"
+        }
       },
       "additionalProperties": false,
       "type": "object",
