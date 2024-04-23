@@ -1500,7 +1500,7 @@ def _process_correlation_rule_test_results(
                 )
             )
         else:
-            _print_test_result(None, test_result, {})
+            _print_test_result(None, test_result, failed_tests)
     return failed_tests
 
 
