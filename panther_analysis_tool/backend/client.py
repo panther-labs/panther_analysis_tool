@@ -504,7 +504,9 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def test_correlation_rule(self, params: TestCorrelationRuleParams) -> BackendResponse[TestCorrelationRuleResponse]:
+    def test_correlation_rule(
+        self, params: TestCorrelationRuleParams
+    ) -> BackendResponse[TestCorrelationRuleResponse]:
         pass
 
     @abstractmethod

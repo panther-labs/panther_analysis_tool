@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import dataclasses
+import io
 import json
 import logging
-import io
 import os
 from fnmatch import fnmatch
 from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
@@ -490,6 +490,7 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
             )
     return out
 
+
 def test_correlation_rule(
     spec: Dict[str, Any], backend: Optional[BackendClient] = None
 ) -> List[Dict[str, Any]]:
@@ -503,9 +504,11 @@ def test_correlation_rule(
         yaml.dump(spec, stream=string_io)
         output_str = string_io.getvalue()
         string_io.close()
-        resp = backend.test_correlation_rule(TestCorrelationRuleParams(
-            yaml=output_str,
-        ))
+        resp = backend.test_correlation_rule(
+            TestCorrelationRuleParams(
+                yaml=output_str,
+            )
+        )
         out = resp.data.results
     except Exception as e:
         logging.warning(
@@ -514,6 +517,7 @@ def test_correlation_rule(
             e,
         )
     return out
+
 
 def transpile_inline_filters(
     all_specs: ClassifiedAnalysisContainer, backend: Optional[BackendClient] = None

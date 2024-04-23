@@ -710,6 +710,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_correlation_rules_skipped_if_feature_not_enabled(self):
         import logging
+
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
             backend = MockBackend()
@@ -742,7 +743,9 @@ class TestPantherAnalysisTool(TestCase):
             backend = MockBackend()
             backend.test_correlation_rule = mock.MagicMock(
                 return_value=BackendResponse(
-                    data=TestCorrelationRuleResponse(results=[{"name": "t1", "error": None, "passed": True}]),
+                    data=TestCorrelationRuleResponse(
+                        results=[{"name": "t1", "error": None, "passed": True}]
+                    ),
                     status_code=200,
                 )
             )
@@ -765,7 +768,9 @@ class TestPantherAnalysisTool(TestCase):
             backend = MockBackend()
             backend.test_correlation_rule = mock.MagicMock(
                 return_value=BackendResponse(
-                    data=TestCorrelationRuleResponse(results=[{"name": "t1", "error": None, "passed": False}]),
+                    data=TestCorrelationRuleResponse(
+                        results=[{"name": "t1", "error": None, "passed": False}]
+                    ),
                     status_code=200,
                 )
             )
@@ -777,7 +782,6 @@ class TestPantherAnalysisTool(TestCase):
         stdout_str = mystdout.getvalue()
         assert_equal(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
         assert_equal(stdout_str.count("Failed: 1"), 1)
-
 
     def test_can_retrieve_base_detection_for_test(self):
         import logging

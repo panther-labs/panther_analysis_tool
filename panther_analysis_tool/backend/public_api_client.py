@@ -299,7 +299,7 @@ class PublicAPIClient(Client):
         self, params: TestCorrelationRuleParams
     ) -> BackendResponse[TestCorrelationRuleResponse]:
         query = self._requests.test_correlation_rule()
-        test_cr_input = {"input": {"yaml":params.yaml}}
+        test_cr_input = {"input": {"yaml": params.yaml}}
         res = self._safe_execute(query, variable_values=test_cr_input)
         data = res.data.get("testCorrelationRuleYAML", {})
         return BackendResponse(

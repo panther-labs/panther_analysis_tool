@@ -91,27 +91,27 @@ from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
-    test_correlation_rule,
-    get_yaml_loader,
     disable_all_base_detections,
     filter_analysis,
     get_simple_detections_as_python,
+    get_yaml_loader,
     load_analysis_specs,
     load_analysis_specs_ex,
     lookup_base_detection,
+    test_correlation_rule,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
-    TestCorrelationRuleParams,
-    TestCorrelationRuleResponse,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
+    TestCorrelationRuleParams,
+    TestCorrelationRuleResponse,
 )
 from panther_analysis_tool.command import (
     benchmark,
@@ -970,7 +970,9 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         )
 
         is_corr_rule = is_correlation_rule(analysis_spec)
-        correlation_rule_results = [] if not is_corr_rule else test_correlation_rule(analysis_spec, backend)
+        correlation_rule_results = (
+            [] if not is_corr_rule else test_correlation_rule(analysis_spec, backend)
+        )
 
         base_id = analysis_spec.get("BaseDetection", "")
         if base_id != "":
@@ -1019,13 +1021,19 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         if "CreateAlert" in analysis_spec:
             detection_args["suppressAlert"] = not bool(analysis_spec["CreateAlert"])
 
-        detection = None if is_corr_rule else (
-            Policy(detection_args)
-            if analysis_type == AnalysisTypes.POLICY
-            else Rule(detection_args)
+        detection = (
+            None
+            if is_corr_rule
+            else (
+                Policy(detection_args)
+                if analysis_type == AnalysisTypes.POLICY
+                else Rule(detection_args)
+            )
         )
 
-        detection_id = detection.detection_id if not is_corr_rule else analysis_spec.get("RuleID", "")
+        detection_id = (
+            detection.detection_id if not is_corr_rule else analysis_spec.get("RuleID", "")
+        )
         if not all_test_results:
             print(detection_id)
 
@@ -1453,6 +1461,7 @@ def run_tests(  # pylint: disable=too-many-arguments
 
     return failed_tests
 
+
 def _process_correlation_rule_test_results(
     detection_id: str,
     correlation_rule_test_results: List[Dict[str, Any]],
@@ -1493,6 +1502,7 @@ def _process_correlation_rule_test_results(
         else:
             _print_test_result(None, test_result, {})
     return failed_tests
+
 
 def _run_tests(  # pylint: disable=too-many-arguments
     analysis_data_models: Dict[str, DataModel],
@@ -1601,7 +1611,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
 
 def _print_test_result(
-    detection: typing.Optional[Detection], test_result: TestResult, failed_tests: DefaultDict[str, list]
+    detection: typing.Optional[Detection],
+    test_result: TestResult,
+    failed_tests: DefaultDict[str, list],
 ) -> None:
     status_pass = Fore.GREEN + "PASS" + Style.RESET_ALL
     status_fail = Fore.RED + "FAIL" + Style.RESET_ALL
