@@ -62,6 +62,8 @@ from .client import (
     ReplayResponse,
     Schema,
     SeriesWithBreakdown,
+    TestCorrelationRuleParams,
+    TestCorrelationRuleResponse,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -125,6 +127,9 @@ class PublicAPIRequests:
 
     def transpile_filters(self) -> DocumentNode:
         return self._load("transpile_filters")
+
+    def test_correlation_rule(self) -> DocumentNode:
+        return self._load("test_correlation_rule")
 
     def introspection_query(self) -> DocumentNode:
         return self._load("introspection_query")
@@ -287,6 +292,20 @@ class PublicAPIClient(Client):
             status_code=200,
             data=TranspileToPythonResponse(
                 transpiled_python=data.get("transpiledPython") or [],
+            ),
+        )
+
+    def test_correlation_rule(
+        self, params: TestCorrelationRuleParams
+    ) -> BackendResponse[TestCorrelationRuleResponse]:
+        query = self._requests.test_correlation_rule()
+        test_cr_input = {"input": {"yaml":params.yaml}}
+        res = self._safe_execute(query, variable_values=test_cr_input)
+        data = res.data.get("results", [])
+        return BackendResponse(
+            status_code=200,
+            data=TestCorrelationRuleResponse(
+                results=data,
             ),
         )
 

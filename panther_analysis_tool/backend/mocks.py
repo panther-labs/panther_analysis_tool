@@ -22,6 +22,8 @@ from panther_analysis_tool.backend.client import (
     MetricsResponse,
     PerfTestParams,
     ReplayResponse,
+    TestCorrelationRuleParams,
+    TestCorrelationRuleResponse,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -60,6 +62,11 @@ class MockBackend(BackendClient):
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
     ) -> BackendResponse[Any]:
+        pass
+
+    def test_correlation_rule(
+        self, params: TestCorrelationRuleParams
+    ) -> BackendResponse[TestCorrelationRuleResponse]:
         pass
 
     def transpile_filters(

@@ -1,0 +1,9 @@
+mutation TestCorrelationRule($input: TestCorrelationRuleYAMLInput!) {
+    testCorrelationRuleYAML(input: $input) {
+        results {
+            error
+            name
+            passed
+        }
+    }
+}

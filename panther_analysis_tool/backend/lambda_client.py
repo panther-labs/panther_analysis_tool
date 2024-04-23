@@ -52,6 +52,8 @@ from .client import (
     PermanentBackendError,
     ReplayResponse,
     Schema,
+    TestCorrelationRuleParams,
+    TestCorrelationRuleResponse,
     TranspileFiltersParams,
     TranspileFiltersResponse,
     TranspileToPythonParams,
@@ -283,6 +285,11 @@ class LambdaClient(Client):
         raise BaseException(
             "transpile simple detections to python is not supported with lambda client"
         )
+
+    def test_correlation_rule(
+        self, params: TestCorrelationRuleParams
+    ) -> BackendResponse[TestCorrelationRuleResponse]:
+        raise BaseException("test correlation rule is not supported with lambda client")
 
     def transpile_filters(
         self, params: TranspileFiltersParams

@@ -297,6 +297,16 @@ class GetRuleBodyParams:
 
 
 @dataclass(frozen=True)
+class TestCorrelationRuleParams:
+    yaml: str
+
+
+@dataclass(frozen=True)
+class TestCorrelationRuleResponse:
+    results: List[Dict[str, Any]]
+
+
+@dataclass(frozen=True)
 class GetRuleBodyResponse:
     body: str
     tests: List[Dict[str, Any]]
@@ -491,6 +501,10 @@ class Client(ABC):
 
     @abstractmethod
     def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
+        pass
+
+    @abstractmethod
+    def test_correlation_rule(self, params: TestCorrelationRuleParams) -> BackendResponse[TestCorrelationRuleResponse]:
         pass
 
     @abstractmethod
