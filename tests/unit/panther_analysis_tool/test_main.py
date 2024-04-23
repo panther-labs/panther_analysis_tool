@@ -42,6 +42,7 @@ from panther_analysis_tool.backend.client import (
     BulkUploadValidateStatusResponse,
     GetRuleBodyParams,
     GetRuleBodyResponse,
+    TestCorrelationRuleResponse,
     TranspileFiltersResponse,
     TranspileToPythonResponse,
     UnsupportedEndpointError,
@@ -706,6 +707,54 @@ class TestPantherAnalysisTool(TestCase):
         # our mock transpiled code always returns true, so we should have some failing tests
         assert_equal(return_code, 0)
         assert_equal(len(invalid_specs), 0)
+
+    def test_correlation_rules_can_report_pass(self):
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = mystdout = StringIO()
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
+            backend = MockBackend()
+            backend.test_correlation_rule = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=TestCorrelationRuleResponse(results=[{"name": "t1", "error": None, "passed": True}]),
+                    status_code=200,
+                )
+            )
+            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+        sys.stdout = old_stdout
+        assert_equal(return_code, 0)
+        assert_equal(len(invalid_specs), 0)
+        stdout_str = mystdout.getvalue()
+        assert_equal(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 1)
+
+    def test_correlation_rules_can_report_failure(self):
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = mystdout = StringIO()
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/correlation-unit-tests/fails"
+            backend = MockBackend()
+            backend.test_correlation_rule = mock.MagicMock(
+                return_value=BackendResponse(
+                    data=TestCorrelationRuleResponse(results=[{"name": "t1", "error": None, "passed": False}]),
+                    status_code=200,
+                )
+            )
+            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            return_code, invalid_specs = pat.test_analysis(args, backend=backend)
+        sys.stdout = old_stdout
+        assert_equal(return_code, 1)
+        assert_equal(len(invalid_specs), 0)
+        stdout_str = mystdout.getvalue()
+        assert_equal(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
+        assert_equal(stdout_str.count("Failed: 1"), 1)
+
 
     def test_can_retrieve_base_detection_for_test(self):
         import logging

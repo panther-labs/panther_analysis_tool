@@ -1,0 +1,29 @@
+AnalysisType: correlation_rule
+DisplayName: Example Correlation Rule
+Enabled: true
+RuleID: My.Correlation.Rule
+Severity: High
+Detection:
+  - Sequence:
+      - ID: First
+        RuleID: Okta.Global.MFA.Disabled
+        MinMatchCount: 7
+      - ID: Second
+        RuleID: Okta.Support.Access
+        MinMatchCount: 1
+    LookbackWindowMinutes: 15
+    Schedule:
+      RateMinutes: 5
+      TimeoutMinutes: 3
+Tests:
+  - Name: "something"
+    ExpectedResult: true
+    RuleOutputs:
+      - ID: First
+        Matches:
+          p_actor:
+            jane.smith: [1,2,3,4,4,4,5]
+      - ID: Second
+        Matches:
+          p_enrichment.endpoint_mapping.aid.assigned_user:
+            jane.smith: [6]
