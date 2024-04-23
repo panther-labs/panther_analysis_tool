@@ -97,6 +97,7 @@ from panther_analysis_tool.analysis_utils import (
     load_analysis_specs,
     load_analysis_specs_ex,
     lookup_base_detection,
+    test_correlation_rule,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import (
@@ -196,7 +197,7 @@ class AnalysisContainsInvalidTableNamesException(Exception):
 
 @dataclass
 class TestResultContainer:
-    detection: Detection
+    detection: typing.Optional[Detection]
     result: TestResult
     failed_tests: DefaultDict[str, list]
     output: str
@@ -965,12 +966,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             filters=analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         )
 
-        if is_correlation_rule(analysis_spec):
-            logging.warning(
-                "Skipping Correlation Rule '%s', testing not supported",
-                analysis_spec.get("RuleID"),
-            )
-            continue
+        is_corr_rule = is_correlation_rule(analysis_spec)
+        correlation_rule_results = (
+            [] if not is_corr_rule else test_correlation_rule(analysis_spec, backend)
+        )
 
         base_id = analysis_spec.get("BaseDetection", "")
         if base_id != "":
@@ -1014,22 +1013,29 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             if not analysis_spec.get("body"):
                 continue
             detection_args["body"] = analysis_spec.get("body")
-        else:
+        elif not is_corr_rule:
             detection_args["path"] = os.path.join(dir_name, analysis_spec["Filename"])
         if "CreateAlert" in analysis_spec:
             detection_args["suppressAlert"] = not bool(analysis_spec["CreateAlert"])
 
         detection = (
-            Policy(detection_args)
-            if analysis_type == AnalysisTypes.POLICY
-            else Rule(detection_args)
+            None
+            if is_corr_rule
+            else (
+                Policy(detection_args)
+                if analysis_type == AnalysisTypes.POLICY
+                else Rule(detection_args)
+            )
         )
 
+        detection_id = (
+            detection.detection_id if detection is not None else analysis_spec.get("RuleID", "")
+        )
         if not all_test_results:
-            print(detection.detection_id)
+            print(detection_id)
 
         # if there is a setup exception, no need to run tests
-        if detection.setup_exception:
+        if detection is not None and detection.setup_exception:
             invalid_specs.append((analysis_spec_filename, detection.setup_exception))
             print("\n")
             continue
@@ -1038,11 +1044,13 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             analysis_spec,
             log_type_to_data_model,
             detection,
+            detection_id,
             failed_tests,
             minimum_tests,
             destinations_by_name,
             ignore_exception_types,
             all_test_results,
+            correlation_rule_results,
         )
 
         if not all_test_results:
@@ -1409,15 +1417,17 @@ def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
 def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
-    detection: Detection,
+    detection: typing.Optional[Detection],
+    detection_id: str,
     failed_tests: DefaultDict[str, list],
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer],
+    correlation_rule_test_results: List[Dict[str, Any]],
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
-        failed_tests[detection.detection_id].append(
+        failed_tests[detection_id].append(
             "Insufficient test coverage: {} tests required but only {} found".format(
                 minimum_tests, len(analysis.get("Tests", []))
             )
@@ -1425,7 +1435,7 @@ def run_tests(  # pylint: disable=too-many-arguments
 
     # First check if any tests exist, so we can print a helpful message if not
     if "Tests" not in analysis:
-        print("\tNo tests configured for {}".format(detection.detection_id))
+        print("\tNo tests configured for {}".format(detection_id))
         return failed_tests
 
     failed_tests = _run_tests(
@@ -1436,30 +1446,86 @@ def run_tests(  # pylint: disable=too-many-arguments
         destinations_by_name,
         ignore_exception_types,
         all_test_results,
+        correlation_rule_test_results,
+        detection_id,
     )
 
     if minimum_tests > 1 and not (
         [x for x in analysis["Tests"] if x["ExpectedResult"]]
         and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
     ):
-        failed_tests[detection.detection_id].append(
+        failed_tests[detection_id].append(
             "Insufficient test coverage: expected at least one positive and one negative test"
         )
 
     return failed_tests
 
 
+def _process_correlation_rule_test_results(
+    detection_id: str,
+    correlation_rule_test_results: List[Dict[str, Any]],
+    all_test_results: typing.Optional[TestResultsContainer],
+    failed_tests: DefaultDict[str, list],
+) -> DefaultDict[str, list]:
+    status_passed = "passed"
+    status_errored = "errored"
+
+    for test_result_payload in correlation_rule_test_results:
+        test_case_id = test_result_payload.get("name", "")
+        test_case_passed = test_result_payload.get("passed", False)
+        test_case_err = test_result_payload.get("error", None)
+        test_result = TestResult(
+            id=test_case_id,
+            name=test_case_id,
+            detectionId=detection_id,
+            genericError=test_case_err,
+            errored=test_case_err is not None,
+            passed=test_case_passed,
+            error=None,
+            trigger_alert=None,
+            functions=None,
+        )
+        if not test_case_passed:
+            failed_tests[detection_id].append(f"{test_result.name}")
+        if all_test_results:
+            test_result_str = status_passed if test_result.passed else status_errored
+            stored_test_results = getattr(all_test_results, test_result_str)
+            if detection_id not in stored_test_results:
+                stored_test_results[detection_id] = []
+            stored_test_results[detection_id].append(
+                TestResultContainer(
+                    detection=None,
+                    result=test_result,
+                    failed_tests=failed_tests,
+                    output="",
+                )
+            )
+        else:
+            _print_test_result(None, test_result, failed_tests)
+    return failed_tests
+
+
 def _run_tests(  # pylint: disable=too-many-arguments
     analysis_data_models: Dict[str, DataModel],
-    detection: Detection,
+    detection: typing.Optional[Detection],
     tests: List[Dict[str, Any]],
     failed_tests: DefaultDict[str, list],
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer],
+    correlation_rule_test_results: List[Dict[str, Any]],
+    detection_id: str,
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
+    if detection is None:
+        return _process_correlation_rule_test_results(
+            detection_id,
+            correlation_rule_test_results,
+            all_test_results,
+            failed_tests,
+        )
+
     for unit_test in tests:
         test_output = ""
         try:
@@ -1546,7 +1612,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
 
 def _print_test_result(
-    detection: Detection, test_result: TestResult, failed_tests: DefaultDict[str, list]
+    detection: typing.Optional[Detection],
+    test_result: TestResult,
+    failed_tests: DefaultDict[str, list],
 ) -> None:
     status_pass = Fore.GREEN + "PASS" + Style.RESET_ALL
     status_fail = Fore.RED + "FAIL" + Style.RESET_ALL
@@ -1557,6 +1625,9 @@ def _print_test_result(
         outcome = status_fail
     # print overall status for this test
     print("\t[{}] {}".format(outcome, test_result.name))
+
+    if detection is None:
+        return
 
     # print function output and status as necessary
     functions = asdict(test_result.functions)

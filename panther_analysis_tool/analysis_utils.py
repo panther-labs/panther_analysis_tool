@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import dataclasses
+import io
 import json
 import logging
 import os
@@ -32,6 +33,7 @@ from panther_analysis_tool.backend.client import BackendError
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     GetRuleBodyParams,
+    TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
@@ -485,6 +487,34 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
                 the_id,
                 be_err,
             )
+    return out
+
+
+def test_correlation_rule(
+    spec: Dict[str, Any], backend: Optional[BackendClient] = None
+) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    # dont make network call if there's no tests to run, or if no backend
+    if "Tests" not in spec or backend is None:
+        return out
+    try:
+        yaml = get_yaml_loader(roundtrip=True)
+        string_io = io.StringIO()
+        yaml.dump(spec, stream=string_io)
+        output_str = string_io.getvalue()
+        string_io.close()
+        resp = backend.test_correlation_rule(
+            TestCorrelationRuleParams(
+                yaml=output_str,
+            )
+        )
+        out = resp.data.results
+    except Exception as be_err:  # pylint: disable=broad-except
+        logging.warning(
+            "Error running tests remotely for correlation rule %s: %s",
+            spec.get("RuleID", ""),
+            be_err,
+        )
     return out
 
 
