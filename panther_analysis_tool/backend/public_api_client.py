@@ -83,7 +83,7 @@ class PublicAPIClientOptions:
     user_id: str
 
 
-class PublicAPIRequests:
+class PublicAPIRequests:  # pylint: disable=too-many-public-methods
     _cache: Dict[str, str]
 
     def __init__(self) -> None:
@@ -159,7 +159,7 @@ class PublicAPIRequests:
         return gql(self._cache[name])
 
 
-class PublicAPIClient(Client):
+class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     _user_id: str
     _requests: PublicAPIRequests
     _gql_client: GraphQLClient
@@ -301,7 +301,7 @@ class PublicAPIClient(Client):
         query = self._requests.test_correlation_rule()
         test_cr_input = {"input": {"yaml": params.yaml}}
         res = self._safe_execute(query, variable_values=test_cr_input)
-        data = res.data.get("testCorrelationRuleYAML", {})
+        data = res.data.get("testCorrelationRuleYAML", {})  # type: ignore
         return BackendResponse(
             status_code=200,
             data=TestCorrelationRuleResponse(

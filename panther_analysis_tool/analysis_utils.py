@@ -34,7 +34,6 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     GetRuleBodyParams,
     TestCorrelationRuleParams,
-    TestCorrelationRuleResponse,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
@@ -494,9 +493,9 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
 def test_correlation_rule(
     spec: Dict[str, Any], backend: Optional[BackendClient] = None
 ) -> List[Dict[str, Any]]:
-    out = []
-    # dont make network call if there's no tests to run
-    if "Tests" not in spec:
+    out: List[Dict[str, Any]] = []
+    # dont make network call if there's no tests to run, or if no backend
+    if "Tests" not in spec or backend is None:
         return out
     try:
         yaml = get_yaml_loader(roundtrip=True)
@@ -510,11 +509,11 @@ def test_correlation_rule(
             )
         )
         out = resp.data.results
-    except Exception as e:
+    except Exception as be_err:  # pylint: disable=broad-except
         logging.warning(
             "Error running tests remotely for correlation rule %s: %s",
             spec.get("RuleID", ""),
-            e,
+            be_err,
         )
     return out
 

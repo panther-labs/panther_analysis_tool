@@ -94,7 +94,6 @@ from panther_analysis_tool.analysis_utils import (
     disable_all_base_detections,
     filter_analysis,
     get_simple_detections_as_python,
-    get_yaml_loader,
     load_analysis_specs,
     load_analysis_specs_ex,
     lookup_base_detection,
@@ -110,8 +109,6 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
-    TestCorrelationRuleParams,
-    TestCorrelationRuleResponse,
 )
 from panther_analysis_tool.command import (
     benchmark,
@@ -1032,7 +1029,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         )
 
         detection_id = (
-            detection.detection_id if not is_corr_rule else analysis_spec.get("RuleID", "")
+            detection.detection_id if detection is not None else analysis_spec.get("RuleID", "")
         )
         if not all_test_results:
             print(detection_id)
@@ -1047,6 +1044,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             analysis_spec,
             log_type_to_data_model,
             detection,
+            detection_id,
             failed_tests,
             minimum_tests,
             destinations_by_name,
@@ -1420,6 +1418,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
     detection: typing.Optional[Detection],
+    detection_id: str,
     failed_tests: DefaultDict[str, list],
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
@@ -1428,7 +1427,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     correlation_rule_test_results: List[Dict[str, Any]],
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
-        failed_tests[detection.detection_id].append(
+        failed_tests[detection_id].append(
             "Insufficient test coverage: {} tests required but only {} found".format(
                 minimum_tests, len(analysis.get("Tests", []))
             )
@@ -1436,7 +1435,7 @@ def run_tests(  # pylint: disable=too-many-arguments
 
     # First check if any tests exist, so we can print a helpful message if not
     if "Tests" not in analysis:
-        print("\tNo tests configured for {}".format(detection.detection_id))
+        print("\tNo tests configured for {}".format(detection_id))
         return failed_tests
 
     failed_tests = _run_tests(
@@ -1448,14 +1447,14 @@ def run_tests(  # pylint: disable=too-many-arguments
         ignore_exception_types,
         all_test_results,
         correlation_rule_test_results,
-        analysis.get("RuleID", ""),
+        detection_id,
     )
 
     if minimum_tests > 1 and not (
         [x for x in analysis["Tests"] if x["ExpectedResult"]]
         and [x for x in analysis["Tests"] if not x["ExpectedResult"]]
     ):
-        failed_tests[detection.detection_id].append(
+        failed_tests[detection_id].append(
             "Insufficient test coverage: expected at least one positive and one negative test"
         )
 
@@ -1497,6 +1496,8 @@ def _process_correlation_rule_test_results(
                 TestResultContainer(
                     detection=None,
                     result=test_result,
+                    failed_tests=failed_tests,
+                    output="",
                 )
             )
         else:
@@ -1513,13 +1514,13 @@ def _run_tests(  # pylint: disable=too-many-arguments
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
-    analysis_rule_id: str,
+    detection_id: str,
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
     if detection is None:
         return _process_correlation_rule_test_results(
-            analysis_rule_id,
+            detection_id,
             correlation_rule_test_results,
             all_test_results,
             failed_tests,
