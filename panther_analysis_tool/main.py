@@ -17,6 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+# pylint: disable=wrong-import-order, wrong-import-position, ungrouped-imports
 import argparse
 import base64
 import contextlib
@@ -47,6 +48,11 @@ from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, List, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
+
+from panther_analysis_tool.directory import setup_temp
+
+# this is needed at this location so each process can have its own temp directory
+setup_temp()
 
 import botocore
 import dateutil.parser
@@ -261,8 +267,9 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
 
     filenames = []
     chunks = analysis_chunks(ZipArgs.from_args(args), zip_chunks)
+    batch_id = uuid4()
     for idx, chunk in enumerate(chunks):
-        filename = f"panther-analysis-{current_time}-batch-{idx + 1}.zip".format()
+        filename = f"panther-analysis-{current_time}-{batch_id}-batch-{idx + 1}.zip"
         filename = add_path_to_filename(args.out, filename)
         filenames.append(filename)
         with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as zip_out:
@@ -295,7 +302,7 @@ def zip_analysis(
     # example: 2019-08-05T18-23-25
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    filename = "panther-analysis-{}.zip".format(current_time)
+    filename = f"panther-analysis-{current_time}-{uuid4()}.zip"
     filename = add_path_to_filename(args.out, filename)
 
     typed_args = ZipArgs.from_args(args)
