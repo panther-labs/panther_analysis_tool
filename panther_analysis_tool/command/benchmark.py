@@ -246,12 +246,12 @@ def log_output(
             f"Performance tested over {len(iterations)} iterations",
             f"Mean read time (seconds): {nanos_to_seconds(mean([i.read_time_nanos for i in iterations]))}",
             f"Median read time (seconds): {nanos_to_seconds(median_read_time_nanos)}",
-            f"Max read time (seconds): {nanos_to_seconds(max([i.read_time_nanos for i in iterations]))}", # pylint: disable=R1728
-            f"Min read time (seconds): {nanos_to_seconds(min([i.read_time_nanos for i in iterations]))}", # pylint: disable=R1728
+            f"Max read time (seconds): {nanos_to_seconds(max([i.read_time_nanos for i in iterations]))}",  # pylint: disable=R1728
+            f"Min read time (seconds): {nanos_to_seconds(min([i.read_time_nanos for i in iterations]))}",  # pylint: disable=R1728
             f"Mean processing time (seconds): {nanos_to_seconds(mean([i.processing_time_nanos for i in iterations]))}",
             f"Median processing time (seconds): {nanos_to_seconds(median_processing_time_nanos)}",
-            f"Max processing time (seconds): {nanos_to_seconds(max([i.processing_time_nanos for i in iterations]))}", # pylint: disable=R1728
-            f"Min processing time (seconds): {nanos_to_seconds(min([i.processing_time_nanos for i in iterations]))}", # pylint: disable=R1728
+            f"Max processing time (seconds): {nanos_to_seconds(max([i.processing_time_nanos for i in iterations]))}",  # pylint: disable=R1728
+            f"Min processing time (seconds): {nanos_to_seconds(min([i.processing_time_nanos for i in iterations]))}",  # pylint: disable=R1728
             "",
             "Detection performance ranges:",
             "< 1 minute: Highly performant",
