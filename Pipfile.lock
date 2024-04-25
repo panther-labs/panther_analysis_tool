@@ -1,11 +1,11 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "8e385a4184ddef28bda97536071aaeadf52e7d2d361ec50249e26f931ba7a6aa"
+            "sha256": "5342dbde4db0b27466210cfa9ffd4ec43645cf3ef8dc5d02b2d6d3fd81eaef0c"
         },
         "pipfile-spec": 6,
         "requires": {
-            "python_version": "3.9"
+            "python_version": "3.11"
         },
         "sources": [
             {
@@ -1205,11 +1205,11 @@
         },
         "backports.tarfile": {
             "hashes": [
-                "sha256:91d59138ea401ee2a95e8b839c1e2f51f3e9ca76bdba8b6a29f8d773564686a8",
-                "sha256:b2f4df351db942d094db94588bbf2c6938697a5f190f44c934acc697da56008b"
+                "sha256:73e0179647803d3726d82e76089d01d8549ceca9bace469953fcb4d97cf2d417",
+                "sha256:9c2ef9696cb73374f7164e17fc761389393ca76777036f5aad42e8b93fcd8009"
             ],
             "markers": "python_version < '3.12'",
-            "version": "==1.1.0"
+            "version": "==1.1.1"
         },
         "bandit": {
             "hashes": [
@@ -1411,11 +1411,11 @@
         },
         "docutils": {
             "hashes": [
-                "sha256:14c8d34a55b46c88f9f714adb29cefbdd69fb82f3fef825e59c5faab935390d8",
-                "sha256:65249d8a5345bc95e0f40f280ba63c98eb24de35c6c8f5b662e3e8948adea83f"
+                "sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f",
+                "sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2"
             ],
             "markers": "python_version >= '3.9'",
-            "version": "==0.21.1"
+            "version": "==0.21.2"
         },
         "gitdb": {
             "hashes": [
@@ -1666,11 +1666,11 @@
         },
         "platformdirs": {
             "hashes": [
-                "sha256:0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
-                "sha256:ef0cc731df711022c174543cb70a9b5bd22e5a9337c8624ef2c2ceb8ddad8768"
+                "sha256:031cd18d4ec63ec53e82dceaac0417d218a6863f7745dfcc9efe7793b7039bdf",
+                "sha256:17d5a1161b3fd67b390023cb2d3b026bbd40abde6fdb052dfbd3a29c3ba22ee1"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==4.2.0"
+            "version": "==4.2.1"
         },
         "pyfakefs": {
             "hashes": [

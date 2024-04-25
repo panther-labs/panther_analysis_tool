@@ -50,4 +50,4 @@ jsonlines = "==3.0.0"
 panther-core = "==0.8.1"
 
 [requires]
-python_version = "3.9"
+python_version = "3.11"
