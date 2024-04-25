@@ -23,7 +23,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -87,7 +86,7 @@ class PublicAPIRequests:  # pylint: disable=too-many-public-methods
     _cache: Dict[str, str]
 
     def __init__(self) -> None:
-        self._cache = dict()
+        self._cache = {}
 
     def version_query(self) -> DocumentNode:
         return self._load("get_version")
@@ -154,7 +153,9 @@ class PublicAPIRequests:  # pylint: disable=too-many-public-methods
 
     def _load(self, name: str) -> DocumentNode:
         if name not in self._cache:
-            self._cache[name] = Path(_get_graphql_content_filepath(name)).read_text()
+            file_path = _get_graphql_content_filepath(name)
+            with open(file_path, "r", encoding="utf-8") as file:
+                self._cache[name] = file.read()
 
         return gql(self._cache[name])
 
@@ -261,11 +262,11 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
         for test in tests:
             out_mocks = []
             for mock in test.get("mocks") or []:
-                out_mock = dict()
+                out_mock = {}
                 out_mock["ObjectName"] = mock["objectName"]
                 out_mock["ReturnValue"] = mock["returnValue"]
                 out_mocks.append(out_mock)
-            out_test = dict()
+            out_test = {}
             out_test["ExpectedResult"] = test["expectedResult"]
             out_test["Name"] = test["name"]
             out_test["Log"] = json.loads(test["resource"])

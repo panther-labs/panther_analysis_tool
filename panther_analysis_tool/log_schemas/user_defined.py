@@ -179,7 +179,7 @@ class Uploader:
             processed_file = ProcessedFile()
             processed_files[filename] = processed_file
             try:
-                with open(filename, "r") as schema_file:
+                with open(filename, "r", encoding="utf-8") as schema_file:
                     processed_file.raw = schema_file.read()
                 processed_file.yaml = yaml_parser.load(processed_file.raw)
             except (ParserError, ScannerError, ComposerError) as exc:
@@ -302,7 +302,7 @@ def _contains_schema_tests(filename: str) -> bool:
 
     yaml_parser = YAML(typ="safe")
 
-    with open(filename, "r") as stream:
+    with open(filename, "r", encoding="utf-8") as stream:
         try:
             yaml_documents: List[Dict[str, Any]] = yaml_parser.load_all(stream)
         except (ParserError, ScannerError, ComposerError):

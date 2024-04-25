@@ -16,7 +16,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: 3.11
 
       - name: Install pipenv
         run: make install-pipenv
@@ -31,6 +31,14 @@ jobs:
         run: |
           git config --global user.name "panther-bot-automation"
           git config --global user.email "github-service-account-automation@panther.io"
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH=${{ github.head_ref }}
+            git fetch; git checkout ${{ github.head_ref }}
+          else
+            BRANCH=${{ github.ref }}
+          fi
+
           
           git add -A .
 
@@ -40,7 +48,7 @@ jobs:
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files"
-            git push origin HEAD:${{ github.ref }}
+            git push origin HEAD:$BRANCH
           fi
         env:
           GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}

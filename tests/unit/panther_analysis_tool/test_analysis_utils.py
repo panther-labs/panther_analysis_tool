@@ -22,8 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 from unittest import TestCase, mock
 
-from nose.tools import assert_true
-
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
@@ -240,14 +238,14 @@ class TestMiscUtils(TestCase):
         for spec_filename, _, _, _ in load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=["./example_ignored.yml"]
         ):
-            assert_true(spec_filename != "example_ignored.yml")
+            self.assertTrue(spec_filename != "example_ignored.yml")
 
     def test_multiple_ignored_files_are_not_loaded(self):
         for spec_filename, _, _, _ in load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH],
             ignore_files=["./example_ignored.yml", "./example_ignored_multi.yml"],
         ):
-            assert_true(
+            self.assertTrue(
                 spec_filename != "example_ignored.yml"
                 and spec_filename != "example_ignored_multi.yml"
             )

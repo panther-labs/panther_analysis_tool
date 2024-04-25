@@ -26,7 +26,6 @@ from unittest import mock
 
 import jsonschema
 from colorama import Fore, Style
-from nose.tools import assert_equal, assert_in, assert_is_instance, assert_true
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from schema import SchemaWrongKeyError
@@ -112,8 +111,8 @@ class TestPantherAnalysisTool(TestCase):
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
             if spec_filename.endswith("example_policy.json"):
-                assert_is_instance(loaded_spec, dict)
-                assert_true(loaded_spec != {})
+                self.assertIsInstance(loaded_spec, dict)
+                self.assertTrue(loaded_spec != {})
 
     def test_ignored_files_are_not_loaded(self):
         args = pat.setup_parser().parse_args(
@@ -121,16 +120,16 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)  # no specs throws error
-        assert_in("Nothing to test in", invalid_specs[0])
+        self.assertEqual(return_code, 1)  # no specs throws error
+        self.assertIn("Nothing to test in", invalid_specs[0])
 
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
             if spec_filename.endswith("example_policy.yml"):
-                assert_is_instance(loaded_spec, dict)
-                assert_true(loaded_spec != {})
+                self.assertIsInstance(loaded_spec, dict)
+                self.assertTrue(loaded_spec != {})
 
     def test_valid_pack_spec(self):
         pack_loaded = False
@@ -138,15 +137,15 @@ class TestPantherAnalysisTool(TestCase):
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
             if spec_filename.endswith("sample-pack.yml"):
-                assert_is_instance(loaded_spec, dict)
-                assert_true(loaded_spec != {})
+                self.assertIsInstance(loaded_spec, dict)
+                self.assertTrue(loaded_spec != {})
                 pack_loaded = True
-        assert_true(pack_loaded)
+        self.assertTrue(pack_loaded)
 
     def test_datetime_converted(self):
         test_date = datetime.now()
         test_date_string = pat.datetime_converted(test_date)
-        assert_is_instance(test_date_string, str)
+        self.assertIsInstance(test_date_string, str)
 
     def test_handle_wrong_key_error(self):
         sample_keys = ["DisplayName", "Enabled", "Filename"]
@@ -157,22 +156,22 @@ class TestPantherAnalysisTool(TestCase):
         )
         exc = SchemaWrongKeyError(test_str)
         err = pat.handle_wrong_key_error(exc, sample_keys)
-        assert_equal(str(err), expected_output.format("'DisplaName'", sample_keys))
+        self.assertEqual(str(err), expected_output.format("'DisplaName'", sample_keys))
         # test failing regex match
         test_str = "Will not match"
         exc = SchemaWrongKeyError(test_str)
         err = pat.handle_wrong_key_error(exc, sample_keys)
-        assert_equal(str(err), expected_output.format("UNKNOWN_KEY", sample_keys))
+        self.assertEqual(str(err), expected_output.format("UNKNOWN_KEY", sample_keys))
 
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args(f"test --path {DETECTIONS_FIXTURES_PATH}".split())
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(
+        self.assertEqual(return_code, 1)
+        self.assertEqual(
             invalid_specs[0][0], f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml"
         )
-        assert_equal(len(invalid_specs), 13)
+        self.assertEqual(len(invalid_specs), 13)
 
     def test_policies_from_folder(self):
         args = pat.setup_parser().parse_args(
@@ -180,8 +179,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_rules_from_folder(self):
         args = pat.setup_parser().parse_args(
@@ -189,8 +188,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_queries_from_folder(self):
         args = pat.setup_parser().parse_args(
@@ -198,8 +197,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_scheduled_rules_from_folder(self):
         args = pat.setup_parser().parse_args(
@@ -207,8 +206,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_rules_from_current_dir(self):
         # This is a work around to test running tool against current directory
@@ -226,8 +225,8 @@ class TestPantherAnalysisTool(TestCase):
             finally:
                 os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
         return_code = -1
         invalid_specs = None
         # test explicitly setting current dir
@@ -239,21 +238,21 @@ class TestPantherAnalysisTool(TestCase):
             return_code, invalid_specs = pat.test_analysis(args)
             os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_parse_filters(self):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global Severity=Critical Enabled=true".split()
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
-        assert_true("AnalysisType" in args.filter.keys())
-        assert_true("policy" in args.filter["AnalysisType"])
-        assert_true("global" in args.filter["AnalysisType"])
-        assert_true("Severity" in args.filter.keys())
-        assert_true("Critical" in args.filter["Severity"])
-        assert_true("Enabled" in args.filter.keys())
-        assert_true(True in args.filter["Enabled"])
+        self.assertTrue("AnalysisType" in args.filter.keys())
+        self.assertTrue("policy" in args.filter["AnalysisType"])
+        self.assertTrue("global" in args.filter["AnalysisType"])
+        self.assertTrue("Severity" in args.filter.keys())
+        self.assertTrue("Critical" in args.filter["Severity"])
+        self.assertTrue("Enabled" in args.filter.keys())
+        self.assertTrue(True in args.filter["Enabled"])
 
     def test_with_filters(self):
         args = pat.setup_parser().parse_args(
@@ -261,8 +260,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_enabled_filter(self):
         args = pat.setup_parser().parse_args(
@@ -270,8 +269,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_enabled_filter_inverted(self):
         args = pat.setup_parser().parse_args(
@@ -279,8 +278,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_aws_profiles(self):
         aws_profile = "AWS_PROFILE"
@@ -288,8 +287,8 @@ class TestPantherAnalysisTool(TestCase):
             f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile".split()
         )
         util.set_env(aws_profile, args.aws_profile)
-        assert_equal("myprofile", args.aws_profile)
-        assert_equal(args.aws_profile, os.environ.get(aws_profile))
+        self.assertEqual("myprofile", args.aws_profile)
+        self.assertEqual(args.aws_profile, os.environ.get(aws_profile))
 
     def test_invalid_rule_definition(self):
         args = pat.setup_parser().parse_args(
@@ -297,8 +296,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_rule_test(self):
         args = pat.setup_parser().parse_args(
@@ -306,8 +305,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_characters(self):
         args = pat.setup_parser().parse_args(
@@ -315,8 +314,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 10)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 10)
 
     def test_unknown_exception(self):
         args = pat.setup_parser().parse_args(
@@ -324,8 +323,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_with_invalid_mocks(self):
         args = pat.setup_parser().parse_args(
@@ -333,8 +332,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_with_tag_filters(self):
         args = pat.setup_parser().parse_args(
@@ -342,8 +341,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_with_tag_filters_inverted(self):
         # Note: a comparison of the tests passed is required to make this test robust
@@ -353,8 +352,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args(
@@ -362,8 +361,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_with_minimum_tests_failing(self):
         args = pat.setup_parser().parse_args(
@@ -372,8 +371,8 @@ class TestPantherAnalysisTool(TestCase):
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because some of the fixtures only have one test case
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_with_minimum_tests_no_passing(self):
         args = pat.setup_parser().parse_args(
@@ -382,8 +381,8 @@ class TestPantherAnalysisTool(TestCase):
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
         # Failing, because while there are two unit tests they both have expected result False
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_resource_type(self):
         args = pat.setup_parser().parse_args(
@@ -391,8 +390,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_log_type(self):
         args = pat.setup_parser().parse_args(
@@ -400,8 +399,8 @@ class TestPantherAnalysisTool(TestCase):
         )
         args.filter, args.filter_inverted = pat.parse_filter(args.filter)
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        self.equal = assert_equal(len(invalid_specs), 9)
+        self.assertEqual(return_code, 1)
+        self.equal = self.assertEqual(len(invalid_specs), 9)
 
     def test_zip_analysis(self):
         # Note: This is a workaround for CI
@@ -414,11 +413,11 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, out_filename = pat.zip_analysis(args)
-        assert_true(out_filename.startswith("tmp/"))
+        self.assertTrue(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
-        assert_true(statinfo.st_size > 0)
-        assert_equal(return_code, 0)
-        assert_true(out_filename.endswith(".zip"))
+        self.assertTrue(statinfo.st_size > 0)
+        self.assertEqual(return_code, 0)
+        self.assertTrue(out_filename.endswith(".zip"))
 
     def test_zip_analysis_chunks(self):
         # Note: This is a workaround for CI
@@ -432,12 +431,12 @@ class TestPantherAnalysisTool(TestCase):
 
         results = pat.zip_analysis_chunks(args)
         for out_filename in results:
-            assert_true(out_filename.startswith("tmp/"))
+            self.assertTrue(out_filename.startswith("tmp/"))
             statinfo = os.stat(out_filename)
-            assert_true(statinfo.st_size > 0)
-            assert_true(out_filename.endswith(".zip"))
+            self.assertTrue(statinfo.st_size > 0)
+            self.assertTrue(out_filename.endswith(".zip"))
 
-        assert_equal(7, len(results))
+        self.assertEqual(7, len(results))
 
     def test_generate_release_assets(self):
         # Note: This is a workaround for CI
@@ -452,8 +451,8 @@ class TestPantherAnalysisTool(TestCase):
         return_code, _ = pat.generate_release_assets(args)
         analysis_file = "tmp/release/panther-analysis-all.zip"
         statinfo = os.stat(analysis_file)
-        assert_true(statinfo.st_size > 0)
-        assert_equal(return_code, 0)
+        self.assertTrue(statinfo.st_size > 0)
+        self.assertEqual(return_code, 0)
 
     def test_feature_flags_dont_err_the_upload(self):
         backend = MockBackend()
@@ -484,7 +483,7 @@ class TestPantherAnalysisTool(TestCase):
             f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
         )
         return_code, _ = pat.upload_analysis(backend, args)
-        assert_equal(return_code, 0)
+        self.assertEqual(return_code, 0)
 
     def test_retry_uploads(self):
         import logging
@@ -504,13 +503,13 @@ class TestPantherAnalysisTool(TestCase):
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
-                assert_equal(return_code, 1)
-                assert_equal(logging_mocks["debug"].call_count, 20)
-                assert_equal(logging_mocks["warning"].call_count, 1)
+                self.assertEqual(return_code, 1)
+                self.assertEqual(logging_mocks["debug"].call_count, 20)
+                self.assertEqual(logging_mocks["warning"].call_count, 1)
                 # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
                 # which can be removed by pausing the fake file system
-                assert_equal(logging_mocks["info"].call_count, 5)
-                assert_equal(time_mock.call_count, 10)
+                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
         args = pat.setup_parser().parse_args(
@@ -521,11 +520,11 @@ class TestPantherAnalysisTool(TestCase):
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
-                assert_equal(return_code, 1)
-                assert_equal(logging_mocks["debug"].call_count, 0)
-                assert_equal(logging_mocks["warning"].call_count, 2)
-                assert_equal(logging_mocks["info"].call_count, 5)
-                assert_equal(time_mock.call_count, 0)
+                self.assertEqual(return_code, 1)
+                self.assertEqual(logging_mocks["debug"].call_count, 0)
+                self.assertEqual(logging_mocks["warning"].call_count, 2)
+                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
         args = pat.setup_parser().parse_args(
@@ -536,12 +535,12 @@ class TestPantherAnalysisTool(TestCase):
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
                 return_code, _ = pat.upload_analysis(backend, args)
-                assert_equal(return_code, 1)
-                assert_equal(logging_mocks["debug"].call_count, 20)
+                self.assertEqual(return_code, 1)
+                self.assertEqual(logging_mocks["debug"].call_count, 20)
                 # warning about max and final error
-                assert_equal(logging_mocks["warning"].call_count, 2)
-                assert_equal(logging_mocks["info"].call_count, 5)
-                assert_equal(time_mock.call_count, 10)
+                self.assertEqual(logging_mocks["warning"].call_count, 2)
+                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
         """When an available destination is given but does not match the returned names"""
@@ -550,7 +549,7 @@ class TestPantherAnalysisTool(TestCase):
             "--available-destination Pagerduty".split()
         )
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
+        self.assertEqual(return_code, 1)
 
     def test_available_destination_names_valid_name_returned(self):
         """When an available destination is given but matches the returned name"""
@@ -561,7 +560,7 @@ class TestPantherAnalysisTool(TestCase):
             "--available-destination Pagerduty".split()
         )
         return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
+        self.assertEqual(return_code, 0)
 
     def test_invalid_query(self):
         # sqlfluff doesn't load correctly with the fake file system
@@ -571,8 +570,8 @@ class TestPantherAnalysisTool(TestCase):
             )
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 4)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 4)
 
     def test_invalid_query_passes_when_unchecked(self):
         # sqlfluff doesn't load correctly with the fake file system
@@ -582,8 +581,8 @@ class TestPantherAnalysisTool(TestCase):
             )
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_passes_when_table_name_provided(self):
         # sqlfluff doesn't load correctly with the fake file system
@@ -593,8 +592,8 @@ class TestPantherAnalysisTool(TestCase):
             )
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_fails_when_partial_table_name_provided(self):
         # sqlfluff doesn't load correctly with the fake file system
@@ -604,8 +603,8 @@ class TestPantherAnalysisTool(TestCase):
             )
             args.filter_inverted = {}
             return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 1)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 1)
 
     def test_valid_simple_detections(self):
         with Pause(self.fs):
@@ -615,8 +614,8 @@ class TestPantherAnalysisTool(TestCase):
             # Force the PAT schema explicitly to ignore extra keys.
             pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_simple_detections(self):
         with Pause(self.fs):
@@ -624,8 +623,8 @@ class TestPantherAnalysisTool(TestCase):
                 f"test " f"--path " f" {FIXTURES_PATH}/simple-detections/invalid ".split()
             )
             return_code, invalid_specs = pat.test_analysis(args)
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 3)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 3)
 
     # This function was generated in whole or in part by GitHub Copilot.
     def test_simple_detection_with_transpile(self):
@@ -654,8 +653,8 @@ class TestPantherAnalysisTool(TestCase):
             pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         # our mock transpiled code always returns true, so we should have some failing tests
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_run_tests_with_filters(self):
         with Pause(self.fs):
@@ -705,8 +704,8 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         # our mock transpiled code always returns true, so we should have some failing tests
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_correlation_rules_skipped_if_feature_not_enabled(self):
         import logging
@@ -729,8 +728,8 @@ class TestPantherAnalysisTool(TestCase):
                     if isinstance(warning_log, str):
                         if "Error running tests remotely for correlation rule" in warning_log:
                             warning_logged = True
-                assert_true(warning_logged)
-        assert_equal(return_code, 0)
+                self.assertTrue(warning_logged)
+        self.assertEqual(return_code, 0)
 
     def test_correlation_rules_can_report_pass(self):
         import sys
@@ -752,10 +751,10 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         sys.stdout = old_stdout
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
         stdout_str = mystdout.getvalue()
-        assert_equal(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 1)
+        self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 1)
 
     def test_correlation_rules_can_report_failure(self):
         import sys
@@ -777,11 +776,11 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
             return_code, invalid_specs = pat.test_analysis(args, backend=backend)
         sys.stdout = old_stdout
-        assert_equal(return_code, 1)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 0)
         stdout_str = mystdout.getvalue()
-        assert_equal(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
-        assert_equal(stdout_str.count("Failed: 1"), 1)
+        self.assertEqual(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
+        self.assertEqual(stdout_str.count("Failed: 1"), 1)
 
     def test_can_retrieve_base_detection_for_test(self):
         import logging
@@ -803,9 +802,9 @@ class TestPantherAnalysisTool(TestCase):
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
                 # assert that we were able to look up the base of this derived detection
-                assert_true(all("Skipping Derived Detection" not in s for s in warning_logs))
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+                self.assertTrue(all("Skipping Derived Detection" not in s for s in warning_logs))
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_logs_warning_if_cannot_retrieve_base(self):
         import logging
@@ -830,9 +829,9 @@ class TestPantherAnalysisTool(TestCase):
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
                 # assert that we skipped because we could not lookup base
-                assert_true(any("Skipping Derived Detection" in s for s in warning_logs))
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+                self.assertTrue(any("Skipping Derived Detection" in s for s in warning_logs))
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_can_inherit_tests_from_base(self):
         import sys
@@ -845,11 +844,11 @@ class TestPantherAnalysisTool(TestCase):
             args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
             return_code, invalid_specs = pat.test_analysis(args)
         sys.stdout = old_stdout
-        assert_equal(return_code, 0)
-        assert_equal(len(invalid_specs), 0)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
         stdout_str = mystdout.getvalue()
-        assert_equal(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 2)
-        assert_equal(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t2"), 2)
+        self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 2)
+        self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t2"), 2)
 
     def test_bulk_validate_happy_path(self):
         backend = MockBackend()
@@ -863,8 +862,8 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, return_str = validate.run(backend, args)
-        assert_equal(return_code, 0)
-        assert_true("Validation success" in return_str, f"match not found: {return_str}")
+        self.assertEqual(return_code, 0)
+        self.assertTrue("Validation success" in return_str, f"match not found: {return_str}")
         backend.bulk_validate.assert_called_once()
         params = backend.bulk_validate.call_args[0][0]
         self.assertIsNotNone(params.zip_bytes, "zip data was unexpectedly empty")
@@ -881,7 +880,7 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, _ = validate.run(backend, args)
-        assert_equal(return_code, 1)
+        self.assertEqual(return_code, 1)
 
     def test_bulk_validate_without_support(self):
         backend = MockBackend()
@@ -894,8 +893,8 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, return_str = validate.run(backend, args)
-        assert_equal(return_code, 1)
-        assert_true(
+        self.assertEqual(return_code, 1)
+        self.assertTrue(
             "Invalid backend. `validate` is only supported via API token" in return_str,
             f"match not found in {return_str}",
         )
@@ -912,8 +911,8 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, return_str = validate.run(backend, args)
-        assert_equal(return_code, 1)
-        assert_true(
+        self.assertEqual(return_code, 1)
+        self.assertTrue(
             "Your Panther instance does not support this feature" in return_str,
             f"match not found in {return_str}",
         )
@@ -940,14 +939,14 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, return_str = validate.run(backend, args)
-        assert_equal(return_code, 1)
+        self.assertEqual(return_code, 1)
         expected_strs = [fake_response.error]
         for issue in fake_response.get_issues():
             expected_strs.append(issue.path)
             expected_strs.append(issue.error_message)
 
         for expected in expected_strs:
-            assert_true(
+            self.assertTrue(
                 expected in return_str,
                 f"expected to find {expected} in {return_str} but no matches found",
             )
