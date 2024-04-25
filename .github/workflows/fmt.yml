@@ -1,10 +1,10 @@
 on:
   push:
     branches:
-      - main  # Splitting out main here ensures we do not redundantly run this workflow on merge from a PR
+      - main # Splitting out main here ensures we do not redundantly run this workflow on merge from a PR
   pull_request:
     branches:
-      - '*' # Match all branches
+      - "*" # Match all branches
 
 jobs:
   fmt:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: 3.11
 
       - name: Install pipenv
         run: make install-pipenv
@@ -31,7 +31,7 @@ jobs:
         run: |
           git config --global user.name "panther-bot-automation"
           git config --global user.email "github-service-account-automation@panther.io"
-          
+
           git add -A .
 
           REQUIRES_COMMIT=1
