@@ -9,7 +9,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4.3.0
         with:
-          python-version: 3.9.15
+          python-version: 3.11
       - name: Install pipenv
         run: make install-pipenv
       - name: Setup Virtual Environment
@@ -22,4 +22,3 @@ jobs:
         run: pipenv run -- pip3 install -e .
       - name: Run CLI Tests
         run: make ci
-
