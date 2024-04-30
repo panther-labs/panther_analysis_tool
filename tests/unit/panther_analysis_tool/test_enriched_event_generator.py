@@ -19,7 +19,7 @@ from panther_analysis_tool.enriched_event_generator import (
     TEST_CASE_FIELD_KEY_RESOURCE,
     EnrichedEventGenerator,
 )
-from tests.utils import get_specs_for_test
+from tests.utils.get_specs_for_test import get_specs_for_test
 
 
 class TestEnrichedEventGenerator(TestCase):
