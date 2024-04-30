@@ -45,6 +45,7 @@ fmt: ## Format panther_analysis_tool (black)
 .PHONY: install
 install: ## Install dependencies (including dev dependencies) using pipenv
 	pipenv install --dev
+	pipenv requirements  > requirements.txt
 
 .PHONY: test
 test: ## Run panther_analysis_tool tests
