@@ -73,6 +73,7 @@ def decode_body(res: BackendResponse) -> typing.Any:
     try:
         return json.loads(res.data["body"])
     except json.decoder.JSONDecodeError as decode_error:
+        # pylint: disable=broad-exception-raised
         raise Exception(res.data["body"]) from decode_error
 
 
@@ -109,6 +110,7 @@ class LambdaClient(Client):
         return BackendCheckResponse(success=True, message="not implemented")
 
     def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("async uploads not supported with lambda client")
 
     def bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:
@@ -138,6 +140,7 @@ class LambdaClient(Client):
         return to_bulk_upload_response(body)
 
     def bulk_validate(self, params: BulkUploadParams) -> BulkUploadValidateStatusResponse:
+        # pylint: disable=broad-exception-raised
         raise BaseException("bulk validate is not supported with lambda client")
 
     def delete_detections(
@@ -282,6 +285,7 @@ class LambdaClient(Client):
     def transpile_simple_detection_to_python(
         self, params: TranspileToPythonParams
     ) -> BackendResponse[TranspileToPythonResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException(
             "transpile simple detections to python is not supported with lambda client"
         )
@@ -289,14 +293,17 @@ class LambdaClient(Client):
     def test_correlation_rule(
         self, params: TestCorrelationRuleParams
     ) -> BackendResponse[TestCorrelationRuleResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("test correlation rule is not supported with lambda client")
 
     def transpile_filters(
         self, params: TranspileFiltersParams
     ) -> BackendResponse[TranspileFiltersResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("transpile filters is not supported with lambda client")
 
     def get_rule_body(self, params: GetRuleBodyParams) -> BackendResponse[GetRuleBodyResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("get rule body is not supported with lambda client")
 
     @staticmethod
@@ -332,9 +339,11 @@ class LambdaClient(Client):
         return False
 
     def get_metrics(self, params: MetricsParams) -> BackendResponse[MetricsResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("get metrics is not supported with lambda client")
 
     def run_perf_test(self, params: PerfTestParams) -> BackendResponse[ReplayResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("run perf test is not supported with lambda client")
 
     def supports_enrich_test_data(self) -> bool:
@@ -343,7 +352,9 @@ class LambdaClient(Client):
     def generate_enriched_event_input(
         self, params: GenerateEnrichedEventParams
     ) -> BackendResponse[GenerateEnrichedEventResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("enrich-test-data is not supported with lambda client")
 
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
+        # pylint: disable=broad-exception-raised
         raise BaseException("feature-flags is not supported with lambda client")

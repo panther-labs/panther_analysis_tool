@@ -36,7 +36,7 @@ def contains_invalid_table_names(
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
     if query is not None:
-        parsed_query = dict()
+        parsed_query = {}
         try:
             parsed_query = parse(query, "snowflake")
         except Exception:  # pylint: disable=broad-except

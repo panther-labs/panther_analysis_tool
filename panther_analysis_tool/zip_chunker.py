@@ -113,7 +113,7 @@ class ChunkFiles:
             return False
         return len(self.added_files) > self.chunk.max_size
 
-    def matches_file(self, filename: str, spec: Dict[str, Any] = None) -> bool:
+    def matches_file(self, filename: str, spec: Optional[Dict[str, Any]] = None) -> bool:
         if len(self.chunk.types) > 0 and spec is not None and "AnalysisType" in spec:
             if spec["AnalysisType"] not in self.chunk.types:
                 return False
@@ -145,7 +145,7 @@ def create_additional_chunks_if_needed(chunk_files: List[ChunkFiles]) -> List[Ch
     return results
 
 
-def analysis_chunks(args: ZipArgs, chunks: List[ZipChunk] = None) -> List[ChunkFiles]:
+def analysis_chunks(args: ZipArgs, chunks: Optional[List[ZipChunk]] = None) -> List[ChunkFiles]:
     """Generates all files that should be added to a zip file. If no chunks are provided
     a single chunk will be returned. Note: a file can be in multiple chunks if both chunks
     matches the file pattern
@@ -173,7 +173,7 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
 
 
 def chunk_analysis(
-    analysis: List[ClassifiedAnalysis], chunks: List[ZipChunk] = None
+    analysis: List[ClassifiedAnalysis], chunks: Optional[List[ZipChunk]] = None
 ) -> List[ChunkFiles]:
     if chunks is None or len(chunks) == 0:
         chunks = [ZipChunk(patterns=["*"])]
