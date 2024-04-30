@@ -25,9 +25,7 @@
     "CorrelationRuleTestCaseMatch": {
       "patternProperties": {
         ".*": {
-          "items": {
-            "type": "integer"
-          },
+          "items": true,
           "type": "array"
         }
       },
