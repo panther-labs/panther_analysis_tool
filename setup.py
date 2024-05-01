@@ -46,7 +46,7 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Security",
         "License :: OSI Approved :: GNU Affero General Public License v3",
-        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.11",
     ],
     include_package_data=True,
 )

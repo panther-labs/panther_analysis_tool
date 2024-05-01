@@ -189,8 +189,8 @@ def validate_hour(
             "Internal error: time window too large. Please report this error to someone at Panther."
         )
 
-    max_data_hour = max(  # type: ignore
-        data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None
+    max_data_hour = max(
+        data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None  # type: ignore
     )
     if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
         return err_msg
@@ -212,7 +212,7 @@ def generate_command_log_text(hour: datetime.datetime) -> List[str]:
 
 
 def write_output(args: argparse.Namespace, to_write: List[str], now: datetime.datetime) -> None:
-    with open(args.out + f"/benchmark-{int(now.timestamp())}", "a") as filename:
+    with open(args.out + f"/benchmark-{int(now.timestamp())}", "a", encoding="utf-8") as filename:
         to_write.insert(0, f"Writing to file: {filename.name}")
         log_and_write_to_file(to_write, filename)
 
@@ -246,12 +246,12 @@ def log_output(
             f"Performance tested over {len(iterations)} iterations",
             f"Mean read time (seconds): {nanos_to_seconds(mean([i.read_time_nanos for i in iterations]))}",
             f"Median read time (seconds): {nanos_to_seconds(median_read_time_nanos)}",
-            f"Max read time (seconds): {nanos_to_seconds(max([i.read_time_nanos for i in iterations]))}",
-            f"Min read time (seconds): {nanos_to_seconds(min([i.read_time_nanos for i in iterations]))}",
+            f"Max read time (seconds): {nanos_to_seconds(max([i.read_time_nanos for i in iterations]))}",  # pylint: disable=R1728
+            f"Min read time (seconds): {nanos_to_seconds(min([i.read_time_nanos for i in iterations]))}",  # pylint: disable=R1728
             f"Mean processing time (seconds): {nanos_to_seconds(mean([i.processing_time_nanos for i in iterations]))}",
             f"Median processing time (seconds): {nanos_to_seconds(median_processing_time_nanos)}",
-            f"Max processing time (seconds): {nanos_to_seconds(max([i.processing_time_nanos for i in iterations]))}",
-            f"Min processing time (seconds): {nanos_to_seconds(min([i.processing_time_nanos for i in iterations]))}",
+            f"Max processing time (seconds): {nanos_to_seconds(max([i.processing_time_nanos for i in iterations]))}",  # pylint: disable=R1728
+            f"Min processing time (seconds): {nanos_to_seconds(min([i.processing_time_nanos for i in iterations]))}",  # pylint: disable=R1728
             "",
             "Detection performance ranges:",
             "< 1 minute: Highly performant",

@@ -581,7 +581,7 @@ def backend_response_failed(resp: BackendResponse) -> bool:
 
 
 def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
-    default_stats = dict(total=0, new=0, modified=0)
+    default_stats = {"total": 0, "new": 0, "modified": 0}
     return BackendResponse(
         status_code=200,
         data=BulkUploadResponse(
