@@ -65,6 +65,7 @@ coverage.xml
 .vim/
 .idea
 .vscode
+.fleet
 
 *.orig
 .panther_settings.yml

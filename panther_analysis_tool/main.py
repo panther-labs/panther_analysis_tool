@@ -39,16 +39,12 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
-
-# Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
-# It seems to be unable to import the distutils module, however the module is present and importable
-# in the Python Repl.
-from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
 from typing import Any, DefaultDict, Dict, List, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+from panther_analysis_tool.command.maxpoc_deploy import maxpoc_deploy
 from panther_analysis_tool.directory import setup_temp
 
 # this is needed at this location so each process can have its own temp directory
@@ -147,6 +143,7 @@ from panther_analysis_tool.util import (
     convert_unicode,
     is_correlation_rule,
     is_simple_detection,
+    strtobool,
 )
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
@@ -1822,6 +1819,15 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     release_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     release_parser.set_defaults(func=generate_release_assets)
+
+    # -- max poc
+    maxpoc_parser = subparsers.add_parser(
+        name="maxpoc",
+        help="MAX POC",
+        description="MAX POC",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    maxpoc_parser.set_defaults(func=pat_utils.func_with_optional_backend(maxpoc_deploy))
 
     # -- test command
 

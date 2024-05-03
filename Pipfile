@@ -48,6 +48,8 @@ urllib3 = "==1.26.18"
 typing-extensions = "==4.3.0"
 jsonlines = "==3.0.0"
 panther-core = "==0.8.1"
+panther-analysis = {file = "../max-pa", editable = true}
+pyyaml = "*"
 
 [requires]
 python_version = "3.9"
