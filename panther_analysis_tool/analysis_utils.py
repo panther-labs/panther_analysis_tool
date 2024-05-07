@@ -340,7 +340,7 @@ def load_analysis_specs_ex(
     """
     # setup a list of paths to ensure we do not import the same files
     # multiple times, which can happen when testing from root directory without filters
-    ignored_normalized = ["package.json", "package-lock.json"]
+    ignored_normalized = ["dependabot.yml", "package.json", "package-lock.json"]
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
