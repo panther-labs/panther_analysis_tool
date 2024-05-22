@@ -32,11 +32,7 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
             logging.info(f"Writing to temporary zip file at {tmp.name}")
 
             for root, dirs, files in os.walk("."):
-                if any(
-                    True
-                    for bad in [".mypy_cache", "panther_analysis", ".git"]
-                    if bad in root
-                ):
+                if any(True for bad in [".mypy_cache", "panther_analysis", ".git"] if bad in root):
                     continue
 
                 for file in files:
@@ -116,9 +112,7 @@ def upload_zip(
                     time.sleep(30)
 
                 else:
-                    logging.warning(
-                        "Exhausted retries attempting to perform bulk upload."
-                    )
+                    logging.warning("Exhausted retries attempting to perform bulk upload.")
                     return 1, f"Failed to upload to Panther: {err}"
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
