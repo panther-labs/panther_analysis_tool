@@ -113,6 +113,7 @@ from panther_analysis_tool.backend.client import (
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
+    bulk_upload,
     check_connection,
     standard_args,
     validate,
@@ -313,7 +314,9 @@ def zip_analysis(
     return 0, filename
 
 
-def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+def upload_analysis(
+    backend: BackendClient, args: argparse.Namespace
+) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
     Returns 1 if the analysis tests, validation, packaging, or upload fails.
@@ -412,7 +415,9 @@ def upload_zip(
                     time.sleep(30)
 
                 else:
-                    logging.warning("Exhausted retries attempting to perform bulk upload.")
+                    logging.warning(
+                        "Exhausted retries attempting to perform bulk upload."
+                    )
                     return 1, f"Failed to upload to Panther: {err}"
 
             # PEP8 guide states it is OK to catch BaseException if you log it.
@@ -485,7 +490,9 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, ""
 
 
-def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+def update_custom_schemas(
+    backend: BackendClient, args: argparse.Namespace
+) -> Tuple[int, str]:
     """
     Updates or creates custom schemas.
     Returns 1 if any file failed to be updated.
@@ -543,7 +550,9 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
                 logging.error("Missing signtaure in response: %s", response)
                 return 1, ""
         except botocore.exceptions.ClientError as err:
-            logging.error("Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key)
+            logging.error(
+                "Failed to sign panther-analysis-all.zip using key (%s)", args.kms_key
+            )
             logging.error(err)
             return 1, ""
     return 0, ""
@@ -566,16 +575,16 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     if not api_token:
         logging.error("error: GITHUB_TOKEN env variable must be set")
         return 1, ""
-    release_url = (
-        f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
-    )
+    release_url = f"https://api.github.com/repos/{args.github_owner}/{args.github_repository}/releases"
     # setup appropriate https headers
     headers = {
         "accept": "application/vnd.github.v3+json",
         "Authorization": f"token {api_token}",
     }
     # check this tag doesn't already exist
-    response = requests.get(release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10)
+    response = requests.get(
+        release_url + f"/tags/{args.github_tag}", headers=headers, timeout=10
+    )
     if response.status_code == 200:
         logging.error("tag already exists %s", args.github_tag)
         return 1, ""
@@ -587,10 +596,14 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
     if return_code != 0:
         return return_code, ""
     # then publish to Github
-    return_code = publish_github(args.github_tag, args.body, headers, release_url, release_dir)
+    return_code = publish_github(
+        args.github_tag, args.body, headers, release_url, release_dir
+    )
     if return_code != 0:
         return return_code, ""
-    logging.info("draft release (%s) created in repo (%s)", args.github_tag, release_url)
+    logging.info(
+        "draft release (%s) created in repo (%s)", args.github_tag, release_url
+    )
     return 0, ""
 
 
@@ -648,11 +661,15 @@ def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int
     return return_code
 
 
-def publish_github(tag: str, body: str, headers: dict, release_url: str, release_dir: str) -> int:
+def publish_github(
+    tag: str, body: str, headers: dict, release_url: str, release_dir: str
+) -> int:
     payload = {"tag_name": tag, "draft": True}
     if body:
         payload["body"] = body
-    response = requests.post(release_url, data=json.dumps(payload), headers=headers, timeout=10)
+    response = requests.post(
+        release_url, data=json.dumps(payload), headers=headers, timeout=10
+    )
     if response.status_code != 201:
         logging.error("error creating release (%s) in repo (%s)", tag, release_url)
         logging.error(response.json())
@@ -681,7 +698,9 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
             response = requests.post(
                 upload_url, data=data.read(), headers=headers, params=params, timeout=10
             )
-        response = requests.post(upload_url, data=data, headers=headers, params=params, timeout=10)
+        response = requests.post(
+            upload_url, data=data, headers=headers, params=params, timeout=10
+        )
         if response.status_code != 201:
             logging.error("error uploading release asset (%s)", filename)
             logging.error(response.json())
@@ -768,7 +787,9 @@ def test_analysis(
 
     # enrich simple detections with transpiled python as necessary
     if len(specs.simple_detections) > 0:
-        specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
+        specs.simple_detections = get_simple_detections_as_python(
+            specs.simple_detections, backend
+        )
 
     transpile_inline_filters(specs, backend)
 
@@ -781,7 +802,9 @@ def test_analysis(
         ignore_exception_types.append(UnknownDestinationError)
 
     destinations_by_name = {
-        name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
+        name: FakeDestination(
+            destination_id=str(uuid4()), destination_display_name=name
+        )
         for name in available_destinations
     }
 
@@ -795,7 +818,9 @@ def test_analysis(
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
-        None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
+        None
+        if not bool(args.sort_test_results)
+        else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detections = setup_run_tests(
@@ -897,13 +922,19 @@ def setup_data_models(
         if analysis_spec["Enabled"]:
             body = None
             if "Filename" in analysis_spec:
-                _, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
+                _, load_err = load_module(
+                    os.path.join(dir_name, analysis_spec["Filename"])
+                )
                 # If the module could not be loaded, continue to the next
                 if load_err:
                     invalid_specs.append((analysis_spec_filename, load_err))
                     continue
-                data_model_module_path = os.path.join(dir_name, analysis_spec["Filename"])
-                with open(data_model_module_path, "r", encoding="utf-8") as python_module_file:
+                data_model_module_path = os.path.join(
+                    dir_name, analysis_spec["Filename"]
+                )
+                with open(
+                    data_model_module_path, "r", encoding="utf-8"
+                ) as python_module_file:
                     body = python_module_file.read()
 
             # setup the mapping lookups
@@ -1025,7 +1056,9 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         )
 
         detection_id = (
-            detection.detection_id if detection is not None else analysis_spec.get("RuleID", "")
+            detection.detection_id
+            if detection is not None
+            else analysis_spec.get("RuleID", "")
         )
         if not all_test_results:
             print(detection_id)
@@ -1139,7 +1172,10 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
+            if (
+                analysis_type == AnalysisTypes.SCHEDULED_QUERY
+                and not ignore_table_names
+            ):
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -1158,7 +1194,9 @@ def classify_analysis(
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
 
         except SchemaWrongKeyError as err:
-            invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
+            invalid_specs.append(
+                (analysis_spec_filename, handle_wrong_key_error(err, keys))
+            )
         except (
             SchemaMissingKeyError,
             SchemaForbiddenKeyError,
@@ -1197,7 +1235,9 @@ def classify_analysis(
     return all_specs, invalid_specs
 
 
-def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+def enrich_test_data(
+    backend: BackendClient, args: argparse.Namespace
+) -> Tuple[int, str]:
     """Imports each policy or rule and enriches their test data, if any. The
         modifications are saved in the Analysis YAML files, but not committed
         to git. Users of panther_analysis_tool are expected to commit the changes
@@ -1225,7 +1265,9 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     # We use the load_analysis_specs_ex variant to get a nice round object that includes
     # the YAML context for each analysis item. This means we can roundtrip without sadness.
     raw_analysis_items = list(
-        load_analysis_specs_ex(search_directories, ignore_files=ignored_files, roundtrip_yaml=True)
+        load_analysis_specs_ex(
+            search_directories, ignore_files=ignored_files, roundtrip_yaml=True
+        )
     )
     specs, invalid_specs = classify_analysis(
         # unpack the nice dataclass into a tuple because we use Tuples too much everywhere
@@ -1287,12 +1329,16 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     for spec in all_relevant_specs:
         rule_id = spec.analysis_spec.get("RuleID", "")
         if rule_id != "":
-            filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[rule_id]
+            filtered_raw_analysis_items_by_id[rule_id] = raw_analysis_items_by_id[
+                rule_id
+            ]
             continue
 
         policy_id = spec.analysis_spec.get("PolicyID", "")
         if policy_id != "":
-            filtered_raw_analysis_items_by_id[policy_id] = raw_analysis_items_by_id[policy_id]
+            filtered_raw_analysis_items_by_id[policy_id] = raw_analysis_items_by_id[
+                policy_id
+            ]
             continue
 
     # Enrich the test data for each analysis item
@@ -1322,9 +1368,15 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     for pack in specs.packs:
         pack_file_name = pack.file_name.replace(".yml", "").split("/")[-1]
         included_rules = []
-        detections = [detection for detection in specs.detections if not detection.is_deprecated()]
+        detections = [
+            detection for detection in specs.detections if not detection.is_deprecated()
+        ]
         detections.extend(
-            [detection for detection in specs.simple_detections if not detection.is_deprecated()]
+            [
+                detection
+                for detection in specs.simple_detections
+                if not detection.is_deprecated()
+            ]
         )
         is_simple_pack = "Simple" in pack.analysis_spec.get("PackID", "").split(".")
         for detection in detections:
@@ -1332,12 +1384,16 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
             if not detection.analysis_spec.get("Enabled", False):
                 continue
 
-            is_simple_rule = "Simple" in detection.analysis_spec.get("RuleID", "").split(".")
+            is_simple_rule = "Simple" in detection.analysis_spec.get(
+                "RuleID", ""
+            ).split(".")
             if is_simple_pack != is_simple_rule:
                 # simple rules should be in simple packs
                 continue
             requires_configuration = [
-                x for x in detection.analysis_spec.get("Tags", []) if "Configuration Required" in x
+                x
+                for x in detection.analysis_spec.get("Tags", [])
+                if "Configuration Required" in x
             ]
             if requires_configuration:
                 # skip detections that require configuration
@@ -1348,7 +1404,9 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
 
             # rules/asana_rules/asana_service_account_created -> [rules, asana_rules, asana_service_account_created]
             # if pack name is "asana" we can assume that the detection is part of the pack
-            path_to_detection = detection.file_name[detection.file_name.find(dir_name) :]
+            path_to_detection = detection.file_name[
+                detection.file_name.find(dir_name) :
+            ]
             pieces = path_to_detection.split("/")
 
             # packs with "simple" rules have "_simple" suffix
@@ -1357,10 +1415,14 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
                 pack_name = pack_file_name.replace("_simple", "")
             matching_pieces = [piece.startswith(pack_name) for piece in pieces]
             if any(matching_pieces):
-                key = analysis_type_to_key_mapping[detection.analysis_spec["AnalysisType"]]
+                key = analysis_type_to_key_mapping[
+                    detection.analysis_spec["AnalysisType"]
+                ]
                 included_rules.append(detection.analysis_spec[key])
 
-        diff = set(included_rules).difference(set(pack.analysis_spec["PackDefinition"]["IDs"]))
+        diff = set(included_rules).difference(
+            set(pack.analysis_spec["PackDefinition"]["IDs"])
+        )
         if diff:
             packs_with_missing_detections[pack_file_name] = list(diff)
 
@@ -1529,7 +1591,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
             mock_methods: Dict[str, Any] = {}
             if mocks:
                 mock_methods = {
-                    each_mock["objectName"]: MagicMock(return_value=each_mock["returnValue"])
+                    each_mock["objectName"]: MagicMock(
+                        return_value=each_mock["returnValue"]
+                    )
                     for each_mock in mocks
                     if "objectName" in each_mock and "returnValue" in each_mock
                 }
@@ -1537,16 +1601,18 @@ def _run_tests(  # pylint: disable=too-many-arguments
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             test_output_buf = io.StringIO()
-            with contextlib.redirect_stdout(test_output_buf), contextlib.redirect_stderr(
+            with contextlib.redirect_stdout(
                 test_output_buf
-            ):
+            ), contextlib.redirect_stderr(test_output_buf):
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
                         result = detection.run(
                             test_case, {}, destinations_by_name, batch_mode=False
                         )
                 else:
-                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
+                    result = detection.run(
+                        test_case, {}, destinations_by_name, batch_mode=False
+                    )
             test_output = test_output_buf.getvalue()
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
@@ -1633,16 +1699,24 @@ def _print_test_result(
         if function_result:
             if function_result.get("error"):
                 # add this as output to the failed test spec as well
-                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
+                failed_tests[detection.detection_id].append(
+                    f"{test_result.name}:{printable_name}"
+                )
                 print(
                     f'\t\t[{status_fail}] [{printable_name}] {function_result.get("error", {}).get("message")}'
                 )
             # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
-                failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
-                print(f'\t\t[{status_fail}] [{printable_name}] {function_result.get("output")}')
+                failed_tests[detection.detection_id].append(
+                    f"{test_result.name}:{printable_name}"
+                )
+                print(
+                    f'\t\t[{status_fail}] [{printable_name}] {function_result.get("output")}'
+                )
             else:
-                print(f'\t\t[{status_pass}] [{printable_name}] {function_result.get("output")}')
+                print(
+                    f'\t\t[{status_pass}] [{printable_name}] {function_result.get("output")}'
+                )
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -1771,7 +1845,9 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=VERSION_STRING)
     parser.add_argument("--debug", action="store_true", dest="debug")
-    parser.add_argument("--skip-version-check", dest="skip_version_check", action="store_true")
+    parser.add_argument(
+        "--skip-version-check", dest="skip_version_check", action="store_true"
+    )
     subparsers = parser.add_subparsers()
 
     # -- release command
@@ -1933,11 +2009,13 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(no_async_uploads_name, **no_async_uploads_arg)
     upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     upload_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
+    upload_parser.set_defaults(func=pat_utils.func_with_backend(bulk_upload.run))
 
     # -- delete command
 
-    delete_help_text = "Delete policies, rules, or saved queries from a Panther deployment"
+    delete_help_text = (
+        "Delete policies, rules, or saved queries from a Panther deployment"
+    )
     delete_parser = subparsers.add_parser(
         "delete",
         help=delete_help_text,
@@ -1984,7 +2062,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- update custom schemas command
 
-    custom_schemas_help_text = "Update or create custom schemas on a Panther deployment."
+    custom_schemas_help_text = (
+        "Update or create custom schemas on a Panther deployment."
+    )
     update_custom_schemas_parser = subparsers.add_parser(
         "update-custom-schemas",
         help=custom_schemas_help_text,
@@ -1996,7 +2076,9 @@ def setup_parser() -> argparse.ArgumentParser:
     standard_args.using_aws_profile(update_custom_schemas_parser)
 
     custom_schemas_path_arg = path_arg.copy()
-    custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
+    custom_schemas_path_arg["help"] = (
+        "The relative or absolute path to Panther custom schemas."
+    )
     update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
     update_custom_schemas_parser.set_defaults(
         func=pat_utils.func_with_backend(update_custom_schemas)
@@ -2040,7 +2122,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- zip command
 
-    zip_help_text = "Create an archive of local policies and rules for uploading to Panther."
+    zip_help_text = (
+        "Create an archive of local policies and rules for uploading to Panther."
+    )
     zip_parser = subparsers.add_parser(
         "zip",
         help=zip_help_text,
@@ -2073,7 +2157,9 @@ def setup_parser() -> argparse.ArgumentParser:
 
     standard_args.for_public_api(check_conn_parser, required=False)
 
-    check_conn_parser.set_defaults(func=pat_utils.func_with_backend(check_connection.run))
+    check_conn_parser.set_defaults(
+        func=pat_utils.func_with_backend(check_connection.run)
+    )
 
     # -- benchmark command
     benchmark_help_text = (
@@ -2128,9 +2214,15 @@ def setup_parser() -> argparse.ArgumentParser:
     enrich_test_data_parser.add_argument(filter_name, **filter_arg)
     enrich_test_data_parser.add_argument(path_name, **path_arg)
     enrich_test_data_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    enrich_test_data_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
-    enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
+    enrich_test_data_parser.add_argument(
+        ignore_table_names_name, **ignore_table_names_arg
+    )
+    enrich_test_data_parser.add_argument(
+        valid_table_names_name, **valid_table_names_arg
+    )
+    enrich_test_data_parser.set_defaults(
+        func=pat_utils.func_with_backend(enrich_test_data)
+    )
 
     check_packs_parser = subparsers.add_parser(
         "check-packs",
@@ -2226,7 +2318,9 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             try:
                 bool_value = bool(strtobool(split[1]))
             except ValueError:
-                logging.warning("Filter key %s should have either true or false, skipping", key)
+                logging.warning(
+                    "Filter key %s should have either true or false, skipping", key
+                )
                 continue
             if invert_filter:
                 parsed_filters_inverted[key] = [bool_value]
