@@ -580,8 +580,6 @@ def backend_response_failed(resp: BackendResponse) -> bool:
     return resp.status_code >= 400 or resp.data.get("statusCode", 0) >= 400
 
 
-
-
 def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
     default_stats = {"total": 0, "new": 0, "modified": 0}
     return BackendResponse(
