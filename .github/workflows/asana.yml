@@ -6,11 +6,17 @@ on:
       - opened
       - closed
 
+permissions:
+  contents: read
+
 jobs:
   update_task_on_pr_open:
     if: ${{ github.event.pull_request.state == 'open' }}
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
+        with:
+          egress-policy: audit
       - uses: panther-labs/github-asana-action@v3.0.7
         name: Adds a comment to the related Asana task whenever a PR has been opened
         with:
@@ -30,6 +36,9 @@ jobs:
     if: ${{ github.event.pull_request.state == 'closed' }}
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
+        with:
+          egress-policy: audit
       - uses: panther-labs/github-asana-action@v3.0.7
         name: Adds a comment to the related Asana task when the PR is closed
         with:
