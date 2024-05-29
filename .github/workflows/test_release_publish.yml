@@ -3,11 +3,18 @@ name: Build, Test, Publish Github and PyPI Releases
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   publish_github_release_and_pypi:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
+      with:
+        egress-policy: audit
+
     - name: Check out the repository
       uses: actions/checkout@v3
       with:

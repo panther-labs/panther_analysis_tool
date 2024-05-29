@@ -8,11 +8,17 @@ on:
         required: true
         default: 'minor'
 
+permissions:
+  contents: write
+
 jobs:
   version_bump_pr:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
+      with:
+        egress-policy: audit
     - name: Check out the repository
       uses: actions/checkout@v3
       with:

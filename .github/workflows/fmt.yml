@@ -6,10 +6,16 @@ on:
     branches:
       - '*' # Match all branches
 
+permissions:
+  contents: write
+
 jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
+        with:
+          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@v3
 
