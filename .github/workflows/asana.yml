@@ -17,7 +17,7 @@ jobs:
       - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
         with:
           egress-policy: audit
-      - uses: panther-labs/github-asana-action@v3.0.7
+      - uses: panther-labs/github-asana-action@967374b16dafdcab025b073b2907aa4eaad11545
         name: Adds a comment to the related Asana task whenever a PR has been opened
         with:
           asana-pat: ${{ secrets.ASANA_PAT }}
@@ -25,7 +25,7 @@ jobs:
           text: ${{ format('A Pull Request has been opened {0}', github.event.pull_request.html_url) }}
           is-pinned: true
 
-      - uses: panther-labs/github-asana-action@v3.0.7
+      - uses: panther-labs/github-asana-action@967374b16dafdcab025b073b2907aa4eaad11545
         name: Moves the Asana task to "In Review" when the PR is opened
         with:
           asana-pat: ${{ secrets.ASANA_PAT }}
@@ -39,14 +39,14 @@ jobs:
       - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
         with:
           egress-policy: audit
-      - uses: panther-labs/github-asana-action@v3.0.7
+      - uses: panther-labs/github-asana-action@967374b16dafdcab025b073b2907aa4eaad11545
         name: Adds a comment to the related Asana task when the PR is closed
         with:
           asana-pat: ${{ secrets.ASANA_PAT }}
           action: "add-comment"
           text: ${{ format('A Pull Request is now closed {0}', github.event.pull_request.html_url) }}
 
-      - uses: panther-labs/github-asana-action@v3.0.7
+      - uses: panther-labs/github-asana-action@967374b16dafdcab025b073b2907aa4eaad11545
         name: Closes the related Asana tasks when the PR gets merged
         if: github.event.pull_request.merged
         with:
