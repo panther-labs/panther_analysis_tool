@@ -17,12 +17,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
-from copy import deepcopy
-from typing import Any, Collection, Dict, Iterator, Type, Union, no_type_check
-
-
 from panther_core.immutable import ImmutableContainerMixin, ImmutableCaseInsensitiveDict, ImmutableList, json_encoder
 
-__all__ = ['ImmutableContainerMixin', 'ImmutableCaseInsensitiveDict', 'ImmutableList', 'json_encoder']
+__all__ = ["ImmutableContainerMixin", "ImmutableCaseInsensitiveDict", "ImmutableList", "json_encoder"]
