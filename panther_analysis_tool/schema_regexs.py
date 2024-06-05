@@ -55,6 +55,7 @@ LOG_TYPE_REGEX = Regex(
     r"Crowdstrike\.CriticalFile|"
     r"Crowdstrike\.DNSRequest|"
     r"Crowdstrike\.DetectionSummary|"
+    r"Crowdstrike\.EventStreams|"
     r"Crowdstrike\.FDREvent|"
     r"Crowdstrike\.GroupIdentity|"
     r"Crowdstrike\.ManagedAssets|"
