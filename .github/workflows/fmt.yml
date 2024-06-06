@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   fmt:
+    if: ${{ github.actor != 'panther-bot-automation' }}
     runs-on: ubuntu-latest
     steps:
       - uses: step-security/harden-runner@f086349bfa2bd1361f7909c78558e816508cdc10 # v2.8.0
@@ -24,6 +25,8 @@ jobs:
             github.com:443
             objects.githubusercontent.com:443
             pypi.org:443
+            rekor.sigstore.dev
+            tuf-repo-cdn.sigstore.dev:443
       - name: Checkout
         uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
       
