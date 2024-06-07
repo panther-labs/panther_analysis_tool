@@ -95,6 +95,7 @@ LOG_TYPE_REGEX = Regex(
     r"GitLab\.Integrations|"
     r"GitLab\.Production|"
     r"Gravitational\.TeleportAudit|"
+    r"GreyNoise\.API\.Noise|"
     r"GreyNoise\.Noise|"
     r"GreyNoise\.RIOT|"
     r"Heroku\.Runtime|"
