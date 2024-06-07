@@ -79,7 +79,6 @@ class TestPantherAnalysisTool(TestCase):
                 DETECTIONS_FIXTURES_PATH, "valid_analysis/data_models/GSuite.Events.DataModel.py"
             )
         ]
-        os.makedirs(_DATAMODEL_FOLDER, exist_ok=True)
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
         os.makedirs(pat.TMP_HELPER_MODULE_LOCATION, exist_ok=True)
