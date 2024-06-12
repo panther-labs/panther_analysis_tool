@@ -239,6 +239,7 @@ LOG_TYPE_REGEX = Regex(
     r"Panther\.Audit|"
     r"Proofpoint\.Event|"
     r"PushSecurity\.Activity|"
+    r"PushSecurity\.AttackDetection|"
     r"PushSecurity\.Controls|"
     r"PushSecurity\.Entities|"
     r"Rapid7\.AuditLog|"
