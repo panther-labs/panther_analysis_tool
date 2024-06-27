@@ -585,13 +585,41 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
     return BackendResponse(
         status_code=200,
         data=BulkUploadResponse(
-            rules=BulkUploadStatistics(**data.get("rules", default_stats)),
-            queries=BulkUploadStatistics(**data.get("queries", default_stats)),
-            policies=BulkUploadStatistics(**data.get("policies", default_stats)),
-            data_models=BulkUploadStatistics(**data.get("dataModels", default_stats)),
-            lookup_tables=BulkUploadStatistics(**data.get("lookupTables", default_stats)),
-            global_helpers=BulkUploadStatistics(**data.get("globalHelpers", default_stats)),
-            correlation_rules=BulkUploadStatistics(**data.get("correlationRules", default_stats)),
+            rules=BulkUploadStatistics(
+                total=data.get("rules", default_stats).get("total"),
+                new=data.get("rules", default_stats).get("new"),
+                modified=data.get("rules", default_stats).get("modified"),
+            ),
+            queries=BulkUploadStatistics(
+                total=data.get("queries", default_stats).get("total"),
+                new=data.get("queries", default_stats).get("new"),
+                modified=data.get("queries", default_stats).get("modified"),
+            ),
+            policies=BulkUploadStatistics(
+                total=data.get("policies", default_stats).get("total"),
+                new=data.get("policies", default_stats).get("new"),
+                modified=data.get("policies", default_stats).get("modified"),
+            ),
+            data_models=BulkUploadStatistics(
+                total=data.get("data_models", default_stats).get("total"),
+                new=data.get("data_models", default_stats).get("new"),
+                modified=data.get("data_models", default_stats).get("modified"),
+            ),
+            lookup_tables=BulkUploadStatistics(
+                total=data.get("lookup_tables", default_stats).get("total"),
+                new=data.get("lookup_tables", default_stats).get("new"),
+                modified=data.get("lookup_tables", default_stats).get("modified"),
+            ),
+            global_helpers=BulkUploadStatistics(
+                total=data.get("global_helpers", default_stats).get("total"),
+                new=data.get("global_helpers", default_stats).get("new"),
+                modified=data.get("global_helpers", default_stats).get("modified"),
+            ),
+            correlation_rules=BulkUploadStatistics(
+                total=data.get("correlation_rules", default_stats).get("total"),
+                new=data.get("correlation_rules", default_stats).get("new"),
+                modified=data.get("correlation_rules", default_stats).get("modified"),
+            ),
         ),
     )
 

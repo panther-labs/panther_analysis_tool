@@ -71,7 +71,15 @@ class TestLambdaClient(TestCase):
 
     def test_bulk_upload(self) -> None:
         mock_lambda_res = _make_mock_response_with_string_body(
-            http_status=200, payload={"policies": {"total": 2, "new": 0, "modified": 0}}
+            http_status=200, payload={
+                "rules": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+                "queries": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+                "policies": {"total": 2, "new": 0, "modified": 0, "deleted": 0},
+                "data_models": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+                "lookup_tables": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+                "global_helpers": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+                "correlation_rules": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+            }
         )
 
         with mock.patch("boto3.client", return_value=MockBoto(invoke_returns=mock_lambda_res)):
