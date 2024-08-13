@@ -1317,6 +1317,7 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
         AnalysisTypes.POLICY: "PolicyID",
         AnalysisTypes.RULE: "RuleID",
         AnalysisTypes.SCHEDULED_RULE: "RuleID",
+        AnalysisTypes.CORRELATION_RULE: "RuleID",
     }
     packs_with_missing_detections = {}
     for pack in specs.packs:
