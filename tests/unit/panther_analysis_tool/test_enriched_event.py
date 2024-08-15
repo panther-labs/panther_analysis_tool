@@ -21,9 +21,8 @@ from copy import deepcopy
 from unittest import TestCase
 
 from panther_core.data_model import DataModel
-
-from panther_analysis_tool.enriched_event import PantherEvent
-from panther_analysis_tool.immutable import ImmutableCaseInsensitiveDict, ImmutableList
+from panther_core.enriched_event import PantherEvent
+from panther_core.immutable import ImmutableCaseInsensitiveDict, ImmutableList
 
 
 class TestEnrichedEvent(TestCase):
