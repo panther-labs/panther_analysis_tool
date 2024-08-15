@@ -1282,6 +1282,9 @@
                   }
                 },
                 "type": "object"
+              },
+              "MinMatchCount": {
+                "type": "integer"
               }
             },
             "additionalProperties": false,
