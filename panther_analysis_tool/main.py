@@ -798,7 +798,7 @@ def test_analysis(
         None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
-    failed_tests, invalid_detections = setup_run_tests(
+    failed_tests, invalid_detections, skipped_tests = setup_run_tests(
         log_type_to_data_model,
         specs.detections + specs.simple_detections,
         args.minimum_tests,
@@ -806,7 +806,7 @@ def test_analysis(
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
-        backend=backend,
+        backend=backend
     )
     invalid_specs.extend(invalid_detections)
 
@@ -837,6 +837,7 @@ def test_analysis(
         len(specs.detections + specs.simple_detections),
         failed_tests,
         invalid_specs,
+        skipped_tests
     )
 
     #  if the classic format was invalid, just exit
@@ -944,14 +945,16 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer] = None,
     backend: typing.Optional[BackendClient] = None,
-) -> Tuple[DefaultDict[str, List[Any]], List[Any]]:
+) -> Tuple[DefaultDict[str, List[Any]], List[Any], List[Tuple[str, dict]]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
+    skipped_tests: List[str] = []
     for item in analysis:
         analysis_spec_filename = item.file_name
         dir_name = item.dir_name
         analysis_spec = item.analysis_spec
         if skip_disabled_tests and not analysis_spec.get("Enabled", False):
+            skipped_tests.append((analysis_spec_filename, analysis_spec))
             continue
         analysis_type = analysis_spec["AnalysisType"]
 
@@ -962,10 +965,12 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         }
 
+        correlation_rule_results = []
         is_corr_rule = is_correlation_rule(analysis_spec)
-        correlation_rule_results = (
-            [] if not is_corr_rule else test_correlation_rule(analysis_spec, backend)
-        )
+        if is_corr_rule:
+            correlation_rule_results = test_correlation_rule(analysis_spec, backend)
+            if not correlation_rule_results:
+                skipped_tests.append((analysis_spec_filename, analysis_spec))
 
         base_id = analysis_spec.get("BaseDetection", "")
         if base_id != "":
@@ -1051,7 +1056,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
 
         if not all_test_results:
             print("")
-    return failed_tests, invalid_specs
+    return failed_tests, invalid_specs, skipped_tests
 
 
 def print_summary(
@@ -1059,16 +1064,24 @@ def print_summary(
     num_tests: int,
     failed_tests: Dict[str, list],
     invalid_specs: List[Any],
+    skipped_tests: List[Tuple[str, dict]],
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
     print("Panther CLI Test Summary")
-    print(f"\tPath: {test_path}")
-    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs))}")
-    print(f"\tFailed: {len(failed_tests)}")
+    print(f"\tPath:    {test_path}")
+    print(f"\tPassed:  {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
+    print(f"\tSkipped: {len(skipped_tests)}")
+    print(f"\tFailed:  {len(failed_tests)}")
     print(f"\tInvalid: {len(invalid_specs)}\n")
 
     err_message = "\t{}\n\t\t{}\n"
+
+    if skipped_tests:
+        print("--------------------------")
+        print("Skipped Tests Summary")
+        for spec_filename, spec in skipped_tests:
+            print(err_message.format(spec_filename, spec.get("RuleID") or spec.get("PolicyID")))
 
     if failed_tests:
         print("--------------------------")
