@@ -1,7 +1,7 @@
 AnalysisType: correlation_rule
 DisplayName: Example Correlation Rule
 Enabled: true
-RuleID: My.Correlation.Rule
+RuleID: My.Failing.Correlation.Rule
 Severity: High
 Detection:
   - Sequence:

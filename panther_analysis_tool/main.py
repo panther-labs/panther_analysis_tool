@@ -806,7 +806,7 @@ def test_analysis(
         destinations_by_name=destinations_by_name,
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
-        backend=backend
+        backend=backend,
     )
     invalid_specs.extend(invalid_detections)
 
@@ -837,7 +837,7 @@ def test_analysis(
         len(specs.detections + specs.simple_detections),
         failed_tests,
         invalid_specs,
-        skipped_tests
+        skipped_tests,
     )
 
     #  if the classic format was invalid, just exit
@@ -948,7 +948,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any], List[Tuple[str, dict]]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
-    skipped_tests: List[str] = []
+    skipped_tests: List[Tuple[str, dict]] = []
     for item in analysis:
         analysis_spec_filename = item.file_name
         dir_name = item.dir_name
@@ -1069,10 +1069,10 @@ def print_summary(
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
     print("Panther CLI Test Summary")
-    print(f"\tPath:    {test_path}")
-    print(f"\tPassed:  {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
+    print(f"\tPath: {test_path}")
+    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
     print(f"\tSkipped: {len(skipped_tests)}")
-    print(f"\tFailed:  {len(failed_tests)}")
+    print(f"\tFailed: {len(failed_tests)}")
     print(f"\tInvalid: {len(invalid_specs)}\n")
 
     err_message = "\t{}\n\t\t{}\n"
