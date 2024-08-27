@@ -782,6 +782,26 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
         self.assertEqual(stdout_str.count("Failed: 1"), 1)
 
+    def test_correlation_rules_skipped_without_backend(self):
+        """Confirms that correlation rules are skipped if no backend is provided."""
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = mystdout = StringIO()
+        with Pause(self.fs):
+            file_path = f"{FIXTURES_PATH}/correlation-unit-tests"
+            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
+            return_code, invalid_specs = pat.test_analysis(args, backend=None)
+        sys.stdout = old_stdout
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+        stdout_str = mystdout.getvalue()
+        # Ensure skipped tests don't count towards "Passed" total
+        self.assertEqual(stdout_str.count("Passed: 0"), 1)
+        # Ensure skipped tests are accurately summarized
+        self.assertEqual(stdout_str.count("Skipped: 2"), 1)
+
     def test_can_retrieve_base_detection_for_test(self):
         import logging
 
