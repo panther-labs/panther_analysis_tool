@@ -17,6 +17,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import argparse
+import contextlib
 import io
 import json
 import os
@@ -47,6 +49,10 @@ from panther_analysis_tool.backend.client import (
     UnsupportedEndpointError,
 )
 from panther_analysis_tool.backend.mocks import MockBackend
+from panther_analysis_tool.backend.public_api_client import (
+    PublicAPIClient,
+    PublicAPIClientOptions,
+)
 from panther_analysis_tool.command import validate
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
@@ -970,3 +976,95 @@ class TestPantherAnalysisTool(TestCase):
                 expected in return_str,
                 f"expected to find {expected} in {return_str} but no matches found",
             )
+
+    def test_sync_missing_permissions(self):
+        """Make sure we properly handle when the API token is missing permissions required for
+        pat upload --sync."""
+
+        MAP_ENDPOINTS_TO_PERMISSIONS = {
+            "/data-models": "View Log Sources",
+            "/globals": "Manage Rules",
+            "/queries": "Manage Saved Searches",
+            "/rules": "Manage Rules",
+            "/scheduled-rules": "Manage Rules",
+            "/simple-rules": "Manage Rules",
+            "/policies": "Manage Policies",
+        }
+
+        """ Returns a mocked response object to simulate denied permissions. """
+
+        class MockResp:
+            def __init__(self, status_code):
+                self.status_code = status_code
+
+            def json(self):
+                return {"results": []}  # Simulates empty list returned
+
+        def get_mocked_get(endpoint):
+            def get(url: str, *args, **kwargs):
+                if url.endswith(endpoint):
+                    return MockResp(403)
+                return MockResp(200)
+
+            return get
+
+        # For each possible REST endpoint, we simulate getting a 403 response. We then ensure the
+        #   appropriate code and error message is raised to the user.
+        for endpoint, permission in MAP_ENDPOINTS_TO_PERMISSIONS.items():
+            # We patch the HTTP get reqeuest, and the local analysis scan. (The local scan is not
+            #   part of this test, so we have it just return empty.)
+            @mock.patch("requests.get", get_mocked_get(endpoint))
+            @mock.patch("panther_analysis_tool.command.upload_sync._get_analysis_ids", lambda _: [])
+            def test():
+                with contextlib.redirect_stdout(io.StringIO()):  # for better test output
+                    # Create a fake client, which is used to instantiate the REST API client
+                    client = PublicAPIClient(
+                        PublicAPIClientOptions(
+                            host="example.runpanther.net", token="token", user_id=""
+                        )
+                    )
+                    # Run "pat upload --sync" and record results
+                    with Pause(self.fs):
+                        args = pat.setup_parser().parse_args(("upload", "--sync"))
+                        return_code, msg = pat.upload_analysis(client, args)
+                    # Check the error code and messsage
+                    self.assertEqual(return_code, 1)  # Code 1 = error occurred
+                    self.assertEqual(msg.count(permission), 1)  # Ensure missing perm is printed
+
+            test()  # Run the test function above
+
+    def test_sync_local_diff(self):
+        """Tests that the function for returning a list of local analysis item IDs is working
+        properly."""
+        from panther_analysis_tool.command.upload_sync import _get_analysis_ids
+
+        namespace = argparse.Namespace(
+            path=[os.path.join(DETECTIONS_FIXTURES_PATH, "valid_analysis")], ignore_files=[]
+        )
+        results = _get_analysis_ids(namespace)
+
+        expected_ids = {
+            "DataModel.BruteForceByIP",
+            "onelogin.DataModel.Disabled",
+            "GSuite.Events.DataModel",
+            "onelogin.DataModel",
+            "a_helper",
+            "b_helper",
+            "panther",
+            "AWS.IAM.BetaTest",
+            "IAM.MFAEnabled Extra Fields",
+            "AWS.IAM.MFAEnabledGenerated",
+            "AWS.IAM.MFAEnabled",
+            "A Test Query",
+            "Another Test Query",
+            "A Third Test Query",
+            "AWS.CloudTrail.MFAEnabled.Extra.Fields",
+            "AWS.CloudTrail.MFAEnabledGenerated",
+            "Test.Global.Global",
+            "AWS.CloudTrail.MFAEnabledMocks",
+            "AWS.CloudTrail.MFAEnabled",
+            "AWS.CloudTrail.Created.Scheduled",
+            "Sample.Pack",  # _get_analysis_ids is general and returns the pack IDs too
+        }
+
+        self.assertSetEqual(results, expected_ids)

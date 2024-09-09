@@ -63,7 +63,8 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
 
         if confirm.lower() != "y":
             print("Cancelled")
-            return 0, ""
+            # Return code 2 indicates a confirmation failure from user
+            return 2, "deletion cancelled by user."
 
         print("")
 

@@ -72,6 +72,34 @@ def get_latest_version() -> str:
     return UNKNOWN_VERSION
 
 
+def get_spec_id(spec: dict) -> str:
+    """Returns the ID of an analysis item.
+
+    Args:
+        spec (dict): A dictionary representation of the analysis item's YAML spec
+
+    Returns:
+        out (str): the unique ID of the analysis item, such as the RuleID or the QueryName
+    """
+    id_keys = {
+        "correlation_rule": "RuleID",
+        "datamodel": "DataModelID",
+        "global": "GlobalID",
+        "lookup_table": "LookupName",
+        "pack": "PackID",
+        "policy": "PolicyID",
+        "saved_query": "QueryName",
+        "scheduled_query": "QueryName",
+        "scheduled_rule": "RuleID",
+        "rule": "RuleID",
+        "schema": "schema",
+    }
+    # Log schemas don't have an AnalysisType field
+    if "schema" in spec:
+        return spec[id_keys["schema"]]
+    return spec[id_keys[spec["AnalysisType"]]]
+
+
 def is_latest(latest_version: str) -> bool:
     try:
         return version.parse(VERSION_STRING) >= version.parse(latest_version)

@@ -1,11 +1,17 @@
+import os
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import responses
+import yaml
+from unittest_parametrize import ParametrizedTestCase, parametrize
 
 import panther_analysis_tool.constants
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.util import convert_unicode
+
+FIXTURES_PATH = (Path(__file__).parents[2] / "fixtures").absolute()
 
 
 class TestToList(unittest.TestCase):
@@ -200,3 +206,40 @@ class TestAnalysisTypePredicates(unittest.TestCase):
         for case in test_cases:
             res = pat_utils.is_policy(case["analysis_type"])
             self.assertEqual(case["expected"], res)
+
+
+class TestGetSpecID(ParametrizedTestCase):
+    # Some sample files, and the correct ID contained therein
+    # All filenames listed here are relative to 'valid_analysis'
+    @parametrize(
+        ("relpath", "id_"),  # Parameter names
+        (  # Test case params
+            ("data_models/example_data_model.yml", "onelogin.DataModel"),
+            ("global_helpers/a_helper.yml", "a_helper"),
+            ("packs/sample-pack.yml", "Sample.Pack"),
+            ("policies/example_policy_beta.yml", "AWS.IAM.BetaTest"),
+            ("queries/query_one.yml", "A Test Query"),
+            ("rules/example_rule.yml", "AWS.CloudTrail.MFAEnabled"),
+            ("scheduled_rules/example_scheduled_rule.yml", "AWS.CloudTrail.Created.Scheduled"),
+        ),
+        (  # Test case IDs for easy debugging
+            "data_model",
+            "global_helper",
+            "pack",
+            "policy",
+            "query",
+            "rule",
+            "scheduled_rule",
+        ),
+    )
+    def test_get_spec_id(self, relpath: str, id_: str):
+        valid_analysis = FIXTURES_PATH / "detections/valid_analysis"
+        with (valid_analysis / relpath).open("r") as f:
+            spec = yaml.safe_load(f)
+            self.assertEqual(id_, pat_utils.get_spec_id(spec))
+
+    def test_get_schema_spec_id(self):
+        schema_path = FIXTURES_PATH / "custom-schemas/valid/schema-1.yml"
+        with schema_path.open("r") as f:
+            spec = yaml.safe_load(f)
+            self.assertEqual("Custom.SampleSchema1", pat_utils.get_spec_id(spec))

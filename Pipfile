@@ -18,6 +18,7 @@ twine = "*"
 typed-ast = "==1.5.5"
 types-python-dateutil = "*"
 types-requests = "*"
+unittest-parametrize = "*"
 
 [packages]
 "ruamel.yaml.clib" = "==0.2.7"

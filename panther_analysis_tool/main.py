@@ -49,6 +49,8 @@ from typing import Any, DefaultDict, Dict, List, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+from panther_analysis_tool.backend.lambda_client import LambdaClient
+from panther_analysis_tool.backend.public_api_client import PublicAPIClient
 from panther_analysis_tool.directory import setup_temp
 
 # this is needed at this location so each process can have its own temp directory
@@ -110,11 +112,13 @@ from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
+from panther_analysis_tool.backend.rest_client import APIAccessDeniedError
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
     standard_args,
+    upload_sync,
     validate,
 )
 from panther_analysis_tool.constants import (
@@ -313,6 +317,65 @@ def zip_analysis(
     return 0, filename
 
 
+def sync_analysis(backend: PublicAPIClient, args: argparse.Namespace) -> Tuple[int, str]:
+    """Compares the local and remote states, and removes any analysis items that exist remotely
+    but not locally.
+
+    Args:
+        backend: a backend client
+        args: The populated Argparse namespace with parsed command-line arguments.
+
+    Returns:
+        A tuple of return code and error if applicable.
+    """
+    try:
+        diff_ids, diff_ids_by_type = upload_sync.get_remote_diff(backend, args)
+    except APIAccessDeniedError as e:  # pylint: disable=invalid-name
+        # Print an error message, detailing the missing permission. Note that some of these
+        #   REST api requests only require the VIEW permission, not necessarily the MANAGE one.
+        #   However, the DELETE operation used by PAT will require the MANAGE permission, so
+        #   that's the one we name in the error message. Data Models are an exception - they
+        #   require "View Log Sources" to list, but "Manage Rules" to delete (via PAT).
+        err_msg = e.msg
+        if e.endpoint == "/data-models":
+            err_msg = f"{e.msg}. Ensure your token has the 'View Log Sources' permission."
+        if e.endpoint == "/globals":
+            err_msg = (
+                f"{e.msg}. Ensure your token has the 'Manage Rules' or "
+                "'Manage Policies' permission."
+            )
+        if e.endpoint == "/queries":
+            err_msg = f"{e.msg}. Ensure your token has the 'Manage Saved Searches' permission."
+        if e.endpoint in ("/rules", "/simple-rules", "/scheduled-rules"):
+            err_msg = f"{e.msg}. Ensure your token has the 'Manage Rules' permission."
+        if e.endpoint == "/policies":
+            err_msg = f"{e.msg}. Ensure your token has the 'Manage Policies' permission."
+
+        return 1, err_msg
+
+    if diff_ids:  # We found discrepancies
+        query_ids = set(diff_ids_by_type["queries"])
+        analysis_ids = diff_ids - query_ids
+        delete_args = argparse.Namespace(
+            confirm_bypass=args.no_confirm,
+            query_id=list(query_ids),
+            analysis_id=list(analysis_ids),
+        )
+        code, msg = bulk_delete.run(backend, delete_args)
+        if code == 2:
+            # Means user chose "no" when prompted to confirm deletion
+            return 0, (
+                "Upload cancelled. If you wish to upload your local content without "
+                "deleting anything remotely, remove the '--sync' option from your upload "
+                "command."
+            )
+        # For any other non-zero code, pass the code and message along
+        if code != 0:
+            return code, msg
+
+    return 0, "remote and local states match"
+
+
 def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
@@ -325,9 +388,24 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     Returns:
         A tuple of return code and error if applicable.
     """
+    # pylint: disable=too-many-return-statements
     if args.auto_disable_base:
         zipargs = ZipArgs.from_args(args)
         disable_all_base_detections([zipargs.path], zipargs.ignore_files)
+
+    # Sync Code
+    if args.sync:
+        # If using Lambda Client, raise error. We can't use to API to query the remote state
+        #   without an API Client.
+        if isinstance(backend, LambdaClient):
+            return 1, (
+                "The --sync option is not supported when direct lambda invocation is used. "
+                "Either remove --sync from your command, or use an API token to "
+                "authenticate PAT."
+            )
+        code, msg = sync_analysis(backend, args)  # type: ignore
+        if code != 0:
+            return code, msg
 
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
@@ -1920,6 +1998,20 @@ def setup_parser() -> argparse.ArgumentParser:
         default=10,
         type=int,
         required=False,
+    )
+    upload_parser.add_argument(
+        "--sync",
+        help="If used, PAT will delete any content in Panther which isn't present in this upload",
+        default=False,
+        required=False,
+        action="store_true",
+    )
+    upload_parser.add_argument(
+        "--no-confirm",
+        help="Bypass the confirmation prompt for deleting remote items when --sync is used",
+        default=False,
+        required=False,
+        action="store_true",
     )
 
     no_async_uploads_name = "--no-async"
