@@ -309,7 +309,7 @@ class LambdaClient(Client):
     @staticmethod
     def _serialize_request(data: Dict[str, Any]) -> str:
         logging.debug(">>> %s", data)
-        return json.dumps(data)
+        return json.dumps(data, allow_nan=False)
 
     @staticmethod
     def _parse_response(response: Dict[str, Any]) -> BackendResponse[Dict[str, Any]]:

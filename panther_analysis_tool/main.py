@@ -652,7 +652,7 @@ def publish_github(tag: str, body: str, headers: dict, release_url: str, release
     payload = {"tag_name": tag, "draft": True}
     if body:
         payload["body"] = body
-    response = requests.post(release_url, data=json.dumps(payload), headers=headers, timeout=10)
+    response = requests.post(release_url, data=json.dumps(payload, allow_nan=False), headers=headers, timeout=10)
     if response.status_code != 201:
         logging.error("error creating release (%s) in repo (%s)", tag, release_url)
         logging.error(response.json())
