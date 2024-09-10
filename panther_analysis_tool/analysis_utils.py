@@ -547,7 +547,8 @@ def transpile_inline_filters(
 
     if backend is not None:
         batch = [
-            json.dumps(d.analysis_spec.get("InlineFilters"), allow_nan=False) for d in all_detections_with_filters
+            json.dumps(d.analysis_spec.get("InlineFilters"), allow_nan=False)
+            for d in all_detections_with_filters
         ]
         try:
             params = TranspileFiltersParams(data=batch, pat_version=VERSION_STRING)
