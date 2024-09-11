@@ -24,7 +24,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 from gql import Client as GraphQLClient
@@ -330,22 +330,30 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
         self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         query = self._requests.delete_saved_queries()
-        delete_params = {
-            "input": {
-                "dryRun": params.dry_run,
-                "includeDetections": params.include_detections,
-                "names": params.names,
-            }
+
+        data = {
+            "names": [],
+            "detectionIDs": []
         }
-        res = self._execute(query, variable_values=delete_params)
+        
+        for name_batch in batched(params.names, 100):
+            delete_params = {
+                "input": {
+                    "dryRun": params.dry_run,
+                    "includeDetections": params.include_detections,
+                    "names": name_batch,
+                }
+            }
+            res = self._execute(query, variable_values=delete_params)
 
-        if res.errors:
-            raise BackendError(res.errors)
+            if res.errors:
+                raise BackendError(res.errors)
 
-        if res.data is None:
-            raise BackendError("empty data")
+            if res.data is None:
+                raise BackendError("empty data")
 
-        data = res.data.get("deleteSavedQueriesByName", {})
+            for field in ("names", "detectionIDs"):
+                data[field] += res.data.get("deleteSavedQueriesByName", {}).get(field, [])
 
         return BackendResponse(
             status_code=200,
@@ -358,24 +366,35 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     def delete_detections(
         self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
-        gql_params = {
-            "input": {
-                "dryRun": params.dry_run,
-                "includeSavedQueries": params.include_saved_queries,
-                "ids": params.ids,
-            }
+        query = self._requests.delete_detections_query()
+
+        data = {
+            "ids": [],
+            "savedQueryNames": []
         }
-        res = self._execute(self._requests.delete_detections_query(), gql_params)
-        if res.errors:
-            for err in res.errors:
-                logging.error(err.message)
+        # backend's delete function can only handle 100 IDs at a time,
+        # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
+        for id_batch in batched(params.ids, 100):
+            delete_params = {
+                "input": {
+                    "dryRun": params.dry_run,
+                    "includeSavedQueries": params.include_saved_queries,
+                    "ids": id_batch,
+                }
+            }
+            res = self._execute(query, variable_values=delete_params)
+            if res.errors:
+                for err in res.errors:
+                    logging.error(err.message)
 
-            raise BackendError(res.errors)
+                raise BackendError(res.errors)
 
-        if res.data is None:
-            raise BackendError("empty data")
+            if res.data is None:
+                raise BackendError("empty data")
 
-        data = res.data.get("deleteDetections", {})
+            query_data = res.data.get("deleteDetections", {})
+            for field in ("ids", "savedQueryNames"):
+                data[field] += query_data.get(field) or []
 
         return BackendResponse(
             status_code=200,
@@ -693,3 +712,25 @@ def _build_api_url(host: str) -> str:
 def _get_graphql_content_filepath(name: str) -> str:
     work_dir = os.path.dirname(__file__)
     return os.path.join(work_dir, "graphql", f"{name}.graphql")
+
+
+def batched(iterable: Iterable[Any], n: int) -> Iterable[Iterable[Any]]:
+    """Divides a given iterable into chunks of length n or smaller. Roughly based on
+    itertools.batched, introduced in Python 3.12.
+    
+    Args:
+        itererable (iterable): A list or other iterable you want to break down into smaller parts
+        n (int): The maximum size of any component iterable to be returned
+    
+    Returns:
+        An iterator containing the chunks of the original iterable passed in.
+    """
+
+    if n < 1:
+        raise ValueError("'n' must be greater than 0.")
+
+    idx_1 = 0
+    while idx_1 < len(iterable):
+        idx_2 = min(idx_1 + n, len(iterable))
+        yield iterable[idx_1:idx_2]
+        idx_1 += n

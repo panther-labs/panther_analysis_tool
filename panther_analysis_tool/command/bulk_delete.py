@@ -121,7 +121,7 @@ def _delete_detections_dry_run(backend: BackendClient, ids: List[str]) -> Tuple[
 def _delete_queries_dry_run(backend: BackendClient, names: List[str]) -> Tuple[int, str]:
     if len(names) == 0:
         return 0, ""
-
+            
     res = backend.delete_saved_queries(
         DeleteSavedQueriesParams(dry_run=True, names=names, include_detections=True)
     )

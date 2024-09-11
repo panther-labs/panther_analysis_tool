@@ -354,7 +354,7 @@ def sync_analysis(backend: PublicAPIClient, args: argparse.Namespace) -> Tuple[i
         return 1, err_msg
 
     if diff_ids:  # We found discrepancies
-        query_ids = set(diff_ids_by_type["queries"])
+        query_ids = set(diff_ids_by_type["/queries"])
         analysis_ids = diff_ids - query_ids
         delete_args = argparse.Namespace(
             confirm_bypass=args.no_confirm,
@@ -364,7 +364,7 @@ def sync_analysis(backend: PublicAPIClient, args: argparse.Namespace) -> Tuple[i
         code, msg = bulk_delete.run(backend, delete_args)
         if code == 2:
             # Means user chose "no" when prompted to confirm deletion
-            return 0, (
+            return 2, (
                 "Upload cancelled. If you wish to upload your local content without "
                 "deleting anything remotely, remove the '--sync' option from your upload "
                 "command."
@@ -405,7 +405,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
             )
         code, msg = sync_analysis(backend, args)  # type: ignore
         if code != 0:
-            return code, msg
+            return 0, msg
 
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
