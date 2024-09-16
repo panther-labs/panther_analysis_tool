@@ -10,6 +10,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 import panther_analysis_tool.constants
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.util import convert_unicode
+from panther_analysis_tool.backend.public_api_client import batched
 
 FIXTURES_PATH = (Path(__file__).parents[2] / "fixtures").absolute()
 
@@ -243,3 +244,22 @@ class TestGetSpecID(ParametrizedTestCase):
         with schema_path.open("r") as f:
             spec = yaml.safe_load(f)
             self.assertEqual("Custom.SampleSchema1", pat_utils.get_spec_id(spec))
+
+class TestBatched(ParametrizedTestCase):
+    @parametrize(
+        ("iterable", "n", "expected_batches", "modulo"),
+        (
+            ([1]*12, 5, 3, 2), # 12-length array, batches of 5 = 3 batches, last one has 2 items
+            ([1]*100, 10, 10, 10), # 10 even batches of 10
+            ([1]*3, 5, 1, 3) # Original array is shorter than batch size
+        )
+    )
+    def test_batched(self, iterable, n, expected_batches, modulo):
+        batches = list(batched(iterable, n))
+        # Ensure we recieved the expected number of batches
+        self.assertEqual(len(batches), expected_batches)
+        # Confirm all but the last batch have the same size
+        for batch in batches[:-1]:
+            self.assertEqual(len(list(batch)), n)
+        # Confirm the last batch has the expected number of entries
+        self.assertEqual(len(list(batches[-1])), modulo)
