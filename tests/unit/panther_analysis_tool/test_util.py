@@ -5,6 +5,7 @@ import responses
 
 import panther_analysis_tool.constants
 from panther_analysis_tool import util as pat_utils
+from panther_analysis_tool.backend.public_api_client import _batched
 from panther_analysis_tool.util import convert_unicode
 
 
@@ -200,3 +201,50 @@ class TestAnalysisTypePredicates(unittest.TestCase):
         for case in test_cases:
             res = pat_utils.is_policy(case["analysis_type"])
             self.assertEqual(case["expected"], res)
+
+
+class TestBatched(unittest.TestCase):
+    def test_batched_with_remainder(self):
+        iterable = [1] * 12
+        n = 5
+        expected_batches = 3
+        modulo = 2  # Size of last batch
+
+        batches = list(_batched(iterable, n))
+        # Ensure we recieved the expected number of batches
+        self.assertEqual(len(batches), expected_batches)
+        # Confirm all but the last batch have the same size
+        for batch in batches[:-1]:
+            self.assertEqual(len(list(batch)), n)
+        # Confirm the last batch has the expected number of entries
+        self.assertEqual(len(list(batches[-1])), modulo)
+
+    def test_batched_with_no_remainder(self):
+        iterable = [1] * 100
+        n = 10
+        expected_batches = 10
+        modulo = 10  # Size of last batch
+
+        batches = list(_batched(iterable, n))
+        # Ensure we recieved the expected number of batches
+        self.assertEqual(len(batches), expected_batches)
+        # Confirm all but the last batch have the same size
+        for batch in batches[:-1]:
+            self.assertEqual(len(list(batch)), n)
+        # Confirm the last batch has the expected number of entries
+        self.assertEqual(len(list(batches[-1])), modulo)
+
+    def test_batched_with_no_full_batches(self):
+        iterable = [1] * 3
+        n = 5
+        expected_batches = 1
+        modulo = 3  # Size of last batch
+
+        batches = list(_batched(iterable, n))
+        # Ensure we recieved the expected number of batches
+        self.assertEqual(len(batches), expected_batches)
+        # Confirm all but the last batch have the same size
+        for batch in batches[:-1]:
+            self.assertEqual(len(list(batch)), n)
+        # Confirm the last batch has the expected number of entries
+        self.assertEqual(len(list(batches[-1])), modulo)
