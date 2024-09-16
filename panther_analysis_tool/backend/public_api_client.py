@@ -24,7 +24,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterable, List, Optional
+from typing import Any, Dict, Generator, List, Optional, Sequence
 from urllib.parse import urlparse
 
 from gql import Client as GraphQLClient
@@ -329,10 +329,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     def delete_saved_queries(
         self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
-        data = {
-            "names": [],
-            "detectionIDs": []
-        }
+        data: Dict = {"names": [], "detectionIDs": []}
         # backend's delete function can only handle 100 IDs at a time,
         # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
         # Separate ID list into batches of 100
@@ -349,7 +346,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
             if res.errors:
                 for err in res.errors:
                     logging.error(err.message)
-                
+
                 raise BackendError(res.errors)
 
             if res.data is None:
@@ -370,10 +367,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     def delete_detections(
         self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
-        data = {
-            "ids": [],
-            "savedQueryNames": []
-        }
+        data: Dict = {"ids": [], "savedQueryNames": []}
         # backend's delete function can only handle 100 IDs at a time,
         # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
         # Separate ID list into batches of 100
@@ -718,17 +712,17 @@ def _get_graphql_content_filepath(name: str) -> str:
     return os.path.join(work_dir, "graphql", f"{name}.graphql")
 
 
-def _batched(iterable: Iterable, n: int = 1) -> Generator[Iterable, None, None]:
-    """ Batch data from 'iterable' into chunks of length 'n'. The last batch may be shorter than 'n'.
+def _batched(iterable: Sequence, size: int = 1) -> Generator[Sequence, None, None]:
+    """Batch data from 'iterable' into chunks of length 'size'. The last batch may be shorter than 'size'.
     Inspired by itertools.batched in Python version 3.12+.
-    
+
     Args:
         iterable (any iterable): a sequence or other iterable to be batched
-        n (int, optional): the maximum size of each batch. default=1
-    
+        size (int, optional): the maximum size of each batch. default=1
+
     Yields:
-        out (iterable): a batch of size 'n' or smaller
+        out (iterable): a batch of size 'size' or smaller
     """
     length = len(iterable)
-    for idx in range(0, length, n):
-        yield iterable[idx:min(idx+n, length)]
+    for idx in range(0, length, size):
+        yield iterable[idx : min(idx + size, length)]
