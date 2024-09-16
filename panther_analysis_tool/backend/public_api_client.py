@@ -377,7 +377,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
         # backend's delete function can only handle 100 IDs at a time,
         # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
         # Separate ID list into batches of 100
-        for id_batch in _batched(params.id, 100):
+        for id_batch in _batched(params.ids, 100):
             gql_params = {
                 "input": {
                     "dryRun": params.dry_run,
