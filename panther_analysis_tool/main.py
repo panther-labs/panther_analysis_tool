@@ -1450,6 +1450,8 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     for spec_ in specs.items():
         spec = spec_.analysis_spec
         id_ = get_spec_id(spec)
+        if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule"):
+            continue  # We mainly only care if packs are missing detections
         if id_ not in all_items_in_packs:
             if "No Pack" not in spec.get("Tags", []):
                 all_items_not_in_packs.add(id_)
