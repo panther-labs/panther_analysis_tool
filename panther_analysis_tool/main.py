@@ -145,6 +145,9 @@ from panther_analysis_tool.util import (
     BackendNotFoundException,
     add_path_to_filename,
     convert_unicode,
+    get_imports,
+    get_recursive_mappings,
+    get_spec_id,
     is_correlation_rule,
     is_simple_detection,
 )
@@ -1322,70 +1325,140 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
     return (0, result_str)
 
 
+def get_shallow_dependencies(spec_: ClassifiedAnalysis) -> set[str]:
+    """Returns a set of all IDs of dependencies of this analysis item."""
+
+    spec = spec_.analysis_spec
+    analysis_type = spec["AnalysisType"]
+
+    # Check for global helper imports
+    if analysis_type in ("rule", "scheduled_rule", "policy", "global", "data_model"):
+        # Ignore any helper files like global_filter_*
+        if analysis_type == "global" and get_spec_id(spec).startswith("global_filter_"):
+            return set()
+        return get_imports(spec, spec_.dir_name)
+    # Ensure any sub-rules used in a correlation rule are also added to the pack
+    if analysis_type == "correlation_rule":
+        detection_spec = spec["Detection"][0]  # Detections are a list for some reason
+        subrules = detection_spec.get("Sequence") or detection_spec.get("Group")
+        return set(subrule["RuleID"] for subrule in subrules)
+    # Otherwise, return empty set
+    return set()
+
+
 def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     """
-    Checks each existing pack whether it includes all necessary rules.
+    Checks each existing pack whether it includes all necessary rules and other items. Also checks
+    if any detections, queries, etc. are not included in any packs
     """
     specs, _ = load_analysis(args.path, True, [], [])
 
-    analysis_type_to_key_mapping = {
-        AnalysisTypes.POLICY: "PolicyID",
-        AnalysisTypes.RULE: "RuleID",
-        AnalysisTypes.SCHEDULED_RULE: "RuleID",
-        AnalysisTypes.CORRELATION_RULE: "RuleID",
-    }
-    packs_with_missing_detections = {}
+    dependencies = {}  # Create a mapping of dependencies of each analysis item
+    log_types = {}  # Which items depend on which log types
+    queries = {}  # Which items depend on which queries?
+    data_models = {}  # Mapping of log types to corresponding data model
+    all_analysis_item_ids = set()  # Record all valid analysis items by ID
+    for spec_ in specs.items():
+        # _spec is a ClassifiedAnalysis object - the dictionary spec is a property
+        spec = spec_.analysis_spec
+        id_ = get_spec_id(spec)
+
+        # Record dependencies
+        dependencies[id_] = get_shallow_dependencies(spec_)
+        if spec_log_types := spec.get("LogTypes"):
+            log_types[id_] = set(spec_log_types)
+        if spec_queries := spec.get("ScheduledQueries"):
+            queries[id_] = set(spec_queries)
+
+        # Map log types to Data Models
+        if spec["AnalysisType"] == "datamodel":
+            for log_type in spec["LogTypes"]:
+                data_models[log_type] = id_
+
+        # Record the ID
+        all_analysis_item_ids.add(id_)
+
+    # Now we scan through each pack and check if it has all the required items
+    missing_pack_items: list[dict[str, Any]] = []
+    for spec_ in specs.packs:
+        spec = spec_.analysis_spec
+        path = os.path.join(spec_.dir_name, spec_.file_name)
+
+        # Load current pack items
+        pack_item_ids = spec["PackDefinition"]["IDs"]
+
+        # Maintain a set of required pack items
+        pack_dependencies = set()
+        for pack_item_id in pack_item_ids:
+            pack_dependencies.update(get_recursive_mappings(pack_item_id, dependencies))
+
+        # Sometimes this returns dependiencies that aren't analysis items (such as datetime module)
+        #   We ensure we only include the IDs of things that are real analysis items
+        pack_dependencies = pack_dependencies & all_analysis_item_ids
+
+        # Make a list of all log types and scheduled queries referenced in the pack items.
+        pack_log_types = set()
+        pack_queries = set()
+        for dependency in list(pack_dependencies):
+            pack_log_types.update(log_types.get(dependency, set()))
+            pack_queries.update(queries.get(dependency, set()))
+
+        # For each log type used by the pack, if a data model exists for that log type, include it
+        #   in the pack also.
+        pack_data_models = set()
+        for log_type in list(pack_log_types):
+            if data_model := data_models.get(log_type):
+                pack_data_models.add(data_model)
+
+        # Calculate the difference between the calculated pack manifest (with dependencies) vs the
+        #   original pack manifest
+        calculated_pack_manifest = pack_dependencies | pack_queries | pack_data_models
+        if missing_items := calculated_pack_manifest - set(pack_item_ids):
+            # We use set logic to get the overlap of the missing items and each type of item
+            missing_pack_items.append(
+                {
+                    "path": path,
+                    "queries": missing_items & pack_queries,
+                    "data_models": missing_items & pack_data_models,
+                    "globals": missing_items & set(specs.globals),
+                    "detections": missing_items
+                    - (pack_queries | set(specs.globals) | pack_data_models),
+                }
+            )
+
+    if missing_pack_items:
+        err_str = ["The following packs have missing items:\n"]
+        for missing_entries in missing_pack_items:
+            err_str += [str(missing_entries.pop("path"))]
+            for key, val in missing_entries.items():
+                if not val:
+                    continue
+                err_str += [f"    {key.upper()}:"]
+                for missing_item_id in sorted(list(val)):
+                    err_str += [f"\t{missing_item_id}"]
+                err_str += [""]
+
+        return 1, "\n".join(err_str)
+
+    # Look for items not in packs
+    all_items_in_packs = set()
     for pack in specs.packs:
-        pack_file_name = pack.file_name.replace(".yml", "").split("/")[-1]
-        included_rules = []
-        detections = [detection for detection in specs.detections if not detection.is_deprecated()]
-        detections.extend(
-            [detection for detection in specs.simple_detections if not detection.is_deprecated()]
-        )
-        is_simple_pack = "Simple" in pack.analysis_spec.get("PackID", "").split(".")
-        for detection in detections:
-            # if rule is disabled (not Enabled) - no need to include it in the pack
-            if not detection.analysis_spec.get("Enabled", False):
-                continue
+        pack_spec = pack.analysis_spec
+        all_items_in_packs.update(set(pack_spec["PackDefinition"]["IDs"]))
 
-            is_simple_rule = "Simple" in detection.analysis_spec.get("RuleID", "").split(".")
-            if is_simple_pack != is_simple_rule:
-                # simple rules should be in simple packs
-                continue
-            requires_configuration = [
-                x for x in detection.analysis_spec.get("Tags", []) if "Configuration Required" in x
-            ]
-            if requires_configuration:
-                # skip detections that require configuration
-                continue
-            # remove leading ./
-            # ./some-dir -> some-dir
-            dir_name = detection.dir_name.strip("./")
+    all_items_not_in_packs = set()
+    for spec_ in specs.items():
+        spec = spec_.analysis_spec
+        id_ = get_spec_id(spec)
+        if id_ not in all_items_in_packs:
+            if "No Pack" not in spec.get("Tags", []):
+                all_items_not_in_packs.add(id_)
 
-            # rules/asana_rules/asana_service_account_created -> [rules, asana_rules, asana_service_account_created]
-            # if pack name is "asana" we can assume that the detection is part of the pack
-            path_to_detection = detection.file_name[detection.file_name.find(dir_name) :]
-            pieces = path_to_detection.split("/")
+    if all_items_not_in_packs:
+        err_str = ["The following items are not included in any packs:"]
+        err_str += sorted(list(all_items_not_in_packs))
+        return 1, "\n".join(err_str)
 
-            # packs with "simple" rules have "_simple" suffix
-            pack_name = pack_file_name
-            if is_simple_pack:
-                pack_name = pack_file_name.replace("_simple", "")
-            matching_pieces = [piece.startswith(pack_name) for piece in pieces]
-            if any(matching_pieces):
-                key = analysis_type_to_key_mapping[detection.analysis_spec["AnalysisType"]]
-                included_rules.append(detection.analysis_spec[key])
-
-        diff = set(included_rules).difference(set(pack.analysis_spec["PackDefinition"]["IDs"]))
-        if diff:
-            packs_with_missing_detections[pack_file_name] = list(diff)
-
-    if packs_with_missing_detections:
-        error_string = "There are packs that are potentially missing detections:\n"
-        for pack_file_name, detections in packs_with_missing_detections.items():
-            detections_str = ",".join(detections)
-            error_string += f"{pack_file_name}.yml: {detections_str}\n\n"
-        return 1, error_string
     return 0, "Looks like packs are up to date"
 
 

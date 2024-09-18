@@ -1,0 +1,11 @@
+AnalysisType: scheduled_query
+QueryName: A Test Query
+Enabled: true
+Query: 'SELECT * FROM snowflake.account_usage.login_history LIMIT 10'
+Description: Some meme query
+Tags:
+  - some
+  - meme
+Schedule:
+  CronExpression: '0 8 * * *'
+  TimeoutMinutes: 1

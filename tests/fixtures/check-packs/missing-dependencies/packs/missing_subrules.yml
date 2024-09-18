@@ -1,0 +1,7 @@
+AnalysisType: pack
+Description: This pack groups amazing rules and policies
+DisplayName: Sample Pack Data
+PackID: Missing.SubRules
+PackDefinition:
+  IDs:
+    - Discovering.Exfiltrated.Credentials # Correlation rule included without subrules

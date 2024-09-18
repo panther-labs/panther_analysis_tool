@@ -1,0 +1,41 @@
+AnalysisType: policy
+Filename: example_policy_generated_functions.py
+DisplayName: MFA Is Enabled For User Generated Fields
+Description: Another valid policy.
+Severity: High
+PolicyID: AWS.IAM.MFAEnabledGenerated
+Enabled: true
+ResourceTypes:
+  - AWS.IAM.RootUser
+  - AWS.IAM.User
+Tags:
+  - AWS
+  - CIS
+  - SOC2
+Runbook: >
+  Find out who disabled MFA on the account.
+Reference: https://www.link-to-info.io
+Tests:
+  -
+    Name: Root MFA not enabled fails compliance
+    ExpectedResult: false
+    Resource:
+      Arn: arn:aws:iam::123456789012:user/root
+      CreateDate: 2019-01-01T00:00:00Z
+      CredentialReport:
+        MfaActive: false
+        PasswordEnabled: true
+      UserName: root
+  -
+    Name: User MFA not enabled fails compliance
+    ExpectedResult: false
+    Resource:
+      {
+        "Arn": "arn:aws:iam::123456789012:user/test",
+        "CreateDate": "2019-01-01T00:00:00",
+        "CredentialReport": {
+          "MfaActive": false,
+          "PasswordEnabled": true
+        },
+        "UserName": "test"
+      }

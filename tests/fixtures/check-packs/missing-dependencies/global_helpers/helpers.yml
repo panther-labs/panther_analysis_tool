@@ -1,0 +1,7 @@
+AnalysisType: global
+GlobalID: panther
+Filename: helpers.py
+Tags:
+  - AWS
+Description: >
+  Used to define global helpers and variables.

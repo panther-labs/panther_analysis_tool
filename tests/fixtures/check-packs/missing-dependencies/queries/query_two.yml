@@ -1,0 +1,15 @@
+AnalysisType: scheduled_query
+QueryName: Another Test Query
+Enabled: true
+Query: >
+  SELECT *
+  FROM panther_logs.public.s3_access
+  WHERE eventName='abc123'
+  LIMIT 10
+Description: Some meme query
+Tags:
+  - some
+  - meme
+Schedule:
+  RateMinutes: 10
+  TimeoutMinutes: 10
