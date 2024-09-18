@@ -1450,11 +1450,19 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     for spec_ in specs.items():
         spec = spec_.analysis_spec
         id_ = get_spec_id(spec)
+        tags = set(tag.lower() for tag in spec.get("Tags", []))
+        # Only check rules, not luts, policies, queries, etc.
         if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule"):
-            continue  # We mainly only care if packs are missing detections
+            continue
+        # Ignore rules with DEPRECATED in the title
+        if "deprecated" in spec.get("DisplayName", "").lower():
+            continue
+        # Ignore rules with certain tags
+        if {"deprecated", "no pack", "configuration required", "multi-table query"} & tags:
+            continue
+
         if id_ not in all_items_in_packs:
-            if "No Pack" not in spec.get("Tags", []):
-                all_items_not_in_packs.add(id_)
+            all_items_not_in_packs.add(id_)
 
     if all_items_not_in_packs:
         err_str = ["The following items are not included in any packs:"]
