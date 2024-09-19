@@ -166,6 +166,10 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     _requests: PublicAPIRequests
     _gql_client: GraphQLClient
 
+    # backend's delete function can only handle 100 IDs at a time, due to DynamoDB restrictions
+    # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
+    _DELETE_BATCH_SIZE = 100
+
     def __init__(self, opts: PublicAPIClientOptions):
         self._user_id = opts.user_id
         self._requests = PublicAPIRequests()
@@ -330,10 +334,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
         self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
         data: Dict = {"names": [], "detectionIDs": []}
-        # backend's delete function can only handle 100 IDs at a time,
-        # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
-        # Separate ID list into batches of 100
-        for name_batch in _batched(params.names, 100):
+        for name_batch in _batched(params.names, self._DELETE_BATCH_SIZE):
             gql_params = {
                 "input": {
                     "dryRun": params.dry_run,
@@ -368,10 +369,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
         self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
         data: Dict = {"ids": [], "savedQueryNames": []}
-        # backend's delete function can only handle 100 IDs at a time,
-        # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
-        # Separate ID list into batches of 100
-        for id_batch in _batched(params.ids, 100):
+        for id_batch in _batched(params.ids, self._DELETE_BATCH_SIZE):
             gql_params = {
                 "input": {
                     "dryRun": params.dry_run,
