@@ -24,7 +24,7 @@ import re
 from functools import reduce
 from importlib import util as import_util
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union
 
 import boto3
 import requests
@@ -252,3 +252,62 @@ def log_and_write_to_file(msgs: List[str], filename: TextIO) -> None:
     for msg in msgs:
         filename.write(msg + "\n")
         logging.info(msg)
+
+
+def get_spec_id(spec: dict) -> str:
+    """Returns the ID of an analysis item."""
+    # Two possible cases: item is an analysis item, or a schema
+    if analysis_type := spec.get("AnalysisType", ""):
+        id_keys = {
+            "correlation_rule": "RuleID",
+            "datamodel": "DataModelID",
+            "global": "GlobalID",
+            "lookup_table": "LookupName",
+            "pack": "PackID",
+            "policy": "PolicyID",
+            "saved_query": "QueryName",
+            "scheduled_query": "QueryName",
+            "scheduled_rule": "RuleID",
+            "rule": "RuleID",
+        }
+        return spec[id_keys[analysis_type]]
+    if schema_name := spec.get("schema", ""):
+        return schema_name
+    # Not an analysis item:
+    return ""
+
+
+def get_imports(spec: dict, path: Union[str, Path, os.PathLike]) -> set[str]:
+    """Checks if an analysis item has a Python file, and if so, what Python imports are used.
+    'path' is the directory where this item resides."""
+    # Define some useful regex expressions
+    pattern_import = re.compile(r"(?:from (\w+) import \w+)|(?:import (\w+))")
+    pattern_block_comment = re.compile(r'"{3}.*?"{3}', flags=re.DOTALL)
+    pattern_line_comment = re.compile(r"#.*?\n")
+
+    imports = set()  # Holds the set of imports
+    if spec.get("Filename", "").endswith(".py"):
+        pyfile = Path(path) / spec["Filename"]
+        with pyfile.open("r") as file_:
+            contents = file_.read()
+            contents = pattern_block_comment.sub("", contents)
+            contents = pattern_line_comment.sub("", contents)
+            matches = pattern_import.finditer(contents)
+            for match in matches:
+                # Extract module name
+                for module_name in match.groups():
+                    if module_name is not None:
+                        # Handle nested imports
+                        module_name = module_name.split(".")[0]
+                        imports.add(module_name)
+
+    return imports
+
+
+def get_recursive_mappings(id_: str, mapping: dict[str, set]) -> set:
+    """Recursively fetch a set of all dictionary items by trying each referenced item as a key.
+    Used in check_packs."""
+    mappings = {id_}
+    for submapping in mapping.get(id_, []):
+        mappings.update(get_recursive_mappings(submapping, mapping))
+    return mappings

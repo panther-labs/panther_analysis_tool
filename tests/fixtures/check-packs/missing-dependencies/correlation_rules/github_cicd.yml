@@ -1,0 +1,18 @@
+AnalysisType: rule
+RuleID: 'GitHub.CICD'
+DisplayName: 'GitHub CICD'
+Enabled: true
+LogTypes:
+  - GitHub.Audit
+Severity: Info
+CreateAlert: false
+Detection:
+  - KeyPath: repository
+    Condition: Equals
+    Value: panther-labs/example-repo
+  - KeyPath: action
+    Condition: Equals
+    Value: workflows.created_workflow_run
+  - KeyPath: name
+    Condition: Equals
+    Value: CI

@@ -1,0 +1,5 @@
+AnalysisType: global
+GlobalID: b_helper
+Filename: b_helper.py
+Description: >
+  Used to test global importing other globals
