@@ -1,0 +1,59 @@
+AnalysisType: rule 
+Filename: example_rule.py
+DisplayName: MFA Rule
+Description: MFA is a security best practice that adds an extra layer of protection for your AWS account logins.
+Severity: High
+Threshold: 5
+RuleID: AWS.CloudTrail.MFAEnabled
+Enabled: true
+SummaryAttributes:
+  - p_log_type
+  - p_any_ip_addresses
+LogTypes:
+  - AWS.CloudTrail
+Tags:
+  - AWS Managed Rules - Security, Identity & Compliance
+  - AWS
+  - CIS
+  - SOC2
+Runbook: >
+  Find out who disabled MFA on the account.
+Reference: https://www.link-to-info.io
+Tests:
+  -
+    Name: Root MFA not enabled fails compliance
+    ExpectedResult: false
+    Log:
+      Arn: arn:aws:iam::123456789012:user/root
+      CreateDate: 2019-01-01T00:00:00Z
+      CredentialReport:
+        MfaActive: false
+        PasswordEnabled: true
+      UserName: root
+  -
+    Name: User MFA not enabled fails compliance
+    ExpectedResult: false
+    Log:
+      {
+        "Arn": "arn:aws:iam::123456789012:user/test",
+        "CreateDate": 2019-01-01,
+        "CredentialReport": {
+          "MfaActive": false,
+          "PasswordEnabled": true
+        },
+        "UserName": "test"
+      }
+  -
+    Name: User MFA enabled passes compliance.
+    ExpectedResult: true
+    Log:
+      {
+        "Arn": "arn:aws:iam::123456789012:user/test",
+        "CreateDate": 2019-01-01,
+        "CredentialReport": {
+          "MfaActive": true,
+          "PasswordEnabled": true
+        },
+        "UserName": "test"
+      }
+      

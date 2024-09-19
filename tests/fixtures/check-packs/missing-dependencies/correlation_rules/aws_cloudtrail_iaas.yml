@@ -1,0 +1,21 @@
+AnalysisType: rule
+RuleID: 'AWS.CloudTrail.IaaS'
+DisplayName: 'AWS CloudTrail IaaS'
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Severity: Info
+CreateAlert: false
+Detection:
+  - KeyPath: userIdentity.arn
+    Condition: IsIn
+    Values:
+      - DeploymentUpdateGitHubRole
+  - KeyPath: eventName
+    Condition: IsIn
+    Values:
+      - StartSession
+      - ListResources
+      - UpdateResource
+      - DescribeResource
+      - WriteLog

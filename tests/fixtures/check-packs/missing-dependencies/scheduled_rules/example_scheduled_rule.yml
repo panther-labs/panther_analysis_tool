@@ -1,0 +1,30 @@
+AnalysisType: scheduled_rule
+Filename: example_scheduled_rule.py
+RuleID: AWS.CloudTrail.Created.Scheduled
+DisplayName: A CloudTrail Was Created or Updated
+Enabled: true
+ScheduledQueries:
+  - A Test Query
+Tags:
+  - AWS
+  - Security Control
+Reports:
+  CIS:
+    - 3.5
+Severity: Info
+Description: >
+  A CloudTrail Trail was created, updated, or enabled.
+Runbook: https://docs.runpanther.io/alert-runbooks/built-in-rules/aws-cloudtrail-modified
+Reference: https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_Operations.html
+SummaryAttributes:
+  - eventName
+  - userAgent
+  - sourceIpAddress
+  - recipientAccountId
+  - p_any_aws_arns
+Tests:
+  -
+    Name: Blank Test
+    ExpectedResult: false
+    Log:
+      EventName: hello
