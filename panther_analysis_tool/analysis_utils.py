@@ -443,7 +443,7 @@ def get_simple_detections_as_python(
     """Returns simple detections with transpiled Python."""
     enriched_specs = []
     if backend is not None:
-        batch = [json.dumps(spec.analysis_spec) for spec in specs]
+        batch = [json.dumps(spec.analysis_spec, allow_nan=False) for spec in specs]
         try:
             params = TranspileToPythonParams(data=batch)
             response = backend.transpile_simple_detection_to_python(params)
@@ -547,7 +547,8 @@ def transpile_inline_filters(
 
     if backend is not None:
         batch = [
-            json.dumps(d.analysis_spec.get("InlineFilters")) for d in all_detections_with_filters
+            json.dumps(d.analysis_spec.get("InlineFilters"), allow_nan=False)
+            for d in all_detections_with_filters
         ]
         try:
             params = TranspileFiltersParams(data=batch, pat_version=VERSION_STRING)
