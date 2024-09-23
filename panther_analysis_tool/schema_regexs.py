@@ -283,6 +283,7 @@ LOG_TYPE_REGEX = Regex(
     r"Zendesk\.Audit|"
     r"Zoom\.Activity|"
     r"Zoom\.Operation|"
+    r"ZScaler\.ZIAAuditLog|"
     r"Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5}"
     r")$"
 )
