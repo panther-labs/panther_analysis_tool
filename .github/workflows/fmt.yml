@@ -15,7 +15,7 @@ jobs:
     if: ${{ github.actor != 'panther-bot-automation' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@5c7944e73c4c2a096b17a9cb74d65b6c2bbafbde # v2.9.1
+      - uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
         with:
           disable-sudo: true
           egress-policy: block
@@ -33,7 +33,7 @@ jobs:
       - uses: chainguard-dev/actions/setup-gitsign@e82b4e5ae10182af72972addcb3fedf7454621c8
 
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
         with:
           python-version: 3.11
 
