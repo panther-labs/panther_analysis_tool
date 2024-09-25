@@ -24,7 +24,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional, Sequence
 from urllib.parse import urlparse
 
 from gql import Client as GraphQLClient
@@ -165,6 +165,10 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     _user_id: str
     _requests: PublicAPIRequests
     _gql_client: GraphQLClient
+
+    # backend's delete function can only handle 100 IDs at a time, due to DynamoDB restrictions
+    # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html#limits-expression-parameters
+    _DELETE_BATCH_SIZE = 100
 
     def __init__(self, opts: PublicAPIClientOptions):
         self._user_id = opts.user_id
@@ -329,23 +333,29 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     def delete_saved_queries(
         self, params: DeleteSavedQueriesParams
     ) -> BackendResponse[DeleteSavedQueriesResponse]:
-        query = self._requests.delete_saved_queries()
-        delete_params = {
-            "input": {
-                "dryRun": params.dry_run,
-                "includeDetections": params.include_detections,
-                "names": params.names,
+        data: Dict = {"names": [], "detectionIDs": []}
+        for name_batch in _batched(params.names, self._DELETE_BATCH_SIZE):
+            gql_params = {
+                "input": {
+                    "dryRun": params.dry_run,
+                    "includeDetections": params.include_detections,
+                    "names": name_batch,
+                }
             }
-        }
-        res = self._execute(query, variable_values=delete_params)
+            res = self._execute(self._requests.delete_saved_queries(), variable_values=gql_params)
 
-        if res.errors:
-            raise BackendError(res.errors)
+            if res.errors:
+                for err in res.errors:
+                    logging.error(err.message)
 
-        if res.data is None:
-            raise BackendError("empty data")
+                raise BackendError(res.errors)
 
-        data = res.data.get("deleteSavedQueriesByName", {})
+            if res.data is None:
+                raise BackendError("empty data")
+
+            query_data = res.data.get("deleteSavedQueriesByName", {})
+            for field in ("names", "detectionIDs"):
+                data[field] += query_data.get(field) or []
 
         return BackendResponse(
             status_code=200,
@@ -358,24 +368,29 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
     def delete_detections(
         self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
-        gql_params = {
-            "input": {
-                "dryRun": params.dry_run,
-                "includeSavedQueries": params.include_saved_queries,
-                "ids": params.ids,
+        data: Dict = {"ids": [], "savedQueryNames": []}
+        for id_batch in _batched(params.ids, self._DELETE_BATCH_SIZE):
+            gql_params = {
+                "input": {
+                    "dryRun": params.dry_run,
+                    "includeSavedQueries": params.include_saved_queries,
+                    "ids": id_batch,
+                }
             }
-        }
-        res = self._execute(self._requests.delete_detections_query(), gql_params)
-        if res.errors:
-            for err in res.errors:
-                logging.error(err.message)
+            res = self._execute(self._requests.delete_detections_query(), gql_params)
 
-            raise BackendError(res.errors)
+            if res.errors:
+                for err in res.errors:
+                    logging.error(err.message)
 
-        if res.data is None:
-            raise BackendError("empty data")
+                raise BackendError(res.errors)
 
-        data = res.data.get("deleteDetections", {})
+            if res.data is None:
+                raise BackendError("empty data")
+
+            query_data = res.data.get("deleteDetections", {})
+            for field in ("ids", "savedQueryNames"):
+                data[field] += query_data.get(field) or []
 
         return BackendResponse(
             status_code=200,
@@ -693,3 +708,19 @@ def _build_api_url(host: str) -> str:
 def _get_graphql_content_filepath(name: str) -> str:
     work_dir = os.path.dirname(__file__)
     return os.path.join(work_dir, "graphql", f"{name}.graphql")
+
+
+def _batched(iterable: Sequence, size: int = 1) -> Generator[Sequence, None, None]:
+    """Batch data from 'iterable' into chunks of length 'size'. The last batch may be shorter than 'size'.
+    Inspired by itertools.batched in Python version 3.12+.
+
+    Args:
+        iterable (any iterable): a sequence or other iterable to be batched
+        size (int, optional): the maximum size of each batch. default=1
+
+    Yields:
+        out (iterable): a batch of size 'size' or smaller
+    """
+    length = len(iterable)
+    for idx in range(0, length, size):
+        yield iterable[idx : min(idx + size, length)]
