@@ -289,6 +289,10 @@ LOG_TYPE_REGEX = Regex(
     r"Zoom\.Activity|"
     r"Zoom\.Operation|"
     r"ZScaler\.ZIAAuditLog|"
+    r"ZScaler\.ZPAAuditLog|"
+    r"ZScaler\.ZPAUserActivity|"
+    r"ZScaler\.ZPAUserStatus|"
+    r"ZScaler\.ZPAAppConnectorStatus|"
     r"Custom\.([A-Z][A-Za-z0-9]*)(\.[A-Z][A-Za-z0-9]*){0,5}"
     r")$"
 )
