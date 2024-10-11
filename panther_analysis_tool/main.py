@@ -800,7 +800,9 @@ def test_analysis(
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
-        None if not bool(args.sort_test_results | args.print_failed_test_results_only) else TestResultsContainer(passed={}, errored={})
+        None
+        if not bool(args.sort_test_results | args.print_failed_test_results_only)
+        else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detections, skipped_tests = setup_run_tests(
@@ -1848,7 +1850,6 @@ def setup_parser() -> argparse.ArgumentParser:
         "default": False,
         "dest": "print_failed_test_results_only",
         "help": "Only print test results for failed tests.",
-
     }
     ignore_table_names_name = "--ignore-table-names"
     ignore_table_names_arg: Dict[str, Any] = {
