@@ -1843,7 +1843,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "Sort test results by whether the test passed or failed (passing tests first), "
         "then by rule ID",
     }
-    print_failed_only_name = "--print-failed-only"
+    print_failed_only_name = "--show-failures-only"
     print_failed_only_arg: Dict[str, Any] = {
         "action": "store_true",
         "required": False,
