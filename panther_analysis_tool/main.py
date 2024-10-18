@@ -800,7 +800,9 @@ def test_analysis(
     invalid_specs.extend(invalid_data_models)
 
     all_test_results = (
-        None if not bool(args.sort_test_results) else TestResultsContainer(passed={}, errored={})
+        None
+        if not bool(args.sort_test_results | args.print_failed_test_results_only)
+        else TestResultsContainer(passed={}, errored={})
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detections, skipped_tests = setup_run_tests(
@@ -824,6 +826,9 @@ def test_analysis(
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
         for outcome in ["passed", "errored"]:
+            # Skip if test passed and we only want to print failed tests:
+            if args.print_failed_test_results_only and outcome != "errored":
+                continue
             sorted_results = sorted(getattr(all_test_results, outcome).items())
             for detection_id, test_result_packages in sorted_results:
                 if test_result_packages:
@@ -1838,6 +1843,14 @@ def setup_parser() -> argparse.ArgumentParser:
         "help": "Sort test results by whether the test passed or failed (passing tests first), "
         "then by rule ID",
     }
+    print_failed_only_name = "--show-failures-only"
+    print_failed_only_arg: Dict[str, Any] = {
+        "action": "store_true",
+        "required": False,
+        "default": False,
+        "dest": "print_failed_test_results_only",
+        "help": "Only print test results for failed tests.",
+    }
     ignore_table_names_name = "--ignore-table-names"
     ignore_table_names_arg: Dict[str, Any] = {
         "action": "store_true",
@@ -1900,6 +1913,7 @@ def setup_parser() -> argparse.ArgumentParser:
     release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     release_parser.add_argument(available_destination_name, **available_destination_arg)
     release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    release_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
     release_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     release_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     release_parser.set_defaults(func=generate_release_assets)
@@ -1922,6 +1936,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     test_parser.add_argument(available_destination_name, **available_destination_arg)
     test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    test_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
@@ -2028,6 +2043,7 @@ def setup_parser() -> argparse.ArgumentParser:
     upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
     upload_parser.add_argument(available_destination_name, **available_destination_arg)
     upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    upload_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
     upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
     upload_parser.add_argument(no_async_uploads_name, **no_async_uploads_arg)
     upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
@@ -2156,6 +2172,7 @@ def setup_parser() -> argparse.ArgumentParser:
     zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
     zip_parser.add_argument(available_destination_name, **available_destination_arg)
     zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
+    zip_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
     zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     zip_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     zip_parser.set_defaults(func=pat_utils.func_with_optional_backend(zip_analysis))
