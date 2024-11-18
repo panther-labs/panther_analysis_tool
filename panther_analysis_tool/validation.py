@@ -36,7 +36,6 @@ def contains_invalid_table_names(
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
     if query is not None:
-        parsed_query = {}
         try:
             parsed_query = parse(query, "snowflake")
         except Exception:  # pylint: disable=broad-except
@@ -45,7 +44,7 @@ def contains_invalid_table_names(
             logging.info("Failed to parse query %s. Skipping table name validation", analysis_id)
             return []
         tables = nested_lookup("table_reference", parsed_query)
-        aliases = [alias[0] for alias in nested_lookup("common_table_expression", parsed_query)]
+        aliases = get_aliases(parsed_query)
         for table in tables:
             if table in aliases:
                 continue
@@ -75,6 +74,19 @@ def contains_invalid_table_names(
     else:
         logging.info("No query found for %s", analysis_id)
     return invalid_table_names
+
+
+def get_aliases(parsed_query: dict[str, Any]) -> list[Any]:
+    aliases = []
+    for alias in nested_lookup("common_table_expression", parsed_query):
+        if isinstance(alias, list):
+            aliases.append(alias[0])
+        elif isinstance(alias, dict):
+            dict_table_key = "naked_identifier"
+            aliases.append({dict_table_key: alias.get(dict_table_key)})
+        else:
+            logging.info("Unrecognized alias type: %s", type(alias))
+    return aliases
 
 
 def lookup_snowflake_query(analysis_spec: Any) -> Optional[str]:
