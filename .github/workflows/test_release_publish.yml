@@ -9,49 +9,38 @@ permissions:
 jobs:
   publish_github_release_and_pypi:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f # v2.10.2
-      with:
-        egress-policy: audit
-
-    - name: Check out the repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        fetch-depth: 0
-
-    - name: Set up Python
-      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
-      with:
-        python-version: '3.11'
-
-    - name: Install pip and pipenv
-      run: |
-        python -m pip install --root-user-action=ignore --upgrade pip
-        pip install --root-user-action=ignore pipenv
-        make venv
-
-    - name: Build Release tar.gz
-      run: |
-        pipenv run python setup.py sdist
-
-    - name: Install Build and Run PAT Tests
-      run: |
-        pipenv run pip install --root-user-action=ignore dist/panther_analysis_tool-*.tar.gz
-        pipenv run make integration
-
-    - name: Create Github Release
-      run: |
-        export NEW_VERSION=$(cat VERSION)
-        git config user.name "dac-bot"
-        git config user.email "dac-bot@panther.com"
-        gh release create v$NEW_VERSION dist/* -t v$NEW_VERSION --draft
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Publish to PyPI
-      run: |
-        pipenv run twine upload dist/*
-      env:
-        TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+      - name: Check out the repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: "3.11"
+      - name: Install pip and pipenv
+        run: |
+          python -m pip install --root-user-action=ignore --upgrade pip
+          pip install --root-user-action=ignore pipenv
+          make venv
+      - name: Build Release tar.gz
+        run: |
+          pipenv run python setup.py sdist
+      - name: Install Build and Run PAT Tests
+        run: |
+          pipenv run pip install --root-user-action=ignore dist/panther_analysis_tool-*.tar.gz
+          pipenv run make integration
+      - name: Create Github Release
+        run: |
+          export NEW_VERSION=$(cat VERSION)
+          git config user.name "dac-bot"
+          git config user.email "dac-bot@panther.com"
+          gh release create v$NEW_VERSION dist/* -t v$NEW_VERSION --draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to PyPI
+        run: |
+          pipenv run twine upload dist/*
+        env:
+          TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
