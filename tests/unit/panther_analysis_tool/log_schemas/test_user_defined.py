@@ -106,7 +106,7 @@ class TestUploader(unittest.TestCase):
                         created_at="2021-05-11T14:08:08.42627193Z",
                         description="A verbose description",
                         is_managed=False,
-                        name="Custom.SAMPLESchema1", # Contains uppercase characters deliberately
+                        name="Custom.SAMPLESchema1",  # Contains uppercase characters deliberately
                         reference_url="https://example.com",
                         revision=17,
                         spec=self.valid_schema1,
