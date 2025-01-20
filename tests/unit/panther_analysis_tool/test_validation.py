@@ -19,7 +19,7 @@ class TestContainsInvalidTableNames(unittest.TestCase):
            GROUP BY reported_client_type, user_name
            HAVING counts >= 3"""
 
-    def test_complex_sql(self):
+    def test_complex_sql_list_pattern(self):
         sql = """
         WITH login_attempts as (
           SELECT
@@ -60,6 +60,61 @@ class TestContainsInvalidTableNames(unittest.TestCase):
                 row_with_fail AS error_message is not null
             )
           HAVING num_fails >= 5 -- changeable per environment
+        """
+        analysis_spec = {"Query": sql}
+        analysis_id = "analysis_id_1"
+
+        output = contains_invalid_table_names(analysis_spec, analysis_id, [])
+        self.assertFalse(output)
+
+    def test_complex_sql_dict_pattern(self):
+        sql = """
+        WITH date_ranges AS(
+         -- Generate the last 12 months of date ranges with midnight start and end times
+         SELECT
+             DATE_TRUNC('month', DATEADD('month', -ROW_NUMBER() OVER (ORDER BY NULL), CURRENT_DATE)) AS start_date,
+             DATE_TRUNC('month', DATEADD('month', -ROW_NUMBER() OVER (ORDER BY NULL) + 1, CURRENT_DATE)) - INTERVAL '1 second' AS end_date
+         FROM TABLE(GENERATOR(ROWCOUNT => 12))
+      ),
+      table_counts AS (
+         -- Query each table and count rows per month
+         SELECT
+             'ATLASSIAN_AUDIT' AS table_name,
+             COALESCE(COUNT(t.p_parse_time), 0) AS row_count,
+             d.start_date,
+             d.end_date
+         FROM date_ranges AS d
+         LEFT JOIN panther_logs.public.ATLASSIAN_AUDIT AS t
+             ON t.p_parse_time >= d.start_date AND t.p_parse_time < d.end_date
+         GROUP BY d.start_date, d.end_date
+      
+         UNION ALL
+         SELECT
+             'AUTH0_EVENTS' AS table_name,
+             COALESCE(COUNT(t.p_parse_time), 0) AS row_count,
+             d.start_date,
+             d.end_date
+         FROM date_ranges AS d
+         LEFT JOIN panther_logs.public.AUTH0_EVENTS AS t
+             ON t.p_parse_time >= d.start_date AND t.p_parse_time < d.end_date
+         GROUP BY d.start_date, d.end_date
+      
+         UNION ALL
+         SELECT
+             'AWS_CLOUDTRAIL' AS table_name,
+             COALESCE(COUNT(t.p_parse_time), 0) AS row_count,
+             d.start_date,
+             d.end_date
+         FROM date_ranges AS d
+         LEFT JOIN panther_logs.public.AWS_CLOUDTRAIL AS t
+             ON t.p_parse_time >= d.start_date AND t.p_parse_time < d.end_date
+         GROUP BY d.start_date, d.end_date
+    )
+      
+      -- Final selection of table name, row count, start, and end date
+      SELECT table_name, row_count, start_date, end_date
+      FROM table_counts
+      ORDER BY table_name, start_date;
         """
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
