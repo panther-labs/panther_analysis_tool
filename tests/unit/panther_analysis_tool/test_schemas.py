@@ -337,6 +337,15 @@ class TestPATSchemas(unittest.TestCase):
                 "Query": "select 1",
             }
         )
+
+        # allows PantherFlow
+        SAVED_QUERY_SCHEMA.validate(
+            {
+                "QueryName": "my.query.id",
+                "AnalysisType": "saved_query",
+                "PantherFlowQuery": "// test",
+            }
+        )
         # missing QueryName
         with self.assertRaises(SchemaError):
             SAVED_QUERY_SCHEMA.validate(
