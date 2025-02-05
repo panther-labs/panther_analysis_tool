@@ -46,13 +46,21 @@ jobs:
         echo $NEW_VERSION > VERSION
         sed -i "s/VERSION_STRING: Final = \"[0-9]*\.[0-9]*\.[0-9]*\"/VERSION_STRING: Final = \"$NEW_VERSION\"/" panther_analysis_tool/constants.py
 
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v6
+      with:
+        gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+
     - name: Create Branch and Pull Request
       run: |
         NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
         git config user.name "dac-bot[bot]"
         git config user.email "dac-bot@panther.com"
         git checkout -b "$NEW_VERSION"
-        git commit -a -m "Bump version to $NEW_VERSION"
+        git commit -a -S -m "Bump version to $NEW_VERSION"
         git push --set-upstream origin "$NEW_VERSION"
         gh pr create -t "Version bump to v$NEW_VERSION" -b "Bumping Version to v$NEW_VERSION ahead of release."
       env:
