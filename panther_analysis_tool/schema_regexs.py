@@ -6,6 +6,7 @@ from schema import Regex
 
 LOG_TYPE_REGEX = Regex(
     r"^("
+    r"AKOTest\.Audit|"
     r"AWS\.ALB|"
     r"AWS\.AuroraMySQLAudit|"
     r"AWS\.CloudFrontAccess|"
