@@ -30,7 +30,8 @@ contextlib2 = "==21.6.0"
 decorator = "==5.1.1"
 dill = "==0.3.7"
 dynaconf = "==3.2.2"
-gql = { extras = ["aiohttp"], version = "==3.4.1" }
+gql = { extras = ["aiohttp"], version = ">=3.4.1" }
+aiohttp = ">=3.9.4"
 graphql-core = "==3.2.3"
 idna = "==3.4"
 jmespath = "==1.0.1"
