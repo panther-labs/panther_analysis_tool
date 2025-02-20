@@ -218,6 +218,7 @@ LOG_TYPE_REGEX = Regex(
     r"OnePassword\.AuditEvent|"
     r"OnePassword\.ItemUsage|"
     r"OnePassword\.SignInAttempt|"
+    r"Orca\.Alert|"
     r"Osquery\.Batch|"
     r"Osquery\.Differential|"
     r"Osquery\.Snapshot|"
