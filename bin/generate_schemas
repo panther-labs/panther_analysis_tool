@@ -5,28 +5,30 @@ Script to generate JSON Schema files from Panther Analysis Tool's Python schemas
 This script converts the Python schema definitions to JSON Schema format.
 """
 
+import json
 import os
 import sys
-import json
 from typing import Any, Dict, List, Union
-from schema import Schema, Or, And, Optional, Regex
+
+from schema import And, Optional, Or, Regex, Schema
 
 # Add the project root directory to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from panther_analysis_tool.schemas import (
-    RULE_SCHEMA,
     CORRELATION_RULE_SCHEMA,
-    POLICY_SCHEMA,
+    DATA_MODEL_SCHEMA,
+    DERIVED_SCHEMA,
     GLOBAL_SCHEMA,
+    LOOKUP_TABLE_SCHEMA,
     PACK_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
-    LOOKUP_TABLE_SCHEMA,
-    DERIVED_SCHEMA,
-    DATA_MODEL_SCHEMA,
 )
+
 
 def get_key_name(key: Any) -> str:
     """Get a string representation of a schema key."""
