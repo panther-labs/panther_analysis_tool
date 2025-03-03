@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "AnalysisType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "datamodel"
+        }
+      ]
+    },
+    "DataModelID": {
+      "allOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string",
+          "pattern": "^[^<>&\\\"%]+$"
+        }
+      ]
+    },
+    "Enabled": {
+      "type": "string"
+    },
+    "LogTypes": {
+      "allOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(AWS\\.ALB|AWS\\.AuroraMySQLAudit|AWS\\.CloudFrontAccess|AWS\\.CloudTrail|AWS\\.CloudTrailDigest|AWS\\.CloudTrailInsight|AWS\\.CloudWatchEvents|AWS\\.Config|AWS\\.GuardDuty|AWS\\.S3ServerAccess|AWS\\.SecurityFindingFormat|AWS\\.TransitGatewayFlow|AWS\\.VPCDns|AWS\\.VPCFlow|AWS\\.WAFWebACL|AlphaSOC\\.Alert|Amazon\\.EKS\\.Audit|Amazon\\.EKS\\.Authenticator|Anomali\\.Indicator|Apache\\.AccessCombined|Apache\\.AccessCommon|AppOmni\\.Alerts|AppOmni\\.Events|AppOmni\\.Policy|Asana\\.Audit|Atlassian\\.Audit|Auth0\\.Events|Azure\\.Audit|Azure\\.DefenderAlerts|Azure\\.MonitorActivity|Bitwarden\\.Events|Box\\.Event|CarbonBlack\\.AlertV2|CarbonBlack\\.Audit|CarbonBlack\\.EndpointEvent|CarbonBlack\\.WatchlistHit|CiscoUmbrella\\.CloudFirewall|CiscoUmbrella\\.DNS|CiscoUmbrella\\.IP|CiscoUmbrella\\.Proxy|Cloudflare\\.Audit|Cloudflare\\.Firewall|Cloudflare\\.HttpRequest|Cloudflare\\.Spectrum|Cloudflare\\.ZeroTrust\\.RData|Crowdstrike\\.AIDMaster|Crowdstrike\\.ActivityAudit|Crowdstrike\\.AppInfo|Crowdstrike\\.CriticalFile|Crowdstrike\\.DNSRequest|Crowdstrike\\.DetectionSummary|Crowdstrike\\.EventStreams|Crowdstrike\\.FDREvent|Crowdstrike\\.GroupIdentity|Crowdstrike\\.ManagedAssets|Crowdstrike\\.NetworkConnect|Crowdstrike\\.NetworkListen|Crowdstrike\\.NotManagedAssets|Crowdstrike\\.ProcessRollup2|Crowdstrike\\.ProcessRollup2Stats|Crowdstrike\\.SyntheticProcessRollup2|Crowdstrike\\.Unknown|Crowdstrike\\.UserIdentity|Crowdstrike\\.UserInfo|Crowdstrike\\.UserLogonLogoff|Docker\\.Events|Dropbox\\.TeamEvent|Duo\\.Administrator|Duo\\.Authentication|Duo\\.OfflineEnrollment|Duo\\.Telephony|Envoy\\.Access|Fastly\\.Access|Fluentd\\.Syslog3164|Fluentd\\.Syslog5424|GCP\\.AuditLog|GCP\\.HTTPLoadBalancer|GSuite\\.ActivityEvent|GSuite\\.DirectoryUsers|GSuite\\.Reports|GitHub\\.Audit|GitHub\\.Webhook|GitLab\\.API|GitLab\\.Audit|GitLab\\.Exceptions|GitLab\\.Git|GitLab\\.Integrations|GitLab\\.Production|Gravitational\\.TeleportAudit|GreyNoise\\.API\\.Noise|GreyNoise\\.Noise|GreyNoise\\.RIOT|Heroku\\.Runtime|IPInfo\\.ASNCIDR|IPInfo\\.ASNRanges|IPInfo\\.LocationCIDR|IPInfo\\.LocationRanges|IPInfo\\.PrivacyCIDR|IPInfo\\.PrivacyRanges|Jamfpro\\.ComplianceReporter|Jamfpro\\.Login|Juniper\\.Access|Juniper\\.Audit|Juniper\\.Firewall|Juniper\\.MWS|Juniper\\.Postgres|Juniper\\.Security|Lacework\\.AgentManagement|Lacework\\.AlertDetails|Lacework\\.AllFiles|Lacework\\.Applications|Lacework\\.ChangeFiles|Lacework\\.CloudCompliance|Lacework\\.CloudConfiguration|Lacework\\.Cmdline|Lacework\\.Connections|Lacework\\.ContainerSummary|Lacework\\.ContainerVulnDetails|Lacework\\.DNSQuery|Lacework\\.Events|Lacework\\.HostVulnDetails|Lacework\\.Image|Lacework\\.Interfaces|Lacework\\.InternalIPA|Lacework\\.MachineDetails|Lacework\\.MachineSummary|Lacework\\.NewHashes|Lacework\\.Package|Lacework\\.PodSummary|Lacework\\.ProcessSummary|Lacework\\.UserDetails|Lacework\\.UserLogin|Linux\\.Auditd|MISP\\.WarningListsCIDR|Material\\.CaseCreated|Microsoft365\\.Audit\\.AzureActiveDirectory|Microsoft365\\.Audit\\.Exchange|Microsoft365\\.Audit\\.General|Microsoft365\\.Audit\\.SharePoint|Microsoft365\\.DLP\\.All|MicrosoftGraph\\.SecurityAlert|MongoDB\\.OrganizationEvent|MongoDB\\.ProjectEvent|Netskope\\.Audit|Nginx\\.Access|Nginx\\.Error|Notion\\.AuditLogs|OCSF\\.AccountChange|OCSF\\.ApiActivity|OCSF\\.ApplicationLifecycle|OCSF\\.Authentication|OCSF\\.AuthorizeSession|OCSF\\.BaseEvent|OCSF\\.ComplianceFinding|OCSF\\.ConfigState|OCSF\\.DatastoreActivity|OCSF\\.DetectionFinding|OCSF\\.DeviceConfigStateChange|OCSF\\.DhcpActivity|OCSF\\.DnsActivity|OCSF\\.EmailActivity|OCSF\\.EmailFileActivity|OCSF\\.EmailUrlActivity|OCSF\\.EntityManagement|OCSF\\.FileActivity|OCSF\\.FileHosting|OCSF\\.FtpActivity|OCSF\\.GroupManagement|OCSF\\.HttpActivity|OCSF\\.IncidentFinding|OCSF\\.InventoryInfo|OCSF\\.KernelActivity|OCSF\\.KernelExtension|OCSF\\.MemoryActivity|OCSF\\.ModuleActivity|OCSF\\.NetworkActivity|OCSF\\.NetworkFileActivity|OCSF\\.NtpActivity|OCSF\\.PatchState|OCSF\\.ProcessActivity|OCSF\\.RdpActivity|OCSF\\.ScanActivity|OCSF\\.ScheduledJobActivity|OCSF\\.SecurityFinding|OCSF\\.SmbActivity|OCSF\\.SshActivity|OCSF\\.UserAccess|OCSF\\.UserInventory|OCSF\\.VulnerabilityFinding|OCSF\\.WebResourceAccessActivity|OCSF\\.WebResourcesActivity|OCSF\\.WinPrefetchInfo|OCSF\\.WinRegistryKeyActivity|OCSF\\.WinRegistryKeyInfo|OCSF\\.WinRegistryValueActivity|OCSF\\.WinRegistryValueInfo|OCSF\\.WinResourceActivity|OCSF\\.WinprefetchInfo|OCSF\\.WinregistryKeyActivity|OCSF\\.WinregistryKeyInfo|OCSF\\.WinregistryValueActivity|OCSF\\.WinregistryValueInfo|OCSF\\.WinresourceActivity|OSSEC\\.EventInfo|OTX\\.Pulses|Okta\\.Devices|Okta\\.SystemLog|Okta\\.Users|OneLogin\\.Events|OnePassword\\.AuditEvent|OnePassword\\.ItemUsage|OnePassword\\.SignInAttempt|Osquery\\.Batch|Osquery\\.Differential|Osquery\\.Snapshot|Osquery\\.Status|Panther\\.Audit|Proofpoint\\.Event|PushSecurity\\.Activity|PushSecurity\\.Controls|PushSecurity\\.Entities|Rapid7\\.AuditLog|Salesforce\\.Login|Salesforce\\.LoginAs|Salesforce\\.Logout|Salesforce\\.URI|SentinelOne\\.Activity|SentinelOne\\.DeepVisibility|SentinelOne\\.DeepVisibilityV2|Slack\\.AccessLogs|Slack\\.AuditLogs|Slack\\.IntegrationLogs|Snowflake\\.AccessHistory|Snowflake\\.DataTransferHistory|Snowflake\\.GrantsToRoles|Snowflake\\.GrantsToUsers|Snowflake\\.LoginHistory|Snowflake\\.QueryHistory|Snowflake\\.Sessions|Snowflake\\.Stages|Snowflake\\.Users|Snyk\\.GroupAudit|Snyk\\.OrgAudit|Sophos\\.Central|Sublime\\.Audit|Sublime\\.MDM|Sublime\\.MessageEvent|Suricata\\.Alert|Suricata\\.Anomaly|Suricata\\.DHCP|Suricata\\.DNS|Suricata\\.FileInfo|Suricata\\.Flow|Suricata\\.HTTP|Suricata\\.SSH|Suricata\\.TLS|Sysdig\\.Audit|Syslog\\.RFC3164|Syslog\\.RFC5424|Tracebit\\.Alert|Tracebit\\.HealthCheck|Tailscale\\.Audit|Tailscale\\.Network|Tenable\\.Vulnerability|ThinkstCanary\\.Alert|Tines\\.Audit|Tor\\.ExitNode|TrailDiscover\\.CloudTrail|Windows\\.EventLogs|Wiz\\.Audit|Wiz\\.Issues|Wiz\\.VulnerabilityFinding|Workday\\.Activity|Workday\\.SignOnAttempt|Zeek\\.CaptureLoss|Zeek\\.Conn|Zeek\\.DHCP|Zeek\\.DNS|Zeek\\.DPD|Zeek\\.Files|Zeek\\.HTTP|Zeek\\.NTP|Zeek\\.Notice|Zeek\\.OCSP|Zeek\\.Reporter|Zeek\\.SIP|Zeek\\.Software|Zeek\\.Ssh|Zeek\\.Ssl|Zeek\\.Stats|Zeek\\.Tunnel|Zeek\\.Weird|Zeek\\.X509|Zendesk\\.Audit|Zoom\\.Activity|Zoom\\.Operation|Zscaler\\.ZIA\\.AdminAuditLog|Zscaler\\.ZPA\\.AppConnectorMetrics|Zscaler\\.ZPA\\.AppConnectorStatus|Zscaler\\.ZPA\\.AuditLog|Zscaler\\.ZPA\\.UserActivity|Zscaler\\.ZPA\\.UserStatus|Custom\\.([A-Z][A-Za-z0-9]*)(\\.[A-Z][A-Za-z0-9]*){0,5})$"
+          }
+        }
+      ]
+    },
+    "Mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "DisplayName": {
+      "allOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string",
+          "pattern": "^[^<>&\\\"%]+$"
+        }
+      ]
+    },
+    "Filename": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "AnalysisType",
+    "DataModelID",
+    "Enabled",
+    "LogTypes",
+    "Mappings"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "AnalysisType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "saved_query"
+        }
+      ]
+    },
+    "QueryName": {
+      "allOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string",
+          "pattern": "^[^<>&\\\"%]+$"
+        }
+      ]
+    },
+    "Query": {
+      "type": "string"
+    },
+    "Description": {
+      "type": "string"
+    },
+    "Tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "Lookback": {
+      "type": "string"
+    },
+    "LookbackWindowSeconds": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "AnalysisType",
+    "QueryName",
+    "Query"
+  ]
+}
