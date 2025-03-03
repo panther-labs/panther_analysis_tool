@@ -264,6 +264,8 @@ LOG_TYPE_REGEX = Regex(
     r"Sysdig\.Audit|"
     r"Syslog\.RFC3164|"
     r"Syslog\.RFC5424|"
+    r"Tracebit\.Alert|"
+    r"Tracebit\.HealthCheck|"
     r"Tailscale\.Audit|"
     r"Tailscale\.Network|"
     r"Tenable\.Vulnerability|"

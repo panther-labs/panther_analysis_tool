@@ -112,7 +112,7 @@ class Uploader:
              The decoded YAML schema or None if no matching name is found.
         """
         for schema in self.existing_schemas:
-            if schema.name == name:
+            if schema.name.casefold() == name.casefold():
                 return schema
         return None
 

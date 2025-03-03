@@ -1,11 +1,9 @@
 import os
 import unittest
 from unittest import mock
-from unittest.mock import MagicMock, create_autospec
 
 from panther_analysis_tool.backend.client import (
     BackendResponse,
-    Client,
     ListSchemasResponse,
     Schema,
     UpdateSchemaParams,
@@ -108,7 +106,7 @@ class TestUploader(unittest.TestCase):
                         created_at="2021-05-11T14:08:08.42627193Z",
                         description="A verbose description",
                         is_managed=False,
-                        name="Custom.SampleSchema1",
+                        name="Custom.SAMPLESchema1",  # Contains uppercase characters deliberately
                         reference_url="https://example.com",
                         revision=17,
                         spec=self.valid_schema1,
@@ -141,8 +139,8 @@ class TestUploader(unittest.TestCase):
             ),
         )
         self.put_schema_response = lambda: Schema(
-            name="Custom.SampleSchema1",
-            revision=0,
+            name="Custom.SAMPLESchema1",
+            revision=18,
             updated_at="2021-05-17T10:34:18.192993496Z",
             created_at="2021-05-17T10:15:38.18907328Z",
             is_managed=False,

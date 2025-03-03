@@ -1,10 +1,10 @@
 on:
   push:
     branches:
-      - main  # Splitting out main here ensures we do not redundantly run this workflow on merge from a PR
+      - main # Splitting out main here ensures we do not redundantly run this workflow on merge from a PR
   pull_request:
     branches:
-      - '*' # Match all branches
+      - "*" # Match all branches
 
 permissions:
   contents: write
@@ -17,23 +17,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      
-      - uses: chainguard-dev/actions/setup-gitsign@e82b4e5ae10182af72972addcb3fedf7454621c8
-
       - name: Setup Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
-
       - name: Install pipenv
         run: make install-pipenv
-
       - name: Install
         run: make install
-
       - name: Format
         run: make fmt
-
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
       - name: Commit formatting
         run: |
           git config --global user.name "panther-bot-automation"
@@ -45,17 +45,17 @@ jobs:
           else
             BRANCH=${{ github.ref }}
           fi
-          
+
           git add -A .
 
           REQUIRES_COMMIT=1
-          git commit -m "Auto-format files" || REQUIRES_COMMIT=0
+          git commit -S -m "Auto-format files" || REQUIRES_COMMIT=0
+
           if [[ $REQUIRES_COMMIT -eq 0 ]]; then
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files"
             git push origin HEAD:$BRANCH
-            gitsign verify $(git rev-parse HEAD) --certificate-identity-regexp="https://github.com/${{ github.repository }}/*" --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
           fi
         env:
           GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}

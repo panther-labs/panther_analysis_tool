@@ -357,16 +357,40 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     return upload_zip(backend, args, archive, use_async)
 
 
+def print_upload_summary(response: dict) -> None:
+    print("\n--------------------------")
+    print("Upload Summary")
+
+    # Helper function to print category stats if they exist
+    def print_category_stats(category: str, stats: dict) -> None:
+        # Show stats if any of total, new, or modified are greater than 0
+        if any(stats.get(key, 0) > 0 for key in ["total", "new", "modified"]):
+            print(f"\t{category}")
+            print(f"\t\tTotal: {stats.get('total', 0)}")
+            print(f"\t\tNew: {stats.get('new', 0)}")
+            print(f"\t\tModified: {stats.get('modified', 0)}")
+
+    # Print stats for each category
+    categories = {
+        "Rules": response.get("rules", {}),
+        "Queries": response.get("queries", {}),
+        "Policies": response.get("policies", {}),
+        "Scheduled Rules": response.get("scheduled_rules", {}),
+        "Data Models": response.get("data_models", {}),
+        "Global Helpers": response.get("global_helpers", {}),
+        "Lookup Tables": response.get("lookup_tables", {}),
+        "Correlation Rules": response.get("correlation_rules", {}),
+    }
+
+    for category, stats in categories.items():
+        print_category_stats(category, stats)
+
+
 def upload_zip(
     backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
 ) -> Tuple[int, str]:
     # extract max retries we should handle
-    max_retries = 10
-    if args.max_retries > 10:
-        logging.warning("max_retries cannot be greater than 10, defaulting to 10")
-    elif args.max_retries < 0:
-        logging.warning("max_retries cannot be negative, defaulting to 0")
-        max_retries = 0
+    max_retries = args.max_retries
 
     with open(archive, "rb") as analysis_zip:
         logging.info("Uploading items to Panther")
@@ -392,7 +416,8 @@ def upload_zip(
                 except BaseException:
                     del resp_dict["correlation_rules"]
 
-                logging.info("API Response:\n%s", json.dumps(resp_dict, indent=4))
+                logging.debug("API Response:\n%s", json.dumps(resp_dict, indent=4))
+                print_upload_summary(resp_dict)
                 return 0, cli_output.success("Upload succeeded")
 
             except BackendError as be_err:
@@ -750,7 +775,7 @@ def test_analysis(
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
-    logging.info("Testing analysis items in %s\n", args.path)
+    logging.info("Testing analysis items in %s", args.path)
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = load_analysis(
@@ -1078,7 +1103,7 @@ def print_summary(
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
     print("--------------------------")
-    print("Panther CLI Test Summary")
+    print("Test Summary")
     print(f"\tPath: {test_path}")
     print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
     print(f"\tSkipped: {len(skipped_tests)}")
@@ -2019,6 +2044,7 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Retry to upload on a failure for a maximum number of times",
         default=10,
         type=int,
+        choices=range(1, 11),
         required=False,
     )
 
@@ -2354,7 +2380,7 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 def run() -> None:
     # setup logger and print version info as necessary
     logging.basicConfig(
-        format="[%(levelname)s][%(name)s]: %(message)s",
+        format="%(levelname)s: %(message)s",
         level=logging.INFO,
     )
 
@@ -2366,11 +2392,10 @@ def run() -> None:
         latest = pat_utils.get_latest_version()
         if not pat_utils.is_latest(latest):
             logging.warning(
-                "A new version of %s is available. To upgrade from version '%s' to '%s', run:\n\t"
-                "pip3 install %s --upgrade\n",
+                "%s v%s is available (current: v%s). Run: pip3 install %s --upgrade",
                 PACKAGE_NAME,
-                VERSION_STRING,
                 latest,
+                VERSION_STRING,
                 PACKAGE_NAME,
             )
 
@@ -2390,11 +2415,11 @@ def run() -> None:
 
     for key in os.environ:
         if key.startswith("PANTHER_"):
-            logging.info("Found Environment Variables prefixed with 'PANTHER'.")
+            logging.info("Found environment variables prefixed with 'PANTHER'")
             break
     if os.path.exists(CONFIG_FILE):
         logging.info(
-            "Found Config File %s . NOTE: COMMAND LINE OPTIONS WILL OVERRIDE SETTINGS IN CONFIG FILE",
+            "Found config file %s (note: command line options will override config file settings)",
             CONFIG_FILE,
         )
     config_file_settings = setup_dynaconf()
