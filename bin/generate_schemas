@@ -6,9 +6,14 @@ This script converts the Python schema definitions to JSON Schema format.
 """
 
 import os
+import sys
 import json
 from typing import Any, Dict, List, Union
 from schema import Schema, Or, And, Optional, Regex
+
+# Add the project root directory to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
@@ -95,7 +100,8 @@ def convert_schema_to_json(schema: Schema) -> Dict[str, Any]:
 def main():
     """Generate JSON Schema files from Python schemas."""
     # Create schemas directory if it doesn't exist
-    os.makedirs(".cursor/schemas", exist_ok=True)
+    schemas_dir = os.path.join(project_root, "panther_analysis_tool/detection_schemas")
+    os.makedirs(schemas_dir, exist_ok=True)
     
     # Define schemas to convert
     schemas = {
@@ -114,7 +120,7 @@ def main():
     # Generate JSON Schema files
     for name, schema in schemas.items():
         json_schema = convert_schema_to_json(schema)
-        output_path = f".cursor/schemas/{name}.json"
+        output_path = os.path.join(schemas_dir, f"{name}.json")
         
         with open(output_path, "w") as f:
             json.dump(json_schema, f, indent=2)
