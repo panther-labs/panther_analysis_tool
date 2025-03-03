@@ -3,7 +3,12 @@
   "type": "object",
   "properties": {
     "AnalysisType": {
-      "type": "string"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "correlation_rule"
+        }
+      ]
     },
     "RuleID": {
       "allOf": [

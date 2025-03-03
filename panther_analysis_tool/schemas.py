@@ -198,7 +198,7 @@ RULE_SCHEMA = Schema(
 
 DERIVED_SCHEMA = Schema(
     {
-        "AnalysisType": "rule",
+        "AnalysisType": Or("rule"),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
         "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
         Optional("Enabled"): bool,
@@ -227,7 +227,7 @@ DERIVED_SCHEMA = Schema(
 
 CORRELATION_RULE_SCHEMA = Schema(
     {
-        "AnalysisType": "correlation_rule",
+        "AnalysisType": Or("correlation_rule"),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
         "Detection": object,
