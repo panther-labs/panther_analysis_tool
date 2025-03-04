@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "AnalysisType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "scheduled_query"
+        }
+      ]
+    },
+    "QueryName": {
+      "allOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string",
+          "pattern": "^[^<>&\\\"%]+$"
+        }
+      ]
+    },
+    "Enabled": {
+      "type": "string"
+    },
+    "Query": {
+      "type": "string"
+    },
+    "Schedule": {
+      "type": "object",
+      "properties": {
+        "CronExpression": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "TimeoutMinutes": {
+          "type": "string"
+        }
+      }
+    },
+    "Description": {
+      "type": "string"
+    },
+    "Tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "Lookback": {
+      "type": "string"
+    },
+    "LookbackWindowSeconds": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "AnalysisType",
+    "QueryName",
+    "Enabled",
+    "Query",
+    "Schedule"
+  ]
+}
