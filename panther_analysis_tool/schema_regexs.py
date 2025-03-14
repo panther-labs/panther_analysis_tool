@@ -247,6 +247,7 @@ LOG_TYPE_REGEX = Regex(
     r"Snowflake\.LoginHistory|"
     r"Snowflake\.NetworkPolicies|"
     r"Snowflake\.QueryHistory|"
+    r"Snowflake\.Roles|"
     r"Snowflake\.Sessions|"
     r"Snowflake\.Stages|"
     r"Snowflake\.Users|"
