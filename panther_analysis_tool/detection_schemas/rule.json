@@ -15,7 +15,7 @@
       ]
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "Filename": {
       "oneOf": [
@@ -23,7 +23,7 @@
           "type": "string"
         },
         {
-          "type": "string"
+          "type": "object"
         }
       ]
     },
@@ -83,10 +83,10 @@
       "type": "string"
     },
     "DedupPeriodMinutes": {
-      "type": "string"
+      "type": "integer"
     },
     "InlineFilters": {
-      "type": "string"
+      "type": "object"
     },
     "DisplayName": {
       "allOf": [
@@ -100,7 +100,7 @@
       ]
     },
     "OnlyUseBaseRiskScore": {
-      "type": "string"
+      "type": "boolean"
     },
     "OutputIds": {
       "type": "array",
@@ -121,7 +121,7 @@
       }
     },
     "Threshold": {
-      "type": "string"
+      "type": "integer"
     },
     "Tags": {
       "type": "array",
@@ -149,10 +149,10 @@
             "type": "string"
           },
           "ExpectedResult": {
-            "type": "string"
+            "type": "boolean"
           },
           "Log": {
-            "type": "string"
+            "type": "object"
           },
           "Mocks": {
             "type": "array",
@@ -168,7 +168,7 @@
                       "type": "string"
                     },
                     {
-                      "type": "string"
+                      "type": "boolean"
                     }
                   ]
                 }
@@ -179,19 +179,19 @@
       }
     },
     "DynamicSeverities": {
-      "type": "string"
+      "type": "object"
     },
     "AlertTitle": {
       "type": "string"
     },
     "AlertContext": {
-      "type": "string"
+      "type": "object"
     },
     "GroupBy": {
-      "type": "string"
+      "type": "object"
     },
     "CreateAlert": {
-      "type": "string"
+      "type": "boolean"
     }
   },
   "required": [

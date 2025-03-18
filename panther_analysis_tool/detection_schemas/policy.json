@@ -11,7 +11,7 @@
       ]
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "Filename": {
       "type": "string"
@@ -69,13 +69,13 @@
       ]
     },
     "ActionDelaySeconds": {
-      "type": "string"
+      "type": "integer"
     },
     "AutoRemediationID": {
       "type": "string"
     },
     "AutoRemediationParameters": {
-      "type": "string"
+      "type": "object"
     },
     "Description": {
       "type": "string"
@@ -92,7 +92,7 @@
       ]
     },
     "OnlyUseBaseRiskScore": {
-      "type": "string"
+      "type": "boolean"
     },
     "OutputIds": {
       "type": "array",
@@ -138,10 +138,10 @@
             "type": "string"
           },
           "ExpectedResult": {
-            "type": "string"
+            "type": "boolean"
           },
           "Resource": {
-            "type": "string"
+            "type": "object"
           },
           "Mocks": {
             "type": "array",
@@ -157,7 +157,7 @@
                       "type": "string"
                     },
                     {
-                      "type": "string"
+                      "type": "boolean"
                     }
                   ]
                 }

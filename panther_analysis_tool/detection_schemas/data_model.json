@@ -22,7 +22,7 @@
       ]
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "LogTypes": {
       "allOf": [

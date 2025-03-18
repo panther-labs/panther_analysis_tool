@@ -34,10 +34,10 @@
       }
     },
     "Lookback": {
-      "type": "string"
+      "type": "boolean"
     },
     "LookbackWindowSeconds": {
-      "type": "string"
+      "type": "integer"
     }
   },
   "required": [

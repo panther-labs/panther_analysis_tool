@@ -14,7 +14,7 @@
       "type": "string"
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "Filename": {
       "oneOf": [
@@ -31,10 +31,10 @@
               "type": "string"
             },
             "PeriodMinutes": {
-              "type": "string"
+              "type": "integer"
             },
             "AlarmPeriodMinutes": {
-              "type": "string"
+              "type": "integer"
             },
             "ObjectKMSKey": {
               "type": "string"

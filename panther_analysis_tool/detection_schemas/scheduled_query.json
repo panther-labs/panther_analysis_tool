@@ -22,7 +22,7 @@
       ]
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "Query": {
       "type": "string"
@@ -36,12 +36,12 @@
               "type": "string"
             },
             {
-              "type": "string"
+              "type": "integer"
             }
           ]
         },
         "TimeoutMinutes": {
-          "type": "string"
+          "type": "integer"
         }
       }
     },
@@ -55,10 +55,10 @@
       }
     },
     "Lookback": {
-      "type": "string"
+      "type": "boolean"
     },
     "LookbackWindowSeconds": {
-      "type": "string"
+      "type": "integer"
     }
   },
   "required": [

@@ -33,7 +33,7 @@
       ]
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "Severity": {
       "oneOf": [
@@ -63,10 +63,10 @@
       "type": "string"
     },
     "DedupPeriodMinutes": {
-      "type": "string"
+      "type": "integer"
     },
     "InlineFilters": {
-      "type": "string"
+      "type": "object"
     },
     "DisplayName": {
       "allOf": [
@@ -80,7 +80,7 @@
       ]
     },
     "OnlyUseBaseRiskScore": {
-      "type": "string"
+      "type": "boolean"
     },
     "OutputIds": {
       "type": "array",
@@ -101,7 +101,7 @@
       }
     },
     "Threshold": {
-      "type": "string"
+      "type": "integer"
     },
     "Tags": {
       "type": "array",
@@ -118,22 +118,22 @@
       }
     },
     "DynamicSeverities": {
-      "type": "string"
+      "type": "object"
     },
     "AlertTitle": {
       "type": "string"
     },
     "AlertContext": {
-      "type": "string"
+      "type": "object"
     },
     "GroupBy": {
-      "type": "string"
+      "type": "object"
     },
     "Tests": {
-      "type": "string"
+      "type": "object"
     },
     "CreateAlert": {
-      "type": "string"
+      "type": "boolean"
     }
   },
   "required": [

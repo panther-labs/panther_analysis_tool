@@ -22,10 +22,10 @@
       ]
     },
     "Enabled": {
-      "type": "string"
+      "type": "boolean"
     },
     "Detection": {
-      "type": "string"
+      "type": "object"
     },
     "Severity": {
       "oneOf": [
@@ -66,7 +66,7 @@
       ]
     },
     "OnlyUseBaseRiskScore": {
-      "type": "string"
+      "type": "boolean"
     },
     "OutputIds": {
       "type": "array",
@@ -101,7 +101,7 @@
       }
     },
     "CreateAlert": {
-      "type": "string"
+      "type": "boolean"
     },
     "Tests": {
       "type": "array",
@@ -112,7 +112,7 @@
             "type": "string"
           },
           "ExpectedResult": {
-            "type": "string"
+            "type": "boolean"
           },
           "RuleOutputs": {
             "type": "array",
@@ -123,7 +123,7 @@
                   "type": "string"
                 },
                 "Matches": {
-                  "type": "string"
+                  "type": "object"
                 }
               }
             }

@@ -43,24 +43,39 @@ def get_key_name(key: Any) -> str:
 
 def schema_type_to_json(schema_type: Any) -> Dict[str, Any]:
     """Convert a schema type to JSON Schema format."""
-    if isinstance(schema_type, str):
+    # Handle primitive types
+    if schema_type is str:
         return {"type": "string"}
-    elif isinstance(schema_type, bool):
+    elif schema_type is bool:
         return {"type": "boolean"}
-    elif isinstance(schema_type, int):
+    elif schema_type is int:
         return {"type": "integer"}
-    elif isinstance(schema_type, float):
+    elif schema_type is float:
         return {"type": "number"}
+    elif schema_type is object:
+        return {"type": "object"}
+    # Handle instances of primitive types (used as examples/defaults)
+    elif isinstance(schema_type, (str, bool, int, float)):
+        return {"type": type(schema_type).__name__, "default": schema_type}
+    # Handle lists/arrays
     elif isinstance(schema_type, list):
-        return {"type": "array", "items": schema_type_to_json(schema_type[0]) if schema_type else {}}
+        if not schema_type:
+            return {"type": "array"}
+        return {
+            "type": "array",
+            "items": schema_type_to_json(schema_type[0]) if schema_type else {}
+        }
+    # Handle dictionaries/objects
     elif isinstance(schema_type, dict):
+        properties = {}
+        for k, v in schema_type.items():
+            key_name = get_key_name(k)
+            properties[key_name] = schema_type_to_json(v)
         return {
             "type": "object",
-            "properties": {
-                get_key_name(k): schema_type_to_json(v)
-                for k, v in schema_type.items()
-            }
+            "properties": properties
         }
+    # Handle Or conditions (oneOf in JSON Schema)
     elif isinstance(schema_type, Or):
         types = []
         for arg in schema_type.args:
@@ -69,15 +84,25 @@ def schema_type_to_json(schema_type: Any) -> Dict[str, Any]:
             else:
                 types.append(schema_type_to_json(arg))
         return {"oneOf": types}
+    # Handle And conditions (allOf in JSON Schema)
     elif isinstance(schema_type, And):
-        return {"allOf": [schema_type_to_json(s) for s in schema_type.args]}
+        schemas = []
+        for s in schema_type.args:
+            schemas.append(schema_type_to_json(s))
+        if len(schemas) == 1:
+            return schemas[0]
+        return {"allOf": schemas}
+    # Handle Optional fields
     elif isinstance(schema_type, Optional):
         return schema_type_to_json(schema_type.schema)
+    # Handle Regex patterns
     elif isinstance(schema_type, Regex):
         return {"type": "string", "pattern": schema_type.pattern_str}
+    # Handle Schema objects
     elif isinstance(schema_type, Schema):
         if hasattr(schema_type, "schema"):
             return schema_type_to_json(schema_type.schema)
+    # Default to string if type cannot be determined
     return {"type": "string"}
 
 def convert_schema_to_json(schema: Schema) -> Dict[str, Any]:
