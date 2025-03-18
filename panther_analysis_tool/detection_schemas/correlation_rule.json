@@ -138,5 +138,6 @@
     "Enabled",
     "Detection",
     "Severity"
-  ]
+  ],
+  "additionalProperties": false
 }

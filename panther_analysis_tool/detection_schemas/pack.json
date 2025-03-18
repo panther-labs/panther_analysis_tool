@@ -51,5 +51,6 @@
     "AnalysisType",
     "PackID",
     "PackDefinition"
-  ]
+  ],
+  "additionalProperties": false
 }

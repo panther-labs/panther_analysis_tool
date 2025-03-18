@@ -76,5 +76,6 @@
     "Enabled",
     "LogTypes",
     "Mappings"
-  ]
+  ],
+  "additionalProperties": false
 }

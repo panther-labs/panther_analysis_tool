@@ -38,5 +38,6 @@
     "AnalysisType",
     "Filename",
     "GlobalID"
-  ]
+  ],
+  "additionalProperties": false
 }

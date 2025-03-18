@@ -112,6 +112,7 @@ def convert_schema_to_json(schema: Schema) -> Dict[str, Any]:
         "type": "object",
         "properties": {},
         "required": [],
+        "additionalProperties": False
     }
     
     if hasattr(schema, "schema"):

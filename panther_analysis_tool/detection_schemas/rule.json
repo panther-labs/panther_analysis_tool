@@ -201,5 +201,6 @@
     "RuleID",
     "LogTypes",
     "Severity"
-  ]
+  ],
+  "additionalProperties": false
 }

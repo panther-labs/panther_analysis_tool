@@ -85,5 +85,6 @@
     "Filename",
     "Schema",
     "LogTypeMap"
-  ]
+  ],
+  "additionalProperties": false
 }

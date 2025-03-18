@@ -67,5 +67,6 @@
     "Enabled",
     "Query",
     "Schedule"
-  ]
+  ],
+  "additionalProperties": false
 }

@@ -174,5 +174,6 @@
     "Filename",
     "PolicyID",
     "Severity"
-  ]
+  ],
+  "additionalProperties": false
 }

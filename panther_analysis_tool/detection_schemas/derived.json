@@ -140,5 +140,6 @@
     "AnalysisType",
     "RuleID",
     "BaseDetection"
-  ]
+  ],
+  "additionalProperties": false
 }
