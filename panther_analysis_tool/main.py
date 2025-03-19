@@ -389,7 +389,7 @@ def print_upload_summary(response: dict) -> None:
 def upload_zip(
     backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
 ) -> Tuple[int, str]:
-    # extract max retries we should handle
+    # Extract max retries we should handle
     max_retries = args.max_retries
 
     # Validate and limit max_retries
