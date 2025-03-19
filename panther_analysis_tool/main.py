@@ -391,7 +391,7 @@ def upload_zip(
 ) -> Tuple[int, str]:
     # extract max retries we should handle
     max_retries = args.max_retries
-    
+
     # Validate and limit max_retries
     if max_retries < 0:
         logging.warning("Invalid max-retries value %s, using 0 instead", max_retries)
