@@ -105,7 +105,7 @@ class ChunkFiles:
             self.files.append(filename)
             if parent is None:
                 self.primary_files.append(filename)
-            
+
         if parent:
             self.related_files[parent] = filename
 
