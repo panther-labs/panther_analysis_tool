@@ -34,7 +34,7 @@ jobs:
     - name: Install Build and Run PAT Tests
       run: |
         pipenv run pip install --root-user-action=ignore dist/panther_analysis_tool-*.tar.gz
-        pipenv run make integration
+        pipenv run make test integration
 
     - name: Create Github Release
       run: |
