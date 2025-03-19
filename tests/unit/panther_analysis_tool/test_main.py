@@ -74,6 +74,12 @@ class TestPantherAnalysisTool(TestCase):
         # Data Models and Globals write the source code to a file and import it as module.
         # This will not work if we are simply writing on the in-memory, fake filesystem.
         # We thus copy to a temporary space the Data Model Python modules.
+
+        # Ensure _DATAMODEL_FOLDER is a directory, not a file
+        if os.path.exists(_DATAMODEL_FOLDER) and not os.path.isdir(_DATAMODEL_FOLDER):
+            os.remove(_DATAMODEL_FOLDER)
+        os.makedirs(_DATAMODEL_FOLDER, exist_ok=True)
+
         self.data_model_modules = [
             os.path.join(
                 DETECTIONS_FIXTURES_PATH, "valid_analysis/data_models/GSuite.Events.DataModel.py"
@@ -104,7 +110,9 @@ class TestPantherAnalysisTool(TestCase):
     def tearDown(self) -> None:
         with Pause(self.fs):
             for data_model_module in self.data_model_modules:
-                os.remove(os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1]))
+                file_path = os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1])
+                if os.path.exists(file_path):
+                    os.remove(file_path)
 
     def test_valid_json_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(

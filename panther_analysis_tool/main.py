@@ -389,8 +389,16 @@ def print_upload_summary(response: dict) -> None:
 def upload_zip(
     backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
 ) -> Tuple[int, str]:
-    # extract max retries we should handle
+    # Extract max retries we should handle
     max_retries = args.max_retries
+
+    # Validate and limit max_retries
+    if max_retries < 0:
+        logging.warning("Invalid max-retries value %s, using 0 instead", max_retries)
+        max_retries = 0
+    elif max_retries > 10:
+        logging.warning("max-retries value %s exceeds maximum of 10, using 10 instead", max_retries)
+        max_retries = 10
 
     with open(archive, "rb") as analysis_zip:
         logging.info("Uploading items to Panther")
@@ -2044,7 +2052,6 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Retry to upload on a failure for a maximum number of times",
         default=10,
         type=int,
-        choices=range(1, 11),
         required=False,
     )
 
