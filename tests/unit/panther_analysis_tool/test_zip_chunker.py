@@ -19,7 +19,7 @@ class TestZipChunks(unittest.TestCase):
         self.assertEqual(chunk.related_files, {"file1": "shared_dep", "file2": "shared_dep"})
 
     def test_additional_chunks_does_not_split_shared_files(self) -> None:
-        # tests that a single file can have multiple parents
+        # tests that a shared file is included in both chunks
         chunk = ChunkFiles(ZipChunk(patterns=["*"], max_size=1))
         chunk.add_file("file1")
         chunk.add_file("shared_dep", "file1")
