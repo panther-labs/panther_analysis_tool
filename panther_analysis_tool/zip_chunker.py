@@ -105,8 +105,9 @@ class ChunkFiles:
             self.files.append(filename)
             if parent is None:
                 self.primary_files.append(filename)
-            else:
-                self.related_files[parent] = filename
+            
+        if parent:
+            self.related_files[parent] = filename
 
     def can_chunk_further(self) -> bool:
         if self.chunk.max_size is None:
