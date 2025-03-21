@@ -622,22 +622,22 @@ class TestPATSchemas(unittest.TestCase):
             "RuleID": "Test.Rule",
             "LogTypes": ["AWS.CloudTrail"],
             "Severity": "Medium",
-            "DedupPeriodMinutes": 5  # Minimum valid value
+            "DedupPeriodMinutes": 5,  # Minimum valid value
         }
         RULE_SCHEMA.validate(valid_rule)
-        
+
         valid_rule["DedupPeriodMinutes"] = 60  # Common value
         RULE_SCHEMA.validate(valid_rule)
-        
+
         valid_rule["DedupPeriodMinutes"] = 1440  # Maximum valid value
         RULE_SCHEMA.validate(valid_rule)
-        
+
         # Test valid values for derived rule
         valid_derived_rule = {
             "AnalysisType": "rule",
             "RuleID": "Test.DerivedRule",
             "BaseDetection": "Test.BaseRule",
-            "DedupPeriodMinutes": 60  # Valid value
+            "DedupPeriodMinutes": 60,  # Valid value
         }
         DERIVED_SCHEMA.validate(valid_derived_rule)
 
@@ -651,23 +651,23 @@ class TestPATSchemas(unittest.TestCase):
             "RuleID": "Test.Rule",
             "LogTypes": ["AWS.CloudTrail"],
             "Severity": "Medium",
-            "DedupPeriodMinutes": 4  # Below minimum
+            "DedupPeriodMinutes": 4,  # Below minimum
         }
         with self.assertRaises(SchemaError) as context:
             RULE_SCHEMA.validate(invalid_rule)
         self.assertIn("must be between 5 and 1440", str(context.exception))
-        
+
         invalid_rule["DedupPeriodMinutes"] = 1441  # Above maximum
         with self.assertRaises(SchemaError) as context:
             RULE_SCHEMA.validate(invalid_rule)
         self.assertIn("must be between 5 and 1440", str(context.exception))
-        
+
         # Test invalid values for derived rule
         invalid_derived_rule = {
             "AnalysisType": "rule",
             "RuleID": "Test.DerivedRule",
             "BaseDetection": "Test.BaseRule",
-            "DedupPeriodMinutes": 2000  # Invalid value
+            "DedupPeriodMinutes": 2000,  # Invalid value
         }
         with self.assertRaises(SchemaError) as context:
             DERIVED_SCHEMA.validate(invalid_derived_rule)
