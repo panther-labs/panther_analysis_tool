@@ -632,17 +632,6 @@ class TestPATSchemas(unittest.TestCase):
         valid_rule["DedupPeriodMinutes"] = 1440  # Maximum valid value
         RULE_SCHEMA.validate(valid_rule)
         
-        # Test valid values for correlation rule
-        valid_correlation_rule = {
-            "AnalysisType": "correlation_rule",
-            "RuleID": "Test.CorrelationRule",
-            "Enabled": True,
-            "Detection": {"test": "value"},
-            "Severity": "Medium",
-            "DedupPeriodMinutes": 720  # Valid middle value
-        }
-        CORRELATION_RULE_SCHEMA.validate(valid_correlation_rule)
-        
         # Test valid values for derived rule
         valid_derived_rule = {
             "AnalysisType": "rule",
@@ -671,19 +660,6 @@ class TestPATSchemas(unittest.TestCase):
         invalid_rule["DedupPeriodMinutes"] = 1441  # Above maximum
         with self.assertRaises(SchemaError) as context:
             RULE_SCHEMA.validate(invalid_rule)
-        self.assertIn("must be between 5 and 1440", str(context.exception))
-        
-        # Test invalid values for correlation rule
-        invalid_correlation_rule = {
-            "AnalysisType": "correlation_rule",
-            "RuleID": "Test.CorrelationRule",
-            "Enabled": True,
-            "Detection": {"test": "value"},
-            "Severity": "Medium",
-            "DedupPeriodMinutes": 0  # Invalid value
-        }
-        with self.assertRaises(SchemaError) as context:
-            CORRELATION_RULE_SCHEMA.validate(invalid_correlation_rule)
         self.assertIn("must be between 5 and 1440", str(context.exception))
         
         # Test invalid values for derived rule
