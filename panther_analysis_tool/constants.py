@@ -1,8 +1,8 @@
-import importlib_metadata
 import os
 import tempfile
 from typing import Dict, Final
 
+import importlib_metadata
 from schema import Schema
 
 from panther_analysis_tool.schemas import (
