@@ -122,6 +122,9 @@ typed-ast = "1.5.5"
 types-python-dateutil = "*"
 types-requests = "*"
 
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
 [tool.black]
 line-length = 100
 
@@ -138,16 +141,6 @@ max-line-length = 140
 
 [tool.pylint."messages control"]
 disable = [
-    "raw-checker-failed",
-    "bad-inline-option",
-    "locally-disabled",
-    "file-ignored",
-    "suppressed-message",
-    "useless-suppression",
-    "deprecated-pragma",
-    "use-symbolic-message-instead",
-    "use-implicit-booleaness-not-comparison-to-string",
-    "use-implicit-booleaness-not-comparison-to-zero",
     "missing-module-docstring",
     "missing-class-docstring",
     "missing-function-docstring",
