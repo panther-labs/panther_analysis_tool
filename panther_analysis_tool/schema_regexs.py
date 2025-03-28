@@ -114,6 +114,7 @@ LOG_TYPE_REGEX = Regex(
     r"Juniper\.MWS|"
     r"Juniper\.Postgres|"
     r"Juniper\.Security|"
+    r"Kandji\.Endpoint|"
     r"Lacework\.AgentManagement|"
     r"Lacework\.AlertDetails|"
     r"Lacework\.AllFiles|"
