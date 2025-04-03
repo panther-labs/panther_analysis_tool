@@ -36,7 +36,7 @@ jobs:
 
     - name: Create Branch and Pull Request
       run: |
-        NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
+        NEW_VERSION="$(poetry version -s)"
         git config --global user.email "github-service-account-automation@panther.io"
         git config --global user.name "panther-bot-automation"
         git checkout -b "$NEW_VERSION"
