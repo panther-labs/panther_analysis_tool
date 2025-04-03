@@ -21,6 +21,14 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Setup Python
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+      with:
+        python-version: 3.11
+      
+    - name: Install poetry
+      run: make install-poetry
+
     - name: Bump version
       id: bump_version
       run: |
