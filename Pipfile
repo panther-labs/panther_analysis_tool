@@ -51,7 +51,7 @@ semver = "==2.13.0"
 six = "==1.16.0"
 sqlfluff = "==2.3.1"
 typing-extensions = "==4.7.1"
-urllib3 = "==1.26.18"
+urllib3 = "==1.26.19"
 wrapt = "==1.15.0"
 
 [requires]
