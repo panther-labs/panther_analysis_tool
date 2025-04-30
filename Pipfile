@@ -33,7 +33,7 @@ dynaconf = "==3.2.2"
 gql = { extras = ["aiohttp"], version = ">=3.4.1" }
 aiohttp = ">=3.9.4"
 graphql-core = "==3.2.3"
-idna = "==3.4"
+idna = "==3.7"
 jmespath = "==1.0.1"
 jsonlines = "==4.0.0"
 jsonpath-ng = "==1.5.3"
