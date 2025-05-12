@@ -45,7 +45,7 @@ dependencies = [
     "multidict==6.1.0",
     "nested-lookup==0.2.25",
     "packaging==23.1",
-    "panther-core==0.11.2",
+    "panther-core (==0.12.1)",
     "pathspec==0.12.1",
     "pluggy==1.5.0",
     "ply==3.11",
