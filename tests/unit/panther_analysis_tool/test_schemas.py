@@ -412,17 +412,19 @@ class TestPATSchemas(unittest.TestCase):
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
 
     def test_created_by(self):
-        RULE_SCHEMA.validate({
-            "AnalysisType": "rule",
-            "Description": "SomeRule",
-            "DisplayName": "Some Rule",
-            "Enabled": True,
-            "Filename": "rule.py",
-            "Severity": "Low",
-            "LogTypes": ["Panther.Audit"],
-            "RuleID": "'Some.Rule1.CreatedBy'",
-            "CreatedBy": "eee",
-        })
+        RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "rule",
+                "Description": "SomeRule",
+                "DisplayName": "Some Rule",
+                "Enabled": True,
+                "Filename": "rule.py",
+                "Severity": "Low",
+                "LogTypes": ["Panther.Audit"],
+                "RuleID": "'Some.Rule1.CreatedBy'",
+                "CreatedBy": "eee",
+            }
+        )
         POLICY_SCHEMA.validate(
             {
                 "AnalysisType": "policy",
@@ -431,7 +433,7 @@ class TestPATSchemas(unittest.TestCase):
                 "PolicyID": "h",
                 "Severity": "Info",
                 "ResourceTypes": ["AWS.DynamoDB.Table"],
-                "CreatedBy": "hello"
+                "CreatedBy": "hello",
             }
         )
         CORRELATION_RULE_SCHEMA.validate(
@@ -473,7 +475,7 @@ class TestPATSchemas(unittest.TestCase):
                 "RuleID": "h",
                 "Severity": "Info",
                 "LogTypes": ["AWS.ALB"],
-                "CreatedBy": "yes!"
+                "CreatedBy": "yes!",
             }
         )
         # test validation works that it must be a string
@@ -486,10 +488,9 @@ class TestPATSchemas(unittest.TestCase):
                     "RuleID": "h",
                     "Severity": "Info",
                     "LogTypes": ["AWS.ALB"],
-                    "CreatedBy": 123
+                    "CreatedBy": 123,
                 }
             )
-
 
     def test_rba_flag(self):
         RULE_SCHEMA.validate(
