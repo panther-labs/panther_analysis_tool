@@ -1,11 +1,4 @@
-import glob
-import importlib
-import locale
-import os
-import sys
 import unittest
-
-import sqlfluff
 
 from panther_analysis_tool.validation import (
     contains_invalid_table_names,
