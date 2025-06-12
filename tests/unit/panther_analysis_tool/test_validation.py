@@ -130,11 +130,6 @@ class TestContainsInvalidTableNames(unittest.TestCase):
         self.assertFalse(output)
 
     def test_simple_sql(self):
-        print("\n--- DEBUG: test_simple_sql ---")
-        for f in glob.glob("tests/fixtures/queries/invalid/*"):
-            print(f"File: {f}")
-            with open(f) as file:
-                print(file.read())
         sql = self.invalid_sql
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
