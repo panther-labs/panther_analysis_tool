@@ -1,4 +1,11 @@
+import glob
+import importlib
+import locale
+import os
+import sys
 import unittest
+
+import sqlfluff
 
 from panther_analysis_tool.validation import (
     contains_invalid_table_names,
@@ -18,6 +25,9 @@ class TestContainsInvalidTableNames(unittest.TestCase):
            error_code IS NOT NULL
            GROUP BY reported_client_type, user_name
            HAVING counts >= 3"""
+
+    def setUp(self):
+        importlib.reload(sqlfluff)
 
     def test_complex_sql_list_pattern(self):
         sql = """
@@ -123,11 +133,19 @@ class TestContainsInvalidTableNames(unittest.TestCase):
         self.assertFalse(output)
 
     def test_simple_sql(self):
+        print("\n--- DEBUG: test_simple_sql ---")
+        for f in glob.glob("tests/fixtures/queries/invalid/*"):
+            print(f"File: {f}")
+            with open(f) as file:
+                print(file.read())
         sql = self.invalid_sql
+        print("SQL being tested:", sql)
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
-
+        print("analysis_spec:", analysis_spec)
+        print("analysis_id:", analysis_id)
         output = contains_invalid_table_names(analysis_spec, analysis_id, [])
+        print("contains_invalid_table_names output:", output)
         self.assertTrue(output)
 
     def test_with_supplied_valid_table_name(self):
