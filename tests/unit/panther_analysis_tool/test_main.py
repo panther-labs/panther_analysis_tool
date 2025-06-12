@@ -17,13 +17,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import glob
 import io
 import json
-import locale
 import os
 import shutil
-import sys
 from datetime import datetime
 from unittest import mock
 

@@ -26,8 +26,6 @@ class TestContainsInvalidTableNames(unittest.TestCase):
            GROUP BY reported_client_type, user_name
            HAVING counts >= 3"""
 
-    def setUp(self):
-        importlib.reload(sqlfluff)
 
     def test_complex_sql_list_pattern(self):
         sql = """
