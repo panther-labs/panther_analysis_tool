@@ -136,13 +136,9 @@ class TestContainsInvalidTableNames(unittest.TestCase):
             with open(f) as file:
                 print(file.read())
         sql = self.invalid_sql
-        print("SQL being tested:", sql)
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
-        print("analysis_spec:", analysis_spec)
-        print("analysis_id:", analysis_id)
         output = contains_invalid_table_names(analysis_spec, analysis_id, [])
-        print("contains_invalid_table_names output:", output)
         self.assertTrue(output)
 
     def test_with_supplied_valid_table_name(self):
