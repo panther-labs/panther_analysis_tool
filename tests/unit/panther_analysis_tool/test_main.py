@@ -72,21 +72,6 @@ def _mock_invoke(**_kwargs):  # pylint: disable=C0103
     }
 
 
-def print_debug_info():
-    print("\n--- DEBUG INFO ---")
-    print("sys.platform:", sys.platform)
-    print("os.name:", os.name)
-    print("Python version:", sys.version)
-    print("Default encoding:", sys.getdefaultencoding())
-    print("Filesystem encoding:", sys.getfilesystemencoding())
-    print("Locale:", locale.getdefaultlocale())
-    print("CWD:", os.getcwd())
-    print("Env PWD:", os.environ.get("PWD"))
-    print("Listing fixtures/queries/invalid:")
-    for f in glob.glob("tests/fixtures/queries/invalid/*"):
-        print("  ", f, "exists:", os.path.exists(f))
-
-
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
         # Data Models and Globals write the source code to a file and import it as module.
@@ -589,21 +574,13 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
 
     def test_invalid_query(self):
-        print("\n--- DEBUG: test_invalid_query ---")
-        for f in glob.glob("tests/fixtures/queries/invalid/*"):
-            print(f"File: {f}")
-            with open(f) as file:
-                print(file.read())
         # sqlfluff doesn't load correctly with the fake file system
         with Pause(self.fs):
             args = pat.setup_parser().parse_args(
                 f"test --path {FIXTURES_PATH}/queries/invalid".split()
             )
             args.filter_inverted = {}
-            print("args:", args)
             return_code, invalid_specs = pat.test_analysis(args)
-        print("return_code:", return_code)
-        print("invalid_specs:", invalid_specs)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 4)
 
@@ -630,21 +607,13 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_fails_when_partial_table_name_provided(self):
-        print("\n--- DEBUG: test_invalid_query_fails_when_partial_table_name_provided ---")
-        for f in glob.glob("tests/fixtures/queries/invalid/*"):
-            print(f"File: {f}")
-            with open(f) as file:
-                print(file.read())
         # sqlfluff doesn't load correctly with the fake file system
         with Pause(self.fs):
             args = pat.setup_parser().parse_args(
                 f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
             )
             args.filter_inverted = {}
-            print("args:", args)
             return_code, invalid_specs = pat.test_analysis(args)
-        print("return_code:", return_code)
-        print("invalid_specs:", invalid_specs)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 1)
 
