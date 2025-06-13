@@ -49,13 +49,14 @@ class TestUtilities(unittest.TestCase):
                 os.path.join(path, "schema-2.yaml"),
                 os.path.join(path, "schema-3.yml"),
                 os.path.join(path, "schema_1_tests.yml"),
+                os.path.join(path, "schema_2_tests.yaml"),
             ],
         )
 
     def test_ignore_schema_test_files(self):
         base_path = os.path.join(FIXTURES_PATH, "custom-schemas", "valid")
         schema_files = ["lookup-table-schema-1.yml", "schema-1.yml", "schema-2.yml", "schema-3.yml"]
-        schema_test_files = ["schema_1_tests.yml"]
+        schema_test_files = ["schema_1_tests.yml", "schema_2_tests.yaml"]
 
         all_files = [
             os.path.join(base_path, filename) for filename in schema_files + schema_test_files

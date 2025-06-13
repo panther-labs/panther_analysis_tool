@@ -297,7 +297,7 @@ def _contains_schema_tests(filename: str) -> bool:
     """
     # pantherlog requires that files containing test cases have a specific suffix and extension:
     # https://github.com/panther-labs/panther-enterprise/blob/75dd7ac2be67d3388edabb914b87f514ea9bd2cf/internal/log_analysis/log_processor/logtypes/logtesting/logtesting.go#L302
-    if not filename.endswith("_tests.yml"):
+    if not (filename.endswith("_tests.yml") or filename.endswith("_tests.yaml")):
         return False
 
     yaml_parser = YAML(typ="safe")
