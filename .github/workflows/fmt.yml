@@ -28,6 +28,7 @@ jobs:
       - name: Format
         run: make fmt
       - name: Import GPG key
+        if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
@@ -35,6 +36,7 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
       - name: Commit formatting
+        if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
         run: |
           git config --global user.name "panther-bot-automation"
           git config --global user.email "github-service-account-automation@panther.io"
