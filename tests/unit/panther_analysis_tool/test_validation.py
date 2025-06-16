@@ -1,5 +1,7 @@
 import unittest
 
+import sqlfluff
+
 from panther_analysis_tool.validation import (
     contains_invalid_table_names,
     matches_valid_table_name,
@@ -126,7 +128,6 @@ class TestContainsInvalidTableNames(unittest.TestCase):
         sql = self.invalid_sql
         analysis_spec = {"Query": sql}
         analysis_id = "analysis_id_1"
-
         output = contains_invalid_table_names(analysis_spec, analysis_id, [])
         self.assertTrue(output)
 
