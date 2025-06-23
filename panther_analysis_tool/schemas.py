@@ -310,11 +310,13 @@ LOOKUP_TABLE_SCHEMA = Schema(
         Or("Filename", "Refresh"): Or(
             str,
             {
-                "RoleARN": str,
                 "ObjectPath": str,
                 Optional("PeriodMinutes"): int,
                 Optional("AlarmPeriodMinutes"): int,
+                Optional("RoleARN"): str,
                 Optional("ObjectKMSKey"): str,
+                Optional("GCSCredentials"): str,
+                Optional("StorageProvider"): str,
             },
         ),
         "Schema": str,
