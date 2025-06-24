@@ -1388,7 +1388,11 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["PeriodMinutes", "ObjectPath"]
+      "required": ["PeriodMinutes", "ObjectPath", "StorageProvider"],
+      "oneOf": [
+        {"required": ["GCSCredentials"]},
+        {"required": ["RoleARN"]}
+      ]
     },
     "ReportItem": {
       "oneOf": [
