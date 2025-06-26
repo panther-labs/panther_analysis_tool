@@ -21,11 +21,12 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install pip and poetry
+    - name: Setup Virtual Environment
+      run: make venv
+    
+    - name: Export dependencies
       run: |
-        python -m pip install --root-user-action=ignore --upgrade pip
-        pip install --root-user-action=ignore poetry
-        make venv
+        make reqs
 
     - name: Build Release tar.gz
       run: |
