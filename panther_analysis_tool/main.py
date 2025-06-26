@@ -847,7 +847,7 @@ def test_analysis(
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
         backend=backend,
-        test_names=getattr(args, 'test_names', None),
+        test_names=getattr(args, "test_names", None),
     )
     invalid_specs.extend(invalid_detections)
 
@@ -1010,10 +1010,21 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         }
 
+        if test_names:
+            if not set(test_names) & {t["Name"] for t in analysis_spec.get("Tests", [])}:
+                print(
+                    analysis_spec.get("RuleID")
+                    or analysis_spec.get("PolicyID")
+                    or analysis_spec_filename
+                )
+                print(f"\tNo tests match the provided test names: {test_names}\n")
+                skipped_tests.append((analysis_spec_filename, analysis_spec))
+                continue
+
         correlation_rule_results = []
         is_corr_rule = is_correlation_rule(analysis_spec)
         if is_corr_rule:
-            correlation_rule_results = test_correlation_rule(analysis_spec, backend)
+            correlation_rule_results = test_correlation_rule(analysis_spec, backend, test_names)
             if not correlation_rule_results:
                 skipped_tests.append((analysis_spec_filename, analysis_spec))
 
@@ -1113,14 +1124,6 @@ def print_summary(
     skipped_tests: List[Tuple[str, dict]],
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
-    print("--------------------------")
-    print("Test Summary")
-    print(f"\tPath: {test_path}")
-    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
-    print(f"\tSkipped: {len(skipped_tests)}")
-    print(f"\tFailed: {len(failed_tests)}")
-    print(f"\tInvalid: {len(invalid_specs)}\n")
-
     err_message = "\t{}\n\t\t{}\n"
 
     if skipped_tests:
@@ -1140,6 +1143,14 @@ def print_summary(
         print("Invalid Tests Summary")
         for spec_filename, spec_error in invalid_specs:
             print(err_message.format(spec_filename, spec_error))
+
+    print("--------------------------")
+    print("Test Summary")
+    print(f"\tPath: {test_path}")
+    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
+    print(f"\tSkipped: {len(skipped_tests)}")
+    print(f"\tFailed: {len(failed_tests)}")
+    print(f"\tInvalid: {len(invalid_specs)}\n")
 
 
 # pylint: disable=too-many-locals,too-many-statements
@@ -1666,11 +1677,6 @@ def _run_tests(  # pylint: disable=too-many-arguments
     # Filter tests by name if test_names is provided
     if test_names:
         tests = [test for test in tests if test.get("Name") in test_names]
-        if not tests:
-            # No tests match the filter - this is informational, not an error
-            if not all_test_results:
-                print(f"\tNo tests match the provided test names: {test_names}")
-            return failed_tests
 
     for unit_test in tests:
         test_output = ""

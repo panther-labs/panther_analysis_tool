@@ -491,13 +491,21 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
 
 
 def test_correlation_rule(
-    spec: Dict[str, Any], backend: Optional[BackendClient] = None
+    spec: Dict[str, Any],
+    backend: Optional[BackendClient] = None,
+    test_names: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     # dont make network call if there's no tests to run, or if no backend
     if "Tests" not in spec or backend is None:
         return out
     try:
+        # Filter tests by name
+        if test_names:
+            tests = spec.get("Tests", [])
+            tests = [t for t in tests if t["Name"] in test_names]
+            spec["Tests"] = tests
+
         yaml = get_yaml_loader(roundtrip=True)
         string_io = io.StringIO()
         yaml.dump(spec, stream=string_io)
