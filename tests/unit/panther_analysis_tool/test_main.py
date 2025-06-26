@@ -363,6 +363,39 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
+    def test_with_test_names_filter(self):
+        # Test that we can filter tests by name using --test-names
+        args = pat.setup_parser().parse_args(
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --test-names 'True Event'".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
+        # Should pass because the specified test exists in the fixtures
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
+    def test_with_test_names_filter_and_rule_filter(self):
+        # Test combining rule filter with test name filter
+        args = pat.setup_parser().parse_args(
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter RuleID=Example.Rule --test-names 'True Event'".split()
+        )
+        args.filter, args.filter_inverted = pat.parse_filter(args.filter)
+        return_code, invalid_specs = pat.test_analysis(args)
+        # Should pass because we're filtering to a specific rule and test
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
+    def test_with_test_names_filter_nonexistent_test(self):
+        # Test with a test name that doesn't exist
+        args = pat.setup_parser().parse_args(
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --test-names 'Nonexistent Test'".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
+        # Should still return 0 because no tests failing, just no tests matching the filter
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
     def test_with_minimum_tests(self):
         args = pat.setup_parser().parse_args(
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
