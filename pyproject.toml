@@ -126,13 +126,16 @@ types-requests = "*"
 poetry-plugin-export = ">=1.8"
 
 [tool.black]
+exclude = '\.poetry'
 line-length = 100
 
 [tool.isort]
 profile = "black"
+skip = ['\.poetry']
 
 [tool.mypy]
 disallow_untyped_defs = true
+exclude = ['^.poetry\\']
 ignore_missing_imports = true
 warn_unused_ignores = true
 
