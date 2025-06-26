@@ -2453,8 +2453,21 @@ def run() -> None:
         sys.exit(1)
 
     if return_code == 1:
-        if out:
-            logging.error(out)
+        # out is excpected to be a a list of tuples of (filename, error_message)
+        if out and isinstance(out, list):
+            try:
+                # Try some nicer error printing if we can
+                error = ""
+                for errspec in out:
+                    if isinstance(errspec, tuple):
+                        fname, error = errspec
+                    else:
+                        fname = ""
+                        error = errspec
+                msg = str(error).replace("\n", " ")  # Remove newlines from error message
+                logging.error("%s %s", fname, msg)
+            except Exception:  # pylint: disable=broad-except
+                logging.error(out)  # Fallback to printing the entire output
     elif return_code == 0:
         if out:
             logging.info(out)
