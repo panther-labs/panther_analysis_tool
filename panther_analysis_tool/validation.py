@@ -38,11 +38,11 @@ def contains_invalid_table_names(
     if query is not None:
         try:
             parsed_query = parse(query, "snowflake")
-        except Exception:  # pylint: disable=broad-except
+        except Exception as exc:  # pylint: disable=broad-except
             # Intentionally broad exception catch:
             # We want to fall back on original behavior if this third-party parser cannot tell us the table names
             logging.info("Failed to parse query %s. Skipping table name validation", analysis_id)
-            raise Exception("Failed to parse query")
+            raise ValueError("Failed to parse query") from exc
         tables = nested_lookup("table_reference", parsed_query)
         aliases = get_aliases(parsed_query)
         for table in tables:
