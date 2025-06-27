@@ -1674,8 +1674,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             test_output_buf = io.StringIO()
-            with contextlib.redirect_stdout(test_output_buf), contextlib.redirect_stderr(
-                test_output_buf
+            with (
+                contextlib.redirect_stdout(test_output_buf),
+                contextlib.redirect_stderr(test_output_buf),
             ):
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
