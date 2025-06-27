@@ -151,3 +151,7 @@ disable = [
     "too-many-lines",
     "too-few-public-methods"
 ]
+
+[tool.sqlfluff.core]
+dialect = "snowflake"
+templater = "jinja"
