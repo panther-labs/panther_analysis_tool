@@ -42,7 +42,7 @@ def contains_invalid_table_names(
             # Intentionally broad exception catch:
             # We want to fall back on original behavior if this third-party parser cannot tell us the table names
             logging.info("Failed to parse query %s. Skipping table name validation", analysis_id)
-            raise ValueError("Failed to parse query") from exc
+            raise exc
         tables = nested_lookup("table_reference", parsed_query)
         aliases = get_aliases(parsed_query)
         for table in tables:
