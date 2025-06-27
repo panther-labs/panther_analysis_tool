@@ -27,6 +27,7 @@ jobs:
       - name: Lint
         run: make lint
       - name: Unit Tests
+        working-directory: panther_analysis_tool
         run: make test
       - name: Integration Tests
         run: make integration
