@@ -41,7 +41,7 @@ def contains_invalid_table_names(
     if query is not None:
         try:
             parsed_query = parse(query, config=SQLFLUFF_COMFIG)
-        except Exception: # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             # Intentionally broad exception catch:
             # We want to fall back on original behavior if this third-party parser cannot tell us the table names
             logging.info("Failed to parse query %s. Skipping table name validation", analysis_id)
