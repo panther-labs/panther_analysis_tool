@@ -38,15 +38,14 @@ def contains_invalid_table_names(
 ) -> List[str]:
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
-    # breakpoint()
     if query is not None:
         try:
             parsed_query = parse(query, config=SQLFLUFF_COMFIG)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception: # pylint: disable=broad-except
             # Intentionally broad exception catch:
             # We want to fall back on original behavior if this third-party parser cannot tell us the table names
             logging.info("Failed to parse query %s. Skipping table name validation", analysis_id)
-            raise exc
+            return []
         tables = nested_lookup("table_reference", parsed_query)
         aliases = get_aliases(parsed_query)
         for table in tables:
@@ -77,7 +76,6 @@ def contains_invalid_table_names(
                         invalid_table_names.append(table_name)
     else:
         logging.info("No query found for %s", analysis_id)
-    # breakpoint()
     return invalid_table_names
 
 
