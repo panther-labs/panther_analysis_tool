@@ -421,10 +421,10 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, out_filename = pat.zip_analysis(args)
+        self.assertEqual(return_code, 0)
         self.assertTrue(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
         self.assertTrue(statinfo.st_size > 0)
-        self.assertEqual(return_code, 0)
         self.assertTrue(out_filename.endswith(".zip"))
 
     def test_zip_analysis_chunks(self):
@@ -514,9 +514,8 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertEqual(return_code, 1)
                 self.assertEqual(logging_mocks["debug"].call_count, 20)
                 self.assertEqual(logging_mocks["warning"].call_count, 1)
-                # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
-                # which can be removed by pausing the fake file system
-                self.assertEqual(logging_mocks["info"].call_count, 5)
+                # test + zip + upload messages
+                self.assertEqual(logging_mocks["info"].call_count, 3)
                 self.assertEqual(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
@@ -531,7 +530,7 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertEqual(return_code, 1)
                 self.assertEqual(logging_mocks["debug"].call_count, 0)
                 self.assertEqual(logging_mocks["warning"].call_count, 2)
-                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(logging_mocks["info"].call_count, 3)
                 self.assertEqual(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
@@ -547,7 +546,7 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertEqual(logging_mocks["debug"].call_count, 20)
                 # warning about max and final error
                 self.assertEqual(logging_mocks["warning"].call_count, 2)
-                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(logging_mocks["info"].call_count, 3)
                 self.assertEqual(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
