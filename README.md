@@ -82,6 +82,29 @@ AWS.IAM.MFAEnabled
     [PASS] User MFA not enabled fails compliance
 ```
 
+Run a specific unit test of a rule:
+
+```bash
+$ panther_analysis_tool test --filter RuleID=AWS.IAM.AccessKeyCompromised --test-names "An AWS Access Key was Uploaded to Github"
+[INFO]: Testing analysis items in .
+
+AWS.IAM.AccessKeyCompromised
+        [PASS] An AWS Access Key was Uploaded to Github
+```
+
+Run specific unit tests of a rule:
+
+```bash
+$ panther_analysis_tool test --filter RuleID=AWS.CloudTrail.Stopped --test-names "CloudTrail Was Stopped" "Error Stopping CloudTrail"
+[INFO]: Testing analysis items in .
+
+        [PASS] CloudTrail Was Stopped
+        ...
+        [PASS] Error Stopping CloudTrail
+                [PASS] [rule] false
+```
+
+
 ### Upload
 
 Create packages to upload through the Panther UI:
