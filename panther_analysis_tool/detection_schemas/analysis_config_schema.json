@@ -1388,7 +1388,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "required": ["PeriodMinutes", "ObjectPath", "StorageProvider"],
+      "required": ["PeriodMinutes", "ObjectPath"],
       "oneOf": [
         {"required": ["GCSCredentials"]},
         {"required": ["RoleARN"]}
