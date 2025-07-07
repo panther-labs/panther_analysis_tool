@@ -1,22 +1,3 @@
-"""
-Panther Analysis Tool is a command line interface for writing,
-testing, and packaging policies/rules.
-Copyright (C) 2020 Panther Labs Inc
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
 import io
 import json
 import os
@@ -421,10 +402,10 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         return_code, out_filename = pat.zip_analysis(args)
+        self.assertEqual(return_code, 0)
         self.assertTrue(out_filename.startswith("tmp/"))
         statinfo = os.stat(out_filename)
         self.assertTrue(statinfo.st_size > 0)
-        self.assertEqual(return_code, 0)
         self.assertTrue(out_filename.endswith(".zip"))
 
     def test_zip_analysis_chunks(self):
@@ -514,9 +495,8 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertEqual(return_code, 1)
                 self.assertEqual(logging_mocks["debug"].call_count, 20)
                 self.assertEqual(logging_mocks["warning"].call_count, 1)
-                # test + zip + upload messages, + 3 messages about sqlfluff loading improperly,
-                # which can be removed by pausing the fake file system
-                self.assertEqual(logging_mocks["info"].call_count, 5)
+                # test + zip + upload messages
+                self.assertEqual(logging_mocks["info"].call_count, 3)
                 self.assertEqual(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
@@ -531,7 +511,7 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertEqual(return_code, 1)
                 self.assertEqual(logging_mocks["debug"].call_count, 0)
                 self.assertEqual(logging_mocks["warning"].call_count, 2)
-                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(logging_mocks["info"].call_count, 3)
                 self.assertEqual(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
@@ -547,7 +527,7 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertEqual(logging_mocks["debug"].call_count, 20)
                 # warning about max and final error
                 self.assertEqual(logging_mocks["warning"].call_count, 2)
-                self.assertEqual(logging_mocks["info"].call_count, 5)
+                self.assertEqual(logging_mocks["info"].call_count, 3)
                 self.assertEqual(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
