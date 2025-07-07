@@ -68,3 +68,4 @@ coverage.xml
 
 *.orig
 .panther_settings.yml
+panther-analysis/
