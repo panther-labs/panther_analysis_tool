@@ -9,17 +9,13 @@ help:
 .PHONY: ci
 ci: lint test integration
 
-.PHONY: install-pipenv
-install-pipenv:
-	pip install pipenv
-
 .PHONY: install-poetry
 install-poetry:
-	pip install poetry
+	which poetry || pip install poetry
 
 .PHONY: deps
-deps: ## Install dependencies (including dev dependencies) using poetry
-	poetry sync
+deps: ## Install dependencies (excluding dev dependencies) using poetry
+	poetry sync --only main
 
 .PHONY: deps-update
 deps-update: ## Update dependencies using poetry
@@ -38,8 +34,7 @@ lint: ## Lint panther_analysis_tool (mypy, bandit, pylint)
 	poetry run pylint $(packages)
 
 .PHONY: venv
-venv: ## Install dependencies (including dev dependencies) using poetry
-	poetry sync
+venv: install-poetry install # Sets up venv from scratch
 
 .PHONY: fmt
 fmt: ## Format panther_analysis_tool (black)
@@ -49,7 +44,6 @@ fmt: ## Format panther_analysis_tool (black)
 .PHONY: install
 install: ## Install dependencies (including dev dependencies) using poetry
 	poetry sync
-	poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 .PHONY: test
 test: ## Run panther_analysis_tool tests
