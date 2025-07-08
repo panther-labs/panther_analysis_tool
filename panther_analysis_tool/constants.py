@@ -1,8 +1,8 @@
+import importlib.metadata
 import os
 import tempfile
 from typing import Dict, Final
 
-import importlib_metadata
 from schema import Schema
 
 from panther_analysis_tool.schemas import (
@@ -20,7 +20,7 @@ from panther_analysis_tool.schemas import (
 
 PACKAGE_NAME: Final = "panther_analysis_tool"
 
-VERSION_STRING: Final = importlib_metadata.version(PACKAGE_NAME)
+VERSION_STRING: Final = importlib.metadata.version(PACKAGE_NAME)
 
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
