@@ -828,6 +828,7 @@ def test_analysis(
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
         backend=backend,
+        test_names=getattr(args, "test_names", None),
     )
     invalid_specs.extend(invalid_detections)
 
@@ -969,6 +970,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer] = None,
     backend: typing.Optional[BackendClient] = None,
+    test_names: typing.Optional[List[str]] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any], List[Tuple[str, dict]]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -989,10 +991,21 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         }
 
+        if test_names:
+            if not set(test_names) & {t["Name"] for t in analysis_spec.get("Tests", [])}:
+                print(
+                    analysis_spec.get("RuleID")
+                    or analysis_spec.get("PolicyID")
+                    or analysis_spec_filename
+                )
+                print(f"\tNo tests match the provided test names: {test_names}\n")
+                skipped_tests.append((analysis_spec_filename, analysis_spec))
+                continue
+
         correlation_rule_results = []
         is_corr_rule = is_correlation_rule(analysis_spec)
         if is_corr_rule:
-            correlation_rule_results = test_correlation_rule(analysis_spec, backend)
+            correlation_rule_results = test_correlation_rule(analysis_spec, backend, test_names)
             if not correlation_rule_results:
                 skipped_tests.append((analysis_spec_filename, analysis_spec))
 
@@ -1076,6 +1089,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             ignore_exception_types,
             all_test_results,
             correlation_rule_results,
+            test_names,
         )
 
         if not all_test_results:
@@ -1091,14 +1105,6 @@ def print_summary(
     skipped_tests: List[Tuple[str, dict]],
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
-    print("--------------------------")
-    print("Test Summary")
-    print(f"\tPath: {test_path}")
-    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
-    print(f"\tSkipped: {len(skipped_tests)}")
-    print(f"\tFailed: {len(failed_tests)}")
-    print(f"\tInvalid: {len(invalid_specs)}\n")
-
     err_message = "\t{}\n\t\t{}\n"
 
     if skipped_tests:
@@ -1118,6 +1124,14 @@ def print_summary(
         print("Invalid Tests Summary")
         for spec_filename, spec_error in invalid_specs:
             print(err_message.format(spec_filename, spec_error))
+
+    print("--------------------------")
+    print("Test Summary")
+    print(f"\tPath: {test_path}")
+    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
+    print(f"\tSkipped: {len(skipped_tests)}")
+    print(f"\tFailed: {len(failed_tests)}")
+    print(f"\tInvalid: {len(invalid_specs)}\n")
 
 
 # pylint: disable=too-many-locals,too-many-statements
@@ -1539,6 +1553,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
+    test_names: typing.Optional[List[str]] = None,
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection_id].append(
@@ -1560,6 +1575,7 @@ def run_tests(  # pylint: disable=too-many-arguments
         all_test_results,
         correlation_rule_test_results,
         detection_id,
+        test_names,
     )
 
     if minimum_tests > 1 and not (
@@ -1627,6 +1643,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
     all_test_results: typing.Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
     detection_id: str,
+    test_names: typing.Optional[List[str]] = None,
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
@@ -1637,6 +1654,10 @@ def _run_tests(  # pylint: disable=too-many-arguments
             all_test_results,
             failed_tests,
         )
+
+    # Filter tests by name if test_names is provided
+    if test_names:
+        tests = [test for test in tests if test.get("Name") in test_names]
 
     for unit_test in tests:
         test_output = ""
@@ -1887,6 +1908,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "default": [],
     }
+    test_names_name = "--test-names"
+    test_names_arg: Dict[str, Any] = {
+        "required": False,
+        "metavar": "TEST_NAME",
+        "nargs": "+",
+        "help": "Only run tests with these names. Can be used with --filter to run specific tests for specific rules.",
+    }
 
     # -- root parser
 
@@ -1954,6 +1982,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
+    test_parser.add_argument(test_names_name, **test_names_arg)
     test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
 
     # -- publish command
@@ -2288,6 +2317,7 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("SKIP_DISABLED_TESTS", is_type_of=bool),
             Validator("IGNORE_FILES", is_type_of=(str, list)),
             Validator("AVAILABLE_DESTINATION", is_type_of=(str, list)),
+            Validator("TEST_NAMES", is_type_of=(str, list)),
             Validator("KMS_KEY", is_type_of=str),
             Validator("BODY", is_type_of=str),
             Validator("GITHUB_BRANCH", is_type_of=str),
