@@ -2460,8 +2460,8 @@ def run() -> None:
         sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
-        logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
-        logging.debug("Full error traceback:", exc_info=err)
+        logging.warning('Unhandled exception: "%s"', err)
+        logging.debug("Full error traceback:", exc_info=err, stack_info=True)
         sys.exit(1)
 
     if return_code == 1:

@@ -392,24 +392,6 @@ def load_analysis_specs_ex(
                                 yaml_ctx=yaml,
                                 error=err,
                             )
-                if fnmatch(filename, "*.json"):
-                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
-                        try:
-                            yield LoadAnalysisSpecsResult(
-                                spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=json.load(spec_file_obj),
-                                yaml_ctx=yaml,
-                                error=None,
-                            )
-                        except ValueError as err:
-                            yield LoadAnalysisSpecsResult(
-                                spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=None,
-                                yaml_ctx=yaml,
-                                error=err,
-                            )
 
 
 def to_relative_path(filename: str) -> str:
