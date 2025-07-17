@@ -74,6 +74,7 @@ from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysisContainer,
     disable_all_base_detections,
     filter_analysis,
+    filter_invalid_specs,
     get_simple_detections_as_python,
     load_analysis_specs,
     load_analysis_specs_ex,
@@ -779,6 +780,10 @@ def test_analysis(
     if getattr(args, "filter_inverted", None) is None:
         args.filter_inverted = {}
     specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
+
+    # Also filter invalid specs when filters are applied
+    if args.filter or args.filter_inverted:
+        invalid_specs = filter_invalid_specs(invalid_specs, args.filter, args.filter_inverted)
 
     if specs.empty():
         return 1, [
