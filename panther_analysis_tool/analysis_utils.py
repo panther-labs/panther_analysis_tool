@@ -163,6 +163,71 @@ def filter_analysis(
     return filtered_analysis
 
 
+def filter_invalid_specs(
+    invalid_specs: List[Any], filters: Dict[str, List], filters_inverted: Dict[str, List]
+) -> List[Any]:
+    """Filter invalid specs based on the same criteria used for valid specs.
+
+    Args:
+        invalid_specs: List of tuples (filename, error) for invalid specs
+        filters: Dictionary of filter criteria
+        filters_inverted: Dictionary of inverted filter criteria
+
+    Returns:
+        Filtered list of invalid specs that would have matched the filter criteria
+    """
+    if not filters and not filters_inverted:
+        return invalid_specs
+
+    filtered_invalid_specs = []
+
+    for spec_filename, error in invalid_specs:
+        # Try to load the raw YAML file to check if it would match filters
+        try:
+            yaml = get_yaml_loader(roundtrip=False)
+            with open(spec_filename, "r", encoding="utf-8") as spec_file:
+                analysis_spec = yaml.load(spec_file)
+
+            # Skip if we can't parse it or it's not a dict
+            if not isinstance(analysis_spec, dict):
+                continue
+
+            # Check if this spec would match the filters
+            match = True
+
+            # Check positive filters
+            for key, values in filters.items():
+                spec_value = analysis_spec.get(key, "")
+                spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+                if not set(spec_value).intersection(values):
+                    match = False
+                    break
+
+            # Check inverted filters
+            if match:
+                for key, values in filters_inverted.items():
+                    spec_value = analysis_spec.get(key, "")
+                    spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+                    if set(spec_value).intersection(values):
+                        match = False
+                        break
+
+            if match:
+                filtered_invalid_specs.append((spec_filename, error))
+
+        except Exception as err:  # pylint: disable=broad-except
+            # If we can't parse the file, we can't determine if it matches filters
+            # So we exclude it from the filtered results
+            logging.warning(
+                "Error parsing invalid spec %s: %s",
+                spec_filename,
+                err,
+            )
+            continue
+
+    return filtered_invalid_specs
+
+
 def load_analysis_specs(
     directories: List[str], ignore_files: List[str]
 ) -> Iterator[Tuple[str, str, Any, Any]]:
