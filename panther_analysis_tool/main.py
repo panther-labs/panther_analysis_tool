@@ -1203,20 +1203,20 @@ def classify_analysis(
             # Raise warnings for dedup minutes
             if "DedupPeriodMinutes" in analysis_spec:
                 if analysis_spec["DedupPeriodMinutes"] == 0:
-                    logging.warning(
-                        "DedupPeriodMinutes is set to 0 for %s. "
+                    msg = (
+                        f"DedupPeriodMinutes is set to 0 for {analysis_id}. "
                         "This will be ignored by the backend. "
                         "If you want to disable dedup, "
-                        "alter the `dedup` function to return 'p_row_id' instead.",
-                        analysis_id,
+                        "alter the `dedup` function to return 'p_row_id' instead."
                     )
+                    logging.warning(msg)
                 elif analysis_spec["DedupPeriodMinutes"] < 5:
-                    logging.warning(
-                        "DedupPeriodMinutes for %s is less than 5. "
+                    msg = (
+                        f"DedupPeriodMinutes for {analysis_id} is less than 5. "
                         "This is below Panther's DedupPeriodMinutes threshold, "
-                        "and will be treated as '5' upon upload.",
-                        analysis_id,
+                        "and will be treated as '5' upon upload."
                     )
+                    logging.warning(msg)
 
             classified_analysis = ClassifiedAnalysis(
                 analysis_spec_filename, dir_name, analysis_spec
