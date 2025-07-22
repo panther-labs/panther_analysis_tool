@@ -1744,7 +1744,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
                             n_frames = idx
                             break
                     err_tb = err.__traceback__
-                    for _ in range(n_frames+1):
+                    for _ in range(n_frames + 1):
                         err_tb = err_tb.tb_next
                     logging.error(err.with_traceback(err_tb))
                     traceback.print_tb(err_tb)
