@@ -1736,7 +1736,16 @@ def _run_tests(  # pylint: disable=too-many-arguments
             if debug_args and debug_args.get("debug_mode", False):
                 # Print excceptiosn relative to the rule.py file
                 if err := result.detection_exception:
-                    err_tb = err.__traceback__.tb_next.tb_next.tb_next
+                    # Get the count of frames
+                    frames = traceback.extract_tb(err.__traceback__)
+                    n_frames = 0
+                    for idx, frame in enumerate(frames):
+                        if frame.name == "_run_command":
+                            n_frames = idx
+                            break
+                    err_tb = err.__traceback__
+                    for _ in range(n_frames+1):
+                        err_tb = err_tb.tb_next
                     logging.error(err.with_traceback(err_tb))
                     traceback.print_tb(err_tb)
 
