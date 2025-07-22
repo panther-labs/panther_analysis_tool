@@ -2052,7 +2052,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # -- debug command
 
-    debug_help_text = "Validate analysis specifications and run policy and rule tests."
+    debug_help_text = "Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints."
     debug_parser = subparsers.add_parser(
         "debug",
         help=debug_help_text,

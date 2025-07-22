@@ -198,7 +198,6 @@ class TestDebugFunctionality(TestCase):
             patch("panther_analysis_tool.main.logging.error") as mock_error,
             patch("panther_analysis_tool.main.traceback.print_tb") as mock_print_tb,
         ):
-
             result = pat._run_tests(
                 analysis_data_models={},
                 detection=detection,
@@ -416,7 +415,6 @@ class TestDebugFunctionality(TestCase):
             patch.object(pat, "cleanup_global_helpers"),
             patch.object(pat, "validate_packs") as mock_validate_packs,
         ):
-
             mock_setup_tests.return_value = ({}, [], [])
             mock_setup_data_models.return_value = ({}, [])
             mock_validate_packs.return_value = []
@@ -525,7 +523,6 @@ class TestDebugFunctionality(TestCase):
             patch.object(pat, "cleanup_global_helpers"),
             patch.object(pat, "validate_packs") as mock_validate_packs,
         ):
-
             # Mock minimal setup
             mock_specs = MagicMock()
             mock_specs.empty.return_value = False
