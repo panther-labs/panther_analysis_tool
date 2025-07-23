@@ -781,9 +781,7 @@ def test_analysis(
         args.filter_inverted = {}
     specs = specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
 
-    # Also filter invalid specs when filters are applied
-    if args.filter or args.filter_inverted:
-        invalid_specs = filter_invalid_specs(invalid_specs, args.filter, args.filter_inverted)
+    # Note: Invalid specs are not filtered - they represent validation errors that should always be reported
 
     if specs.empty():
         return 1, [
