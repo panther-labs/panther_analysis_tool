@@ -110,7 +110,7 @@ $ panther_analysis_tool test --filter RuleID=AWS.CloudTrail.Stopped --test-names
 Run a specific unit test in debug mode:
 
 ```bash
-panther_analysis_tool test My.RuleID "My unit test name"
+panther_analysis_tool debug My.RuleID "My unit test name"
 ```
 
 See print statements like
