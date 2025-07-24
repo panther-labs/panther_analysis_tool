@@ -991,3 +991,271 @@ class TestPantherAnalysisTool(TestCase):
                 expected in return_str,
                 f"expected to find {expected} in {return_str} but no matches found",
             )
+
+    def test_classify_analysis_valid_specs(self):
+        """Test classify_analysis with valid analysis specs"""
+        # Valid rule spec
+        valid_rule_spec = {
+            "AnalysisType": "rule",
+            "RuleID": "Test.Rule.ID",
+            "DisplayName": "Test Rule",
+            "Enabled": True,
+            "Filename": "test_rule.py",
+            "LogTypes": ["AWS.CloudTrail"],
+            "Severity": "High",
+        }
+
+        # Valid policy spec
+        valid_policy_spec = {
+            "AnalysisType": "policy",
+            "PolicyID": "Test.Policy.ID",
+            "DisplayName": "Test Policy",
+            "Enabled": True,
+            "Filename": "test_policy.py",
+            "ResourceTypes": ["AWS.S3.Bucket"],
+            "Severity": "High",
+        }
+
+        # Valid global spec
+        valid_global_spec = {
+            "AnalysisType": "global",
+            "GlobalID": "Test.Global.ID",
+            "Filename": "test_global.py",
+        }
+
+        specs = [
+            ("test_rule.yml", "/test", valid_rule_spec, None),
+            ("test_policy.yml", "/test", valid_policy_spec, None),
+            ("test_global.yml", "/test", valid_global_spec, None),
+        ]
+
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=True, valid_table_names=[]
+        )
+
+        # Should have no invalid specs
+        self.assertEqual(len(invalid_specs), 0)
+
+        # Should classify correctly
+        self.assertEqual(len(all_specs.detections), 2)  # rule and policy
+        self.assertEqual(len(all_specs.globals), 1)
+        self.assertEqual(len(all_specs.data_models), 0)
+        self.assertEqual(len(all_specs.queries), 0)
+        self.assertEqual(len(all_specs.lookup_tables), 0)
+        self.assertEqual(len(all_specs.packs), 0)
+
+    def test_classify_analysis_invalid_specs(self):
+        """Test classify_analysis with invalid analysis specs"""
+        # Invalid spec - missing required fields
+        invalid_spec = {
+            "AnalysisType": "rule",
+            # Missing RuleID, DisplayName, etc.
+        }
+
+        specs = [
+            ("invalid_rule.yml", "/test", invalid_spec, None),
+        ]
+
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=True, valid_table_names=[]
+        )
+
+        # Should have one invalid spec
+        self.assertEqual(len(invalid_specs), 1)
+        self.assertEqual(invalid_specs[0][0], "invalid_rule.yml")
+
+        # Should have no valid specs
+        self.assertTrue(all_specs.empty())
+
+    def test_classify_analysis_duplicate_ids(self):
+        """Test classify_analysis with duplicate analysis IDs"""
+        duplicate_rule_spec1 = {
+            "AnalysisType": "rule",
+            "RuleID": "Duplicate.Rule.ID",
+            "DisplayName": "Test Rule 1",
+            "Enabled": True,
+            "Filename": "test_rule1.py",
+            "LogTypes": ["AWS.CloudTrail"],
+            "Severity": "High",
+        }
+
+        duplicate_rule_spec2 = {
+            "AnalysisType": "rule",
+            "RuleID": "Duplicate.Rule.ID",  # Same ID as above
+            "DisplayName": "Test Rule 2",
+            "Enabled": True,
+            "Filename": "test_rule2.py",
+            "LogTypes": ["AWS.CloudTrail"],
+            "Severity": "High",
+        }
+
+        specs = [
+            ("test_rule1.yml", "/test", duplicate_rule_spec1, None),
+            ("test_rule2.yml", "/test", duplicate_rule_spec2, None),
+        ]
+
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=True, valid_table_names=[]
+        )
+
+        # Should have one valid spec and one invalid (duplicate)
+        self.assertEqual(len(invalid_specs), 1)
+        self.assertEqual(len(all_specs.detections), 1)
+
+        # Check the invalid spec is the duplicate one
+        self.assertEqual(invalid_specs[0][0], "test_rule2.yml")
+        self.assertIsInstance(invalid_specs[0][1], pat.AnalysisIDConflictException)
+
+    def test_classify_analysis_with_parsing_errors(self):
+        """Test classify_analysis with parsing errors passed in"""
+        valid_spec = {
+            "AnalysisType": "rule",
+            "RuleID": "Test.Rule.ID",
+            "DisplayName": "Test Rule",
+            "Enabled": True,
+            "Filename": "test_rule.py",
+            "LogTypes": ["AWS.CloudTrail"],
+            "Severity": "High",
+        }
+
+        # Simulate a parsing error
+        parsing_error = ValueError("Invalid YAML syntax")
+
+        specs = [
+            ("valid_rule.yml", "/test", valid_spec, None),
+            ("invalid_yaml.yml", "/test", {}, parsing_error),  # Error passed in
+        ]
+
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=True, valid_table_names=[]
+        )
+
+        # Should have one valid spec and one invalid
+        self.assertEqual(len(invalid_specs), 1)
+        self.assertEqual(len(all_specs.detections), 1)
+
+        # Check the invalid spec has the parsing error
+        self.assertEqual(invalid_specs[0][0], "invalid_yaml.yml")
+        self.assertIsInstance(invalid_specs[0][1], ValueError)
+
+    def test_classify_analysis_scheduled_query_table_names(self):
+        """Test classify_analysis with scheduled query table name validation"""
+        from panther_analysis_tool.main import (
+            AnalysisContainsInvalidTableNamesException,
+        )
+
+        # Valid scheduled query spec with invalid table name
+        scheduled_query_spec = {
+            "AnalysisType": "scheduled_query",
+            "QueryName": "Test.Query",
+            "Enabled": True,
+            "Query": "SELECT * FROM invalid_table_name",
+            "Schedule": {"RateMinutes": 60, "TimeoutMinutes": 5},
+        }
+
+        specs = [
+            ("test_query.yml", "/test", scheduled_query_spec, None),
+        ]
+
+        # Test with table name validation enabled (ignore_table_names=False)
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=False, valid_table_names=[]
+        )
+
+        # Should have one invalid spec due to invalid table names
+        self.assertEqual(len(invalid_specs), 1)
+        self.assertEqual(invalid_specs[0][0], "test_query.yml")
+        self.assertIsInstance(invalid_specs[0][1], AnalysisContainsInvalidTableNamesException)
+
+        # Test with table name validation disabled (ignore_table_names=True)
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=True, valid_table_names=[]
+        )
+
+        # Should have no invalid specs when ignoring table names
+        self.assertEqual(len(invalid_specs), 0)
+        self.assertEqual(len(all_specs.queries), 1)
+
+    def test_classify_analysis_dedup_warnings(self):
+        """Test classify_analysis with DedupPeriodMinutes warnings"""
+        import logging
+
+        # Rule spec with DedupPeriodMinutes = 0
+        rule_spec_zero_dedup = {
+            "AnalysisType": "rule",
+            "RuleID": "Test.Rule.Zero.Dedup",
+            "DisplayName": "Test Rule Zero Dedup",
+            "Enabled": True,
+            "Filename": "test_rule.py",
+            "LogTypes": ["AWS.CloudTrail"],
+            "Severity": "High",
+            "DedupPeriodMinutes": 0,
+        }
+
+        # Rule spec with DedupPeriodMinutes < 5
+        rule_spec_low_dedup = {
+            "AnalysisType": "rule",
+            "RuleID": "Test.Rule.Low.Dedup",
+            "DisplayName": "Test Rule Low Dedup",
+            "Enabled": True,
+            "Filename": "test_rule.py",
+            "LogTypes": ["AWS.CloudTrail"],
+            "Severity": "High",
+            "DedupPeriodMinutes": 3,
+        }
+
+        specs = [
+            ("test_rule_zero.yml", "/test", rule_spec_zero_dedup, None),
+            ("test_rule_low.yml", "/test", rule_spec_low_dedup, None),
+        ]
+
+        with mock.patch.object(logging, "warning") as mock_warning:
+            all_specs, invalid_specs = pat.classify_analysis(
+                specs, ignore_table_names=True, valid_table_names=[]
+            )
+
+            # Should have no invalid specs (warnings don't make specs invalid)
+            self.assertEqual(len(invalid_specs), 0)
+            self.assertEqual(len(all_specs.detections), 2)
+
+            # Should have logged warnings
+            self.assertEqual(mock_warning.call_count, 2)
+            warning_messages = [call.args[0] for call in mock_warning.call_args_list]
+            self.assertTrue(
+                any("DedupPeriodMinutes is set to 0" in msg for msg in warning_messages)
+            )
+            self.assertTrue(
+                any(
+                    "DedupPeriodMinutes for Test.Rule.Low.Dedup is less than 5" in msg
+                    for msg in warning_messages
+                )
+            )
+
+    def test_classify_analysis_derived_detection(self):
+        """Test classify_analysis with derived detection"""
+        # Derived detection spec
+        derived_spec = {
+            "AnalysisType": "rule",
+            "RuleID": "Derived.Rule.ID",
+            "DisplayName": "Derived Rule",
+            "Enabled": True,
+            "BaseDetection": "Base.Rule.ID",  # This makes it a derived detection
+            "Severity": "High",
+        }
+
+        specs = [
+            ("derived_rule.yml", "/test", derived_spec, None),
+        ]
+
+        all_specs, invalid_specs = pat.classify_analysis(
+            specs, ignore_table_names=True, valid_table_names=[]
+        )
+
+        # Should classify as a valid detection
+        self.assertEqual(len(invalid_specs), 0)
+        self.assertEqual(len(all_specs.detections), 1)
+
+        # Check that it was classified correctly
+        derived_analysis = all_specs.detections[0]
+        self.assertEqual(derived_analysis.analysis_spec["RuleID"], "Derived.Rule.ID")
+        self.assertEqual(derived_analysis.analysis_spec["BaseDetection"], "Base.Rule.ID")

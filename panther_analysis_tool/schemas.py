@@ -25,13 +25,6 @@ class QueryScheduleSchema(Schema):
         return data
 
 
-# Add validation function for DedupPeriodMinutes
-def validate_dedup_period(minutes: int) -> int:
-    if minutes < 5 or minutes > 1440:
-        raise SchemaError("DedupPeriodMinutes must be between 5 and 1440")
-    return minutes
-
-
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
 RESOURCE_TYPE_REGEX = Regex(
     r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
@@ -154,7 +147,7 @@ RULE_SCHEMA = Schema(
         Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): And(int, validate_dedup_period),
+        Optional("DedupPeriodMinutes"): int,
         Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
@@ -194,7 +187,7 @@ DERIVED_SCHEMA = Schema(
         Optional("Enabled"): bool,
         Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): And(int, validate_dedup_period),
+        Optional("DedupPeriodMinutes"): int,
         Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
