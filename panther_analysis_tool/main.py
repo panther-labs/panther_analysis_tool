@@ -2498,7 +2498,7 @@ def run() -> None:
                 logging.error("%s %s", fname, msg)
             except Exception:  # pylint: disable=broad-except
                 logging.error(out)  # Fallback to printing the entire output
-        else: # If it's not a tuple, just print the output
+        else:  # If it's not a tuple, just print the output
             logging.error(out)
     elif return_code == 0 and out:
         logging.info(out)
