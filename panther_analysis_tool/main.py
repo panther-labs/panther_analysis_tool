@@ -9,7 +9,7 @@ import json
 import logging
 import mimetypes
 import os
-import re
+from pathlib import Path
 import shutil
 import subprocess  # nosec
 import sys
@@ -18,32 +18,34 @@ import typing  # 'from typing import Optional' conflicts with 'from schema impor
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
-from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, List, Tuple, Type
+from typing import Any, DefaultDict, Dict, List, Optional, Tuple, Type
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import typer
+
+from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.directory import setup_temp
+from panther_analysis_tool.libs import analysis_cache
+from panther_analysis_tool.libs.definitions import TestResultContainer, TestResultsContainer
 
 # this is needed at this location so each process can have its own temp directory
 setup_temp()
 
 import botocore
 import dateutil.parser
-import jsonschema
 import requests
 import schema
 from colorama import Fore, Style
 from dynaconf import Dynaconf, Validator
 from gql.transport.aiohttp import log as aiohttp_logger
-from jsonschema.validators import Draft202012Validator
 from panther_core.data_model import DataModel
 from panther_core.enriched_event import PantherEvent
 from panther_core.exceptions import UnknownDestinationError
@@ -58,24 +60,16 @@ from panther_core.testing import (
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
-from schema import (
-    Optional,
-    SchemaError,
-    SchemaForbiddenKeyError,
-    SchemaMissingKeyError,
-    SchemaUnexpectedTypeError,
-    SchemaWrongKeyError,
-)
 
 from panther_analysis_tool import cli_output
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
-    ClassifiedAnalysisContainer,
+    classify_analysis,
     disable_all_base_detections,
     filter_analysis,
+    load_analysis,
     get_simple_detections_as_python,
-    load_analysis_specs,
     load_analysis_specs_ex,
     lookup_base_detection,
     test_correlation_rule,
@@ -95,17 +89,22 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    gedit,
+    merge,
+    rev,
     standard_args,
     validate,
+    init_project,
+    enable,
+    fetch,
+    clone,
 )
+from panther_analysis_tool.command.standard_args import API_DOCUMENTATION
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     CONFIG_FILE,
-    DATA_MODEL_LOCATION,
     ENABLE_CORRELATION_RULES_FLAG,
-    HELPERS_LOCATION,
     PACKAGE_NAME,
-    SCHEMAS,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
     AnalysisTypes,
@@ -114,13 +113,10 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
-    ANALYSIS_CONFIG_SCHEMA,
     DERIVED_SCHEMA,
-    GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
-    TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -133,8 +129,6 @@ from panther_analysis_tool.util import (
     is_simple_detection,
 )
 from panther_analysis_tool.validation import (
-    contains_invalid_field_set,
-    contains_invalid_table_names,
     validate_packs,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
@@ -148,71 +142,11 @@ constructor.SafeConstructor.add_constructor(
 )
 
 
-# exception for conflicting ids
-class AnalysisIDConflictException(Exception):
-    def __init__(self, analysis_id: str):
-        self.message = f"Conflicting AnalysisID: [{analysis_id}]"
-        super().__init__(self.message)
-
-
-# exception for conflicting ids
-class AnalysisContainsDuplicatesException(Exception):
-    def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = f'Specification file for [{analysis_id}] contains fields \
-        with duplicate values: [{", ".join(x for x in invalid_fields)}]'
-        super().__init__(self.message)
-
-
-# Exception for invalid Panther Snowflake table names
-class AnalysisContainsInvalidTableNamesException(Exception):
-    def __init__(self, analysis_id: str, invalid_table_names: List[str]):
-        self.message = (
-            f'Specification file for [{analysis_id}] contains invalid Panther table names: [{", ".join(x for x in invalid_table_names)}]. '
-            'Try using a fully qualified table name such as "panther_logs.public.log_type" '
-            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables."
-        )
-        super().__init__(self.message)
-
-
-@dataclass
-class TestResultContainer:
-    detection: typing.Optional[Detection]
-    result: TestResult
-    failed_tests: DefaultDict[str, list]
-    output: str
-
-
-@dataclass
-class TestResultsContainer:
-    """A container for all test results"""
-
-    passed: Dict[str, List[TestResultContainer]]
-    errored: Dict[str, List[TestResultContainer]]
-
-
-def load_module(filename: str) -> Tuple[Any, Any]:
-    """Loads the analysis function module from a file.
-
-    Args:
-        filename: The relative path to the file.
-
-    Returns:
-        A loaded Python module.
-    """
-    module_name = filename.split(".")[0]
-    spec = importlib.util.spec_from_file_location(module_name, filename)
-    module = importlib.util.module_from_spec(spec)  # type: ignore
-    try:
-        assert isinstance(spec.loader, Loader)  # type: ignore # nosec
-        spec.loader.exec_module(module)  # type: ignore
-    except FileNotFoundError as err:
-        print("\t[ERROR] File not found: " + filename + ", skipping\n")
-        return None, err
-    except Exception as err:  # pylint: disable=broad-except
-        # Catch arbitrary exceptions thrown by user code
-        print("\t[ERROR] Error loading module, skipping\n")
-        return None, err
-    return module, None
+app = typer.Typer(
+    help="Panther Analysis Tool: A command line tool for managing Panther policies and rules.",
+    add_completion=True,
+    rich_markup_mode="rich",  # optional, nicer help formatting
+)
 
 
 def datetime_converted(obj: Any) -> Any:
@@ -710,48 +644,6 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
-def load_analysis(
-    path: str,
-    ignore_table_names: bool,
-    valid_table_names: List[str],
-    ignore_files: List[str],
-) -> Tuple[Any, List[Any]]:
-    """Loads each policy or rule into memory.
-
-    Args:
-        path: path to root folder with rules and policies
-        ignore_table_names: validate or ignore table names
-        valid_table_names: list of valid table names, other will be treated as invalid
-        ignore_files: Files that Panther Analysis Tool should not process
-
-    Returns:
-        A tuple of the valid and invalid rules and policies
-    """
-    search_directories = [path]
-    for directory in (
-        HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,  # Try the parent directory as well
-        DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
-    ):
-        absolute_dir_path = os.path.abspath(os.path.join(path, directory))
-        absolute_helper_path = os.path.abspath(directory)
-
-        if os.path.exists(absolute_dir_path):
-            search_directories.append(absolute_dir_path)
-        if os.path.exists(absolute_helper_path):
-            search_directories.append(absolute_helper_path)
-
-    # First classify each file, always include globals and data models location
-    specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files)),
-        ignore_table_names=ignore_table_names,
-        valid_table_names=valid_table_names,
-    )
-
-    return specs, invalid_specs
-
-
 # pylint: disable=too-many-locals
 def test_analysis(
     args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
@@ -923,7 +815,7 @@ def setup_data_models(
         if analysis_spec["Enabled"]:
             body = None
             if "Filename" in analysis_spec:
-                _, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
+                _, load_err = analysis_utils.load_module(os.path.join(dir_name, analysis_spec["Filename"]))
                 # If the module could not be loaded, continue to the next
                 if load_err:
                     invalid_specs.append((analysis_spec_filename, load_err))
@@ -1132,138 +1024,6 @@ def print_summary(
     print(f"\tSkipped: {len(skipped_tests)}")
     print(f"\tFailed: {len(failed_tests)}")
     print(f"\tInvalid: {len(invalid_specs)}\n")
-
-
-# pylint: disable=too-many-locals,too-many-statements
-def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]],
-    ignore_table_names: bool,
-    valid_table_names: List[str],
-) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
-    # First setup return dict containing different
-    # types of detections, meta types that can be zipped
-    # or uploaded
-    all_specs = ClassifiedAnalysisContainer()
-
-    invalid_specs = []
-    # each analysis type must have a unique id, track used ids and
-    # add any duplicates to the invalid_specs
-    analysis_ids: List[Any] = []
-
-    # Create a json validator and check the schema only once rather than during every loop
-    json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)
-
-    # pylint: disable=too-many-nested-blocks
-    for analysis_spec_filename, dir_name, analysis_spec, error in specs:
-        keys: List[Any] = []
-        tmp_logtypes: Any = None
-        tmp_logtypes_key: Any = None
-        try:
-            # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
-            if error:
-                raise error
-            # validate the schema has a valid analysis type
-            TYPE_SCHEMA.validate(analysis_spec)
-            analysis_type = analysis_spec["AnalysisType"]
-            if analysis_spec.get("BaseDetection"):
-                analysis_schema = SCHEMAS["derived"]
-            else:
-                analysis_schema = SCHEMAS[analysis_type]
-            keys = list(analysis_schema.schema.keys())
-            # Special case for ScheduledQueries to only validate the types
-            if "ScheduledQueries" in analysis_spec:
-                for each_key in analysis_schema.schema.keys():
-                    if str(each_key) == "Or('LogTypes', 'ScheduledQueries')":
-                        tmp_logtypes_key = each_key
-                        break
-                if not tmp_logtypes:
-                    tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
-                analysis_schema.schema[tmp_logtypes_key] = [str]
-
-            analysis_schema.validate(analysis_spec)
-
-            # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
-            if analysis_id in analysis_ids:
-                raise AnalysisIDConflictException(analysis_id)
-            # check for duplicates where panther expects a unique set
-            invalid_fields = contains_invalid_field_set(analysis_spec)
-            if invalid_fields:
-                raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
-                invalid_table_names = contains_invalid_table_names(
-                    analysis_spec, analysis_id, valid_table_names
-                )
-                if invalid_table_names:
-                    raise AnalysisContainsInvalidTableNamesException(
-                        analysis_id, invalid_table_names
-                    )
-            analysis_ids.append(analysis_id)
-
-            # Raise warnings for dedup minutes
-            if "DedupPeriodMinutes" in analysis_spec:
-                if analysis_spec["DedupPeriodMinutes"] == 0:
-                    msg = (
-                        f"DedupPeriodMinutes is set to 0 for {analysis_id}. "
-                        "This will be ignored by the backend. "
-                        "If you want to disable dedup, "
-                        "alter the `dedup` function to return 'p_row_id' instead."
-                    )
-                    logging.warning(msg)
-                elif analysis_spec["DedupPeriodMinutes"] < 5:
-                    msg = (
-                        f"DedupPeriodMinutes for {analysis_id} is less than 5. "
-                        "This is below Panther's DedupPeriodMinutes threshold, "
-                        "and will be treated as '5' upon upload."
-                    )
-                    logging.warning(msg)
-
-            classified_analysis = ClassifiedAnalysis(
-                analysis_spec_filename, dir_name, analysis_spec
-            )
-
-            json_validator.validate(analysis_spec)
-
-            all_specs.add_classified_analysis(analysis_type, classified_analysis)
-
-        except SchemaWrongKeyError as err:
-            invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
-        except (
-            SchemaMissingKeyError,
-            SchemaForbiddenKeyError,
-            SchemaUnexpectedTypeError,
-        ) as err:
-            invalid_specs.append((analysis_spec_filename, err))
-            continue
-        except SchemaError as err:
-            # Intercept the error, otherwise the error message becomes confusing and unreadable
-            error = err
-            err_str = str(err)
-            first_half = err_str.split(":", maxsplit=1)[0]
-            second_half = err_str.split(")", maxsplit=1)[-1]
-            if "LogTypes" in str(err):
-                error = SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
-            elif "ResourceTypes" in str(err):
-                error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
-            invalid_specs.append((analysis_spec_filename, error))
-        except jsonschema.exceptions.ValidationError as err:
-            error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
-            invalid_specs.append(
-                (
-                    analysis_spec_filename,
-                    jsonschema.exceptions.ValidationError(error_message),
-                )
-            )
-        except Exception as err:  # pylint: disable=broad-except
-            # Catch arbitrary exceptions thrown by bad specification files
-            invalid_specs.append((analysis_spec_filename, err))
-            continue
-        finally:
-            # Restore original values
-            if tmp_logtypes and tmp_logtypes_key:
-                analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
-
-    return all_specs, invalid_specs
 
 
 def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
@@ -1523,43 +1283,6 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
     return 0, "Looks like packs are up to date"
 
 
-def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
-    analysis_id = "UNKNOWN_ID"
-    if analysis_type == AnalysisTypes.DATA_MODEL:
-        analysis_id = analysis_spec["DataModelID"]
-    elif analysis_type == AnalysisTypes.GLOBAL:
-        analysis_id = analysis_spec["GlobalID"]
-    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
-        analysis_id = analysis_spec["LookupName"]
-    elif analysis_type == AnalysisTypes.PACK:
-        analysis_id = analysis_spec["PackID"]
-    elif analysis_type == AnalysisTypes.POLICY:
-        analysis_id = analysis_spec["PolicyID"]
-    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type == AnalysisTypes.SAVED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type in [
-        AnalysisTypes.RULE,
-        AnalysisTypes.SCHEDULED_RULE,
-        AnalysisTypes.CORRELATION_RULE,
-    ]:
-        analysis_id = analysis_spec["RuleID"]
-    return analysis_id
-
-
-def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
-    regex = r"Wrong key(?:s)? (.+?) in (.*)$"
-    matches = re.match(regex, str(err))
-    msg = "{} not in list of valid keys: {}"
-    try:
-        if matches:
-            raise SchemaWrongKeyError(msg.format(matches.group(1), keys)) from err
-        raise SchemaWrongKeyError(msg.format("UNKNOWN_KEY", keys)) from err
-    except SchemaWrongKeyError as exc:
-        return exc
-
-
 def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
@@ -1803,536 +1526,732 @@ def _print_test_result(
                 print(f'\t\t[{status_pass}] [{printable_name}] {function_result.get("output")}')
 
 
-def setup_parser() -> argparse.ArgumentParser:
-    # pylint: disable=too-many-statements,too-many-locals
-    # setup dictionary of named args for some common arguments across commands
-    batch_uploads_name = "--batch"
-    batch_uploads_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "default": False,
-        "required": False,
-        "help": "When set your upload will be broken down into multiple zip files",
-    }
-    filter_name = "--filter"
-    filter_arg: Dict[str, Any] = {
-        "required": False,
-        "metavar": "KEY=VALUE",
-        "nargs": "+",
-    }
-    kms_key_name = "--kms-key"
-    kms_key_arg: Dict[str, Any] = {
-        "type": str,
-        "help": "The key id to use to sign the release asset.",
-        "required": False,
-    }
-    min_test_name = "--minimum-tests"
-    min_test_arg: Dict[str, Any] = {
-        "default": 0,
-        "type": int,
-        "help": "The minimum number of tests in order for a detection to be considered passing. "
-        + "If a number greater than 1 is specified, at least one True and one False test is "
-        + "required.",
-        "required": False,
-    }
-    out_name = "--out"
-    out_arg: Dict[str, Any] = {
-        "default": ".",
-        "type": str,
-        "help": "The path to store output files.",
-        "required": False,
-    }
-    path_name = "--path"
-    path_arg: Dict[str, Any] = {
-        "default": ".",
-        "type": str,
-        "help": "The relative path to Panther policies and rules.",
-        "required": False,
-    }
-    skip_test_name = "--skip-tests"
-    skip_test_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "default": False,
-        "dest": "skip_tests",
-        "required": False,
-    }
-    skip_disabled_test_name = "--skip-disabled-tests"
-    skip_disabled_test_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "default": False,
-        "dest": "skip_disabled_tests",
-        "required": False,
-    }
-    ignore_extra_keys_name = "--ignore-extra-keys"
-    ignore_extra_keys_arg: Dict[str, Any] = {
-        "required": False,
-        "default": False,
-        "type": strtobool,
-        "help": "Meant for advanced users; allows skipping of extra keys from schema validation.",
-    }
-    ignore_files_name = "--ignore-files"
-    ignore_files_arg: Dict[str, Any] = {
-        "required": False,
-        "dest": "ignore_files",
-        "nargs": "+",
-        "help": "Relative path to files in this project to be ignored by panther-analysis tool, "
-        + "space separated. Example ./foo.yaml ./bar/baz.yaml",
-        "type": str,
-        "default": [],
-    }
-    available_destination_name = "--available-destination"
-    available_destination_arg: Dict[str, Any] = {
-        "required": False,
-        "default": None,
-        "type": str,
-        "action": "append",
-        "help": "A destination name that may be returned by the destinations function. "
-        "Repeat the argument to define more than one name.",
-    }
-    sort_test_results_name = "--sort-test-results"
-    sort_test_results_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "required": False,
-        "default": False,
-        "dest": "sort_test_results",
-        "help": "Sort test results by whether the test passed or failed (passing tests first), "
-        "then by rule ID",
-    }
-    print_failed_only_name = "--show-failures-only"
-    print_failed_only_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "required": False,
-        "default": False,
-        "dest": "print_failed_test_results_only",
-        "help": "Only print test results for failed tests.",
-    }
-    ignore_table_names_name = "--ignore-table-names"
-    ignore_table_names_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "default": False,
-        "dest": "ignore_table_names",
-        "required": False,
-        "help": "Allows skipping of table name validation from schema validation. Useful when querying "
-        "non-Panther or non-Snowflake tables",
-    }
-    valid_table_names_name = "--valid-table-names"
-    valid_table_names_arg: Dict[str, Any] = {
-        "required": False,
-        "dest": "valid_table_names",
-        "nargs": "+",
-        "help": "Fully qualified table names that should be considered valid during schema validation "
-        + "(in addition to standard Panther/Snowflake tables), space separated. "
-        + "Accepts '*' as wildcard character matching 0 or more characters. "
-        + "Example foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*",
-        "type": str,
-        "default": [],
-    }
-    test_names_name = "--test-names"
-    test_names_arg: Dict[str, Any] = {
-        "required": False,
-        "metavar": "TEST_NAME",
-        "nargs": "+",
-        "help": "Only run tests with these names. Can be used with --filter to run specific tests for specific rules.",
-    }
+def print_and_exit(message: str) -> None:
+    print(message)
+    sys.exit(0)
 
-    # -- root parser
 
-    parser = argparse.ArgumentParser(
-        description="Panther Analysis Tool: A command line tool for "
-        + "managing Panther policies and rules.",
-        prog="panther_analysis_tool",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument("--version", action="version", version=VERSION_STRING)
-    parser.add_argument("--debug", action="store_true", dest="debug")
-    parser.add_argument("--skip-version-check", dest="skip_version_check", action="store_true")
-    subparsers = parser.add_subparsers()
+@app.callback()
+def global_options(
+    version: Optional[bool] = typer.Option(
+        None, "--version", help="Show the version and exit", is_eager=True, callback=lambda v: print_and_exit(VERSION_STRING) if v else None
+    ),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug mode"),
+    skip_version_check: bool = typer.Option(False, "--skip-version-check", help="Skip Panther version check"),
+):
+    """
+    Panther Analysis Tool: A command line tool for managing Panther policies and rules.
+    """
+    # These options run before any subcommand.
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        aiohttp_logger.setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
+    
+    if not skip_version_check:
+        latest = pat_utils.get_latest_version()
+        if not pat_utils.is_latest(latest):
+            logging.warning(
+                "%s v%s is available (current: v%s). Run: pip3 install %s --upgrade",
+                PACKAGE_NAME,
+                latest,
+                VERSION_STRING,
+                PACKAGE_NAME,
+            )
 
-    # -- release command
 
-    release_help_text = (
-        "Create release assets for repository containing panther detections. "
-        + "Generates a file called panther-analysis-all.zip and optionally generates "
-        + "panther-analysis-all.sig"
-    )
-    release_parser = subparsers.add_parser(
-        "release",
-        help=release_help_text,
-        description=release_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+@app.command(help=(
+    "Create release assets for repository containing panther detections. "
+    "Generates a file called panther-analysis-all.zip and optionally generates "
+    "panther-analysis-all.sig"
+))
+def release(
+    filter: Optional[str] = typer.Option(None, help="Filter detections"),
+    ignore_files: Optional[List[str]] = typer.Option(None, help="List of files to ignore"),
+    kms_key: Optional[str] = typer.Option(None, help="AWS KMS key ID to sign the release"),
+    min_test: Optional[bool] = typer.Option(False, help="Run minimal tests"),
+    out: Optional[Path] = typer.Option(Path("panther-analysis-all.zip"), envvar="PANTHER_OUT", help="Output zip file path"),
+    path: Optional[Path] = typer.Option(Path("."), help="Path to the repo"),
+    skip_test: Optional[bool] = typer.Option(False, envvar="PANTHER_SKIP_TEST", help="Skip all tests"),
+    skip_disabled_tests: Optional[bool] = typer.Option(False, envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests"),
+    available_destination: Optional[str] = typer.Option(None, help="Optional S3 destination"),
+    sort_test_results: Optional[bool] = typer.Option(False, help="Sort test output"),
+    print_failed_only: Optional[bool] = typer.Option(False, help="Only print failed tests"),
+    ignore_table_names: Optional[List[str]] = typer.Option(None, help="Tables to ignore"),
+    valid_table_names: Optional[List[str]] = typer.Option(None, help="Valid table names only"),
+    aws_profile: Optional[str] = typer.Option(
+        None, 
+        envvar="PANTHER_AWS_PROFILE",
+        help="The AWS profile to use when updating the AWS Panther deployment."
+    ),
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    ):
+    # Forward to your logic function
+    generate_release_assets(
+        filter=filter,
+        ignore_files=ignore_files,
+        kms_key=kms_key,
+        min_test=min_test,
+        out=out,
+        path=path,
+        skip_test=skip_test,
+        skip_disabled_tests=skip_disabled_tests,
+        available_destination=available_destination,
+        sort_test_results=sort_test_results,
+        print_failed_only=print_failed_only,
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
+        aws_profile=aws_profile,
+        api_token=api_token,
+        api_host=api_host,
     )
 
-    standard_args.for_public_api(release_parser, required=False)
-    standard_args.using_aws_profile(release_parser)
 
-    release_parser.add_argument(filter_name, **filter_arg)
-    release_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    release_parser.add_argument(kms_key_name, **kms_key_arg)
-    release_parser.add_argument(min_test_name, **min_test_arg)
-    release_parser.add_argument(out_name, **out_arg)
-    release_parser.add_argument(path_name, **path_arg)
-    release_parser.add_argument(skip_test_name, **skip_test_arg)
-    release_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    release_parser.add_argument(available_destination_name, **available_destination_arg)
-    release_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
-    release_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
-    release_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
-    release_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    release_parser.set_defaults(func=generate_release_assets)
+@app.command(help="Validate analysis specifications and run policy and rule tests.")
+def test(
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    filter: Optional[List[str]] = typer.Option(None, metavar="KEY=VALUE", help="Filter detections by key=value"),
+    minimum_tests: int = typer.Option(0, envvar="PANTHER_MINIMUM_TESTS", help="Minimum number of tests to pass a detection"),
+    path: str = typer.Option(".", envvar="PANTHER_PATH", help="Path to Panther policies and rules"),
+    ignore_extra_keys: bool = typer.Option(False, help="Skip extra key validation"),
+    ignore_files: List[str] = typer.Option([], help="Files to ignore", show_default=False),
+    skip_disabled_tests: bool = typer.Option(False, envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests"),
+    available_destination: Optional[List[str]] = typer.Option(None, help="Available destination(s)"),
+    sort_test_results: bool = typer.Option(False, help="Sort test results"),
+    show_failures_only: bool = typer.Option(False, help="Only show failed test results"),
+    ignore_table_names: bool = typer.Option(False, help="Skip table name validation"),
+    valid_table_names: List[str] = typer.Option([], help="Additional valid table names", show_default=False),
+    test_names: Optional[List[str]] = typer.Option(None, metavar="TEST_NAME", help="Run only tests with these names"),
+):
+    if ignore_extra_keys:
+        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
-    # -- test command
-
-    test_help_text = "Validate analysis specifications and run policy and rule tests."
-    test_parser = subparsers.add_parser(
-        "test",
-        help=test_help_text,
-        description=test_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    standard_args.for_public_api(test_parser, required=False)
-    test_parser.add_argument(filter_name, **filter_arg)
-    test_parser.add_argument(min_test_name, **min_test_arg)
-    test_parser.add_argument(path_name, **path_arg)
-    test_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
-    test_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    test_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    test_parser.add_argument(available_destination_name, **available_destination_arg)
-    test_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
-    test_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
-    test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
-    test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    test_parser.add_argument(test_names_name, **test_names_arg)
-    test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
-
-    # -- publish command
-
-    publish_help_text = (
-        "Publishes a new release, generates the release assets, and uploads them. "
-        + "Generates a file called panther-analysis-all.zip and optionally generates "
-        + "panther-analysis-all.sig"
-    )
-    publish_parser = subparsers.add_parser(
-        "publish",
-        help=publish_help_text,
-        description=publish_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    publish_parser.add_argument(
-        "--body",
-        help="The text body for the release",
-        type=str,
-        default="",
-    )
-    publish_parser.add_argument(
-        "--github-branch",
-        help="The branch to base the release on",
-        type=str,
-        default="main",
-    )
-    publish_parser.add_argument(
-        "--github-owner",
-        help="The github owner of the repository",
-        type=str,
-        default="panther-labs",
-    )
-    publish_parser.add_argument(
-        "--github-repository",
-        help="The github repository name",
-        type=str,
-        default="panther-analysis",
-    )
-    publish_parser.add_argument(
-        "--github-tag",
-        help="The tag name for this release",
-        type=str,
-        required=True,
+    pat_utils.func_with_optional_backend(test_analysis)(
+        api_token=api_token,
+        api_host=api_host,
+        filter=filter,
+        minimum_tests=minimum_tests,
+        path=path,
+        ignore_extra_keys=ignore_extra_keys,
+        ignore_files=ignore_files,
+        skip_disabled_tests=skip_disabled_tests,
+        available_destination=available_destination,
+        sort_test_results=sort_test_results,
+        show_failures_only=show_failures_only,
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
+        test_names=test_names,
     )
 
-    standard_args.for_public_api(publish_parser, required=False)
-    standard_args.using_aws_profile(publish_parser)
 
-    publish_parser.add_argument(filter_name, **filter_arg)
-    publish_parser.add_argument(kms_key_name, **kms_key_arg)
-    publish_parser.add_argument(min_test_name, **min_test_arg)
-    publish_parser.add_argument(out_name, **out_arg)
-    publish_parser.add_argument(skip_test_name, **skip_test_arg)
-    publish_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    publish_parser.add_argument(available_destination_name, **available_destination_arg)
-    publish_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    publish_parser.set_defaults(func=publish_release)
 
-    # -- upload command
+@app.command(name="publish", help="Publishes a new release, generates assets, and uploads them.")
+def publish_command(
+    # Shared API / AWS args
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    aws_profile: Optional[str] = typer.Option(
+        None, 
+        envvar="PANTHER_AWS_PROFILE",
+        help="The AWS profile to use when updating the AWS Panther deployment."
+    ),
 
-    upload_help_text = "Upload specified policies and rules to a Panther deployment."
-    upload_parser = subparsers.add_parser(
-        "upload",
-        help=upload_help_text,
-        description=upload_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    upload_parser.add_argument(
-        "--auto-disable-base",
-        help="If uploading derived detections, set the corresponding base detection's Enabled status to false prior to upload",
-        default=False,
-        required=False,
-        action="store_true",
-    )
-    upload_parser.add_argument(
-        "--max-retries",
-        help="Retry to upload on a failure for a maximum number of times",
-        default=10,
-        type=int,
-        required=False,
-    )
+    # GitHub args
+    github_tag: str = typer.Option(..., help="The tag name for this release"),
+    github_branch: str = typer.Option("main", help="The branch to base the release on"),
+    github_owner: str = typer.Option("panther-labs", help="GitHub owner of the repository"),
+    github_repository: str = typer.Option("panther-analysis", help="GitHub repository name"),
+    body: str = typer.Option("", help="Release text body"),
 
-    no_async_uploads_name = "--no-async"
-    no_async_uploads_arg: Dict[str, Any] = {
-        "action": "store_true",
-        "default": False,
-        "required": False,
-        "help": "When set your upload will be synchronous",
-    }
+    # Standard shared args
+    filter: Optional[List[str]] = typer.Option(None, metavar="KEY=VALUE", help="Filter detections"),
+    kms_key: Optional[str] = typer.Option(None, help="KMS key for signing the release"),
+    minimum_tests: int = typer.Option(0, envvar="PANTHER_MINIMUM_TESTS", help="Minimum number of tests required"),
+    out: str = typer.Option(".", envvar="PANTHER_OUT", help="Path to store output files"),
+    skip_tests: bool = typer.Option(False, help="Skip test execution"),
+    skip_disabled_tests: bool = typer.Option(False, envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests"),
+    available_destination: Optional[List[str]] = typer.Option(None, help="Upload destination(s)"),
+    ignore_files: List[str] = typer.Option([], help="Files to ignore", show_default=False),
+):
+    # Optional: wrap with func_with_optional_backend if needed
+    pat_utils.func_with_optional_backend(publish_release)(
+        api_token=api_token,
+        api_host=api_host,
+        aws_profile=aws_profile,
 
-    standard_args.for_public_api(upload_parser, required=False)
-    standard_args.using_aws_profile(upload_parser)
+        github_tag=github_tag,
+        github_branch=github_branch,
+        github_owner=github_owner,
+        github_repository=github_repository,
+        body=body,
 
-    upload_parser.add_argument(filter_name, **filter_arg)
-    upload_parser.add_argument(min_test_name, **min_test_arg)
-    upload_parser.add_argument(out_name, **out_arg)
-    upload_parser.add_argument(path_name, **path_arg)
-    upload_parser.add_argument(skip_test_name, **skip_test_arg)
-    upload_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    upload_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
-    upload_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    upload_parser.add_argument(available_destination_name, **available_destination_arg)
-    upload_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
-    upload_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
-    upload_parser.add_argument(batch_uploads_name, **batch_uploads_arg)
-    upload_parser.add_argument(no_async_uploads_name, **no_async_uploads_arg)
-    upload_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
-    upload_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    upload_parser.set_defaults(func=pat_utils.func_with_backend(upload_analysis))
-
-    # -- delete command
-
-    delete_help_text = "Delete policies, rules, or saved queries from a Panther deployment"
-    delete_parser = subparsers.add_parser(
-        "delete",
-        help=delete_help_text,
-        description=delete_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    delete_parser.add_argument(
-        "--no-confirm",
-        help="Skip manual confirmation of deletion",
-        action="store_true",
-        dest="confirm_bypass",
-    )
-    delete_parser.add_argument(
-        "--athena-datalake",
-        help="Instance DataLake is backed by Athena",
-        action="store_true",
-        dest="athena_datalake",
+        filter=filter,
+        kms_key=kms_key,
+        minimum_tests=minimum_tests,
+        out=out,
+        skip_tests=skip_tests,
+        skip_disabled_tests=skip_disabled_tests,
+        available_destination=available_destination,
+        ignore_files=ignore_files,
     )
 
-    standard_args.for_public_api(delete_parser, required=False)
-    standard_args.using_aws_profile(delete_parser)
 
-    delete_parser.add_argument(
-        "--analysis-id",
-        help="Space separated list of Detection IDs",
-        required=False,
-        dest="analysis_id",
-        type=str,
-        default=[],
-        nargs="+",
+@app.command(help="Upload specified policies and rules to a Panther deployment.")
+def upload(
+    # Shared dependencies
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    aws_profile: Optional[str] = typer.Option(
+        None, 
+        envvar="PANTHER_AWS_PROFILE",
+        help="The AWS profile to use when updating the AWS Panther deployment."
+    ),
+    # Upload-specific flags
+    auto_disable_base: bool = typer.Option(False, help="Auto-disable base detection"),
+    max_retries: int = typer.Option(10, help="Max upload retries"),
+    no_async: bool = typer.Option(False, help="Force synchronous upload"),
+    batch: bool = typer.Option(False, help="Break upload into multiple zip files"),
+
+    # Shared args
+    filter: Optional[List[str]] = typer.Option(None, metavar="KEY=VALUE", help="Filter detections"),
+    minimum_tests: int = typer.Option(0, envvar="PANTHER_MINIMUM_TESTS", help="Minimum number of tests required"),
+    out: str = typer.Option(".", envvar="PANTHER_OUT", help="Output path"),
+    path: str = typer.Option(".", envvar="PANTHER_PATH", help="Path to Panther project"),
+    skip_tests: bool = typer.Option(False, help="Skip test execution"),
+    skip_disabled_tests: bool = typer.Option(False, envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests"),
+    ignore_extra_keys: bool = typer.Option(False, help="Ignore extra schema keys"),
+    ignore_files: List[str] = typer.Option([], help="Files to ignore", show_default=False),
+    available_destination: Optional[List[str]] = typer.Option(None, help="Upload destinations"),
+    sort_test_results: bool = typer.Option(False, help="Sort test results"),
+    show_failures_only: bool = typer.Option(False, help="Only show failed test results"),
+    ignore_table_names: bool = typer.Option(False, help="Ignore table name validation"),
+    valid_table_names: List[str] = typer.Option([], help="Additional valid tables", show_default=False),
+):
+    if ignore_extra_keys:
+        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+    
+    pat_utils.func_with_backend(upload_analysis)(
+        api_token=api_token,
+        api_host=api_host,
+        aws_profile=aws_profile,
+
+        auto_disable_base=auto_disable_base,
+        max_retries=max_retries,
+        no_async=no_async,
+        batch=batch,
+
+        filter=filter,
+        minimum_tests=minimum_tests,
+        out=out,
+        path=path,
+        skip_tests=skip_tests,
+        skip_disabled_tests=skip_disabled_tests,
+        ignore_extra_keys=ignore_extra_keys,
+        ignore_files=ignore_files,
+        available_destination=available_destination,
+        sort_test_results=sort_test_results,
+        show_failures_only=show_failures_only,
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
     )
 
-    delete_parser.add_argument(
-        "--query-id",
-        help="Space separated list of Saved Queries",
-        required=False,
-        dest="query_id",
-        nargs="+",
-        type=str,
-        default=[],
+
+
+@app.command(help="Delete policies, rules, or saved queries from a Panther deployment.")
+def delete(
+    # Shared dependencies
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    aws_profile: Optional[str] = typer.Option(
+        None, 
+        envvar="PANTHER_AWS_PROFILE",
+        help="The AWS profile to use when updating the AWS Panther deployment."
+    ),
+    # Delete-specific flags
+    confirm_bypass: bool = typer.Option(False, help="Skip manual confirmation"),
+    athena_datalake: bool = typer.Option(False, help="Use Athena-backed DataLake"),
+
+    analysis_id: List[str] = typer.Option([], help="List of detection IDs", show_default=False),
+    query_id: List[str] = typer.Option([], help="List of saved query IDs", show_default=False),
+):
+    pat_utils.func_with_backend(bulk_delete.run)(
+        api_token=api_token,
+        api_host=api_host,
+        aws_profile=aws_profile,
+
+        confirm_bypass=confirm_bypass,
+        athena_datalake=athena_datalake,
+        analysis_id=analysis_id,
+        query_id=query_id,
     )
 
-    delete_parser.set_defaults(func=pat_utils.func_with_backend(bulk_delete.run))
 
-    # -- update custom schemas command
+@app.command(name="update-custom-schemas", help="Update or create custom schemas on a Panther deployment.")
+def update_custom_schemas_cmd(
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    aws_profile: Optional[str] = typer.Option(
+        None, 
+        envvar="PANTHER_AWS_PROFILE",
+        help="The AWS profile to use when updating the AWS Panther deployment."
+    ),
+    path: str = typer.Option(
+        ".",
+        envvar="PANTHER_PATH",
+        help="The relative or absolute path to Panther custom schemas."
+    ),
+):
+    pat_utils.func_with_backend(update_custom_schemas)(
+        api_token=api_token,
+        api_host=api_host,
+        aws_profile=aws_profile,
 
-    custom_schemas_help_text = "Update or create custom schemas on a Panther deployment."
-    update_custom_schemas_parser = subparsers.add_parser(
-        "update-custom-schemas",
-        help=custom_schemas_help_text,
-        description=custom_schemas_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        path=path,
     )
 
-    standard_args.for_public_api(update_custom_schemas_parser, required=False)
-    standard_args.using_aws_profile(update_custom_schemas_parser)
 
-    custom_schemas_path_arg = path_arg.copy()
-    custom_schemas_path_arg["help"] = "The relative or absolute path to Panther custom schemas."
-    update_custom_schemas_parser.add_argument(path_name, **custom_schemas_path_arg)
-    update_custom_schemas_parser.set_defaults(
-        func=pat_utils.func_with_backend(update_custom_schemas)
+@app.command(name="test-lookup-table", help="Validate a Lookup Table spec file.")
+def test_lookup_table_cmd(
+    aws_profile: Optional[str] = typer.Option(
+        None, 
+        envvar="PANTHER_AWS_PROFILE",
+        help="The AWS profile to use when updating the AWS Panther deployment."
+    ),
+    path: str = typer.Option(
+        ...,
+        envvar="PANTHER_PATH",
+        help="The relative path to a lookup table input file."
+    ),
+):
+    pat_utils.func_with_backend(test_lookup_table)(
+        aws_profile=aws_profile,
+        path=path,
     )
 
-    # -- test lookup command
 
-    test_lookup_help_text = "Validate a Lookup Table spec file."
-    test_lookup_table_parser = subparsers.add_parser(
-        "test-lookup-table",
-        help=test_lookup_help_text,
-        description=test_lookup_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+@app.command(name="validate", help="Validate your bulk uploads against your panther instance.")
+def validate_cmd(
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+
+    filter: list[str] = typer.Option(
+        None,
+        metavar="KEY=VALUE", help="Optional filters in the form KEY=VALUE", 
+    ),
+
+    ignore_files: list[str] = typer.Option(
+        [],
+        help="Relative paths to ignore (space-separated)",
+    ),
+
+    path: str = typer.Option(
+        ".",
+        envvar="PANTHER_PATH",
+        help="The relative path to Panther policies and rules.",
+    ),
+):
+    pat_utils.func_with_api_backend(validate.run)(
+        api_token=api_token,
+        api_host=api_host,
+        filter=filter,
+        ignore_files=ignore_files,
+        path=path,
     )
 
-    standard_args.using_aws_profile(test_lookup_table_parser)
 
-    test_lookup_table_parser.add_argument(
-        "--path",
-        type=str,
-        help="The relative path to a lookup table input file.",
-        default=".",
-        required=True,
+
+@app.command(help="Create an archive of local policies and rules for uploading to Panther.")
+def zip(
+    filter: Optional[List[str]] = typer.Option(
+        None,
+        metavar="KEY=VALUE",
+        help="Optional filters in the form KEY=VALUE",
+    ),
+    ignore_files: Optional[List[str]] = typer.Option(
+        None,
+        help="Relative path to files to be ignored (space separated). Example ./foo.yaml ./bar/baz.yaml",
+    ),
+    minimum_tests: int = typer.Option(
+        0,
+        envvar="PANTHER_MINIMUM_TESTS",
+        help=(
+            "The minimum number of tests in order for a detection to be considered passing. "
+            "If > 1, at least one True and one False test is required."
+        ),
+    ),
+    out: str = typer.Option(
+        ".",
+        envvar="PANTHER_OUT",
+        help="The path to store output files.",
+    ),
+    path: str = typer.Option(
+        ".",
+        envvar="PANTHER_PATH",
+        help="The relative path to Panther policies and rules.",
+    ),
+    skip_tests: bool = typer.Option(
+        False,
+        help="Skip tests.",
+    ),
+    skip_disabled_tests: bool = typer.Option(False, envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests."),
+    available_destination: Optional[List[str]] = typer.Option(
+        None,
+        help=(
+            "A destination name that may be returned by the destinations function. "
+            "Repeat the argument to define more than one name."
+        ),
+    ),
+    sort_test_results: bool = typer.Option(
+        False,
+        help="Sort test results by whether the test passed or failed (passing tests first), then by rule ID.",
+    ),
+    print_failed_test_results_only: bool = typer.Option(
+        False,
+        help="Only print test results for failed tests.",
+    ),
+    ignore_table_names: bool = typer.Option(
+        False,
+        help=(
+            "Allows skipping of table name validation from schema validation. Useful when querying "
+            "non-Panther or non-Snowflake tables."
+        ),
+    ),
+    valid_table_names: Optional[List[str]] = typer.Option(
+        None,
+        help=(
+            "Fully qualified table names that should be considered valid during schema validation "
+            "(in addition to standard Panther/Snowflake tables), space separated. "
+            "Accepts '*' as wildcard character matching 0 or more characters. "
+            "Example foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*"
+        ),
+    ),
+):
+    pat_utils.func_with_optional_backend(zip_analysis)(
+        filter=filter,
+        ignore_files=ignore_files,
+        minimum_tests=minimum_tests,
+        out=out,
+        path=path,
+        skip_tests=skip_tests,
+        skip_disabled_tests=skip_disabled_tests,
+        available_destination=available_destination,
+        sort_test_results=sort_test_results,
+        print_failed_test_results_only=print_failed_test_results_only,
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
     )
 
-    test_lookup_table_parser.set_defaults(func=test_lookup_table)
 
-    # -- validate command
-    validate_help_text = "Validate your bulk uploads against your panther instance"
-    validate_parser = subparsers.add_parser(
-        "validate",
-        help=validate_help_text,
-        description=validate_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    standard_args.for_public_api(validate_parser, required=False)
-    validate_parser.add_argument(filter_name, **filter_arg)
-    validate_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    validate_parser.add_argument(path_name, **path_arg)
-    validate_parser.set_defaults(func=pat_utils.func_with_api_backend(validate.run))
 
-    # -- zip command
-
-    zip_help_text = "Create an archive of local policies and rules for uploading to Panther."
-    zip_parser = subparsers.add_parser(
-        "zip",
-        help=zip_help_text,
-        description=zip_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    standard_args.for_public_api(zip_parser, required=False)
-    zip_parser.add_argument(filter_name, **filter_arg)
-    zip_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    zip_parser.add_argument(min_test_name, **min_test_arg)
-    zip_parser.add_argument(out_name, **out_arg)
-    zip_parser.add_argument(path_name, **path_arg)
-    zip_parser.add_argument(skip_test_name, **skip_test_arg)
-    zip_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
-    zip_parser.add_argument(available_destination_name, **available_destination_arg)
-    zip_parser.add_argument(sort_test_results_name, **sort_test_results_arg)
-    zip_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
-    zip_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
-    zip_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    zip_parser.set_defaults(func=pat_utils.func_with_optional_backend(zip_analysis))
-
-    # -- check-connection command
-
-    check_connection_help_text = "Check your Panther API connection"
-    check_conn_parser = subparsers.add_parser(
-        "check-connection",
-        help=check_connection_help_text,
-        description=check_connection_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+@app.command(name="check-connection", help="Check your Panther API connection")
+def check_connection_cmd(
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    ):
+    pat_utils.func_with_backend(check_connection.run)(
+        api_token=api_token,
+        api_host=api_host,
     )
 
-    standard_args.for_public_api(check_conn_parser, required=False)
 
-    check_conn_parser.set_defaults(func=pat_utils.func_with_backend(check_connection.run))
 
-    # -- benchmark command
-    benchmark_help_text = (
-        f"Performance test one rule against one of its log types. The rule must be the only item"
-        f" in the working directory or specified by {path_name}, {ignore_files_name}, and {filter_name}. This feature"
-        f" is an extension of Data Replay and is subject to the same limitations."
-    )
-    benchmark_parser = subparsers.add_parser(
-        "benchmark",
-        help=benchmark_help_text,
-        description=benchmark_help_text,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    standard_args.for_public_api(benchmark_parser, required=False)
-    benchmark_parser.add_argument(filter_name, **filter_arg)
-    benchmark_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    benchmark_parser.add_argument(path_name, **path_arg)
-    benchmark_parser.add_argument(out_name, **out_arg)
-    benchmark_parser.add_argument(
-        "--iterations",
-        required=False,
-        default=50,
-        type=int,
-        help="The number of iterations of the performance test to perform. Each iteration runs against the selected"
-        " hour of data. Fewer iterations will be run if the time limit is reached. Min: 1",
-    )
-    benchmark_parser.add_argument(
-        "--hour",
-        required=False,
-        type=dateutil.parser.parse,
-        help="The hour of historical data to perform the benchmark against, in any parseable format, e.g."
-        " '2023-07-31T09:00:00.000-7:00'. Minutes, Seconds, etc will be truncated if specified. If hour is "
-        "unspecified, the performance test will run against the hour in the last two weeks with the largest log"
-        " volume.",
-    )
-    benchmark_parser.add_argument(
-        "--log-type",
-        required=False,
-        type=str,
-        help="Required if the rule supports multiple log types, optional otherwise. Must be one of the rule's log"
-        " types.",
-    )
-    benchmark_parser.set_defaults(func=pat_utils.func_with_api_backend(benchmark.run))
+def parse_date(text: Optional[str]) -> Optional[str]:
+    # Wrapper to parse date strings using dateutil.parser.parse
+    if text is None:
+        return None
+    return dateutil.parser.parse(text)
 
-    # -- enrich-test-data command
-    enrich_test_data_parser = subparsers.add_parser(
-        "enrich-test-data",
-        help="Enrich test data with additional enrichments from the Panther API.",
+
+@app.command(name="benchmark", help=(
+    "Performance test one rule against one of its log types. The rule must be the only item "
+    "in the working directory or specified by --path, --ignore-files, and --filter. This feature "
+    "is an extension of Data Replay and is subject to the same limitations."
+))
+def benchmark_command(
+    filter: Optional[List[str]] = typer.Option(
+        None,
+        metavar="KEY=VALUE",
+        help="Filters as KEY=VALUE pairs, space separated."
+    ),
+    ignore_files: Optional[List[str]] = typer.Option(
+        None,
+        help="Relative path to files to ignore, space separated. Example: ./foo.yaml ./bar/baz.yaml"
+    ),
+    path: str = typer.Option(
+        ".",
+        envvar="PANTHER_PATH",
+        help="The relative path to Panther policies and rules."
+    ),
+    out: str = typer.Option(
+        ".",
+        envvar="PANTHER_OUT",
+        help="The path to store output files."
+    ),
+    iterations: int = typer.Option(
+        50,
+        help=(
+            "The number of iterations of the performance test to perform. Each iteration runs "
+            "against the selected hour of data. Fewer iterations will be run if the time limit "
+            "is reached. Min: 1"
+        ),
+        min=1
+    ),
+    hour: Optional[str] = typer.Option(
+        None,
+        help=(
+            "The hour of historical data to perform the benchmark against, in any parseable format, "
+            "e.g. '2023-07-31T09:00:00.000-7:00'. Minutes, Seconds, etc will be truncated if specified. "
+            "If hour is unspecified, the performance test will run against the hour in the last two weeks "
+            "with the largest log volume."
+        ),
+        callback=parse_date
+    ),
+    log_type: Optional[str] = typer.Option(
+        None,
+        help=(
+            "Required if the rule supports multiple log types, optional otherwise. Must be one of the rule's log types."
+        )
+    ),
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    ):
+    # Here you might want to convert the hour back to string if needed, or pass as datetime object
+    # Call your wrapped backend function
+    pat_utils.func_with_api_backend(benchmark.run)(
+        api_token=api_token,
+        api_host=api_host,
+        filter=filter,
+        ignore_files=ignore_files,
+        path=path,
+        out=out,
+        iterations=iterations,
+        hour=hour,
+        log_type=log_type,
     )
-    standard_args.for_public_api(enrich_test_data_parser, required=False)
 
-    enrich_test_data_parser.add_argument(filter_name, **filter_arg)
-    enrich_test_data_parser.add_argument(path_name, **path_arg)
-    enrich_test_data_parser.add_argument(ignore_files_name, **ignore_files_arg)
-    enrich_test_data_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
-    enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
-    enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
 
-    check_packs_parser = subparsers.add_parser(
-        "check-packs",
-        help="Ensure that packs don't have missing detections.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+@app.command(name="enrich-test-data", help="Enrich test data with additional enrichments from the Panther API.")
+def enrich_test_data_command(
+    filter: Optional[List[str]] = typer.Option(
+        None,
+        metavar="KEY=VALUE",
+        help="Filters as KEY=VALUE pairs, space separated."
+    ),
+    path: str = typer.Option(
+        ".",
+        envvar="PANTHER_PATH",
+        help="The relative path to Panther policies and rules."
+    ),
+    ignore_files: Optional[List[str]] = typer.Option(
+        None,
+        help="Relative path to files to be ignored by panther-analysis tool, space separated. Example: ./foo.yaml ./bar/baz.yaml"
+    ),
+    ignore_table_names: bool = typer.Option(
+        False,
+        help="Allows skipping of table name validation from schema validation. Useful when querying non-Panther or non-Snowflake tables."
+    ),
+    valid_table_names: Optional[List[str]] = typer.Option(
+        None,
+        help=(
+            "Fully qualified table names that should be considered valid during schema validation "
+            "(in addition to standard Panther/Snowflake tables), space separated. "
+            "Accepts '*' as wildcard matching 0 or more characters. Example: foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*"
+        )
+    ),
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {standard_args.API_DOCUMENTATION}",
+    ),
+    ):
+
+    # Call your backend function with the parsed arguments
+    pat_utils.func_with_backend(enrich_test_data)(
+        api_token=api_token,
+        api_host=api_host,
+        filter=filter,
+        path=path,
+        ignore_files=ignore_files,
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
     )
-    check_packs_parser.add_argument(path_name, **path_arg)
-    check_packs_parser.set_defaults(func=check_packs)
-    standard_args.for_public_api(check_packs_parser, required=False)
 
-    return parser
 
+@app.command(name="check-packs", help="Ensure that packs don't have missing detections.")
+def check_packs_command(
+    path: str = typer.Option(
+        ".",
+        envvar="PANTHER_PATH",
+        help="The relative path to Panther policies and rules."
+    ),
+    api_token: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+    api_host: Optional[str] = typer.Option(
+        None,
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+    ):
+    pat_utils.func_with_backend(check_packs)(
+        api_token=api_token,
+        api_host=api_host,
+        path=path,
+    )
+
+
+@app.command(name="init", help="Initialize a new panther project")
+def init_command(
+):
+    init_project.run()
+
+
+def complete_id(ctx: typer.Context, args: List[str], incomplete: str):
+    cache = analysis_cache.AnalysisCache()
+    return [spec for spec in cache.list_spec_ids() if spec.startswith(incomplete)]
+
+@app.command(name="enable", help="Enable a detection")
+def enable_command(
+    filter: Optional[List[str]] = typer.Option(
+        [],
+        metavar="KEY=VALUE",
+        help="Filter detections by key=value pairs",
+    ),
+    id: Optional[str] = typer.Argument(
+        None,
+        help="The ID of the analysis item to enable.",
+        autocompletion=complete_id,
+    ),
+):
+    # You might want to process `filter` before passing to enable.run()
+    # For now, just call the function (adjust as needed)
+    enable.run(id, filter=filter)
+
+
+@app.command(name="fetch", help="Fetch a detection")
+def fetch_command():
+    fetch.run()
+
+
+@app.command(name="merge", help="Merge a detection")
+def merge_command(
+    id: Optional[str] = typer.Argument(None, help="The ID of the analysis item to merge.", autocompletion=complete_id),
+):
+    return merge.run(id=id)
+
+
+@app.command(name="clone", help="Clone a detection")
+def clone_command(
+    id: str = typer.Argument(..., help="The ID of the analysis item to clone.", autocompletion=complete_id),
+):
+    clone.run(analysis_id=id)
+
+
+@app.command(name="rev", help="Rev a detection")
+def rev_command(
+    id: str = typer.Argument(..., help="The ID of the analysis item to rev.", autocompletion=complete_id),
+):
+    rev.run(analysis_id=id)
+
+
+@app.command(name="gedit", help="Edit a detection")
+def gedit_command():
+    gedit.run()
 
 def setup_dynaconf() -> Dict[str, Any]:
     config_file_settings_raw = Dynaconf(
         settings_file=CONFIG_FILE,
         envvar_prefix="PANTHER",
         validators=[
-            Validator("AWS_PROFILE", is_type_of=str),
-            Validator("MINIMUM_TESTS", is_type_of=int),
-            Validator("OUT", is_type_of=str),
-            Validator("PATH", is_type_of=str),
-            Validator("SKIP_TEST", is_type_of=bool),
-            Validator("SKIP_DISABLED_TESTS", is_type_of=bool),
             Validator("IGNORE_FILES", is_type_of=(str, list)),
             Validator("AVAILABLE_DESTINATION", is_type_of=(str, list)),
             Validator("TEST_NAMES", is_type_of=(str, list)),
@@ -2343,8 +2262,6 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("GITHUB_REPOSITORY", is_type_of=str),
             Validator("GITHUB_TAG", is_type_of=str),
             Validator("FILTER", is_type_of=dict),
-            Validator("API_TOKEN", is_type_of=str),
-            Validator("API_HOST", is_type_of=str),
         ],
     )
     # Dynaconf stores its keys in ALL CAPS
@@ -2369,51 +2286,6 @@ def dynaconf_argparse_merge(
             argparse_dict[key] = value
 
 
-# Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    parsed_filters: Dict[str, Any] = {}
-    parsed_filters_inverted: Dict[str, Any] = {}
-    for filt in filters:
-        split = filt.split("=")
-        if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
-            continue
-        # Check for "!="
-        invert_filter = split[0].endswith("!")
-        if invert_filter:
-            split[0] = split[0][:-1]  # Remove the trailing "!"
-        key = split[0]
-        if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
-                )
-                for key in (key, Optional(key))
-            )
-        ):
-            logging.warning("Filter key %s is not a valid filter field, skipping", key)
-            continue
-        if invert_filter:
-            parsed_filters_inverted[key] = split[1].split(",")
-        else:
-            parsed_filters[key] = split[1].split(",")
-        # Handle boolean fields
-        if key == "Enabled":
-            try:
-                bool_value = bool(strtobool(split[1]))
-            except ValueError:
-                logging.warning("Filter key %s should have either true or false, skipping", key)
-                continue
-            if invert_filter:
-                parsed_filters_inverted[key] = [bool_value]
-            else:
-                parsed_filters[key] = [bool_value]
-    return parsed_filters, parsed_filters_inverted
-
-
 def run() -> None:
     # setup logger and print version info as necessary
     logging.basicConfig(
@@ -2421,69 +2293,30 @@ def run() -> None:
         level=logging.INFO,
     )
 
-    parser = setup_parser()
-    # if no args are passed, print the help output
-    args = parser.parse_args(args=None if sys.argv[1:] else ["--help"])
+    # if getattr(args, "filter", None) is not None:
+    #     args.filter, args.filter_inverted = parse_filter(args.filter)
+    # if getattr(args, "filter_inverted", None) is None:
+    #     args.filter_inverted = {}
 
-    if not args.skip_version_check:
-        latest = pat_utils.get_latest_version()
-        if not pat_utils.is_latest(latest):
-            logging.warning(
-                "%s v%s is available (current: v%s). Run: pip3 install %s --upgrade",
-                PACKAGE_NAME,
-                latest,
-                VERSION_STRING,
-                PACKAGE_NAME,
-            )
-
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        aiohttp_logger.setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
-
-    if getattr(args, "filter", None) is not None:
-        args.filter, args.filter_inverted = parse_filter(args.filter)
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
-
-    for key in os.environ:
-        if key.startswith("PANTHER_"):
-            logging.info("Found environment variables prefixed with 'PANTHER'")
-            break
     if os.path.exists(CONFIG_FILE):
         logging.info(
             "Found config file %s (note: command line options will override config file settings)",
             CONFIG_FILE,
         )
-    config_file_settings = setup_dynaconf()
-    dynaconf_argparse_merge(vars(args), config_file_settings)
-    if args.debug:
-        for key, value in vars(args).items():
-            logging.debug(f"{key}={value}")  # pylint: disable=W1203
-
-    # Although not best practice, the alternative is ugly and significantly harder to maintain.
-    if bool(getattr(args, "ignore_extra_keys", None)):
-        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
 
     try:
-        return_code, out = args.func(args)
+        return_code, out = app()
     except BackendNotFoundException as err:
         logging.error('Backend not found: "%s"', err)
         sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
-        logging.debug("Full error traceback:", exc_info=err, stack_info=True)
+        logging.debug("Full error traceback:", exc_info=err)
         sys.exit(1)
 
     if return_code == 1:
-        # out is excpected to be a a list of tuples of (filename, error_message)
+        # out is expected to be a list of tuples of (filename, error_message)
         if out and isinstance(out, list):
             try:
                 # Try some nicer error printing if we can

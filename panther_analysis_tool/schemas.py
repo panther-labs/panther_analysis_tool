@@ -1,6 +1,6 @@
 import json
 import pkgutil
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
@@ -175,6 +175,9 @@ RULE_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
         Optional("CreateAlert"): bool,
+        # FIXME must have both or neither
+        Optional("BaseID"): str,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -311,3 +314,34 @@ raw_simple_detection_schema = pkgutil.get_data(
 ANALYSIS_CONFIG_SCHEMA = (
     json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
 )
+
+
+def extract_keys_schema(val: Any) -> Set[str]:
+    if isinstance(val, Schema):
+        return extract_keys_schema(val.schema)
+    elif isinstance(val, dict):
+        keys = set()
+        for key in val.keys():
+            keys.update(extract_keys_schema(key))
+        return keys
+    elif isinstance(val, list):
+        keys = set()
+        for item in val:
+            keys.update(extract_keys_schema(item))
+        return keys
+    elif isinstance(val, And):
+        keys = set()
+        for item in val.args:
+            keys.update(extract_keys_schema(item))
+        return keys
+    elif isinstance(val, Or):
+        keys = set()
+        for item in val.args:
+            keys.update(extract_keys_schema(item))
+        return keys
+    elif isinstance(val, Optional):
+        return extract_keys_schema(val.key)
+    elif isinstance(val, str):
+        return {val}
+    else:
+        raise Exception(f"Unknown schema type: {type(val)}")
