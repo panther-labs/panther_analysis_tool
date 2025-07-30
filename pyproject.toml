@@ -75,6 +75,7 @@ dependencies = [
     "urllib3==1.26.19",
     "wrapt==1.15.0",
     "yarl==1.18.3",
+    "typer (>=0.16.0,<0.17.0)",
 ]
 
 license = {text = "Apache-2.0"}
