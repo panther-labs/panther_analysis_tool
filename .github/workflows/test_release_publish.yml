@@ -21,24 +21,25 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install pip and pipenv
+    - name: Setup Virtual Environment
+      run: make venv
+    
+    - name: Export dependencies
       run: |
-        python -m pip install --root-user-action=ignore --upgrade pip
-        pip install --root-user-action=ignore pipenv
-        make venv
+        make reqs
 
     - name: Build Release tar.gz
       run: |
-        pipenv run python setup.py sdist
+        make build
 
     - name: Install Build and Run PAT Tests
       run: |
-        pipenv run pip install --root-user-action=ignore dist/panther_analysis_tool-*.tar.gz
-        pipenv run make test integration
+        poetry run pip install --root-user-action=ignore dist/panther_analysis_tool-*.tar.gz
+        make test integration
 
     - name: Create Github Release
       run: |
-        export NEW_VERSION=$(cat VERSION)
+        export NEW_VERSION=$(poetry version -s)
         git config user.name "dac-bot"
         git config user.email "dac-bot@panther.com"
         gh release create v$NEW_VERSION dist/* -t v$NEW_VERSION --draft
@@ -47,7 +48,6 @@ jobs:
 
     - name: Publish to PyPI
       run: |
-        pipenv run twine upload dist/*
+        make release
       env:
-        TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}

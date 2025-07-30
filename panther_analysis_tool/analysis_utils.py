@@ -1,22 +1,3 @@
-"""
-Panther Analysis Tool is a command line interface for writing,
-testing, and packaging policies/rules.
-Copyright (C) 2020 Panther Labs Inc
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
 import dataclasses
 import io
 import json
@@ -411,24 +392,6 @@ def load_analysis_specs_ex(
                                 yaml_ctx=yaml,
                                 error=err,
                             )
-                if fnmatch(filename, "*.json"):
-                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
-                        try:
-                            yield LoadAnalysisSpecsResult(
-                                spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=json.load(spec_file_obj),
-                                yaml_ctx=yaml,
-                                error=None,
-                            )
-                        except ValueError as err:
-                            yield LoadAnalysisSpecsResult(
-                                spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=None,
-                                yaml_ctx=yaml,
-                                error=err,
-                            )
 
 
 def to_relative_path(filename: str) -> str:
@@ -491,13 +454,21 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
 
 
 def test_correlation_rule(
-    spec: Dict[str, Any], backend: Optional[BackendClient] = None
+    spec: Dict[str, Any],
+    backend: Optional[BackendClient] = None,
+    test_names: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     # dont make network call if there's no tests to run, or if no backend
     if "Tests" not in spec or backend is None:
         return out
     try:
+        # Filter tests by name
+        if test_names:
+            tests = spec.get("Tests", [])
+            tests = [t for t in tests if t["Name"] in test_names]
+            spec["Tests"] = tests
+
         yaml = get_yaml_loader(roundtrip=True)
         string_io = io.StringIO()
         yaml.dump(spec, stream=string_io)

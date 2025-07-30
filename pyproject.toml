@@ -1,0 +1,159 @@
+[project]
+name = "panther_analysis_tool"
+version = "1.0.2"
+description = "Panther command line interface for writing, testing, and packaging policies/rules."
+authors = [
+    {name = "Panther Labs Inc", email = "pypi@runpanther.io"}
+]
+readme = "README.md"
+requires-python = ">=3.11, <4.0"
+dependencies = [
+    "setuptools>=78.1.1",
+    "aiohappyeyeballs==2.4.6",
+    "aiohttp==3.11.12",
+    "aiosignal==1.3.2",
+    "anyio==4.8.0",
+    "appdirs==1.4.4",
+    "async-timeout==5.0.1",
+    "attrs==25.1.0",
+    "backoff==2.2.1",
+    "boto3==1.28.44",
+    "botocore==1.31.44",
+    "certifi==2024.7.4",
+    "chardet==5.2.0",
+    "charset-normalizer==3.4.1",
+    "click==8.1.8",
+    "colorama==0.4.6",
+    "contextlib2==21.6.0",
+    "decorator==5.1.1",
+    "diff-cover==9.2.0",
+    "dill==0.3.7",
+    "dynaconf==3.2.2",
+    "exceptiongroup==1.2.2",
+    "frozenlist==1.5.0",
+    "gql[aiohttp]==3.5.0",
+    "graphql-core==3.2.3",
+    "idna==3.7",
+    "iniconfig==2.0.0",
+    "jinja2==3.1.6",
+    "jmespath==1.0.1",
+    "jsonlines==4.0.0",
+    "jsonpath-ng==1.5.3",
+    "jsonschema==4.23.0",
+    "jsonschema-specifications==2024.10.1",
+    "markupsafe==3.0.2",
+    "multidict==6.1.0",
+    "nested-lookup==0.2.25",
+    "packaging==23.1",
+    "panther-core (==0.12.1)",
+    "pathspec==0.12.1",
+    "pluggy==1.5.0",
+    "ply==3.11",
+    "policyuniverse==1.5.1.20230817",
+    "propcache==0.2.1",
+    "pygments==2.19.1",
+    "pytest==8.3.4",
+    "python-dateutil==2.8.2",
+    "pyyaml==6.0.2",
+    "referencing==0.36.2",
+    "regex==2024.11.6",
+    "requests==2.32.4",
+    "rpds-py==0.22.3",
+    "ruamel-yaml==0.17.32",
+    "ruamel-yaml-clib==0.2.7",
+    "s3transfer==0.6.2",
+    "schema==0.7.5",
+    "semver==2.13.0",
+    "six==1.16.0",
+    "sniffio==1.3.1",
+    "sqlfluff==2.3.1",
+    "tblib==3.0.0",
+    "toml==0.10.2",
+    "tomli==2.2.1",
+    "tqdm==4.67.1",
+    "typing-extensions==4.7.1",
+    "urllib3==1.26.19",
+    "wrapt==1.15.0",
+    "yarl==1.18.3",
+]
+
+license = {text = "Apache-2.0"}
+keywords = [
+    "Security",
+    "CLI",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Security",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project.urls]
+Homepage = "https://github.com/panther-labs/panther_analysis_tool"
+Downloads = "https://github.com/panther-labs/panther_analysis_tool/archive/v1.0.0.tar.gz"
+
+[project.scripts]
+panther_analysis_tool = "panther_analysis_tool.main:run"
+pat = "panther_analysis_tool.main:run"
+
+[tool.poetry]
+package-mode = true
+requires-poetry = ">=2.0"
+
+[tool.poetry.group.dev.dependencies]
+bandit = "1.7.5"
+black = "24.3.0"
+coverage = "7.3.1"
+isort = "5.12.0"
+mypy = "1.5.1"
+nose2 = "^0.13.0"
+pyfakefs = "5.4.1"
+pylint = "2.17.5"
+responses = "*"
+typed-ast = "1.5.5"
+types-python-dateutil = "*"
+types-requests = "*"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
+[tool.black]
+exclude = '\.poetry'
+line-length = 100
+
+[tool.isort]
+profile = "black"
+skip = ['\.poetry']
+
+[tool.mypy]
+disallow_untyped_defs = true
+exclude = ['^.poetry\\']
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pylint.format]
+max-line-length = 140
+
+[tool.pylint."messages control"]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "duplicate-code",
+    "fixme",
+    "too-many-branches",
+    "deprecated-module",
+    "too-many-lines",
+    "too-few-public-methods"
+]
+
+[tool.sqlfluff.core]
+dialect = "snowflake"
+templater = "jinja"

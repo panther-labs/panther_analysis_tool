@@ -1364,9 +1364,6 @@
     },
     "Refresh": {
       "properties": {
-        "RoleARN": {
-          "type": "string"
-        },
         "PeriodMinutes": {
           "type": "integer"
         },
@@ -1376,16 +1373,25 @@
         "ObjectPath": {
           "type": "string"
         },
+        "RoleARN": {
+          "type": "string"
+        },
         "ObjectKMSKey": {
+          "type": "string"
+        },
+        "GCSCredentials": {
+          "type": "string"
+        },
+        "StorageProvider": {
           "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "required": [
-        "RoleARN",
-        "PeriodMinutes",
-        "ObjectPath"
+      "required": ["PeriodMinutes", "ObjectPath"],
+      "oneOf": [
+        {"required": ["GCSCredentials"]},
+        {"required": ["RoleARN"]}
       ]
     },
     "ReportItem": {
@@ -1434,6 +1440,9 @@
         },
         "Enabled": {
           "type": "boolean"
+        },
+        "CreatedBy": {
+          "type": "string"
         },
         "Filename": {
           "type": "string"

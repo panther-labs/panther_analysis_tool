@@ -1,22 +1,3 @@
-"""
-Panther Analysis Tool is a command line interface for writing,
-testing, and packaging policies/rules.
-Copyright (C) 2020 Panther Labs Inc
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
 import fnmatch
 import logging
 import os
@@ -297,7 +278,7 @@ def _contains_schema_tests(filename: str) -> bool:
     """
     # pantherlog requires that files containing test cases have a specific suffix and extension:
     # https://github.com/panther-labs/panther-enterprise/blob/75dd7ac2be67d3388edabb914b87f514ea9bd2cf/internal/log_analysis/log_processor/logtypes/logtesting/logtesting.go#L302
-    if not filename.endswith("_tests.yml"):
+    if not (filename.endswith("_tests.yml") or filename.endswith("_tests.yaml")):
         return False
 
     yaml_parser = YAML(typ="safe")

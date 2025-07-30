@@ -1,22 +1,3 @@
-"""
-Panther Analysis Tool is a command line interface for writing,
-testing, and packaging policies/rules.
-Copyright (C) 2020 Panther Labs Inc
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
 import json
 import pkgutil
 from typing import Any, Dict
@@ -42,13 +23,6 @@ class QueryScheduleSchema(Schema):
                 if rate < timeout:
                     raise SchemaError("RateMinutes must be >= TimeoutMinutes")
         return data
-
-
-# Add validation function for DedupPeriodMinutes
-def validate_dedup_period(minutes: int) -> int:
-    if minutes < 5 or minutes > 1440:
-        raise SchemaError("DedupPeriodMinutes must be between 5 and 1440")
-    return minutes
 
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
@@ -143,6 +117,7 @@ POLICY_SCHEMA = Schema(
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
+        Optional("CreatedBy"): str,
         Optional("Reference"): str,
         Optional("Runbook"): str,
         Optional("Suppressions"): [str],
@@ -172,11 +147,12 @@ RULE_SCHEMA = Schema(
         Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): And(int, validate_dedup_period),
+        Optional("DedupPeriodMinutes"): int,
         Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
+        Optional("CreatedBy"): str,
         Optional("Reference"): str,
         Optional("Runbook"): str,
         Optional("SummaryAttributes"): [str],
@@ -211,7 +187,7 @@ DERIVED_SCHEMA = Schema(
         Optional("Enabled"): bool,
         Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
-        Optional("DedupPeriodMinutes"): And(int, validate_dedup_period),
+        Optional("DedupPeriodMinutes"): int,
         Optional("InlineFilters"): object,
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
@@ -243,6 +219,7 @@ CORRELATION_RULE_SCHEMA = Schema(
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("OnlyUseBaseRiskScore"): bool,
         Optional("OutputIds"): [str],
+        Optional("CreatedBy"): str,
         Optional("Reference"): str,
         Optional("Runbook"): str,
         Optional("SummaryAttributes"): [str],
@@ -307,11 +284,13 @@ LOOKUP_TABLE_SCHEMA = Schema(
         Or("Filename", "Refresh"): Or(
             str,
             {
-                "RoleARN": str,
                 "ObjectPath": str,
                 Optional("PeriodMinutes"): int,
                 Optional("AlarmPeriodMinutes"): int,
+                Optional("RoleARN"): str,
                 Optional("ObjectKMSKey"): str,
+                Optional("GCSCredentials"): str,
+                Optional("StorageProvider"): str,
             },
         ),
         "Schema": str,

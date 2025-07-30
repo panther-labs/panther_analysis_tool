@@ -1,22 +1,3 @@
-"""
- Analysis Tool is a command line interface for writing,
-testing, and packaging policies/rules.
-Copyright (C) 2020 Panther Labs Inc
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-
 # pylint: disable=wrong-import-order, wrong-import-position, ungrouped-imports
 import argparse
 import base64
@@ -847,6 +828,7 @@ def test_analysis(
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
         backend=backend,
+        test_names=getattr(args, "test_names", None),
     )
     invalid_specs.extend(invalid_detections)
 
@@ -988,6 +970,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer] = None,
     backend: typing.Optional[BackendClient] = None,
+    test_names: typing.Optional[List[str]] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any], List[Tuple[str, dict]]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -1008,10 +991,21 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
         }
 
+        if test_names:
+            if not set(test_names) & {t["Name"] for t in analysis_spec.get("Tests", [])}:
+                print(
+                    analysis_spec.get("RuleID")
+                    or analysis_spec.get("PolicyID")
+                    or analysis_spec_filename
+                )
+                print(f"\tNo tests match the provided test names: {test_names}\n")
+                skipped_tests.append((analysis_spec_filename, analysis_spec))
+                continue
+
         correlation_rule_results = []
         is_corr_rule = is_correlation_rule(analysis_spec)
         if is_corr_rule:
-            correlation_rule_results = test_correlation_rule(analysis_spec, backend)
+            correlation_rule_results = test_correlation_rule(analysis_spec, backend, test_names)
             if not correlation_rule_results:
                 skipped_tests.append((analysis_spec_filename, analysis_spec))
 
@@ -1095,6 +1089,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             ignore_exception_types,
             all_test_results,
             correlation_rule_results,
+            test_names,
         )
 
         if not all_test_results:
@@ -1110,14 +1105,6 @@ def print_summary(
     skipped_tests: List[Tuple[str, dict]],
 ) -> None:
     """Print a summary of passed, failed, and invalid specs"""
-    print("--------------------------")
-    print("Test Summary")
-    print(f"\tPath: {test_path}")
-    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
-    print(f"\tSkipped: {len(skipped_tests)}")
-    print(f"\tFailed: {len(failed_tests)}")
-    print(f"\tInvalid: {len(invalid_specs)}\n")
-
     err_message = "\t{}\n\t\t{}\n"
 
     if skipped_tests:
@@ -1137,6 +1124,14 @@ def print_summary(
         print("Invalid Tests Summary")
         for spec_filename, spec_error in invalid_specs:
             print(err_message.format(spec_filename, spec_error))
+
+    print("--------------------------")
+    print("Test Summary")
+    print(f"\tPath: {test_path}")
+    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
+    print(f"\tSkipped: {len(skipped_tests)}")
+    print(f"\tFailed: {len(failed_tests)}")
+    print(f"\tInvalid: {len(invalid_specs)}\n")
 
 
 # pylint: disable=too-many-locals,too-many-statements
@@ -1204,6 +1199,24 @@ def classify_analysis(
                         analysis_id, invalid_table_names
                     )
             analysis_ids.append(analysis_id)
+
+            # Raise warnings for dedup minutes
+            if "DedupPeriodMinutes" in analysis_spec:
+                if analysis_spec["DedupPeriodMinutes"] == 0:
+                    msg = (
+                        f"DedupPeriodMinutes is set to 0 for {analysis_id}. "
+                        "This will be ignored by the backend. "
+                        "If you want to disable dedup, "
+                        "alter the `dedup` function to return 'p_row_id' instead."
+                    )
+                    logging.warning(msg)
+                elif analysis_spec["DedupPeriodMinutes"] < 5:
+                    msg = (
+                        f"DedupPeriodMinutes for {analysis_id} is less than 5. "
+                        "This is below Panther's DedupPeriodMinutes threshold, "
+                        "and will be treated as '5' upon upload."
+                    )
+                    logging.warning(msg)
 
             classified_analysis = ClassifiedAnalysis(
                 analysis_spec_filename, dir_name, analysis_spec
@@ -1558,6 +1571,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     ignore_exception_types: List[Type[Exception]],
     all_test_results: typing.Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
+    test_names: typing.Optional[List[str]] = None,
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection_id].append(
@@ -1579,6 +1593,7 @@ def run_tests(  # pylint: disable=too-many-arguments
         all_test_results,
         correlation_rule_test_results,
         detection_id,
+        test_names,
     )
 
     if minimum_tests > 1 and not (
@@ -1646,6 +1661,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
     all_test_results: typing.Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
     detection_id: str,
+    test_names: typing.Optional[List[str]] = None,
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
@@ -1656,6 +1672,10 @@ def _run_tests(  # pylint: disable=too-many-arguments
             all_test_results,
             failed_tests,
         )
+
+    # Filter tests by name if test_names is provided
+    if test_names:
+        tests = [test for test in tests if test.get("Name") in test_names]
 
     for unit_test in tests:
         test_output = ""
@@ -1674,8 +1694,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
             test_output_buf = io.StringIO()
-            with contextlib.redirect_stdout(test_output_buf), contextlib.redirect_stderr(
-                test_output_buf
+            with (
+                contextlib.redirect_stdout(test_output_buf),
+                contextlib.redirect_stderr(test_output_buf),
             ):
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
@@ -1905,6 +1926,13 @@ def setup_parser() -> argparse.ArgumentParser:
         "type": str,
         "default": [],
     }
+    test_names_name = "--test-names"
+    test_names_arg: Dict[str, Any] = {
+        "required": False,
+        "metavar": "TEST_NAME",
+        "nargs": "+",
+        "help": "Only run tests with these names. Can be used with --filter to run specific tests for specific rules.",
+    }
 
     # -- root parser
 
@@ -1972,6 +2000,7 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(print_failed_only_name, **print_failed_only_arg)
     test_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
+    test_parser.add_argument(test_names_name, **test_names_arg)
     test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
 
     # -- publish command
@@ -2306,6 +2335,7 @@ def setup_dynaconf() -> Dict[str, Any]:
             Validator("SKIP_DISABLED_TESTS", is_type_of=bool),
             Validator("IGNORE_FILES", is_type_of=(str, list)),
             Validator("AVAILABLE_DESTINATION", is_type_of=(str, list)),
+            Validator("TEST_NAMES", is_type_of=(str, list)),
             Validator("KMS_KEY", is_type_of=str),
             Validator("BODY", is_type_of=str),
             Validator("GITHUB_BRANCH", is_type_of=str),
@@ -2448,13 +2478,26 @@ def run() -> None:
         sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
-        logging.warning('Unhandled exception: "%s"', err, exc_info=err, stack_info=True)
-        logging.debug("Full error traceback:", exc_info=err)
+        logging.warning('Unhandled exception: "%s"', err)
+        logging.debug("Full error traceback:", exc_info=err, stack_info=True)
         sys.exit(1)
 
     if return_code == 1:
-        if out:
-            logging.error(out)
+        # out is excpected to be a a list of tuples of (filename, error_message)
+        if out and isinstance(out, list):
+            try:
+                # Try some nicer error printing if we can
+                error = ""
+                for errspec in out:
+                    if isinstance(errspec, tuple):
+                        fname, error = errspec
+                    else:
+                        fname = ""
+                        error = errspec
+                msg = str(error).replace("\n", " ")  # Remove newlines from error message
+                logging.error("%s %s", fname, msg)
+            except Exception:  # pylint: disable=broad-except
+                logging.error(out)  # Fallback to printing the entire output
     elif return_code == 0:
         if out:
             logging.info(out)

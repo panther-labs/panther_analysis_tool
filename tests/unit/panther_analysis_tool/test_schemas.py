@@ -411,6 +411,87 @@ class TestPATSchemas(unittest.TestCase):
             sample_query["Schedule"] = {"RateMinutes": 1}
             SCHEDULED_QUERY_SCHEMA.validate(sample_query)
 
+    def test_created_by(self):
+        RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "rule",
+                "Description": "SomeRule",
+                "DisplayName": "Some Rule",
+                "Enabled": True,
+                "Filename": "rule.py",
+                "Severity": "Low",
+                "LogTypes": ["Panther.Audit"],
+                "RuleID": "'Some.Rule1.CreatedBy'",
+                "CreatedBy": "eee",
+            }
+        )
+        POLICY_SCHEMA.validate(
+            {
+                "AnalysisType": "policy",
+                "Enabled": False,
+                "Filename": "hmm",
+                "PolicyID": "h",
+                "Severity": "Info",
+                "ResourceTypes": ["AWS.DynamoDB.Table"],
+                "CreatedBy": "hello",
+            }
+        )
+        CORRELATION_RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "correlation_rule",
+                "DisplayName": "Example Correlation Rule",
+                "Enabled": True,
+                "RuleID": "My.Correlation.Rule",
+                "Severity": "High",
+                "CreatedBy": "some@email.com",
+                "Detection": [
+                    {
+                        "Sequence": [
+                            {
+                                "ID": "First",
+                                "RuleID": "Okta.Global.MFA.Disabled",
+                                "MinMatchCount": 7,
+                            },
+                            {
+                                "ID": "Second",
+                                "RuleID": "Okta.Support.Access",
+                                "MinMatchCount": 1,
+                            },
+                        ],
+                        "LookbackWindowMinutes": 15,
+                        "Schedule": {
+                            "RateMinutes": 5,
+                            "TimeoutMinutes": 3,
+                        },
+                    }
+                ],
+            }
+        )
+        RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "scheduled_rule",
+                "Enabled": False,
+                "Filename": "hmm",
+                "RuleID": "h",
+                "Severity": "Info",
+                "LogTypes": ["AWS.ALB"],
+                "CreatedBy": "yes!",
+            }
+        )
+        # test validation works that it must be a string
+        with self.assertRaises(SchemaError):
+            RULE_SCHEMA.validate(
+                {
+                    "AnalysisType": "scheduled_rule",
+                    "Enabled": False,
+                    "Filename": "hmm",
+                    "RuleID": "h",
+                    "Severity": "Info",
+                    "LogTypes": ["AWS.ALB"],
+                    "CreatedBy": 123,
+                }
+            )
+
     def test_rba_flag(self):
         RULE_SCHEMA.validate(
             {
@@ -611,67 +692,6 @@ class TestPATSchemas(unittest.TestCase):
                     "ResourceTypes": ["AWS.DynamoDB.Table"],
                 }
             )
-
-    def test_dedup_period_valid_values(self):
-        """Test that DedupPeriodMinutes accepts values between 5 and 1440."""
-        # Test valid values for standard rule
-        valid_rule = {
-            "AnalysisType": "rule",
-            "Enabled": True,
-            "Filename": "test.py",
-            "RuleID": "Test.Rule",
-            "LogTypes": ["AWS.CloudTrail"],
-            "Severity": "Medium",
-            "DedupPeriodMinutes": 5,  # Minimum valid value
-        }
-        RULE_SCHEMA.validate(valid_rule)
-
-        valid_rule["DedupPeriodMinutes"] = 60  # Common value
-        RULE_SCHEMA.validate(valid_rule)
-
-        valid_rule["DedupPeriodMinutes"] = 1440  # Maximum valid value
-        RULE_SCHEMA.validate(valid_rule)
-
-        # Test valid values for derived rule
-        valid_derived_rule = {
-            "AnalysisType": "rule",
-            "RuleID": "Test.DerivedRule",
-            "BaseDetection": "Test.BaseRule",
-            "DedupPeriodMinutes": 60,  # Valid value
-        }
-        DERIVED_SCHEMA.validate(valid_derived_rule)
-
-    def test_dedup_period_invalid_values(self):
-        """Test that DedupPeriodMinutes rejects values outside of 5-1440 range."""
-        # Test invalid values for standard rule
-        invalid_rule = {
-            "AnalysisType": "rule",
-            "Enabled": True,
-            "Filename": "test.py",
-            "RuleID": "Test.Rule",
-            "LogTypes": ["AWS.CloudTrail"],
-            "Severity": "Medium",
-            "DedupPeriodMinutes": 4,  # Below minimum
-        }
-        with self.assertRaises(SchemaError) as context:
-            RULE_SCHEMA.validate(invalid_rule)
-        self.assertIn("must be between 5 and 1440", str(context.exception))
-
-        invalid_rule["DedupPeriodMinutes"] = 1441  # Above maximum
-        with self.assertRaises(SchemaError) as context:
-            RULE_SCHEMA.validate(invalid_rule)
-        self.assertIn("must be between 5 and 1440", str(context.exception))
-
-        # Test invalid values for derived rule
-        invalid_derived_rule = {
-            "AnalysisType": "rule",
-            "RuleID": "Test.DerivedRule",
-            "BaseDetection": "Test.BaseRule",
-            "DedupPeriodMinutes": 2000,  # Invalid value
-        }
-        with self.assertRaises(SchemaError) as context:
-            DERIVED_SCHEMA.validate(invalid_derived_rule)
-        self.assertIn("must be between 5 and 1440", str(context.exception))
 
 
 # This class was generated in whole or in part by GitHub Copilot
