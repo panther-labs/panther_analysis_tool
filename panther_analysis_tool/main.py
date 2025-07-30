@@ -1230,6 +1230,24 @@ def classify_analysis(
                     )
             analysis_ids.append(analysis_id)
 
+            # Raise warnings for dedup minutes
+            if "DedupPeriodMinutes" in analysis_spec:
+                if analysis_spec["DedupPeriodMinutes"] == 0:
+                    msg = (
+                        f"DedupPeriodMinutes is set to 0 for {analysis_id}. "
+                        "This will be ignored by the backend. "
+                        "If you want to disable dedup, "
+                        "alter the `dedup` function to return 'p_row_id' instead."
+                    )
+                    logging.warning(msg)
+                elif analysis_spec["DedupPeriodMinutes"] < 5:
+                    msg = (
+                        f"DedupPeriodMinutes for {analysis_id} is less than 5. "
+                        "This is below Panther's DedupPeriodMinutes threshold, "
+                        "and will be treated as '5' upon upload."
+                    )
+                    logging.warning(msg)
+
             classified_analysis = ClassifiedAnalysis(
                 analysis_spec_filename, dir_name, analysis_spec
             )
@@ -2569,9 +2587,10 @@ def run() -> None:
                 logging.error("%s %s", fname, msg)
             except Exception:  # pylint: disable=broad-except
                 logging.error(out)  # Fallback to printing the entire output
-    elif return_code == 0:
-        if out:
-            logging.info(out)
+        else:  # If it's not a tuple, just print the output
+            logging.error(out)
+    elif return_code == 0 and out:
+        logging.info(out)
 
     sys.exit(return_code)
 
