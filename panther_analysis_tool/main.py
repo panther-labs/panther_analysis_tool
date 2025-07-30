@@ -9,7 +9,6 @@ import json
 import logging
 import mimetypes
 import os
-import re
 import shutil
 import subprocess  # nosec
 import sys
@@ -37,13 +36,11 @@ setup_temp()
 
 import botocore
 import dateutil.parser
-import jsonschema
 import requests
 import schema
 from colorama import Fore, Style
 from dynaconf import Dynaconf, Validator
 from gql.transport.aiohttp import log as aiohttp_logger
-from jsonschema.validators import Draft202012Validator
 from panther_core.data_model import DataModel
 from panther_core.enriched_event import PantherEvent
 from panther_core.exceptions import UnknownDestinationError
@@ -58,24 +55,16 @@ from panther_core.testing import (
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
-from schema import (
-    Optional,
-    SchemaError,
-    SchemaForbiddenKeyError,
-    SchemaMissingKeyError,
-    SchemaUnexpectedTypeError,
-    SchemaWrongKeyError,
-)
 
 from panther_analysis_tool import cli_output
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
-    ClassifiedAnalysisContainer,
+    classify_analysis,
     disable_all_base_detections,
     filter_analysis,
+    load_analysis,
     get_simple_detections_as_python,
-    load_analysis_specs,
     load_analysis_specs_ex,
     lookup_base_detection,
     test_correlation_rule,
@@ -97,15 +86,16 @@ from panther_analysis_tool.command import (
     check_connection,
     standard_args,
     validate,
+    init_project,
+    enable,
+    fetch,
+    clone,
 )
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     CONFIG_FILE,
-    DATA_MODEL_LOCATION,
     ENABLE_CORRELATION_RULES_FLAG,
-    HELPERS_LOCATION,
     PACKAGE_NAME,
-    SCHEMAS,
     TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
     AnalysisTypes,
@@ -114,13 +104,10 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
-    ANALYSIS_CONFIG_SCHEMA,
     DERIVED_SCHEMA,
-    GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
-    TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -133,11 +120,10 @@ from panther_analysis_tool.util import (
     is_simple_detection,
 )
 from panther_analysis_tool.validation import (
-    contains_invalid_field_set,
-    contains_invalid_table_names,
     validate_packs,
 )
 from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
+from panther_analysis_tool.lib.parse import parse_filter
 
 # This file was generated in whole or in part by GitHub Copilot.
 
@@ -146,32 +132,6 @@ from panther_analysis_tool.zip_chunker import ZipArgs, ZipChunk, analysis_chunks
 constructor.SafeConstructor.add_constructor(
     "tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str
 )
-
-
-# exception for conflicting ids
-class AnalysisIDConflictException(Exception):
-    def __init__(self, analysis_id: str):
-        self.message = f"Conflicting AnalysisID: [{analysis_id}]"
-        super().__init__(self.message)
-
-
-# exception for conflicting ids
-class AnalysisContainsDuplicatesException(Exception):
-    def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = f'Specification file for [{analysis_id}] contains fields \
-        with duplicate values: [{", ".join(x for x in invalid_fields)}]'
-        super().__init__(self.message)
-
-
-# Exception for invalid Panther Snowflake table names
-class AnalysisContainsInvalidTableNamesException(Exception):
-    def __init__(self, analysis_id: str, invalid_table_names: List[str]):
-        self.message = (
-            f'Specification file for [{analysis_id}] contains invalid Panther table names: [{", ".join(x for x in invalid_table_names)}]. '
-            'Try using a fully qualified table name such as "panther_logs.public.log_type" '
-            "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables."
-        )
-        super().__init__(self.message)
 
 
 @dataclass
@@ -710,48 +670,6 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
-def load_analysis(
-    path: str,
-    ignore_table_names: bool,
-    valid_table_names: List[str],
-    ignore_files: List[str],
-) -> Tuple[Any, List[Any]]:
-    """Loads each policy or rule into memory.
-
-    Args:
-        path: path to root folder with rules and policies
-        ignore_table_names: validate or ignore table names
-        valid_table_names: list of valid table names, other will be treated as invalid
-        ignore_files: Files that Panther Analysis Tool should not process
-
-    Returns:
-        A tuple of the valid and invalid rules and policies
-    """
-    search_directories = [path]
-    for directory in (
-        HELPERS_LOCATION,
-        "." + HELPERS_LOCATION,  # Try the parent directory as well
-        DATA_MODEL_LOCATION,
-        "." + DATA_MODEL_LOCATION,  # Try the parent directory as well
-    ):
-        absolute_dir_path = os.path.abspath(os.path.join(path, directory))
-        absolute_helper_path = os.path.abspath(directory)
-
-        if os.path.exists(absolute_dir_path):
-            search_directories.append(absolute_dir_path)
-        if os.path.exists(absolute_helper_path):
-            search_directories.append(absolute_helper_path)
-
-    # First classify each file, always include globals and data models location
-    specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files)),
-        ignore_table_names=ignore_table_names,
-        valid_table_names=valid_table_names,
-    )
-
-    return specs, invalid_specs
-
-
 # pylint: disable=too-many-locals
 def test_analysis(
     args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
@@ -1134,138 +1052,6 @@ def print_summary(
     print(f"\tInvalid: {len(invalid_specs)}\n")
 
 
-# pylint: disable=too-many-locals,too-many-statements
-def classify_analysis(
-    specs: List[Tuple[str, str, Any, Any]],
-    ignore_table_names: bool,
-    valid_table_names: List[str],
-) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
-    # First setup return dict containing different
-    # types of detections, meta types that can be zipped
-    # or uploaded
-    all_specs = ClassifiedAnalysisContainer()
-
-    invalid_specs = []
-    # each analysis type must have a unique id, track used ids and
-    # add any duplicates to the invalid_specs
-    analysis_ids: List[Any] = []
-
-    # Create a json validator and check the schema only once rather than during every loop
-    json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)
-
-    # pylint: disable=too-many-nested-blocks
-    for analysis_spec_filename, dir_name, analysis_spec, error in specs:
-        keys: List[Any] = []
-        tmp_logtypes: Any = None
-        tmp_logtypes_key: Any = None
-        try:
-            # check for parsing errors from json.loads (ValueError) / yaml.safe_load (YAMLError)
-            if error:
-                raise error
-            # validate the schema has a valid analysis type
-            TYPE_SCHEMA.validate(analysis_spec)
-            analysis_type = analysis_spec["AnalysisType"]
-            if analysis_spec.get("BaseDetection"):
-                analysis_schema = SCHEMAS["derived"]
-            else:
-                analysis_schema = SCHEMAS[analysis_type]
-            keys = list(analysis_schema.schema.keys())
-            # Special case for ScheduledQueries to only validate the types
-            if "ScheduledQueries" in analysis_spec:
-                for each_key in analysis_schema.schema.keys():
-                    if str(each_key) == "Or('LogTypes', 'ScheduledQueries')":
-                        tmp_logtypes_key = each_key
-                        break
-                if not tmp_logtypes:
-                    tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
-                analysis_schema.schema[tmp_logtypes_key] = [str]
-
-            analysis_schema.validate(analysis_spec)
-
-            # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
-            if analysis_id in analysis_ids:
-                raise AnalysisIDConflictException(analysis_id)
-            # check for duplicates where panther expects a unique set
-            invalid_fields = contains_invalid_field_set(analysis_spec)
-            if invalid_fields:
-                raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
-                invalid_table_names = contains_invalid_table_names(
-                    analysis_spec, analysis_id, valid_table_names
-                )
-                if invalid_table_names:
-                    raise AnalysisContainsInvalidTableNamesException(
-                        analysis_id, invalid_table_names
-                    )
-            analysis_ids.append(analysis_id)
-
-            # Raise warnings for dedup minutes
-            if "DedupPeriodMinutes" in analysis_spec:
-                if analysis_spec["DedupPeriodMinutes"] == 0:
-                    msg = (
-                        f"DedupPeriodMinutes is set to 0 for {analysis_id}. "
-                        "This will be ignored by the backend. "
-                        "If you want to disable dedup, "
-                        "alter the `dedup` function to return 'p_row_id' instead."
-                    )
-                    logging.warning(msg)
-                elif analysis_spec["DedupPeriodMinutes"] < 5:
-                    msg = (
-                        f"DedupPeriodMinutes for {analysis_id} is less than 5. "
-                        "This is below Panther's DedupPeriodMinutes threshold, "
-                        "and will be treated as '5' upon upload."
-                    )
-                    logging.warning(msg)
-
-            classified_analysis = ClassifiedAnalysis(
-                analysis_spec_filename, dir_name, analysis_spec
-            )
-
-            json_validator.validate(analysis_spec)
-
-            all_specs.add_classified_analysis(analysis_type, classified_analysis)
-
-        except SchemaWrongKeyError as err:
-            invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
-        except (
-            SchemaMissingKeyError,
-            SchemaForbiddenKeyError,
-            SchemaUnexpectedTypeError,
-        ) as err:
-            invalid_specs.append((analysis_spec_filename, err))
-            continue
-        except SchemaError as err:
-            # Intercept the error, otherwise the error message becomes confusing and unreadable
-            error = err
-            err_str = str(err)
-            first_half = err_str.split(":", maxsplit=1)[0]
-            second_half = err_str.split(")", maxsplit=1)[-1]
-            if "LogTypes" in str(err):
-                error = SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
-            elif "ResourceTypes" in str(err):
-                error = SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
-            invalid_specs.append((analysis_spec_filename, error))
-        except jsonschema.exceptions.ValidationError as err:
-            error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
-            invalid_specs.append(
-                (
-                    analysis_spec_filename,
-                    jsonschema.exceptions.ValidationError(error_message),
-                )
-            )
-        except Exception as err:  # pylint: disable=broad-except
-            # Catch arbitrary exceptions thrown by bad specification files
-            invalid_specs.append((analysis_spec_filename, err))
-            continue
-        finally:
-            # Restore original values
-            if tmp_logtypes and tmp_logtypes_key:
-                analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
-
-    return all_specs, invalid_specs
-
-
 def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     """Imports each policy or rule and enriches their test data, if any. The
         modifications are saved in the Analysis YAML files, but not committed
@@ -1521,43 +1307,6 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
         return 1, "\n".join(err_str)
 
     return 0, "Looks like packs are up to date"
-
-
-def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
-    analysis_id = "UNKNOWN_ID"
-    if analysis_type == AnalysisTypes.DATA_MODEL:
-        analysis_id = analysis_spec["DataModelID"]
-    elif analysis_type == AnalysisTypes.GLOBAL:
-        analysis_id = analysis_spec["GlobalID"]
-    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
-        analysis_id = analysis_spec["LookupName"]
-    elif analysis_type == AnalysisTypes.PACK:
-        analysis_id = analysis_spec["PackID"]
-    elif analysis_type == AnalysisTypes.POLICY:
-        analysis_id = analysis_spec["PolicyID"]
-    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type == AnalysisTypes.SAVED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type in [
-        AnalysisTypes.RULE,
-        AnalysisTypes.SCHEDULED_RULE,
-        AnalysisTypes.CORRELATION_RULE,
-    ]:
-        analysis_id = analysis_spec["RuleID"]
-    return analysis_id
-
-
-def handle_wrong_key_error(err: SchemaWrongKeyError, keys: list) -> Exception:
-    regex = r"Wrong key(?:s)? (.+?) in (.*)$"
-    matches = re.match(regex, str(err))
-    msg = "{} not in list of valid keys: {}"
-    try:
-        if matches:
-            raise SchemaWrongKeyError(msg.format(matches.group(1), keys)) from err
-        raise SchemaWrongKeyError(msg.format("UNKNOWN_KEY", keys)) from err
-    except SchemaWrongKeyError as exc:
-        return exc
 
 
 def run_tests(  # pylint: disable=too-many-arguments
@@ -2310,6 +2059,7 @@ def setup_parser() -> argparse.ArgumentParser:
     enrich_test_data_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     enrich_test_data_parser.set_defaults(func=pat_utils.func_with_backend(enrich_test_data))
 
+    # -- check-packs command
     check_packs_parser = subparsers.add_parser(
         "check-packs",
         help="Ensure that packs don't have missing detections.",
@@ -2319,6 +2069,50 @@ def setup_parser() -> argparse.ArgumentParser:
     check_packs_parser.set_defaults(func=check_packs)
     standard_args.for_public_api(check_packs_parser, required=False)
 
+    # -- init command
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize a new panther project",
+    )
+    standard_args.for_public_api(init_parser, required=False)
+    init_parser.set_defaults(func=init_project.run)
+
+    # -- enable command
+    enable_parser = subparsers.add_parser(
+        "enable",
+        help="Enable a detection",
+    )
+    standard_args.for_public_api(enable_parser, required=False)
+    enable_parser.add_argument(filter_name, **filter_arg)
+    enable_parser.set_defaults(func=enable.run)
+
+    # -- fetch command
+    fetch_parser = subparsers.add_parser(
+        "fetch",
+        help="Fetch a detection",
+    )
+    standard_args.for_public_api(fetch_parser, required=False)
+    fetch_parser.set_defaults(func=fetch.run)
+
+    # -- merge command
+    merge_parser = subparsers.add_parser(
+        "merge",
+        help="Merge a detection",
+    )
+    standard_args.for_public_api(merge_parser, required=False)
+
+    # -- clone command
+    clone_parser = subparsers.add_parser(
+        "clone",
+        help="Clone a detection",
+    )
+    clone_parser.add_argument(
+        "id",
+        type=str,
+        help="The ID of the analysis item to clone.",
+    )
+    standard_args.for_public_api(clone_parser, required=False)
+    clone_parser.set_defaults(func=clone.run)
     return parser
 
 
@@ -2367,51 +2161,6 @@ def dynaconf_argparse_merge(
     for key, value in config_file_settings.items():
         if key not in cli_args:
             argparse_dict[key] = value
-
-
-# Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    parsed_filters: Dict[str, Any] = {}
-    parsed_filters_inverted: Dict[str, Any] = {}
-    for filt in filters:
-        split = filt.split("=")
-        if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
-            continue
-        # Check for "!="
-        invert_filter = split[0].endswith("!")
-        if invert_filter:
-            split[0] = split[0][:-1]  # Remove the trailing "!"
-        key = split[0]
-        if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
-                )
-                for key in (key, Optional(key))
-            )
-        ):
-            logging.warning("Filter key %s is not a valid filter field, skipping", key)
-            continue
-        if invert_filter:
-            parsed_filters_inverted[key] = split[1].split(",")
-        else:
-            parsed_filters[key] = split[1].split(",")
-        # Handle boolean fields
-        if key == "Enabled":
-            try:
-                bool_value = bool(strtobool(split[1]))
-            except ValueError:
-                logging.warning("Filter key %s should have either true or false, skipping", key)
-                continue
-            if invert_filter:
-                parsed_filters_inverted[key] = [bool_value]
-            else:
-                parsed_filters[key] = [bool_value]
-    return parsed_filters, parsed_filters_inverted
 
 
 def run() -> None:

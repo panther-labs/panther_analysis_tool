@@ -6,7 +6,7 @@ from nested_lookup import nested_lookup
 from sqlfluff import parse
 from sqlfluff.core.config import FluffConfig
 
-from panther_analysis_tool.analysis_utils import ClassifiedAnalysisContainer
+from panther_analysis_tool.lib.definitions import ClassifiedAnalysisContainer
 from panther_analysis_tool.constants import SET_FIELDS
 
 # This file was generated in whole or in part by GitHub Copilot.
