@@ -108,3 +108,5 @@ class ReplayStatus:
 ENABLE_CORRELATION_RULES_FLAG = "EnableCorrelationRules"
 
 CACHE_DIR = ".cache"
+
+DEFAULT_EDITOR = "vi"

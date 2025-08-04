@@ -84,6 +84,7 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    rev,
     standard_args,
     validate,
     init_project,
@@ -2113,6 +2114,20 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     standard_args.for_public_api(clone_parser, required=False)
     clone_parser.set_defaults(func=clone.run)
+
+    # -- rev command
+    rev_parser = subparsers.add_parser(
+        "rev",
+        help="Rev a detection",
+    )
+    rev_parser.add_argument(
+        "id",
+        type=str,
+        help="The ID of the analysis item to rev.",
+    )
+    rev_parser.set_defaults(func=rev.run)
+    standard_args.for_public_api(rev_parser, required=False)
+
     return parser
 
 
