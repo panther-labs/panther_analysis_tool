@@ -8,10 +8,10 @@ from panther_analysis_tool.lib.definitions import ClassifiedAnalysis
 import yaml
 
 
-def run(args: argparse.Namespace) -> Tuple[int, str]:
-    return clone_analysis(args)
+def run(id: str) -> Tuple[int, str]:
+    return clone_analysis(id)
 
-def clone_analysis(args: argparse.Namespace) -> None:
+def clone_analysis(analysis_id: str) -> None:
     all_specs, _ = load_analysis(
         ".", True, [], []
     )
@@ -22,7 +22,7 @@ def clone_analysis(args: argparse.Namespace) -> None:
     for spec in all_specs.items():
         match spec.analysis_spec["AnalysisType"]:
             case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE:
-                if spec.analysis_spec["RuleID"] == args.id:
+                if spec.analysis_spec["RuleID"] == analysis_id:
                     return create_clone(spec)
             case AnalysisTypes.SAVED_QUERY | AnalysisTypes.SCHEDULED_QUERY:
                 pass

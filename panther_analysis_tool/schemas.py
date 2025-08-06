@@ -175,6 +175,9 @@ RULE_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
         Optional("CreateAlert"): bool,
+        # FIXME must have both or neither
+        Optional("BaseID"): str,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields

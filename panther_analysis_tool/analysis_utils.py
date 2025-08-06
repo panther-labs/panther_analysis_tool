@@ -1,4 +1,5 @@
 import dataclasses
+import importlib
 import io
 import json
 import logging
@@ -49,11 +50,6 @@ from panther_analysis_tool.schemas import (
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import is_simple_detection
-from panther_analysis_tool.validation import (
-    contains_invalid_field_set,
-    contains_invalid_table_names,
-)
-
 
 # exception for conflicting ids
 class AnalysisIDConflictException(Exception):
@@ -559,6 +555,12 @@ def classify_analysis(
     ignore_table_names: bool,
     valid_table_names: List[str],
 ) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
+    # defer importing to improve startup time
+    from panther_analysis_tool.validation import (
+        contains_invalid_field_set,
+        contains_invalid_table_names,
+    )
+
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
     # or uploaded
@@ -720,3 +722,28 @@ def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
     ]:
         analysis_id = analysis_spec["RuleID"]
     return analysis_id
+
+
+def load_module(filename: str) -> Tuple[Any, Any]:
+    """Loads the analysis function module from a file.
+
+    Args:
+        filename: The relative path to the file.
+
+    Returns:
+        A loaded Python module.
+    """
+    module_name = filename.split(".")[0]
+    spec = importlib.util.spec_from_file_location(module_name, filename)
+    module = importlib.util.module_from_spec(spec)  # type: ignore
+    try:
+        assert isinstance(spec.loader, Loader)  # type: ignore # nosec
+        spec.loader.exec_module(module)  # type: ignore
+    except FileNotFoundError as err:
+        print("\t[ERROR] File not found: " + filename + ", skipping\n")
+        return None, err
+    except Exception as err:  # pylint: disable=broad-except
+        # Catch arbitrary exceptions thrown by user code
+        print("\t[ERROR] Error loading module, skipping\n")
+        return None, err
+    return module, None

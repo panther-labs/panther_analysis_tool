@@ -18,19 +18,16 @@ def rev_analysis(args: argparse.Namespace) -> None:
     sqlite_file = pathlib.Path(CACHE_DIR) / "panther-analysis.sqlite"
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
-    cursor.execute("SELECT id_field, id_value, spec, file_path, version FROM analysis_specs WHERE UPPER(id_value) = ? ORDER BY version DESC LIMIT 1", (args.id.upper(),))
-    id_field, id_value, spec, file_path, version = cursor.fetchone()
-    if id_field:
-        print(f"Reving {id_field} = {id_value} version {version}")
-    else:
-        print(f"No spec found for {args.id_field} = {args.id_value} and version {args.version}")
-
-    # create a temp file and 
-
+    cursor.execute("SELECT id_field, id_value, spec, file_path FROM analysis_specs WHERE UPPER(id_value) = ? ORDER BY version DESC LIMIT 1", (args.id.upper(),))
+    id_field, id_value, spec, file_path = cursor.fetchone()
+    if not id_field:
+        return 1, f"No spec found for {args.id}"
+    
     # create a temp file and write the spec to it
     temp_file = tempfile.NamedTemporaryFile(delete=False)
     temp_file.write(spec.encode())
-
+    temp_file.flush()
+    
     # launch the editor with the temp file and wait for it to finish
     editor = os.getenv("EDITOR", DEFAULT_EDITOR)
     rev_command = [editor, temp_file.name]

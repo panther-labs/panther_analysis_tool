@@ -6,13 +6,9 @@ import requests
 import os
 import zipfile  
 import io
-from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
-from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes
+from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes, PANTHER_ANALYSIS_URL, PANTHER_ANALYSIS_SQLITE_FILE
 
-PANTHER_ANALYSIS_URL = "https://api.github.com/repos/panther-labs/panther-analysis/releases/latest"
-PANTHER_ANALYSIS_SQLITE_FILE = "panther-analysis.sqlite"
-
-def run(args: argparse.Namespace) -> Tuple[int, str]:
+def run(**kwargs) -> Tuple[int, str]:
     # git clone latest panther-analysis
     download_panther_analysis_asset()
     return 0, "Fetched"
@@ -39,6 +35,9 @@ def download_panther_analysis_asset() -> None:
 
 
 def import_sqlite() -> None:
+    # defer importing to improve startup time
+    from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
+
     SQLITE_FILE = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
 
     conn = sqlite3.connect(SQLITE_FILE)

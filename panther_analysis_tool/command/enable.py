@@ -1,5 +1,4 @@
-import argparse
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 import pathlib
 
 import yaml
@@ -7,17 +6,47 @@ import yaml
 from panther_analysis_tool.lib.parse import parse_filter
 from panther_analysis_tool.analysis_utils import load_analysis, filter_analysis, ClassifiedAnalysis
 from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes
+from panther_analysis_tool.util import get_spec_id
 
-def run(args: argparse.Namespace) -> Tuple[int, str]:
-    enable_analysis(args)
+def run(id: Optional[str], **kwargs) -> Tuple[int, str]:
+    if id is None:
+        return enable_analysis_filter(kwargs["filter"])
+    else:
+        return enable_analysis_id(id)
+
+def enable_analysis_id(id: str) -> Tuple[int, str]:
+    # get all analysis specs
+        # First classify each file, always include globals and data models location
+    all_specs, _ = load_analysis(
+        ".", True, [], []
+    )
+    if all_specs.empty():
+        return 0, f"Nothing to enable"
+
+    # Apply the filters as needed
+    managed_specs = all_specs.apply(lambda l: [x for x in l if CACHE_DIR in x.file_name])
+    user_specs = all_specs.apply(lambda l: [x for x in l if CACHE_DIR not in x.file_name])
+
+    user_specs_by_id = {get_spec_id(detection.analysis_spec): detection for detection in user_specs.detections}
+    for spec in user_specs.data_models:
+        user_specs_by_id[get_spec_id(spec.analysis_spec)] = spec
+    for spec in user_specs.globals:
+        user_specs_by_id[get_spec_id(spec.analysis_spec)] = spec
+    for spec in user_specs.queries:
+        user_specs_by_id[get_spec_id(spec.analysis_spec)] = spec
+    for spec in user_specs.lookup_tables:
+        user_specs_by_id[get_spec_id(spec.analysis_spec)] = spec
+
+    # enable analysis specs
+    for managed_spec in managed_specs.detections:
+        if id == get_spec_id(managed_spec.analysis_spec):
+            user_spec = user_specs_by_id.get(id)
+            enable_analysis_spec(managed_spec, user_spec)
+
     return 0, "Enabled"
 
-def enable_analysis(args: argparse.Namespace) -> Tuple[int, str]:
-    # filters = {}
-    # if args.filter is not None:
-    #     repr(args.filter)
-    #     filters = args.filter
 
+def enable_analysis_filter(filter: List[str]) -> Tuple[int, str]:
     # get all analysis specs
         # First classify each file, always include globals and data models location
     all_specs, _ = load_analysis(
@@ -27,9 +56,8 @@ def enable_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         return 0, [f"Nothing to enable"]
 
     # Apply the filters as needed
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
-    all_specs = all_specs.apply(lambda l: filter_analysis(l, args.filter, args.filter_inverted))
+    parsed_filters, parsed_filters_inverted = parse_filter(kwargs["filter"])
+    all_specs = all_specs.apply(lambda l: filter_analysis(l, parsed_filters, parsed_filters_inverted))
     managed_specs = all_specs.apply(lambda l: [x for x in l if CACHE_DIR in x.file_name])
     user_specs = all_specs.apply(lambda l: [x for x in l if CACHE_DIR not in x.file_name])
 
@@ -67,6 +95,7 @@ def enable_analysis(args: argparse.Namespace) -> Tuple[int, str]:
         enable_analysis_spec(managed_spec, user_spec)
 
     return 0, "Enabled"
+
 
 def enable_analysis_spec(managed_analysis_spec: ClassifiedAnalysis, user_analysis_spec: Optional[ClassifiedAnalysis]) -> None:
     if user_analysis_spec is None:
