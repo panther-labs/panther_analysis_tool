@@ -167,6 +167,7 @@ class LoadAnalysisSpecsResult:
     analysis_spec: Any
     yaml_ctx: YAML
     error: Exception
+    raw_file_content: str
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -176,12 +177,14 @@ class LoadAnalysisSpecsResult:
         analysis_spec: Any,
         yaml_ctx: YAML,
         error: Any,
+        raw_file_content: str,
     ):
         self.spec_filename = spec_filename
         self.relative_path = relative_path
         self.analysis_spec = analysis_spec
         self.yaml_ctx = yaml_ctx
         self.error = error
+        self.raw_file_content = raw_file_content
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
@@ -279,6 +282,7 @@ def load_analysis_specs_ex(
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
+    yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
     loaded_specs: List[Any] = []
     for directory in directories:
         for relative_path, _, file_list in os.walk(directory):
@@ -326,16 +330,17 @@ def load_analysis_specs_ex(
                     continue
                 loaded_specs.append(spec_filename)
                 # setup yaml object
-                yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                 if fnmatch(filename, "*.y*ml"):
                     with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
                         try:
+                            file_content = spec_file_obj.read()
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
                                 relative_path=relative_path,
-                                analysis_spec=yaml.load(spec_file_obj),
+                                analysis_spec=yaml.load(io.StringIO(file_content)),
                                 yaml_ctx=yaml,
                                 error=None,
+                                raw_file_content=file_content,
                             )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error

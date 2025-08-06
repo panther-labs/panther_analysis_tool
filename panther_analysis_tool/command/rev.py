@@ -1,4 +1,4 @@
-import argparse
+import io
 import os
 import pathlib
 import sqlite3
@@ -6,22 +6,21 @@ import subprocess
 import tempfile
 from typing import Tuple
 
-import yaml
-
 from panther_analysis_tool.constants import CACHE_DIR, DEFAULT_EDITOR
+from panther_analysis_tool.analysis_utils import get_yaml_loader
 
-def run(args: argparse.Namespace) -> Tuple[int, str]:
-    rev_analysis(args)
+def run(analysis_id: str) -> Tuple[int, str]:
+    rev_analysis(analysis_id)
     return 0, ""
 
-def rev_analysis(args: argparse.Namespace) -> None:
+def rev_analysis(analysis_id: str) -> None:
     sqlite_file = pathlib.Path(CACHE_DIR) / "panther-analysis.sqlite"
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
-    cursor.execute("SELECT id_field, id_value, spec, file_path FROM analysis_specs WHERE UPPER(id_value) = ? ORDER BY version DESC LIMIT 1", (args.id.upper(),))
+    cursor.execute("SELECT id_field, id_value, spec, file_path FROM analysis_specs WHERE UPPER(id_value) = ? ORDER BY version DESC LIMIT 1", (analysis_id.upper(),))
     id_field, id_value, spec, file_path = cursor.fetchone()
     if not id_field:
-        return 1, f"No spec found for {args.id}"
+        return 1, f"No spec found for {analysis_id}"
     
     # create a temp file and write the spec to it
     temp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -43,12 +42,15 @@ def rev_analysis(args: argparse.Namespace) -> None:
         return 0, "No changes made"
 
     # bump the yaml version and write it back to the db
-    spec_yaml = yaml.safe_load(spec)
+    yaml = get_yaml_loader(roundtrip=True)
+    spec_yaml = yaml.load(spec)
     spec_version = spec_yaml.get("Version", 1) + 1
 
-    new_spec_yaml = yaml.safe_load(temp_spec)
+    new_spec_yaml = yaml.load(temp_spec)
     new_spec_yaml["Version"] = spec_version
-    new_spec = yaml.dump(new_spec_yaml)
+    stream = io.StringIO()
+    yaml.dump(new_spec_yaml, stream)
+    new_spec = stream.getvalue()
     cursor.execute("INSERT INTO analysis_specs (id_field, id_value, spec, file_path, version) VALUES (?, ?, ?, ?, ?)", (id_field, id_value, new_spec, file_path, spec_version))
     conn.commit()
     conn.close()

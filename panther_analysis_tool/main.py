@@ -2191,7 +2191,7 @@ def check_packs_command(
 @app.command(name="init", help="Initialize a new panther project")
 def init_command(
 ):
-    pat_utils.func_with_backend(init_project.run)()
+    init_project.run()
 
 
 def complete_id(ctx: typer.Context, args: List[str], incomplete: str):
@@ -2221,22 +2221,24 @@ def fetch_command():
 
 
 @app.command(name="merge", help="Merge a detection")
-def merge_command():
-    merge.run()
+def merge_command(
+    id: Optional[str] = typer.Argument(None, help="The ID of the analysis item to merge.", autocompletion=complete_id),
+):
+    return merge.run(id=id)
 
 
 @app.command(name="clone", help="Clone a detection")
 def clone_command(
     id: str = typer.Argument(..., help="The ID of the analysis item to clone.", autocompletion=complete_id),
 ):
-    clone.run(id=id)
+    clone.run(analysis_id=id)
 
 
 @app.command(name="rev", help="Rev a detection")
 def rev_command(
-    id: str = typer.Option(..., help="The ID of the analysis item to rev.", autocompletion=complete_id),
+    id: str = typer.Argument(..., help="The ID of the analysis item to rev.", autocompletion=complete_id),
 ):
-    rev.run(id=id)
+    rev.run(analysis_id=id)
 
 
 def setup_dynaconf() -> Dict[str, Any]:

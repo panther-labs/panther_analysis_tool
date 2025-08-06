@@ -1,4 +1,3 @@
-import argparse
 import pathlib
 import sqlite3
 from typing import Tuple
@@ -7,6 +6,7 @@ import os
 import zipfile  
 import io
 from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes, PANTHER_ANALYSIS_URL, PANTHER_ANALYSIS_SQLITE_FILE
+
 
 def run(**kwargs) -> Tuple[int, str]:
     # git clone latest panther-analysis
@@ -72,11 +72,9 @@ def import_sqlite() -> None:
             case _:
                 raise ValueError(f"Unsupported analysis type: {spec.analysis_type()}")
         id_value = spec.analysis_spec.get(id_field)
-        yaml_contents = io.StringIO()
-        spec.yaml_ctx.dump(spec.analysis_spec, yaml_contents)
         relpath = pathlib.Path(spec.spec_filename).relative_to(pathlib.Path(CACHE_DIR).absolute() / "panther-analysis")
         cursor.execute("INSERT INTO analysis_specs (id_field, id_value, spec, file_path, version) VALUES (?, ?, ?, ?, ?);", 
-                    (id_field, id_value, yaml_contents.getvalue(), str(relpath), spec.analysis_spec.get("Version", 1)))
+                    (id_field, id_value, spec.raw_file_content, str(relpath), spec.analysis_spec.get("Version", 1)))
     
     conn.commit()
     conn.close()
