@@ -49,6 +49,7 @@ positional arguments:
   {release,test,publish,upload,delete,update-custom-schemas,test-lookup-table,validate,zip,check-connection,benchmark,enrich-test-data}
     release             Create release assets for repository containing panther detections. Generates a file called panther-analysis-all.zip and optionally generates panther-analysis-all.sig
     test                Validate analysis specifications and run policy and rule tests.
+    debug               Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.
     publish             Publishes a new release, generates the release assets, and uploads them. Generates a file called panther-analysis-all.zip and optionally generates panther-analysis-all.sig
     upload              Upload specified policies and rules to a Panther deployment.
     delete              Delete policies, rules, or saved queries from a Panther deployment
@@ -102,6 +103,34 @@ $ panther_analysis_tool test --filter RuleID=AWS.CloudTrail.Stopped --test-names
         ...
         [PASS] Error Stopping CloudTrail
                 [PASS] [rule] false
+```
+
+### Debug
+
+Run a specific unit test in debug mode:
+
+```bash
+panther_analysis_tool debug My.RuleID "My unit test name"
+```
+
+See print statements like
+
+```bash
+INFO: Testing analysis items in /panther-analysis/rules/debug
+Debug.RuleThatPrints
+Hello world!
+```
+
+Or see your errors with traceback info:
+
+```bash
+INFO: Testing analysis items in /panther-analysis/rules/debug
+Debug.RuleWithError
+ERROR: Test exception for debug tracing
+  File "/panther-analysis/rules/debug/rule_with_error.py", line 4, in rule
+    sub_func()
+  File "/panther-analysis/rules/debug/rule_with_error.py", line 7, in sub_func
+    raise ValueError('Test exception for debug tracing')
 ```
 
 
