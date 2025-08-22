@@ -14,6 +14,7 @@ import shutil
 import subprocess  # nosec
 import sys
 import time
+import traceback
 import typing  # 'from typing import Optional' conflicts with 'from schema import Optional', below
 import zipfile
 from collections import defaultdict
@@ -26,7 +27,7 @@ from datetime import datetime
 # in the Python Repl.
 from distutils.util import strtobool  # pylint: disable=E0611, E0401
 from importlib.abc import Loader
-from typing import Any, DefaultDict, Dict, List, Tuple, Type
+from typing import Any, DefaultDict, Dict, List, TextIO, Tuple, Type, cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -736,9 +737,31 @@ def load_analysis(
     return specs, invalid_specs
 
 
+def debug_analysis(
+    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+) -> Tuple[int, list]:
+    """Debugs the analysis items in the given path.
+
+    Args:
+        args: The populated Argparse namespace with parsed command-line arguments.
+        backend: The backend client to use for testing.
+    """
+    debug_args = {"debug_mode": True, "test_name": args.testname}
+
+    args.filter = {"RuleID": [args.ruleid]}
+    # We don't want these options as actual command line arguments because we need them to be
+    #  these exact values in order to work well with test_analysis
+    args.minimum_tests = 0
+    args.sort_test_results = False
+    args.print_failed_test_results_only = False
+    return test_analysis(args, backend, debug_args=debug_args)
+
+
 # pylint: disable=too-many-locals
 def test_analysis(
-    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
+    args: argparse.Namespace,
+    backend: typing.Optional[BackendClient] = None,
+    debug_args: typing.Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -813,6 +836,7 @@ def test_analysis(
         all_test_results=all_test_results,
         backend=backend,
         test_names=getattr(args, "test_names", None),
+        debug_args=debug_args,
     )
     invalid_specs.extend(invalid_detections)
 
@@ -841,13 +865,17 @@ def test_analysis(
                         failed_tests=test_result_package.failed_tests,
                     )
                     print("")
-    print_summary(
-        args.path,
-        len(specs.detections + specs.simple_detections),
-        failed_tests,
-        invalid_specs,
-        skipped_tests,
-    )
+
+    if debug_args is None:
+        debug_args = {}
+    if not debug_args.get("debug_mode", False):
+        print_summary(
+            args.path,
+            len(specs.detections + specs.simple_detections),
+            failed_tests,
+            invalid_specs,
+            skipped_tests,
+        )
 
     #  if the classic format was invalid, just exit
     if invalid_specs:
@@ -955,6 +983,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     all_test_results: typing.Optional[TestResultsContainer] = None,
     backend: typing.Optional[BackendClient] = None,
     test_names: typing.Optional[List[str]] = None,
+    debug_args: typing.Optional[Dict[str, Any]] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any], List[Tuple[str, dict]]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -1074,6 +1103,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             all_test_results,
             correlation_rule_results,
             test_names,
+            debug_args,
         )
 
         if not all_test_results:
@@ -1556,6 +1586,7 @@ def run_tests(  # pylint: disable=too-many-arguments
     all_test_results: typing.Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
     test_names: typing.Optional[List[str]] = None,
+    debug_args: typing.Optional[Dict[str, Any]] = None,
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection_id].append(
@@ -1578,6 +1609,7 @@ def run_tests(  # pylint: disable=too-many-arguments
         correlation_rule_test_results,
         detection_id,
         test_names,
+        debug_args,
     )
 
     if minimum_tests > 1 and not (
@@ -1646,6 +1678,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
     correlation_rule_test_results: List[Dict[str, Any]],
     detection_id: str,
     test_names: typing.Optional[List[str]] = None,
+    debug_args: typing.Optional[Dict[str, Any]] = None,
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
@@ -1661,7 +1694,13 @@ def _run_tests(  # pylint: disable=too-many-arguments
     if test_names:
         tests = [test for test in tests if test.get("Name") in test_names]
 
+    found_debug_unit_test = False
     for unit_test in tests:
+        if debug_args and debug_args.get("debug_mode", False):
+            if unit_test.get("Name") != debug_args["test_name"]:
+                continue
+            found_debug_unit_test = True
+
         test_output = ""
         try:
             entry = unit_test.get("Resource") or unit_test["Log"]
@@ -1677,7 +1716,11 @@ def _run_tests(  # pylint: disable=too-many-arguments
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
                 test_case = PantherEvent(entry, analysis_data_models.get(log_type))
-            test_output_buf = io.StringIO()
+            # Override buffer redirect if we're in debug mode
+            test_output_buf: io.StringIO | TextIO = io.StringIO()
+            if debug_args and debug_args.get("debug_mode", False):
+                test_output_buf = sys.stdout
+
             with (
                 contextlib.redirect_stdout(test_output_buf),
                 contextlib.redirect_stderr(test_output_buf),
@@ -1689,7 +1732,25 @@ def _run_tests(  # pylint: disable=too-many-arguments
                         )
                 else:
                     result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
-            test_output = test_output_buf.getvalue()
+            test_output = ""
+            if not debug_args or not debug_args.get("debug_mode", False):
+                test_output = cast(io.StringIO, test_output_buf).getvalue()
+            if debug_args and debug_args.get("debug_mode", False):
+                # Print excceptiosn relative to the rule.py file
+                if err := result.detection_exception:
+                    # Get the count of frames
+                    frames = traceback.extract_tb(err.__traceback__)
+                    n_frames = 0
+                    for idx, frame in enumerate(frames):
+                        if frame.name == "_run_command":
+                            n_frames = idx
+                            break
+                    err_tb = err.__traceback__
+                    for _ in range(n_frames + 1):
+                        err_tb = err_tb.tb_next
+                    logging.error(err.with_traceback(err_tb))
+                    traceback.print_tb(err_tb)
+
         except (AttributeError, KeyError) as err:
             logging.warning("AttributeError: {%s}", err)
             logging.debug(str(err), exc_info=err)
@@ -1741,8 +1802,12 @@ def _run_tests(  # pylint: disable=too-many-arguments
                     output=test_output,
                 )
             )
-        else:
+        elif not debug_args or not debug_args.get("debug_mode", False):
+            # Only print test results if not in debug mode
             _print_test_result(detection, test_result, failed_tests)
+
+    if debug_args and debug_args.get("debug_mode", False) and not found_debug_unit_test:
+        logging.warning("No test found with name %s", debug_args["test_name"])
 
     return failed_tests
 
@@ -1986,6 +2051,30 @@ def setup_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
     test_parser.add_argument(test_names_name, **test_names_arg)
     test_parser.set_defaults(func=pat_utils.func_with_optional_backend(test_analysis))
+
+    # -- debug command
+
+    debug_help_text = "Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints."
+    debug_parser = subparsers.add_parser(
+        "debug",
+        help=debug_help_text,
+        description=debug_help_text,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    standard_args.for_public_api(debug_parser, required=False)
+    debug_parser.add_argument("ruleid")
+    debug_parser.add_argument("testname")
+    debug_parser.add_argument(filter_name, **filter_arg)
+    # debug_parser.add_argument(min_test_name, **min_test_arg.update(default=0))
+    debug_parser.add_argument(path_name, **path_arg)
+    debug_parser.add_argument(ignore_extra_keys_name, **ignore_extra_keys_arg)
+    debug_parser.add_argument(ignore_files_name, **ignore_files_arg)
+    debug_parser.add_argument(skip_disabled_test_name, **skip_disabled_test_arg)
+    debug_parser.add_argument(available_destination_name, **available_destination_arg)
+    # debug_parser.add_argument(sort_test_results_name, **sort_test_results_arg.update(default=False))
+    debug_parser.add_argument(ignore_table_names_name, **ignore_table_names_arg)
+    debug_parser.add_argument(valid_table_names_name, **valid_table_names_arg)
+    debug_parser.set_defaults(func=pat_utils.func_with_optional_backend(debug_analysis))
 
     # -- publish command
 
