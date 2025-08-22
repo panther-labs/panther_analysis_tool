@@ -19,7 +19,7 @@ import typing  # 'from typing import Optional' conflicts with 'from schema impor
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
@@ -60,7 +60,6 @@ from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 from schema import (
-    Optional,
     SchemaError,
     SchemaForbiddenKeyError,
     SchemaMissingKeyError,
@@ -71,8 +70,6 @@ from schema import (
 from panther_analysis_tool import cli_output
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
-    ClassifiedAnalysis,
-    ClassifiedAnalysisContainer,
     disable_all_base_detections,
     filter_analysis,
     get_simple_detections_as_python,
@@ -111,13 +108,19 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.core.definitions import (
+    ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
+    TestResultContainer,
+    TestResultsContainer,
+)
+from panther_analysis_tool.core.parse import parse_filter
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
     DERIVED_SCHEMA,
-    GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
@@ -173,22 +176,6 @@ class AnalysisContainsInvalidTableNamesException(Exception):
             "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables."
         )
         super().__init__(self.message)
-
-
-@dataclass
-class TestResultContainer:
-    detection: typing.Optional[Detection]
-    result: TestResult
-    failed_tests: DefaultDict[str, list]
-    output: str
-
-
-@dataclass
-class TestResultsContainer:
-    """A container for all test results"""
-
-    passed: Dict[str, List[TestResultContainer]]
-    errored: Dict[str, List[TestResultContainer]]
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -2456,51 +2443,6 @@ def dynaconf_argparse_merge(
     for key, value in config_file_settings.items():
         if key not in cli_args:
             argparse_dict[key] = value
-
-
-# Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    parsed_filters: Dict[str, Any] = {}
-    parsed_filters_inverted: Dict[str, Any] = {}
-    for filt in filters:
-        split = filt.split("=")
-        if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
-            continue
-        # Check for "!="
-        invert_filter = split[0].endswith("!")
-        if invert_filter:
-            split[0] = split[0][:-1]  # Remove the trailing "!"
-        key = split[0]
-        if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
-                )
-                for key in (key, Optional(key))
-            )
-        ):
-            logging.warning("Filter key %s is not a valid filter field, skipping", key)
-            continue
-        if invert_filter:
-            parsed_filters_inverted[key] = split[1].split(",")
-        else:
-            parsed_filters[key] = split[1].split(",")
-        # Handle boolean fields
-        if key == "Enabled":
-            try:
-                bool_value = bool(strtobool(split[1]))
-            except ValueError:
-                logging.warning("Filter key %s should have either true or false, skipping", key)
-                continue
-            if invert_filter:
-                parsed_filters_inverted[key] = [bool_value]
-            else:
-                parsed_filters[key] = [bool_value]
-    return parsed_filters, parsed_filters_inverted
 
 
 def run() -> None:

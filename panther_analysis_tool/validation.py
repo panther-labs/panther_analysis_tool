@@ -3,15 +3,13 @@ import re
 from typing import Any, List, Optional
 
 from nested_lookup import nested_lookup
-from sqlfluff import parse
-from sqlfluff.core.config import FluffConfig
 
-from panther_analysis_tool.analysis_utils import ClassifiedAnalysisContainer
 from panther_analysis_tool.constants import SET_FIELDS
+from panther_analysis_tool.core.definitions import ClassifiedAnalysisContainer
 
 # This file was generated in whole or in part by GitHub Copilot.
 
-SQLFLUFF_COMFIG = FluffConfig(overrides={"dialect": "snowflake", "templater": "jinja"})
+SQLFLUFF_CONFIG = None
 
 
 def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
@@ -33,14 +31,26 @@ def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
     return invalid_fields
 
 
+# pylint: disable=too-many-locals
 def contains_invalid_table_names(
     analysis_spec: Any, analysis_id: str, valid_table_names: List[str]
 ) -> List[str]:
+    # defer importing to improve startup time
+    # pylint: disable=import-outside-toplevel
+    from sqlfluff import parse
+    from sqlfluff.core.config import FluffConfig
+
     invalid_table_names = []
     query = lookup_snowflake_query(analysis_spec)
     if query is not None:
         try:
-            parsed_query = parse(query, config=SQLFLUFF_COMFIG)
+            # pylint: disable=global-statement
+            global SQLFLUFF_CONFIG
+            if SQLFLUFF_CONFIG is None:
+                SQLFLUFF_CONFIG = FluffConfig(
+                    overrides={"dialect": "snowflake", "templater": "jinja"}
+                )
+            parsed_query = parse(query, config=SQLFLUFF_CONFIG)
         except Exception:  # pylint: disable=broad-except
             # Intentionally broad exception catch:
             # We want to fall back on original behavior if this third-party parser cannot tell us the table names

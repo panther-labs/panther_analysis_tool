@@ -83,7 +83,7 @@ def store_modules(path: str, body: str) -> None:
         py_file.write(body)
 
 
-def get_client(aws_profile: str, service: str) -> boto3.client:
+def get_client(aws_profile: Optional[str], service: str) -> boto3.client:
     # optionally set env variable for profile passed as argument
     if aws_profile is not None:
         logging.info("Using AWS profile: %s", aws_profile)
