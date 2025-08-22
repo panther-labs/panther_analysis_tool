@@ -16,7 +16,10 @@ from panther_analysis_tool.backend.client import (
 )
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.constants import BACKEND_FILTERS_ANALYSIS_SPEC_KEY
-from panther_analysis_tool.core.definitions import ClassifiedAnalysis, ClassifiedAnalysisContainer
+from panther_analysis_tool.core.definitions import (
+    ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
+)
 from tests.unit.panther_analysis_tool.test_main import DETECTIONS_FIXTURES_PATH
 
 

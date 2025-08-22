@@ -1,8 +1,8 @@
-from panther_analysis_tool import main as pat
-from panther_analysis_tool.core import parse
 import os
 from unittest import TestCase
 
+from panther_analysis_tool import main as pat
+from panther_analysis_tool.core import parse
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")

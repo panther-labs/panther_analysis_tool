@@ -4,8 +4,8 @@ from typing import Any, List, Optional
 
 from nested_lookup import nested_lookup
 
-from panther_analysis_tool.core.definitions import ClassifiedAnalysisContainer
 from panther_analysis_tool.constants import SET_FIELDS
+from panther_analysis_tool.core.definitions import ClassifiedAnalysisContainer
 
 # This file was generated in whole or in part by GitHub Copilot.
 
@@ -44,7 +44,9 @@ def contains_invalid_table_names(
         try:
             global SQLFLUFF_CONFIG
             if SQLFLUFF_CONFIG is None:
-                SQLFLUFF_CONFIG = FluffConfig(overrides={"dialect": "snowflake", "templater": "jinja"})
+                SQLFLUFF_CONFIG = FluffConfig(
+                    overrides={"dialect": "snowflake", "templater": "jinja"}
+                )
             parsed_query = parse(query, config=SQLFLUFF_CONFIG)
         except Exception:  # pylint: disable=broad-except
             # Intentionally broad exception catch:

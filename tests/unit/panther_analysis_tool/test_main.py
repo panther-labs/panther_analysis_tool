@@ -12,7 +12,6 @@ from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import main as pat
-from panther_analysis_tool.core import parse
 from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
     BackendError,
@@ -30,6 +29,7 @@ from panther_analysis_tool.backend.client import (
 )
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.command import validate
+from panther_analysis_tool.core import parse
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")

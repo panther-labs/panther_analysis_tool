@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Tuple
 import logging
 from distutils.util import strtobool
+from typing import Any, Dict, List, Tuple
 
 from schema import Optional
+
 from panther_analysis_tool.schemas import GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
 
 

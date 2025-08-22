@@ -30,8 +30,11 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.core.definitions import (
+    ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
+)
 from panther_analysis_tool.util import is_simple_detection
-from panther_analysis_tool.core.definitions import ClassifiedAnalysis, ClassifiedAnalysisContainer
 
 
 def filter_analysis(

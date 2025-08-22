@@ -79,8 +79,6 @@ from panther_analysis_tool.analysis_utils import (
     test_correlation_rule,
     transpile_inline_filters,
 )
-from panther_analysis_tool.core.definitions import ClassifiedAnalysis, ClassifiedAnalysisContainer
-from panther_analysis_tool.core.parse import parse_filter
 from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
@@ -110,7 +108,13 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
-from panther_analysis_tool.core.definitions import TestResultContainer, TestResultsContainer
+from panther_analysis_tool.core.definitions import (
+    ClassifiedAnalysis,
+    ClassifiedAnalysisContainer,
+    TestResultContainer,
+    TestResultsContainer,
+)
+from panther_analysis_tool.core.parse import parse_filter
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
@@ -2440,9 +2444,6 @@ def dynaconf_argparse_merge(
     for key, value in config_file_settings.items():
         if key not in cli_args:
             argparse_dict[key] = value
-
-
-
 
 
 def run() -> None:

@@ -1,11 +1,12 @@
 import dataclasses
 from typing import Any, Callable, DefaultDict, Dict, Generator, List, Optional
 
+from panther_core.rule import Detection
+from panther_core.testing import TestResult
+
 from panther_analysis_tool.constants import AnalysisTypes
 from panther_analysis_tool.util import is_simple_detection
-from panther_core.rule import Detection
 
-from panther_core.testing import TestResult
 
 class ClassifiedAnalysis:
     def __init__(self, file_name: str, dir_name: str, analysis_spec: Dict[str, Any]):
@@ -96,6 +97,7 @@ class ClassifiedAnalysisContainer:
             self.queries.append(classified_analysis)
         elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
             self.queries.append(classified_analysis)
+
 
 @dataclasses.dataclass
 class TestResultContainer:
