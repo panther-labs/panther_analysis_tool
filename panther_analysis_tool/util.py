@@ -69,10 +69,15 @@ def func_with_api_backend(
 
 
 def func_with_backend(
-    func: Callable[[BackendClient, argparse.Namespace], Any]
+    api_token: Optional[str],
+    api_host: Optional[str],
+    aws_profile: Optional[str],
+    func: Callable[[BackendClient, argparse.Namespace], Any],
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(get_backend(args), args)
-
+    def partial(**kwargs):
+        args = argparse.Namespace(**kwargs)
+        return func(get_backend(api_token, api_host, aws_profile), args)
+    return partial
 
 def func_with_optional_backend(
     func: Callable[[argparse.Namespace, Optional[BackendClient]], Any]
@@ -100,30 +105,21 @@ def get_api_backend(args: argparse.Namespace) -> BackendClient:
     )
 
 
-def get_backend(args: argparse.Namespace) -> BackendClient:
-    if args.api_token:
+def get_backend(api_token: Optional[str], api_host: Optional[str], aws_profile: Optional[str]) -> BackendClient:
+    if api_token:
         return PublicAPIClient(
             PublicAPIClientOptions(
-                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
+                token=api_token, user_id=PANTHER_USER_ID, host=api_host
             )
         )
-
-    datalake_lambda = get_datalake_lambda(args)
 
     return LambdaClient(
         LambdaClientOpts(
             user_id=PANTHER_USER_ID,
-            aws_profile=args.aws_profile,
-            datalake_lambda=datalake_lambda,
+            aws_profile=aws_profile,
+            datalake_lambda="panther-snowflake-api",
         )
     )
-
-
-def get_datalake_lambda(args: argparse.Namespace) -> str:
-    if "athena_datalake" not in args:
-        return ""
-
-    return "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
 
 
 def set_env(key: str, value: str) -> None:

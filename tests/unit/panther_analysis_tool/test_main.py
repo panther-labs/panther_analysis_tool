@@ -1,4 +1,3 @@
-import io
 import json
 import os
 import shutil
@@ -9,7 +8,6 @@ import jsonschema
 from colorama import Fore, Style
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
-from schema import SchemaWrongKeyError
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool import main as pat
