@@ -31,10 +31,12 @@ def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
     return invalid_fields
 
 
+# pylint: disable=too-many-locals
 def contains_invalid_table_names(
     analysis_spec: Any, analysis_id: str, valid_table_names: List[str]
 ) -> List[str]:
     # defer importing to improve startup time
+    # pylint: disable=import-outside-toplevel
     from sqlfluff import parse
     from sqlfluff.core.config import FluffConfig
 
@@ -42,6 +44,7 @@ def contains_invalid_table_names(
     query = lookup_snowflake_query(analysis_spec)
     if query is not None:
         try:
+            # pylint: disable=global-statement
             global SQLFLUFF_CONFIG
             if SQLFLUFF_CONFIG is None:
                 SQLFLUFF_CONFIG = FluffConfig(

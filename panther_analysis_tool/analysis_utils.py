@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from fnmatch import fnmatch
-from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser

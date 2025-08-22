@@ -19,7 +19,7 @@ import typing  # 'from typing import Optional' conflicts with 'from schema impor
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
@@ -121,7 +121,6 @@ from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import (
     ANALYSIS_CONFIG_SCHEMA,
     DERIVED_SCHEMA,
-    GLOBAL_SCHEMA,
     LOOKUP_TABLE_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
