@@ -75,6 +75,8 @@ DATA_MODEL_SCHEMA = Schema(
         ],
         Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
         Optional("Filename"): str,
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )
@@ -86,6 +88,8 @@ GLOBAL_SCHEMA = Schema(
         "GlobalID": And(str, NAME_ID_VALIDATION_REGEX),
         Optional("Description"): str,
         Optional("Tags"): [str],
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )
@@ -134,6 +138,8 @@ POLICY_SCHEMA = Schema(
                 Optional("Mocks"): [MOCK_SCHEMA],
             }
         ],
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -175,6 +181,9 @@ RULE_SCHEMA = Schema(
         Optional("AlertContext"): object,
         Optional("GroupBy"): object,
         Optional("CreateAlert"): bool,
+        # FIXME must have both or neither
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -204,6 +213,8 @@ DERIVED_SCHEMA = Schema(
         Optional("GroupBy"): object,
         Optional("Tests"): object,
         Optional("CreateAlert"): bool,
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )
@@ -238,6 +249,8 @@ CORRELATION_RULE_SCHEMA = Schema(
                 ],
             }
         ],
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )
@@ -251,6 +264,8 @@ SAVED_QUERY_SCHEMA = Schema(
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
         Optional("LookbackWindowSeconds"): int,
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
@@ -271,6 +286,8 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
         Optional("LookbackWindowSeconds"): int,
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
     # Prevent user typos on optional fields
@@ -300,6 +317,8 @@ LOOKUP_TABLE_SCHEMA = Schema(
         },
         Optional("Description"): str,
         Optional("Reference"): str,
+        Optional("Version"): int,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields

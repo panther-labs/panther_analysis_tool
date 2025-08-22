@@ -106,3 +106,10 @@ class ReplayStatus:
 
 
 ENABLE_CORRELATION_RULES_FLAG = "EnableCorrelationRules"
+
+CACHE_DIR = ".cache"
+
+DEFAULT_EDITOR = "vi"
+
+PANTHER_ANALYSIS_URL = "https://api.github.com/repos/panther-labs/panther-analysis/releases/latest"
+PANTHER_ANALYSIS_SQLITE_FILE = "panther-analysis.sqlite"
