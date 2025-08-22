@@ -1,6 +1,6 @@
 import json
 import pkgutil
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
@@ -311,3 +311,34 @@ raw_simple_detection_schema = pkgutil.get_data(
 ANALYSIS_CONFIG_SCHEMA = (
     json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
 )
+
+
+# pylint: disable=too-many-return-statements
+def extract_keys_schema(val: Any) -> Set[str]:
+    if isinstance(val, Schema):
+        return extract_keys_schema(val.schema)
+    if isinstance(val, dict):
+        keys = set()
+        for key in val.keys():
+            keys.update(extract_keys_schema(key))
+        return keys
+    if isinstance(val, list):
+        keys = set()
+        for item in val:
+            keys.update(extract_keys_schema(item))
+        return keys
+    if isinstance(val, And):
+        keys = set()
+        for item in val.args:
+            keys.update(extract_keys_schema(item))
+        return keys
+    if isinstance(val, Or):
+        keys = set()
+        for item in val.args:
+            keys.update(extract_keys_schema(item))
+        return keys
+    if isinstance(val, Optional):
+        return extract_keys_schema(val.key)
+    if isinstance(val, str):
+        return {val}
+    raise ValueError(f"Unknown schema type: {type(val)}")
