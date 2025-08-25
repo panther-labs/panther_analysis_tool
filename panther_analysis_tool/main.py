@@ -44,7 +44,6 @@ import dateutil.parser
 import requests
 import schema
 from colorama import Fore, Style
-from dynaconf import Dynaconf, Validator
 from gql.transport.aiohttp import log as aiohttp_logger
 from panther_core.data_model import DataModel
 from panther_core.enriched_event import PantherEvent
@@ -67,11 +66,9 @@ from panther_analysis_tool.analysis_utils import (
     classify_analysis,
     disable_all_base_detections,
     filter_analysis,
-    load_analysis,
     get_simple_detections_as_python,
     load_analysis,
     load_analysis_specs_ex,
-    load_module,
     lookup_base_detection,
     test_correlation_rule,
     transpile_inline_filters,
@@ -1859,6 +1856,7 @@ def upload(
     available_destination: Optional[List[str]] = typer.Option(None, envvar="PANTHER_AVAILABLE_DESTINATION", help="Upload destinations"),
     sort_test_results: bool = typer.Option(False, help="Sort test results"),
     show_failures_only: bool = typer.Option(False, help="Only show failed test results"),
+    print_failed_test_results_only: bool = typer.Option(False, help="Only print failed test results"),
     ignore_table_names: bool = typer.Option(False, help="Ignore table name validation"),
     valid_table_names: List[str] = typer.Option([], help="Additional valid tables", show_default=False),
 ):
@@ -1884,6 +1882,7 @@ def upload(
         available_destination=available_destination,
         sort_test_results=sort_test_results,
         show_failures_only=show_failures_only,
+        print_failed_test_results_only=print_failed_test_results_only,
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
     )
@@ -2342,34 +2341,6 @@ def rev_command(
     rev.run(analysis_id=id)
 
 
-def setup_dynaconf() -> Dict[str, Any]:
-    config_file_settings_raw = Dynaconf(
-        settings_file=CONFIG_FILE,
-        envvar_prefix="PANTHER",
-        validators=[
-        ],
-    )
-    # Dynaconf stores its keys in ALL CAPS
-    return {k.lower(): v for k, v in config_file_settings_raw.as_dict().items()}
-
-
-def dynaconf_argparse_merge(
-    argparse_dict: Dict[str, Any], config_file_settings: Dict[str, Any]
-) -> None:
-    # Set up another parser w/ no defaults
-    aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
-    for k in argparse_dict:
-        arg_name = k.replace("_", "-")
-        if isinstance(argparse_dict[k], bool):
-            aux_parser.add_argument("--" + arg_name, action="store_true")
-        else:
-            aux_parser.add_argument("--" + arg_name)
-    # cli_args only contains args that were passed in the command line
-    cli_args, _ = aux_parser.parse_known_args()
-    for key, value in config_file_settings.items():
-        if key not in cli_args:
-            argparse_dict[key] = value
-
 # pylint: disable=too-many-statements
 def run() -> None:
     # setup logger and print version info as necessary
@@ -2382,12 +2353,6 @@ def run() -> None:
     #     args.filter, args.filter_inverted = parse_filter(args.filter)
     # if getattr(args, "filter_inverted", None) is None:
     #     args.filter_inverted = {}
-
-    if os.path.exists(CONFIG_FILE):
-        logging.info(
-            "Found config file %s (note: command line options will override config file settings)",
-            CONFIG_FILE,
-        )
 
     try:
         return_code, out = app()

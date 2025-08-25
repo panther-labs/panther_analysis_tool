@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 import ruamel
 
 from panther_analysis_tool import util
-from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult, get_yaml_loader, load_analysis_specs_ex
+from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult, get_yaml_loader, load_analysis_specs_ex, lookup_analysis_id
 from panther_analysis_tool.constants import CACHE_DIR
 from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.core import editor
@@ -29,93 +29,91 @@ def merge_analysis(analysis_id: Optional[str] = None) -> Tuple[int, str]:
         print("Nothing to merge")
         return 0
 
-    user_specs = [x for x in all_specs if CACHE_DIR not in x.spec_filename]
-    user_specs = [x for x in all_specs if x.analysis_spec.get("BaseID") is not None and x.analysis_spec.get("BaseVersion") is not None]
-
     update_count = 0
     merge_conflicts = []
     cache = analysis_cache.AnalysisCache()
     cursor = cache.cursor
     # merge managed specs with user specs
-    for user_spec in user_specs:
-        if 'BaseID' in user_spec.analysis_spec and 'BaseVersion' in user_spec.analysis_spec:
-            if analysis_id is not None and analysis_id != user_spec.analysis_spec["BaseID"]:
+    for user_spec in all_specs:
+        base_version = user_spec.analysis_spec.get("BaseVersion")
+        if base_version is None:
+            continue
+
+        if analysis_id is not None and analysis_id != lookup_analysis_id(user_spec.analysis_spec):
+            continue
+
+        # find the base spec
+        analysis_id = lookup_analysis_id(user_spec.analysis_spec)
+        cursor.execute("SELECT id, spec FROM analysis_specs WHERE id_value = ? AND version = ?", (analysis_id, base_version))
+        row = cursor.fetchone()
+        if row is None:
+            logging.warning("Base spec %s@%s not found, skipping", analysis_id, base_version)
+            continue
+        base_spec_id, base_spec = row
+
+        # find latest version of the base spec
+        cursor.execute("SELECT id, spec FROM analysis_specs WHERE id_value = ? ORDER BY version DESC LIMIT 1",
+                        (analysis_id,))
+        row = cursor.fetchone()
+        if row is None:
+            logging.warning("Latest version of base spec %s not found, skipping", analysis_id)
+            continue
+        latest_base_spec_id, latest_base_spec = row
+
+        base_spec_str, _ = strip_version(yaml, base_spec)
+        latest_base_spec_str, latest_version = strip_version(yaml, latest_base_spec)
+        user_spec_str, base_version = strip_base_version(yaml, user_spec.analysis_spec.copy())
+
+        if base_version == latest_version:
+            # already up to date
+            continue
+
+        spec_conflict, spec_output = merge_strings(base_spec_str, latest_base_spec_str, user_spec_str)
+        file_conflict, file_output = False, None
+
+        # next check for conflicts in the file
+        file_content = load_file_of_spec(user_spec)
+        if file_content is not None:
+            base_file_content = cache.get_file_for_spec(base_spec_id)
+            latest_file_content = cache.get_file_for_spec(latest_base_spec_id)
+
+            if base_file_content is None:
+                print(f"Base file for {analysis_id}@{base_version} not found, skipping")
+                continue
+            if latest_file_content is None:
+                print(f"Latest file for {analysis_id}@{base_version} not found, skipping")
                 continue
 
-            # find the base spec
-            cursor.execute("SELECT id, spec FROM analysis_specs WHERE id_value = ? AND version = ?",
-                           (user_spec.analysis_spec["BaseID"], user_spec.analysis_spec["BaseVersion"]))
-            row = cursor.fetchone()
-            if row is None:
-                logging.warning("Base spec %s %s not found, skipping", user_spec.analysis_spec['BaseID'],
-                                user_spec.analysis_spec['BaseVersion'])
-                continue
-            base_spec_id, base_spec = row
+            file_conflict, file_output = merge_strings(base_file_content.decode(), latest_file_content.decode(), file_content.decode())
 
-            # find latest version of the base spec
-            cursor.execute("SELECT id, spec FROM analysis_specs WHERE id_value = ? ORDER BY version DESC LIMIT 1",
-                           (user_spec.analysis_spec["BaseID"],))
-            row = cursor.fetchone()
-            if row is None:
-                logging.warning("Latest version of base spec %s not found, skipping", user_spec.analysis_spec['BaseID'])
-                continue
-            latest_base_spec_id, latest_base_spec = row
-
-            base_spec_str, _ = strip_version(yaml, base_spec)
-            latest_base_spec_str, latest_version = strip_version(yaml, latest_base_spec)
-            user_spec_str, base_version = strip_base_version(yaml, user_spec.analysis_spec.copy())
-
-            if base_version == latest_version:
-                # already up to date
+        if spec_conflict or file_conflict:
+            if analysis_id is not None:
+                if spec_conflict:
+                    spec_output = resolve_yaml_conflict(spec_output)
+                if file_conflict:
+                    file_output = resolve_python_conflict(file_output)
+                    if file_output is None:
+                        continue
+            else:
+                merge_conflicts.append(util.get_spec_id(user_spec.analysis_spec))
                 continue
 
-            spec_conflict, spec_output = merge_strings(base_spec_str, latest_base_spec_str, user_spec_str)
-            file_conflict, file_output = False, None
+        # update the base spec
+        merged_spec = yaml.load(spec_output.decode())
+        merged_spec["BaseVersion"] = latest_version
+        string_io = io.StringIO()
+        yaml.dump(merged_spec, string_io)
+        merged_spec_str = string_io.getvalue()
 
-            # next check for conflicts in the file
-            file_content = load_file_of_spec(user_spec)
-            if file_content is not None:
-                base_file_content = cache.get_file_for_spec(base_spec_id)
-                latest_file_content = cache.get_file_for_spec(latest_base_spec_id)
+        # update the base spec
+        with open(user_spec.spec_filename, "w", encoding="utf-8") as spec_file:
+            spec_file.write(merged_spec_str)
 
-                if base_file_content is None:
-                    print(f"Base file for {user_spec.analysis_spec['BaseID']} {user_spec.analysis_spec['BaseVersion']} not found, skipping")
-                    continue
-                if latest_file_content is None:
-                    print(f"Latest file for {user_spec.analysis_spec['BaseID']} {user_spec.analysis_spec['BaseVersion']} not found, skipping")
-                    continue
+        # update the file
+        if file_output is not None:
+            update_file_of_spec(user_spec, file_output)
 
-                file_conflict, file_output = merge_strings(base_file_content.decode(), latest_file_content.decode(), file_content.decode())
-
-            if spec_conflict or file_conflict:
-                if analysis_id is not None:
-                    if spec_conflict:
-                        spec_output = resolve_yaml_conflict(spec_output)
-                    if file_conflict:
-                        file_output = resolve_python_conflict(file_output)
-                        if file_output is None:
-                            continue
-                else:
-                    merge_conflicts.append(util.get_spec_id(user_spec.analysis_spec))
-                    continue
-
-            # update the base spec
-            merged_spec = yaml.load(spec_output.decode())
-            merged_spec["BaseID"] = user_spec.analysis_spec["BaseID"]
-            merged_spec["BaseVersion"] = latest_version
-            string_io = io.StringIO()
-            yaml.dump(merged_spec, string_io)
-            merged_spec_str = string_io.getvalue()
-
-            # update the base spec
-            with open(user_spec.spec_filename, "w", encoding="utf-8") as spec_file:
-                spec_file.write(merged_spec_str)
-
-            # update the file
-            if file_output is not None:
-                update_file_of_spec(user_spec, file_output)
-
-            update_count += 1
+        update_count += 1
 
     if update_count != 0:
         print(f"{update_count} spec(s) updated with latest panther version")
@@ -151,7 +149,6 @@ def update_file_of_spec(spec: LoadAnalysisSpecsResult, file_content: bytes) -> N
 
 
 def strip_base_version(yaml: ruamel.yaml.YAML, spec: str) -> Tuple[str, Optional[str]]:
-    spec.pop("BaseID", None)
     version = spec.pop("BaseVersion", None)
     string_io = io.StringIO()
     yaml.dump(spec, string_io)
