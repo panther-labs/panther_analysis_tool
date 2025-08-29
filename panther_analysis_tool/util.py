@@ -3,7 +3,6 @@ import logging
 import os
 import re
 from functools import reduce
-from importlib import util as import_util
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union
 
@@ -63,31 +62,11 @@ def is_latest(latest_version: str) -> bool:
     return True
 
 
-def import_file_as_module(path: str, object_id: str) -> Any:
-    """Dynamically import a Python module from a file.
-
-    See also: https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-    """
-
-    spec = import_util.spec_from_file_location(object_id, path)
-    mod = import_util.module_from_spec(spec)  # type: ignore
-    spec.loader.exec_module(mod)  # type: ignore
-    return mod
-
-
-def store_modules(path: str, body: str) -> None:
-    """Stores modules to disk."""
-    # Create dir if it doesn't exist
-    Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as py_file:
-        py_file.write(body)
-
-
 def get_client(aws_profile: Optional[str], service: str) -> boto3.client:
     # optionally set env variable for profile passed as argument
     if aws_profile is not None:
         logging.info("Using AWS profile: %s", aws_profile)
-        set_env("AWS_PROFILE", aws_profile)
+        os.environ["AWS_PROFILE"] = aws_profile
         sess = boto3.Session(profile_name=aws_profile)
         client = sess.client(service)
     else:
@@ -157,10 +136,6 @@ def get_datalake_lambda(args: argparse.Namespace) -> str:
         return ""
 
     return "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
-
-
-def set_env(key: str, value: str) -> None:
-    os.environ[key] = value
 
 
 def convert_keys_to_lowercase(mapping: Dict[str, Any]) -> Dict[str, Any]:

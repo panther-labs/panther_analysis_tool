@@ -1,7 +1,7 @@
-import io
 import json
 import os
 import shutil
+from contextlib import contextmanager
 from datetime import datetime
 from unittest import mock
 
@@ -9,11 +9,9 @@ import jsonschema
 from colorama import Fore, Style
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
-from schema import SchemaWrongKeyError
-
+from ruamel.yaml import scanner as YAMLScanner
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool import main as pat
-from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
     BackendError,
     BackendResponse,
@@ -22,11 +20,11 @@ from panther_analysis_tool.backend.client import (
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
     GetRuleBodyResponse,
-    TestCorrelationRuleResponse,
     TranspileFiltersResponse,
     TranspileToPythonResponse,
     UnsupportedEndpointError,
 )
+from panther_analysis_tool.backend import client
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.command import validate
 from panther_analysis_tool.core import parse
@@ -36,6 +34,16 @@ DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 
 print("Using fixtures path:", FIXTURES_PATH)
 
+@contextmanager
+def global_helpers_manager_with_unpause(global_analysis, fs):
+    """
+    A version of global_helpers_manager that first unpauses the filesystem.
+    This is needed for tests that use the fake filesystem but need to access real files.
+    """
+    from panther_analysis_tool.analysis_utils import global_helpers_manager
+    with Pause(fs):
+        with global_helpers_manager(global_analysis):
+            yield
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
@@ -55,25 +63,23 @@ class TestPantherAnalysisTool(TestCase):
         ]
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
-        os.makedirs(pat.TMP_HELPER_MODULE_LOCATION, exist_ok=True)
-        self.global_modules = {
-            "panther": os.path.join(
-                DETECTIONS_FIXTURES_PATH, "valid_analysis/global_helpers/helpers.py"
-            ),
-            "a_helper": os.path.join(
-                DETECTIONS_FIXTURES_PATH, "valid_analysis/global_helpers/a_helper.py"
-            ),
-            "b_helper": os.path.join(
-                DETECTIONS_FIXTURES_PATH, "valid_analysis/global_helpers/b_helper.py"
-            ),
-        }
-        for module_name, filename in self.global_modules.items():
-            shutil.copy(filename, os.path.join(pat.TMP_HELPER_MODULE_LOCATION, f"{module_name}.py"))
+
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
-        self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
         # jsonschema needs to be able to access '.../site-packages/jsonschema/schemas/vocabularies' to work
         self.fs.add_real_directory(jsonschema.__path__[0])
+        # sqlfluff needs to be able to access its package metadata to work
+        self.fs.add_package_metadata("sqlfluff")
+
+        # wrap global_helpers_manager to pause the fs
+        self.patch_global_helper_manager = mock.patch("panther_analysis_tool.main.global_helpers_manager")
+        self.mock_global_helper_manager = self.patch_global_helper_manager.start()
+        
+        # Use our custom version that unpauses the filesystem
+        def mock_global_helpers_manager(global_analysis):
+            return global_helpers_manager_with_unpause(global_analysis, self.fs)
+        
+        self.mock_global_helper_manager.side_effect = mock_global_helpers_manager
 
     def tearDown(self) -> None:
         with Pause(self.fs):
@@ -233,7 +239,7 @@ class TestPantherAnalysisTool(TestCase):
         args = pat.setup_parser().parse_args(
             f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile".split()
         )
-        util.set_env(aws_profile, args.aws_profile)
+        os.environ[aws_profile] = args.aws_profile
         self.assertEqual("myprofile", args.aws_profile)
         self.assertEqual(args.aws_profile, os.environ.get(aws_profile))
 
@@ -542,46 +548,38 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
 
     def test_invalid_query(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 4)
 
     def test_invalid_query_passes_when_unchecked(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_passes_when_table_name_provided(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_fails_when_partial_table_name_provided(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 1)
 
@@ -698,7 +696,7 @@ class TestPantherAnalysisTool(TestCase):
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
-                logging.warn("to instantiate the warning call args")
+                logging.warning("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, _ = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
@@ -721,7 +719,7 @@ class TestPantherAnalysisTool(TestCase):
             backend = MockBackend()
             backend.test_correlation_rule = mock.MagicMock(
                 return_value=BackendResponse(
-                    data=TestCorrelationRuleResponse(
+                    data=client.TestCorrelationRuleResponse(
                         results=[{"name": "t1", "error": None, "passed": True}]
                     ),
                     status_code=200,
@@ -746,7 +744,7 @@ class TestPantherAnalysisTool(TestCase):
             backend = MockBackend()
             backend.test_correlation_rule = mock.MagicMock(
                 return_value=BackendResponse(
-                    data=TestCorrelationRuleResponse(
+                    data=client.TestCorrelationRuleResponse(
                         results=[{"name": "t1", "error": None, "passed": False}]
                     ),
                     status_code=200,
@@ -796,7 +794,7 @@ class TestPantherAnalysisTool(TestCase):
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
-                logging.warn("to instantiate the warning call args")
+                logging.warning("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
@@ -823,7 +821,7 @@ class TestPantherAnalysisTool(TestCase):
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
-                logging.warn("to instantiate the warning call args")
+                logging.warning("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
@@ -1077,7 +1075,7 @@ class TestPantherAnalysisTool(TestCase):
         }
 
         # Simulate a parsing error
-        parsing_error = ValueError("Invalid YAML syntax")
+        parsing_error = YAMLScanner.ScannerError("Invalid YAML syntax")
 
         specs = [
             ("valid_rule.yml", "/test", valid_spec, None),
@@ -1094,7 +1092,7 @@ class TestPantherAnalysisTool(TestCase):
 
         # Check the invalid spec has the parsing error
         self.assertEqual(invalid_specs[0][0], "invalid_yaml.yml")
-        self.assertIsInstance(invalid_specs[0][1], ValueError)
+        self.assertIsInstance(invalid_specs[0][1], YAMLScanner.ScannerError)
 
     def test_classify_analysis_scheduled_query_table_names(self):
         """Test classify_analysis with scheduled query table name validation"""
