@@ -1,5 +1,4 @@
 import importlib.metadata
-import os
 from typing import Dict, Final
 
 from schema import Schema
