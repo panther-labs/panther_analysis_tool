@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import dataclasses
 import importlib
 import io
@@ -7,6 +8,9 @@ import os
 import re
 from fnmatch import fnmatch
 from importlib.abc import Loader
+import shutil
+import sys
+import tempfile
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import jsonschema
@@ -743,3 +747,41 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         print("\t[ERROR] Error loading module, skipping\n")
         return None, err
     return module, None
+
+
+@contextmanager
+def global_helpers_manager(global_analysis: List[ClassifiedAnalysis]) -> Iterator[None]:
+    try:
+        helper_module_location = tempfile.mkdtemp()
+
+        # setup temp dir for globals
+        sys.path.append(helper_module_location)
+
+        # place globals in temp dir
+        for item in global_analysis:
+            dir_name = item.dir_name
+            analysis_spec = item.analysis_spec
+            analysis_id = analysis_spec["GlobalID"]
+            source = os.path.join(dir_name, analysis_spec["Filename"])
+            destination = os.path.join(helper_module_location, f"{analysis_id}.py")
+            shutil.copyfile(source, destination)
+            # force reload of the module as necessary
+            if analysis_id in sys.modules:
+                logging.warning(
+                    "module name collision: global (%s) has same name as a module in python path",
+                    analysis_id,
+                )
+                importlib.reload(sys.modules[analysis_id])
+        yield
+    finally:
+        # clear the modules from the modules cache
+        for item in global_analysis:
+            analysis_id = item.analysis_spec["GlobalID"]
+            # delete the helpers that were added to sys.modules for testing
+            if analysis_id in sys.modules:
+                del sys.modules[analysis_id]
+        # ensure the directory does not exist, else clear it
+        shutil.rmtree(helper_module_location, ignore_errors=True)
+
+        if helper_module_location in sys.path:
+            sys.path.remove(helper_module_location)

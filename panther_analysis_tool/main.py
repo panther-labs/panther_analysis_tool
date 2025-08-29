@@ -3,13 +3,11 @@ import argparse
 import base64
 import contextlib
 import hashlib
-import importlib.util
 import io
 import json
 import logging
 import mimetypes
 import os
-import shutil
 import subprocess  # nosec
 import sys
 import time
@@ -27,11 +25,6 @@ from datetime import datetime
 from typing import Any, DefaultDict, Dict, List, TextIO, Tuple, Type, cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
-
-from panther_analysis_tool.directory import setup_temp
-
-# this is needed at this location so each process can have its own temp directory
-setup_temp()
 
 import botocore
 import dateutil.parser
@@ -62,6 +55,7 @@ from panther_analysis_tool.analysis_utils import (
     disable_all_base_detections,
     filter_analysis,
     get_simple_detections_as_python,
+    global_helpers_manager,
     load_analysis,
     load_analysis_specs_ex,
     load_module,
@@ -91,7 +85,6 @@ from panther_analysis_tool.constants import (
     CONFIG_FILE,
     ENABLE_CORRELATION_RULES_FLAG,
     PACKAGE_NAME,
-    TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
     AnalysisTypes,
 )
@@ -704,38 +697,34 @@ def test_analysis(
     # import each data model, global, policy, or rule and run its tests
     # first import the globals
     #   add them sys.modules to be used by rule and/or policies tests
-    setup_global_helpers(specs.globals)
+    with global_helpers_manager(specs.globals):
+        # then, setup data model dictionary to be used in rule/policy tests
+        log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
+        invalid_specs.extend(invalid_data_models)
 
-    # then, setup data model dictionary to be used in rule/policy tests
-    log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
-    invalid_specs.extend(invalid_data_models)
+        all_test_results = (
+            None
+            if not bool(args.sort_test_results | args.print_failed_test_results_only)
+            else TestResultsContainer(passed={}, errored={})
+        )
+        # then, import rules and policies; run tests
+        failed_tests, invalid_detections, skipped_tests = setup_run_tests(
+            log_type_to_data_model,
+            specs.detections + specs.simple_detections,
+            args.minimum_tests,
+            args.skip_disabled_tests,
+            destinations_by_name=destinations_by_name,
+            ignore_exception_types=ignore_exception_types,
+            all_test_results=all_test_results,
+            backend=backend,
+            test_names=getattr(args, "test_names", None),
+            debug_args=debug_args,
+        )
+        invalid_specs.extend(invalid_detections)
 
-    all_test_results = (
-        None
-        if not bool(args.sort_test_results | args.print_failed_test_results_only)
-        else TestResultsContainer(passed={}, errored={})
-    )
-    # then, import rules and policies; run tests
-    failed_tests, invalid_detections, skipped_tests = setup_run_tests(
-        log_type_to_data_model,
-        specs.detections + specs.simple_detections,
-        args.minimum_tests,
-        args.skip_disabled_tests,
-        destinations_by_name=destinations_by_name,
-        ignore_exception_types=ignore_exception_types,
-        all_test_results=all_test_results,
-        backend=backend,
-        test_names=getattr(args, "test_names", None),
-        debug_args=debug_args,
-    )
-    invalid_specs.extend(invalid_detections)
-
-    # finally, validate pack defs
-    invalid_packs = validate_packs(specs)
-    invalid_specs.extend(invalid_packs)
-
-    # cleanup tmp global dir
-    cleanup_global_helpers(specs.globals)
+        # finally, validate pack defs
+        invalid_packs = validate_packs(specs)
+        invalid_specs.extend(invalid_packs)
 
     if all_test_results and (all_test_results.passed or all_test_results.errored):
         for outcome in ["passed", "errored"]:
@@ -772,42 +761,6 @@ def test_analysis(
         return 1, invalid_specs
 
     return int(bool(failed_tests)), invalid_specs
-
-
-def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
-    # ensure the directory does not exist, else clear it
-    cleanup_global_helpers(global_analysis)
-    os.makedirs(TMP_HELPER_MODULE_LOCATION)
-    # setup temp dir for globals
-    if TMP_HELPER_MODULE_LOCATION not in sys.path:
-        sys.path.append(TMP_HELPER_MODULE_LOCATION)
-    # place globals in temp dir
-    for item in global_analysis:
-        dir_name = item.dir_name
-        analysis_spec = item.analysis_spec
-        analysis_id = analysis_spec["GlobalID"]
-        source = os.path.join(dir_name, analysis_spec["Filename"])
-        destination = os.path.join(TMP_HELPER_MODULE_LOCATION, f"{analysis_id}.py")
-        shutil.copyfile(source, destination)
-        # force reload of the module as necessary
-        if analysis_id in sys.modules:
-            logging.warning(
-                "module name collision: global (%s) has same name as a module in python path",
-                analysis_id,
-            )
-            importlib.reload(sys.modules[analysis_id])
-
-
-def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
-    # clear the modules from the modules cache
-    for item in global_analysis:
-        analysis_id = item.analysis_spec["GlobalID"]
-        # delete the helpers that were added to sys.modules for testing
-        if analysis_id in sys.modules:
-            del sys.modules[analysis_id]
-    # ensure the directory does not exist, else clear it
-    if os.path.exists(TMP_HELPER_MODULE_LOCATION):
-        shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
 
 
 def setup_data_models(
