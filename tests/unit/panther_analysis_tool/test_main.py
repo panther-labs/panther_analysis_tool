@@ -10,8 +10,10 @@ from colorama import Fore, Style
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from ruamel.yaml import scanner as YAMLScanner
+
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool import main as pat
+from panther_analysis_tool.backend import client
 from panther_analysis_tool.backend.client import (
     BackendError,
     BackendResponse,
@@ -24,7 +26,6 @@ from panther_analysis_tool.backend.client import (
     TranspileToPythonResponse,
     UnsupportedEndpointError,
 )
-from panther_analysis_tool.backend import client
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.command import validate
 from panther_analysis_tool.core import parse
@@ -34,6 +35,7 @@ DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 
 print("Using fixtures path:", FIXTURES_PATH)
 
+
 @contextmanager
 def global_helpers_manager_with_unpause(global_analysis, fs):
     """
@@ -41,9 +43,11 @@ def global_helpers_manager_with_unpause(global_analysis, fs):
     This is needed for tests that use the fake filesystem but need to access real files.
     """
     from panther_analysis_tool.analysis_utils import global_helpers_manager
+
     with Pause(fs):
         with global_helpers_manager(global_analysis):
             yield
+
 
 class TestPantherAnalysisTool(TestCase):
     def setUp(self):
@@ -72,13 +76,15 @@ class TestPantherAnalysisTool(TestCase):
         self.fs.add_package_metadata("sqlfluff")
 
         # wrap global_helpers_manager to pause the fs
-        self.patch_global_helper_manager = mock.patch("panther_analysis_tool.main.global_helpers_manager")
+        self.patch_global_helper_manager = mock.patch(
+            "panther_analysis_tool.main.global_helpers_manager"
+        )
         self.mock_global_helper_manager = self.patch_global_helper_manager.start()
-        
+
         # Use our custom version that unpauses the filesystem
         def mock_global_helpers_manager(global_analysis):
             return global_helpers_manager_with_unpause(global_analysis, self.fs)
-        
+
         self.mock_global_helper_manager.side_effect = mock_global_helpers_manager
 
     def tearDown(self) -> None:
@@ -548,9 +554,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
 
     def test_invalid_query(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {FIXTURES_PATH}/queries/invalid".split()
-        )
+        args = pat.setup_parser().parse_args(f"test --path {FIXTURES_PATH}/queries/invalid".split())
         args.filter_inverted = {}
         return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 1)

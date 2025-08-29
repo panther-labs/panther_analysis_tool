@@ -19,11 +19,15 @@ class TestFunctionTestResult(unittest.TestCase):
     def test_new(self) -> None:
         # If output is boolean
         result = testing.FunctionTestResult.new(matched=True, output=True)
-        self.assertEqual(result, testing.FunctionTestResult(matched=True, output="true", error=None))
+        self.assertEqual(
+            result, testing.FunctionTestResult(matched=True, output="true", error=None)
+        )
 
         # If output is string
         result = testing.FunctionTestResult.new(matched=True, output="some output")
-        self.assertEqual(result, testing.FunctionTestResult(matched=True, output="some output", error=None))
+        self.assertEqual(
+            result, testing.FunctionTestResult(matched=True, output="some output", error=None)
+        )
 
         # If both parameters are None
         result = testing.FunctionTestResult.new(matched=True, output=None, raw_exception=None)
@@ -35,7 +39,9 @@ class TestFunctionTestResult(unittest.TestCase):
             matched=False, output="some output", raw_exception=exception
         )
         expected = testing.FunctionTestResult(
-            matched=False, output="some output", error=testing.TestError(message="TypeError: wrong type")
+            matched=False,
+            output="some output",
+            error=testing.TestError(message="TypeError: wrong type"),
         )
         self.assertEqual(result, expected)
 
@@ -91,7 +97,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             passed=True,
             trigger_alert=False,
             functions=testing.TestResultsPerFunction(
-                detectionFunction=testing.FunctionTestResult(output="false", error=None, matched=True),
+                detectionFunction=testing.FunctionTestResult(
+                    output="false", error=None, matched=True
+                ),
                 titleFunction=None,
                 dedupFunction=None,
                 alertContextFunction=None,
@@ -130,7 +138,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             passed=True,
             trigger_alert=True,
             functions=testing.TestResultsPerFunction(
-                detectionFunction=testing.FunctionTestResult(output="true", error=None, matched=True),
+                detectionFunction=testing.FunctionTestResult(
+                    output="true", error=None, matched=True
+                ),
                 titleFunction=None,
                 dedupFunction=None,
                 alertContextFunction=None,
@@ -170,7 +180,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             trigger_alert=False,
             functions=testing.TestResultsPerFunction(
                 detectionFunction=testing.FunctionTestResult(
-                    output=None, error=testing.TestError(message="TypeError: wrong type"), matched=False
+                    output=None,
+                    error=testing.TestError(message="TypeError: wrong type"),
+                    matched=False,
                 ),
                 titleFunction=None,
                 dedupFunction=None,
@@ -211,9 +223,13 @@ class TestTestCaseEvaluator(unittest.TestCase):
             passed=False,
             trigger_alert=True,
             functions=testing.TestResultsPerFunction(
-                detectionFunction=testing.FunctionTestResult(output="true", error=None, matched=True),
+                detectionFunction=testing.FunctionTestResult(
+                    output="true", error=None, matched=True
+                ),
                 titleFunction=testing.FunctionTestResult(
-                    output=None, error=testing.TestError(message="TypeError: wrong type"), matched=False
+                    output=None,
+                    error=testing.TestError(message="TypeError: wrong type"),
+                    matched=False,
                 ),
                 dedupFunction=None,
                 alertContextFunction=None,
@@ -253,7 +269,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             trigger_alert=False,
             functions=testing.TestResultsPerFunction(
                 detectionFunction=testing.FunctionTestResult(
-                    output=None, error=testing.TestError(message="TypeError: wrong type"), matched=False
+                    output=None,
+                    error=testing.TestError(message="TypeError: wrong type"),
+                    matched=False,
                 ),
                 titleFunction=None,
                 dedupFunction=None,
@@ -299,7 +317,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             passed=True,
             trigger_alert=False,
             functions=testing.TestResultsPerFunction(
-                detectionFunction=testing.FunctionTestResult(output="false", error=None, matched=True),
+                detectionFunction=testing.FunctionTestResult(
+                    output="false", error=None, matched=True
+                ),
                 titleFunction=None,
                 dedupFunction=None,
                 alertContextFunction=None,
@@ -346,7 +366,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             passed=True,
             trigger_alert=False,
             functions=testing.TestResultsPerFunction(
-                detectionFunction=testing.FunctionTestResult(output="true", error=None, matched=True),
+                detectionFunction=testing.FunctionTestResult(
+                    output="true", error=None, matched=True
+                ),
                 titleFunction=None,
                 dedupFunction=None,
                 alertContextFunction=None,

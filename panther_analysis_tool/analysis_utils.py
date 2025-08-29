@@ -678,7 +678,11 @@ def classify_analysis(
         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
-        except (AnalysisContainsDuplicatesException, AnalysisContainsInvalidTableNamesException, AnalysisIDConflictException) as err:
+        except (
+            AnalysisContainsDuplicatesException,
+            AnalysisContainsInvalidTableNamesException,
+            AnalysisIDConflictException,
+        ) as err:
             invalid_specs.append((analysis_spec_filename, err))
             continue
         except Exception as err:  # pylint: disable=broad-except
