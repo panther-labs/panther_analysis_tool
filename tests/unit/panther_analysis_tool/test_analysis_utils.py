@@ -3,6 +3,9 @@
 import json
 from unittest import TestCase, mock
 
+import schema
+
+from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import (
     get_simple_detections_as_python,
     load_analysis_specs,
@@ -232,3 +235,21 @@ class TestMiscUtils(TestCase):
                 spec_filename != "example_ignored.yml"
                 and spec_filename != "example_ignored_multi.yml"
             )
+
+
+class TestHandleWrongKeyError(TestCase):
+    def test_handle_wrong_key_error(self):
+        sample_keys = ["DisplayName", "Enabled", "Filename"]
+        expected_output = "{} not in list of valid keys: {}"
+        # test successful regex match and correct error returned
+        test_str = (
+            "Wrong key 'DisplaName' in {'DisplaName':'one','Enabled':true, 'Filename':'sample'}"
+        )
+        exc = schema.SchemaWrongKeyError(test_str)
+        err = analysis_utils.handle_wrong_key_error(exc, sample_keys)
+        self.assertEqual(str(err), expected_output.format("'DisplaName'", sample_keys))
+        # test failing regex match
+        test_str = "Will not match"
+        exc = schema.SchemaWrongKeyError(test_str)
+        err = analysis_utils.handle_wrong_key_error(exc, sample_keys)
+        self.assertEqual(str(err), expected_output.format("UNKNOWN_KEY", sample_keys))
