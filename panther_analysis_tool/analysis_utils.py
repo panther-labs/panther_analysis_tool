@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 import dataclasses
 import importlib
 import io
@@ -6,11 +5,12 @@ import json
 import logging
 import os
 import re
-from fnmatch import fnmatch
-from importlib.abc import Loader
 import shutil
 import sys
 import tempfile
+from contextlib import contextmanager
+from fnmatch import fnmatch
+from importlib.abc import Loader
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import jsonschema
