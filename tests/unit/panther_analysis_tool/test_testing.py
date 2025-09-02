@@ -2,7 +2,7 @@ import unittest
 
 from panther_core.detection import DetectionResult
 from panther_core.policy import TYPE_POLICY
-from panther_core.rule import TYPE_RULE, Rule
+from panther_core.rule import TYPE_RULE
 
 from panther_analysis_tool.testing import (
     FunctionTestResult,

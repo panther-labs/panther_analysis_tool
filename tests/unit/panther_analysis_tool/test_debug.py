@@ -410,9 +410,7 @@ class TestDebugFunctionality(TestCase):
         with (
             patch.object(pat, "load_analysis") as mock_load,
             patch.object(pat, "setup_run_tests") as mock_setup_tests,
-            patch.object(pat, "setup_global_helpers"),
             patch.object(pat, "setup_data_models") as mock_setup_data_models,
-            patch.object(pat, "cleanup_global_helpers"),
             patch.object(pat, "validate_packs") as mock_validate_packs,
         ):
             mock_setup_tests.return_value = ({}, [], [])
@@ -518,9 +516,7 @@ class TestDebugFunctionality(TestCase):
             patch.object(pat, "load_analysis") as mock_load,
             patch.object(pat, "setup_run_tests") as mock_setup_tests,
             patch.object(pat, "print_summary") as mock_print_summary,
-            patch.object(pat, "setup_global_helpers"),
             patch.object(pat, "setup_data_models") as mock_setup_data_models,
-            patch.object(pat, "cleanup_global_helpers"),
             patch.object(pat, "validate_packs") as mock_validate_packs,
         ):
             # Mock minimal setup
