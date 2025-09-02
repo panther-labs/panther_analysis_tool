@@ -3,41 +3,9 @@ from unittest import mock
 
 import responses
 
-import panther_analysis_tool.constants
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.backend.public_api_client import _batched
 from panther_analysis_tool.util import convert_unicode
-
-
-class TestToList(unittest.TestCase):
-    def test_single_becomes_list(self):
-        tests = [
-            [1, [1]],
-            ["fe", ["fe"]],
-            [{"hi": 6}, [{"hi": 6}]],
-            [{"hi", "bye"}, [{"hi", "bye"}]],
-            [("tu", "ple"), [("tu", "ple")]],
-        ]
-
-        for test in tests:
-            inp, exp = test
-            res = pat_utils.to_list(inp)
-            self.assertEqual(exp, res)
-
-    def test_list_stays_list(self):
-        tests = [
-            [[1], [1]],
-            [["fe"], ["fe"]],
-            [[{"hi": 6}], [{"hi": 6}]],
-            [[1, "hi"], [1, "hi"]],
-            [[{"hi", "bye"}], [{"hi", "bye"}]],
-            [[("tu", "ple")], [("tu", "ple")]],
-        ]
-
-        for test in tests:
-            inp, exp = test
-            res = pat_utils.to_list(inp)
-            self.assertEqual(exp, res)
 
 
 class Version(unittest.TestCase):

@@ -38,10 +38,6 @@ class ZipChunk:
     types: Set[str] = ()  # type: ignore
     max_size: Optional[int] = None
 
-    @classmethod
-    def from_patterns(cls, patterns: List[str]) -> Any:
-        return cls(patterns=patterns)
-
 
 @dataclass
 class ZipArgs:

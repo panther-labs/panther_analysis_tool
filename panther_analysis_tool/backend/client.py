@@ -24,12 +24,6 @@ class UnsupportedEndpointError(Exception):
 
 
 @dataclass(frozen=True)
-class BulkUploadPayload:
-    data: bytes
-    user_id: str
-
-
-@dataclass(frozen=True)
 class BackendResponse(Generic[ResponseData]):
     data: ResponseData
     status_code: int

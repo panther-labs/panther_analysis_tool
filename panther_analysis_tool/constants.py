@@ -25,7 +25,6 @@ VERSION_STRING: Final = importlib.metadata.version(PACKAGE_NAME)
 CONFIG_FILE = ".panther_settings.yml"
 DATA_MODEL_LOCATION = "./data_models"
 HELPERS_LOCATION = "./global_helpers"
-LUTS_LOCATION = "./lookup_tables"
 DATA_MODEL_PATH_PATTERN = "*data_models*"
 LUTS_PATH_PATTERN = "*lookup_tables*"
 HELPERS_PATH_PATTERN = "*/global_helpers"
@@ -38,7 +37,6 @@ TMP_HELPER_MODULE_LOCATION = os.path.join(tempfile.gettempdir(), "panther-path",
 
 class AnalysisTypes:
     DATA_MODEL = "datamodel"
-    DETECTION = "detection"
     GLOBAL = "global"
     LOOKUP_TABLE = "lookup_table"
     PACK = "pack"
@@ -56,19 +54,6 @@ class AnalysisTypes:
 # acquiring it, and it isn't used for anything. This is a valid UUID used by the
 # Panther deployment tool to indicate this action was performed automatically.
 PANTHER_USER_ID = "00000000-0000-4000-8000-000000000000"
-
-RESERVED_FUNCTIONS = (
-    "alert_context",
-    "dedup",
-    "description",
-    "destinations",
-    "reference",
-    "runbook",
-    "severity",
-    "title",
-)
-
-VALID_SEVERITIES = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
 SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.DATA_MODEL: DATA_MODEL_SCHEMA,
