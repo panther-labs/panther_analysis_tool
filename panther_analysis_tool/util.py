@@ -30,18 +30,6 @@ class BackendNotFoundException(Exception):
     pass
 
 
-def allowed_char(char: str) -> bool:
-    """Return true if the character is part of a valid ID."""
-    return char.isalnum() or char in {" ", "-", "."}
-
-
-def id_to_path(directory: str, object_id: str) -> str:
-    """Method returns the file path where the module will be stored"""
-    safe_id = "".join(x if allowed_char(x) else "_" for x in object_id)
-    path = os.path.join(directory, safe_id + ".py")
-    return path
-
-
 def get_latest_version() -> str:
     try:
         response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json", timeout=10)
@@ -161,11 +149,6 @@ def deep_get(obj: Dict, path: List[str], default: Optional[Any] = None) -> Any:
     return result if result is not None else default
 
 
-def to_list(listish: Any) -> List:
-    """Make a single instance a list or keep a list a list."""
-    return listish if isinstance(listish, list) else [listish]
-
-
 def convert_unicode(obj: Any) -> str:
     """Swap unicode 4 byte strings with arbitrary numbers of leading slashes with the actual character
     e.g. \\\\u003c => <"""
@@ -189,10 +172,6 @@ def is_correlation_rule(analysis_item: Dict[str, Any]) -> bool:
 
 def is_policy(analysis_item: Dict[str, Any]) -> bool:
     return analysis_item.get("AnalysisType") == AnalysisTypes.POLICY
-
-
-def is_derived_detection(analysis_item: Dict[str, Any]) -> bool:
-    return analysis_item.get("BaseDetection") is not None
 
 
 def add_path_to_filename(output_path: str, filename: str) -> str:

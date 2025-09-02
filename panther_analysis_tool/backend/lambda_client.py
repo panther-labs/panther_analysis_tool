@@ -68,11 +68,9 @@ class LambdaClientOpts:
 class LambdaClient(Client):
     _user_id: str
     _lambda_client: boto3.client
-    _datalake_lambda: str
 
     def __init__(self, opts: LambdaClientOpts):
         self._user_id = opts.user_id
-        self._datalake_lambda = opts.datalake_lambda
 
         if opts.aws_profile is None:
             self._setup_client()
