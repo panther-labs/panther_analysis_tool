@@ -1,6 +1,4 @@
 import importlib.metadata
-import os
-import tempfile
 from typing import Dict, Final
 
 from schema import Schema
@@ -32,7 +30,6 @@ PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
 QUERIES_PATH_PATTERN = "*queries*"
 RULES_PATH_PATTERN = "*rules*"
-TMP_HELPER_MODULE_LOCATION = os.path.join(tempfile.gettempdir(), "panther-path", "globals")
 
 
 class AnalysisTypes:

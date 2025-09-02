@@ -54,7 +54,7 @@ def get_client(aws_profile: Optional[str], service: str) -> boto3.client:
     # optionally set env variable for profile passed as argument
     if aws_profile is not None:
         logging.info("Using AWS profile: %s", aws_profile)
-        set_env("AWS_PROFILE", aws_profile)
+        os.environ["AWS_PROFILE"] = aws_profile
         sess = boto3.Session(profile_name=aws_profile)
         client = sess.client(service)
     else:
@@ -124,10 +124,6 @@ def get_datalake_lambda(args: argparse.Namespace) -> str:
         return ""
 
     return "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
-
-
-def set_env(key: str, value: str) -> None:
-    os.environ[key] = value
 
 
 def convert_keys_to_lowercase(mapping: Dict[str, Any]) -> Dict[str, Any]:
