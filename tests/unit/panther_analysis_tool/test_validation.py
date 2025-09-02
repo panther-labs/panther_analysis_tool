@@ -1,7 +1,5 @@
 import unittest
 
-import sqlfluff
-
 from panther_analysis_tool.validation import (
     contains_invalid_table_names,
     matches_valid_table_name,

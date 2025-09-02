@@ -74,6 +74,8 @@ class TestPantherAnalysisTool(TestCase):
         self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
         # jsonschema needs to be able to access '.../site-packages/jsonschema/schemas/vocabularies' to work
         self.fs.add_real_directory(jsonschema.__path__[0])
+        # sqlfluff needs to be able to access its package metadata to work
+        self.fs.add_package_metadata("sqlfluff")
 
     def tearDown(self) -> None:
         with Pause(self.fs):
@@ -542,46 +544,36 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
 
     def test_invalid_query(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(f"test --path {FIXTURES_PATH}/queries/invalid".split())
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 4)
 
     def test_invalid_query_passes_when_unchecked(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_passes_when_table_name_provided(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_fails_when_partial_table_name_provided(self):
-        # sqlfluff doesn't load correctly with the fake file system
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
-            )
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(args)
+        args = pat.setup_parser().parse_args(
+            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
+        )
+        args.filter_inverted = {}
+        return_code, invalid_specs = pat.test_analysis(args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 1)
 
@@ -698,7 +690,7 @@ class TestPantherAnalysisTool(TestCase):
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
-                logging.warn("to instantiate the warning call args")
+                logging.warning("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, _ = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
@@ -796,7 +788,7 @@ class TestPantherAnalysisTool(TestCase):
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
-                logging.warn("to instantiate the warning call args")
+                logging.warning("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
@@ -823,7 +815,7 @@ class TestPantherAnalysisTool(TestCase):
             with mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
-                logging.warn("to instantiate the warning call args")
+                logging.warning("to instantiate the warning call args")
                 args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
                 return_code, invalid_specs = pat.test_analysis(args, backend=backend)
                 warning_logs = logging_mocks["warning"].call_args.args
