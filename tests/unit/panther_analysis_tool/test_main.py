@@ -11,6 +11,7 @@ from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from schema import SchemaWrongKeyError
 
+from panther_analysis_tool import analysis_utils
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
@@ -20,7 +21,6 @@ from panther_analysis_tool.backend.client import (
     BulkUploadStatistics,
     BulkUploadValidateResult,
     BulkUploadValidateStatusResponse,
-    GetRuleBodyParams,
     GetRuleBodyResponse,
     TestCorrelationRuleResponse,
     TranspileFiltersResponse,
@@ -35,20 +35,6 @@ FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 
 print("Using fixtures path:", FIXTURES_PATH)
-
-
-def _mock_invoke(**_kwargs):  # pylint: disable=C0103
-    return {
-        "Payload": io.BytesIO(
-            json.dumps(
-                {
-                    "statusCode": 400,
-                    "body": "another upload is in process",
-                }
-            ).encode("utf-8")
-        ),
-        "StatusCode": 400,
-    }
 
 
 class TestPantherAnalysisTool(TestCase):
@@ -97,7 +83,7 @@ class TestPantherAnalysisTool(TestCase):
                     os.remove(file_path)
 
     def test_valid_json_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
+        for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
             if spec_filename.endswith("example_policy.json"):
@@ -114,7 +100,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertIn("Nothing to test in", invalid_specs[0])
 
     def test_valid_yaml_policy_spec(self):
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
+        for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
             if spec_filename.endswith("example_policy.yml"):
@@ -123,7 +109,7 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_valid_pack_spec(self):
         pack_loaded = False
-        for spec_filename, _, loaded_spec, _ in pat.load_analysis_specs(
+        for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
             if spec_filename.endswith("sample-pack.yml"):
@@ -136,22 +122,6 @@ class TestPantherAnalysisTool(TestCase):
         test_date = datetime.now()
         test_date_string = pat.datetime_converted(test_date)
         self.assertIsInstance(test_date_string, str)
-
-    def test_handle_wrong_key_error(self):
-        sample_keys = ["DisplayName", "Enabled", "Filename"]
-        expected_output = "{} not in list of valid keys: {}"
-        # test successful regex match and correct error returned
-        test_str = (
-            "Wrong key 'DisplaName' in {'DisplaName':'one','Enabled':true, 'Filename':'sample'}"
-        )
-        exc = SchemaWrongKeyError(test_str)
-        err = pat.handle_wrong_key_error(exc, sample_keys)
-        self.assertEqual(str(err), expected_output.format("'DisplaName'", sample_keys))
-        # test failing regex match
-        test_str = "Will not match"
-        exc = SchemaWrongKeyError(test_str)
-        err = pat.handle_wrong_key_error(exc, sample_keys)
-        self.assertEqual(str(err), expected_output.format("UNKNOWN_KEY", sample_keys))
 
     def test_load_policy_specs_from_folder(self):
         args = pat.setup_parser().parse_args(f"test --path {DETECTIONS_FIXTURES_PATH}".split())
@@ -1092,7 +1062,7 @@ class TestPantherAnalysisTool(TestCase):
 
         # Check the invalid spec is the duplicate one
         self.assertEqual(invalid_specs[0][0], "test_rule2.yml")
-        self.assertIsInstance(invalid_specs[0][1], pat.AnalysisIDConflictException)
+        self.assertIsInstance(invalid_specs[0][1], analysis_utils.AnalysisIDConflictException)
 
     def test_classify_analysis_with_parsing_errors(self):
         """Test classify_analysis with parsing errors passed in"""
@@ -1128,10 +1098,6 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_classify_analysis_scheduled_query_table_names(self):
         """Test classify_analysis with scheduled query table name validation"""
-        from panther_analysis_tool.main import (
-            AnalysisContainsInvalidTableNamesException,
-        )
-
         # Valid scheduled query spec with invalid table name
         scheduled_query_spec = {
             "AnalysisType": "scheduled_query",
@@ -1153,7 +1119,9 @@ class TestPantherAnalysisTool(TestCase):
         # Should have one invalid spec due to invalid table names
         self.assertEqual(len(invalid_specs), 1)
         self.assertEqual(invalid_specs[0][0], "test_query.yml")
-        self.assertIsInstance(invalid_specs[0][1], AnalysisContainsInvalidTableNamesException)
+        self.assertIsInstance(
+            invalid_specs[0][1], analysis_utils.AnalysisContainsInvalidTableNamesException
+        )
 
         # Test with table name validation disabled (ignore_table_names=True)
         all_specs, invalid_specs = pat.classify_analysis(

@@ -1,10 +1,12 @@
 import logging
-from distutils.util import strtobool
 from typing import Any, Dict, List, Tuple
 
-from schema import Optional
-
-from panther_analysis_tool.schemas import GLOBAL_SCHEMA, POLICY_SCHEMA, RULE_SCHEMA
+from panther_analysis_tool.schemas import (
+    GLOBAL_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
+    extract_keys_schema,
+)
 
 
 # Parses the filters, expects a list of strings
@@ -14,26 +16,21 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for filt in filters:
         split = filt.split("=")
         if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.warning("Filter %s is not in format KEY=VALUE, skipping", filt)
-            continue
+            logging.error("Filter %s is not in format KEY=VALUE", filt)
+            exit(1)
         # Check for "!="
         invert_filter = split[0].endswith("!")
         if invert_filter:
             split[0] = split[0][:-1]  # Remove the trailing "!"
         key = split[0]
-        if not any(
-            (
-                key
-                in (
-                    list(GLOBAL_SCHEMA.schema.keys())
-                    + list(POLICY_SCHEMA.schema.keys())
-                    + list(RULE_SCHEMA.schema.keys())
-                )
-                for key in (key, Optional(key))
-            )
-        ):
-            logging.warning("Filter key %s is not a valid filter field, skipping", key)
-            continue
+        valid_keys = (
+            extract_keys_schema(GLOBAL_SCHEMA)
+            | extract_keys_schema(POLICY_SCHEMA)
+            | extract_keys_schema(RULE_SCHEMA)
+        )
+        if key not in valid_keys:
+            logging.error("Filter key %s is not a valid filter field", key)
+            exit(1)
         if invert_filter:
             parsed_filters_inverted[key] = split[1].split(",")
         else:
@@ -43,10 +40,20 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             try:
                 bool_value = bool(strtobool(split[1]))
             except ValueError:
-                logging.warning("Filter key %s should have either true or false, skipping", key)
-                continue
+                logging.error("Filter key %s should have either true or false", key)
+                exit(1)
             if invert_filter:
                 parsed_filters_inverted[key] = [bool_value]
             else:
                 parsed_filters[key] = [bool_value]
     return parsed_filters, parsed_filters_inverted
+
+
+def strtobool(val: str) -> int:
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return 1
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
