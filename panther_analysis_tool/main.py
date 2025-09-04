@@ -205,9 +205,15 @@ def app_command_with_config(**command_kwargs):
     """
 
     def decorator(func):
+        conf = None
+        if os.path.exists(CONFIG_FILE):
+            # typer emits a warning if the config file is not found to avoid this we
+            # set the config file to None
+            conf = CONFIG_FILE
+
         # Apply use_yaml_config first, then app_command_with_config
         func = call_and_exit(func)
-        func = use_yaml_config(default_value=CONFIG_FILE)(func)
+        func = use_yaml_config(default_value=conf)(func)
         func = app.command(**command_kwargs)(func)
         return func
 
