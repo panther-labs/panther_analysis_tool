@@ -2,8 +2,10 @@
 import argparse
 import base64
 import contextlib
+from functools import wraps
 import hashlib
 import importlib.util
+from inspect import Parameter, signature
 import io
 import json
 import logging
@@ -156,6 +158,59 @@ app = typer.Typer(
     add_completion=True,
     rich_markup_mode="rich",  # optional, nicer help formatting
 )
+
+
+def call_and_exit(func):    
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return_code, out = func(*args, **kwargs)
+
+        if return_code == 1:
+            # out is expected to be a list of tuples of (filename, error_message)
+            if out and isinstance(out, list):
+                try:
+                    # Try some nicer error printing if we can
+                    error = ""
+                    for errspec in out:
+                        if isinstance(errspec, tuple):
+                            fname, error = errspec
+                        else:
+                            fname = ""
+                            error = errspec
+                    msg = str(error).replace("\n", " ")  # Remove newlines from error message
+                    logging.error("%s %s", fname, msg)
+                except Exception:  # pylint: disable=broad-except
+                    logging.error(out)  # Fallback to printing the entire output
+            else:  # If it's not a tuple, just print the output
+                logging.error(out)
+        elif return_code == 0 and out:
+            logging.info(out)
+
+        sys.exit(return_code)
+
+    # This is needed to make typer think the signature of the wrapped function is the same as the original function
+    wrapper.__signature__ = signature(func, eval_str=True)
+    return wrapper
+
+def app_command_with_config(**command_kwargs):
+    """
+    A combined decorator that applies both @app_command_with_config and @use_yaml_config decorators.
+    
+    Args:
+        **command_kwargs: Keyword arguments to pass to app_command_with_config()
+    
+    Returns:
+        A decorator function that applies both decorators
+    """
+
+    def decorator(func):
+        # Apply use_yaml_config first, then app_command_with_config
+        func = call_and_exit(func)
+        func = use_yaml_config(default_value=CONFIG_FILE)(func)
+        func = app.command(**command_kwargs)(func)
+        return func
+    
+    return decorator
 
 
 def datetime_converted(obj: Any) -> Any:
@@ -1644,14 +1699,13 @@ def global_options(
             )
 
 
-@app.command(
+@app_command_with_config(
     help=(
         "Create release assets for repository containing panther detections. "
         "Generates a file called panther-analysis-all.zip and optionally generates "
         "panther-analysis-all.sig"
     )
 )
-@use_yaml_config(default_value=CONFIG_FILE)
 def release(
     _filter: FilterT = None,
     ignore_files: IgnoreFilesT = None,
@@ -1669,7 +1723,7 @@ def release(
     aws_profile: AWSProfileT = None,
     api_token: APITokenT = None,
     api_host: APIHostT = "",
-) -> None:
+) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
 
@@ -1677,7 +1731,7 @@ def release(
         valid_table_names = []
 
     # Forward to your logic function
-    generate_release_assets(
+    return generate_release_assets(
         argparse.Namespace(
             filter=_filter,
             ignore_files=ignore_files,
@@ -1699,8 +1753,7 @@ def release(
     )
 
 
-@app.command(help="Validate analysis specifications and run policy and rule tests.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
 def test(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
@@ -1723,7 +1776,7 @@ def test(
             help="Only run tests with these names. Can be used with --filter to run specific tests for specific rules.",
         ),
     ] = None,
-) -> None:
+) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
 
@@ -1752,14 +1805,13 @@ def test(
         test_names=test_names,
     )
 
-    test_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
+    return test_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
 
 
-@app.command(
+@app_command_with_config(
     name="debug",
     help="Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.",
 )
-@use_yaml_config(default_value=CONFIG_FILE)
 def debug_command(
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
@@ -1776,7 +1828,7 @@ def debug_command(
     show_failures_only: ShowFailuresOnlyT = False,
     ignore_table_names: IgnoreTableNamesT = False,
     valid_table_names: ValidTableNamesT = None,
-) -> None:
+) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
 
@@ -1798,11 +1850,10 @@ def debug_command(
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
     )
-    debug_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
+    return debug_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
 
 
-@app.command(name="publish", help="Publishes a new release, generates assets, and uploads them.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(name="publish", help="Publishes a new release, generates assets, and uploads them.")
 def publish_command(
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
@@ -1833,7 +1884,7 @@ def publish_command(
     skip_disabled_tests: SkipDisabledTestsT = False,
     available_destination: AvailableDestinationT = None,
     ignore_files: IgnoreFilesT = None,
-) -> None:
+) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
 
@@ -1855,11 +1906,10 @@ def publish_command(
         available_destination=available_destination,
         ignore_files=ignore_files,
     )
-    publish_release(args)
+    return publish_release(args)
 
 
-@app.command(help="Upload specified policies and rules to a Panther deployment.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
 def upload(
     # Shared dependencies
     api_token: APITokenT = None,
@@ -1884,7 +1934,7 @@ def upload(
     show_failures_only: ShowFailuresOnlyT = False,
     ignore_table_names: IgnoreTableNamesT = False,
     valid_table_names: ValidTableNamesT = None,
-) -> None:
+) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
     if ignore_files is None:
@@ -1921,11 +1971,10 @@ def upload(
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
     )
-    upload_analysis(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return upload_analysis(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
-@app.command(help="Delete policies, rules, or saved queries from a Panther deployment.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
 def delete(
     # Shared dependencies
     api_token: APITokenT = None,
@@ -1939,7 +1988,7 @@ def delete(
     query_id: Annotated[
         Optional[List[str]], typer.Option(help="List of saved query IDs", show_default=False)
     ] = None,
-) -> None:
+) -> Tuple[int, str]:
     if analysis_id is None:
         analysis_id = []
     if query_id is None:
@@ -1954,13 +2003,12 @@ def delete(
         query_id=query_id,
     )
 
-    bulk_delete.run(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return bulk_delete.run(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
-@app.command(
+@app_command_with_config(
     name="update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
 )
-@use_yaml_config(default_value=CONFIG_FILE)
 def update_custom_schemas_cmd(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
@@ -1971,18 +2019,17 @@ def update_custom_schemas_cmd(
             envvar="PANTHER_PATH", help="The relative or absolute path to Panther custom schemas."
         ),
     ] = ".",
-) -> None:
+) -> Tuple[int, str]:
     args = argparse.Namespace(
         api_token=api_token,
         api_host=api_host,
         aws_profile=aws_profile,
         path=path,
     )
-    update_custom_schemas(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return update_custom_schemas(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
-@app.command(name="test-lookup-table", help="Validate a Lookup Table spec file.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(name="test-lookup-table", help="Validate a Lookup Table spec file.")
 def test_lookup_table_cmd(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
@@ -1991,25 +2038,24 @@ def test_lookup_table_cmd(
         str,
         typer.Option(envvar="PANTHER_PATH", help="The relative path to a lookup table input file."),
     ] = ".",
-) -> None:
+) -> Tuple[int, str]:
     args = argparse.Namespace(
         api_token=api_token,
         api_host=api_host,
         aws_profile=aws_profile,
         path=path,
     )
-    test_lookup_table(args)
+    return test_lookup_table(args)
 
 
-@app.command(name="validate", help="Validate your bulk uploads against your panther instance.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(name="validate", help="Validate your bulk uploads against your panther instance.")
 def validate_cmd(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
     _filter: FilterT = None,
     ignore_files: IgnoreFilesT = None,
     path: PathT = ".",
-) -> None:
+) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
     if ignore_files is None:
@@ -2023,13 +2069,12 @@ def validate_cmd(
         path=path,
     )
 
-    validate.run(pat_utils.get_api_backend(api_token, api_host), args)
+    return validate.run(pat_utils.get_api_backend(api_token, api_host), args)
 
 
-@app.command(
+@app_command_with_config(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
-@use_yaml_config(default_value=CONFIG_FILE)
 def zip_cmd(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
@@ -2045,7 +2090,7 @@ def zip_cmd(
     show_failures_only: ShowFailuresOnlyT = False,
     ignore_table_names: IgnoreTableNamesT = False,
     valid_table_names: ValidTableNamesT = None,
-) -> None:
+) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
     if ignore_files is None:
@@ -2067,22 +2112,21 @@ def zip_cmd(
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
     )
-    zip_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
+    return zip_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
 
 
-@app.command(name="check-connection", help="Check your Panther API connection")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(name="check-connection", help="Check your Panther API connection")
 def check_connection_cmd(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
     aws_profile: AWSProfileT = None,
-) -> None:
+) -> Tuple[int, str]:
     args = argparse.Namespace(
         api_token=api_token,
         api_host=api_host,
         aws_profile=aws_profile,
     )
-    check_connection.run(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return check_connection.run(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
 def parse_date(text: Optional[str]) -> Optional[datetime]:
@@ -2092,7 +2136,7 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
     return dateutil.parser.parse(text)
 
 
-@app.command(
+@app_command_with_config(
     name="benchmark",
     help=(
         "Performance test one rule against one of its log types. The rule must be the only item "
@@ -2100,7 +2144,6 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
         "is an extension of Data Replay and is subject to the same limitations."
     ),
 )
-@use_yaml_config(default_value=CONFIG_FILE)
 def benchmark_command(
     _filter: FilterT = None,
     ignore_files: IgnoreFilesT = None,
@@ -2139,7 +2182,7 @@ def benchmark_command(
     ] = None,
     api_token: APITokenT = None,
     api_host: APIHostT = "",
-) -> None:
+) -> Tuple[int, str]:
     # Here you might want to convert the hour back to string if needed, or pass as datetime object
     # Call your wrapped backend function
     args = argparse.Namespace(
@@ -2153,14 +2196,13 @@ def benchmark_command(
         hour=hour,
         log_type=log_type,
     )
-    benchmark.run(pat_utils.get_api_backend(api_token, api_host), args)
+    return benchmark.run(pat_utils.get_api_backend(api_token, api_host), args)
 
 
-@app.command(
+@app_command_with_config(
     name="enrich-test-data",
     help="Enrich test data with additional enrichments from the Panther API.",
 )
-@use_yaml_config(default_value=CONFIG_FILE)
 def enrich_test_data_command(
     _filter: FilterT = None,
     path: PathT = ".",
@@ -2170,7 +2212,7 @@ def enrich_test_data_command(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
     aws_profile: AWSProfileT = None,
-) -> None:
+) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
     if ignore_files is None:
@@ -2189,24 +2231,23 @@ def enrich_test_data_command(
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
     )
-    enrich_test_data(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return enrich_test_data(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
-@app.command(name="check-packs", help="Ensure that packs don't have missing detections.")
-@use_yaml_config(default_value=CONFIG_FILE)
+@app_command_with_config(name="check-packs", help="Ensure that packs don't have missing detections.")
 def check_packs_command(
     path: PathT = ".",
     api_token: APITokenT = None,
     api_host: APIHostT = "",
     aws_profile: AWSProfileT = None,
-) -> None:
+) -> Tuple[int, str]:
     args = argparse.Namespace(
         api_token=api_token,
         api_host=api_host,
         aws_profile=aws_profile,
         path=path,
     )
-    check_packs(args)
+    return check_packs(args)
 
 
 # pylint: disable=too-many-statements
@@ -2223,7 +2264,7 @@ def run() -> None:
     #     args.filter_inverted = {}
 
     try:
-        return_code, out = app()
+        app()
     except BackendNotFoundException as err:
         logging.error('Backend not found: "%s"', err)
         sys.exit(1)
@@ -2232,29 +2273,6 @@ def run() -> None:
         logging.warning('Unhandled exception: "%s"', err)
         logging.debug("Full error traceback:", exc_info=err)
         sys.exit(1)
-
-    if return_code == 1:
-        # out is expected to be a list of tuples of (filename, error_message)
-        if out and isinstance(out, list):
-            try:
-                # Try some nicer error printing if we can
-                error = ""
-                for errspec in out:
-                    if isinstance(errspec, tuple):
-                        fname, error = errspec
-                    else:
-                        fname = ""
-                        error = errspec
-                msg = str(error).replace("\n", " ")  # Remove newlines from error message
-                logging.error("%s %s", fname, msg)
-            except Exception:  # pylint: disable=broad-except
-                logging.error(out)  # Fallback to printing the entire output
-        else:  # If it's not a tuple, just print the output
-            logging.error(out)
-    elif return_code == 0 and out:
-        logging.info(out)
-
-    sys.exit(return_code)
 
 
 if __name__ == "__main__":
