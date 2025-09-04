@@ -37,7 +37,7 @@ class TestDebugFunctionality(TestCase):
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            return_code, invalid_specs = pat.debug_analysis(args)
+            return_code, invalid_specs = pat.debug_analysis(None, args)
 
             # Verify test_analysis was called with debug args
             mock_test_analysis.assert_called_once()
@@ -49,7 +49,7 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(debug_args.get("test_name"), "Test Case 1")
 
             # Check that filter was set correctly
-            args_passed = call_args[0][0]
+            args_passed = call_args[0][1]
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
@@ -66,12 +66,12 @@ class TestDebugFunctionality(TestCase):
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            return_code, invalid_specs = pat.debug_analysis(args, backend)
+            return_code, invalid_specs = pat.debug_analysis(backend, args)
 
             # Verify backend was passed through
             mock_test_analysis.assert_called_once()
             call_args = mock_test_analysis.call_args
-            self.assertEqual(call_args[0][1], backend)
+            self.assertEqual(call_args[0][0], backend)
 
     def test_debug_parser_arguments(self):
         """Test that the debug command parser accepts correct arguments."""
@@ -438,7 +438,7 @@ class TestDebugFunctionality(TestCase):
 
             mock_load.return_value = (mock_specs, [])
 
-            return_code, invalid_specs = pat.test_analysis(args, debug_args=debug_args)
+            return_code, invalid_specs = pat.test_analysis(None, args, debug_args=debug_args)
 
             # Verify that setup_run_tests was called with debug_args
             mock_setup_tests.assert_called_once()
@@ -455,14 +455,14 @@ class TestDebugFunctionality(TestCase):
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            return_code, invalid_specs = pat.debug_analysis(args)
+            return_code, invalid_specs = pat.debug_analysis(None, args)
 
             # Verify debug_analysis correctly calls test_analysis
             mock_test_analysis.assert_called_once()
             call_args = mock_test_analysis.call_args
 
             # Check that args were modified correctly by debug_analysis
-            args_passed = call_args[0][0]
+            args_passed = call_args[0][1]
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
@@ -494,11 +494,11 @@ class TestDebugFunctionality(TestCase):
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            pat.debug_analysis(args)
+            pat.debug_analysis(None, args)
 
             # Verify that both the RuleID filter and additional filters are applied
             call_args = mock_test_analysis.call_args
-            args_passed = call_args[0][0]
+            args_passed = call_args[0][1]
 
             # The RuleID filter should be set by debug_analysis
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
@@ -546,14 +546,14 @@ class TestDebugFunctionality(TestCase):
             mock_validate_packs.return_value = []
 
             # Test without debug args - should print summary
-            pat.test_analysis(args)
+            pat.test_analysis(None, args)
             mock_print_summary.assert_called_once()
 
             # Reset mock
             mock_print_summary.reset_mock()
 
             # Test with debug args - should NOT print summary
-            pat.test_analysis(args, debug_args=debug_args)
+            pat.test_analysis(None, args, debug_args=debug_args)
             mock_print_summary.assert_not_called()
 
 
