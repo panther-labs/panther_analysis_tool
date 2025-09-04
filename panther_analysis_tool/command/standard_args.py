@@ -29,7 +29,7 @@ AWSProfileT: TypeAlias = Annotated[
     ),
 ]
 
-FilterT : TypeAlias= Annotated[
+FilterT: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         "--filter", envvar="PANTHER_FILTER", metavar="KEY=VALUE", help="Filter detections"
@@ -66,7 +66,9 @@ PathT: TypeAlias = Annotated[
     typer.Option(envvar="PANTHER_PATH", help="The relative path to Panther policies and rules."),
 ]
 
-SkipTestsT: TypeAlias = Annotated[bool, typer.Option(envvar="PANTHER_SKIP_TESTS", help="Skip all tests")]
+SkipTestsT: TypeAlias = Annotated[
+    bool, typer.Option(envvar="PANTHER_SKIP_TESTS", help="Skip all tests")
+]
 
 SkipDisabledTestsT: TypeAlias = Annotated[
     bool, typer.Option(envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests.")
@@ -87,7 +89,7 @@ IgnoreFilesT: TypeAlias = Annotated[
     ),
 ]
 
-AvailableDestinationT : TypeAlias = Annotated[
+AvailableDestinationT: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         envvar="PANTHER_AVAILABLE_DESTINATION",
@@ -105,7 +107,9 @@ SortTestResultsT: TypeAlias = Annotated[
     ),
 ]
 
-ShowFailuresOnlyT: TypeAlias= Annotated[bool, typer.Option(help="Only print test results for failed tests.")]
+ShowFailuresOnlyT: TypeAlias = Annotated[
+    bool, typer.Option(help="Only print test results for failed tests.")
+]
 
 IgnoreTableNamesT: TypeAlias = Annotated[
     bool,
@@ -114,7 +118,7 @@ IgnoreTableNamesT: TypeAlias = Annotated[
     ),
 ]
 
-ValidTableNamesT : TypeAlias= Annotated[
+ValidTableNamesT: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         help=(

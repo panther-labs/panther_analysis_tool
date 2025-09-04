@@ -2,10 +2,8 @@
 import argparse
 import base64
 import contextlib
-from functools import wraps
 import hashlib
 import importlib.util
-from inspect import Parameter, signature
 import io
 import json
 import logging
@@ -21,6 +19,8 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
+from functools import wraps
+from inspect import Parameter, signature
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
@@ -160,7 +160,7 @@ app = typer.Typer(
 )
 
 
-def call_and_exit(func):    
+def call_and_exit(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         return_code, out = func(*args, **kwargs)
@@ -192,13 +192,14 @@ def call_and_exit(func):
     wrapper.__signature__ = signature(func, eval_str=True)
     return wrapper
 
+
 def app_command_with_config(**command_kwargs):
     """
     A combined decorator that applies both @app_command_with_config and @use_yaml_config decorators.
-    
+
     Args:
         **command_kwargs: Keyword arguments to pass to app_command_with_config()
-    
+
     Returns:
         A decorator function that applies both decorators
     """
@@ -209,7 +210,7 @@ def app_command_with_config(**command_kwargs):
         func = use_yaml_config(default_value=CONFIG_FILE)(func)
         func = app.command(**command_kwargs)(func)
         return func
-    
+
     return decorator
 
 
@@ -1853,7 +1854,9 @@ def debug_command(
     return debug_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
 
 
-@app_command_with_config(name="publish", help="Publishes a new release, generates assets, and uploads them.")
+@app_command_with_config(
+    name="publish", help="Publishes a new release, generates assets, and uploads them."
+)
 def publish_command(
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
@@ -2048,7 +2051,9 @@ def test_lookup_table_cmd(
     return test_lookup_table(args)
 
 
-@app_command_with_config(name="validate", help="Validate your bulk uploads against your panther instance.")
+@app_command_with_config(
+    name="validate", help="Validate your bulk uploads against your panther instance."
+)
 def validate_cmd(
     api_token: APITokenT = None,
     api_host: APIHostT = "",
@@ -2234,7 +2239,9 @@ def enrich_test_data_command(
     return enrich_test_data(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
-@app_command_with_config(name="check-packs", help="Ensure that packs don't have missing detections.")
+@app_command_with_config(
+    name="check-packs", help="Ensure that packs don't have missing detections."
+)
 def check_packs_command(
     path: PathT = ".",
     api_token: APITokenT = None,
