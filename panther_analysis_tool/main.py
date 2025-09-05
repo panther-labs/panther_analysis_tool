@@ -25,7 +25,7 @@ from inspect import Parameter, signature
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
-from typing import Any, DefaultDict, Dict, List, Optional, TextIO, Tuple, Type, cast
+from typing import Any, Callable, DefaultDict, Dict, List, Optional, TextIO, Tuple, Type, TypeAlias, cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -160,9 +160,12 @@ app = typer.Typer(
 )
 
 
-def call_and_exit(func):
+PantherCommand: TypeAlias = Callable[..., Tuple[int, list[Any]]] | Callable[..., Tuple[int, str]]
+
+
+def call_and_exit(func: PantherCommand) -> Callable[..., None]:
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> None:
         return_code, out = func(*args, **kwargs)
 
         if return_code == 1:
@@ -189,11 +192,12 @@ def call_and_exit(func):
         sys.exit(return_code)
 
     # This is needed to make typer think the signature of the wrapped function is the same as the original function
-    wrapper.__signature__ = signature(func, eval_str=True)
+    # invalid mypy error https://github.com/python/mypy/issues/12472
+    wrapper.__signature__ = signature(func, eval_str=True) # type: ignore[attr-defined]
     return wrapper
 
 
-def app_command_with_config(**command_kwargs):
+def app_command_with_config(**command_kwargs: Any) -> Callable[[PantherCommand], Callable[..., None]]:
     """
     A combined decorator that applies both @app_command_with_config and @use_yaml_config decorators.
 
@@ -204,7 +208,7 @@ def app_command_with_config(**command_kwargs):
         A decorator function that applies both decorators
     """
 
-    def decorator(func):
+    def decorator(func: PantherCommand) -> Callable[..., None]:
         conf = None
         if os.path.exists(CONFIG_FILE):
             # typer emits a warning if the config file is not found to avoid this we
@@ -1783,7 +1787,7 @@ def test(
             help="Only run tests with these names. Can be used with --filter to run specific tests for specific rules.",
         ),
     ] = None,
-) -> Tuple[int, str]:
+) -> Tuple[int, list[Any]]:
     if ignore_files is None:
         ignore_files = []
 
@@ -1835,7 +1839,7 @@ def debug_command(
     show_failures_only: ShowFailuresOnlyT = False,
     ignore_table_names: IgnoreTableNamesT = False,
     valid_table_names: ValidTableNamesT = None,
-) -> Tuple[int, str]:
+) -> Tuple[int, list[Any]]:
     if ignore_files is None:
         ignore_files = []
 
