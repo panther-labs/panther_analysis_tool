@@ -1,28 +1,130 @@
-import argparse
+from typing import Annotated, List, Optional, TypeAlias
+
+import typer
 
 API_DOCUMENTATION = "https://docs.panther.com/api-beta"
 
 
-def for_public_api(parser: argparse.ArgumentParser, required: bool) -> None:
-    parser.add_argument(
-        "--api-token",
-        type=str,
-        help="The Panther API token to use. See: " + API_DOCUMENTATION,
-        required=required,
-    )
+APITokenType: TypeAlias = Annotated[
+    Optional[str],
+    typer.Option(
+        envvar="PANTHER_API_TOKEN",
+        help=f"The Panther API token to use. See: {API_DOCUMENTATION}",
+    ),
+]
 
-    parser.add_argument(
-        "--api-host",
-        type=str,
-        help="The Panther API host to use. See: " + API_DOCUMENTATION,
-        required=required,
-    )
+APIHostType: TypeAlias = Annotated[
+    str,
+    typer.Option(
+        envvar="PANTHER_API_HOST",
+        help=f"The Panther API host to use. See: {API_DOCUMENTATION}",
+    ),
+]
 
-
-def using_aws_profile(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--aws-profile",
-        type=str,
+AWSProfileType: TypeAlias = Annotated[
+    Optional[str],
+    typer.Option(
+        envvar="PANTHER_AWS_PROFILE",
         help="The AWS profile to use when updating the AWS Panther deployment.",
-        required=False,
-    )
+    ),
+]
+
+FilterType: TypeAlias = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        "--filter", envvar="PANTHER_FILTER", metavar="KEY=VALUE", help="Filter detections"
+    ),
+]
+
+KMSKeyType: TypeAlias = Annotated[
+    Optional[str],
+    typer.Option(envvar="PANTHER_KMS_KEY", help="The key id to use to sign the release asset."),
+]
+
+MinimumTestsType: TypeAlias = Annotated[
+    int,
+    typer.Option(
+        envvar="PANTHER_MINIMUM_TESTS",
+        help=(
+            "The minimum number of tests in order for a detection to be considered passing. "
+            "If a number greater than 1 is specified, at least one True and one False test is "
+            "required."
+        ),
+    ),
+]
+
+OutType: TypeAlias = Annotated[
+    str,
+    typer.Option(
+        envvar="PANTHER_OUT",
+        help="The path to store output files.",
+    ),
+]
+
+PathType: TypeAlias = Annotated[
+    str,
+    typer.Option(envvar="PANTHER_PATH", help="The relative path to Panther policies and rules."),
+]
+
+SkipTestsType: TypeAlias = Annotated[
+    bool, typer.Option(envvar="PANTHER_SKIP_TESTS", help="Skip all tests")
+]
+
+SkipDisabledTestsType: TypeAlias = Annotated[
+    bool, typer.Option(envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests.")
+]
+
+IgnoreExtraKeysType: TypeAlias = Annotated[
+    bool,
+    typer.Option(
+        help="Meant for advanced users; allows skipping of extra keys from schema validation."
+    ),
+]
+
+IgnoreFilesType: TypeAlias = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        envvar="PANTHER_IGNORE_FILES",
+        help="Relative path to files to be ignored (space separated). Example ./foo.yaml ./bar/baz.yaml",
+    ),
+]
+
+AvailableDestinationType: TypeAlias = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        envvar="PANTHER_AVAILABLE_DESTINATION",
+        help=(
+            "A destination name that may be returned by the destinations function. "
+            "Repeat the argument to define more than one name."
+        ),
+    ),
+]
+
+SortTestResultsType: TypeAlias = Annotated[
+    bool,
+    typer.Option(
+        help="Sort test results by whether the test passed or failed (passing tests first), then by rule ID.",
+    ),
+]
+
+ShowFailuresOnlyType: TypeAlias = Annotated[
+    bool, typer.Option(help="Only print test results for failed tests.")
+]
+
+IgnoreTableNamesType: TypeAlias = Annotated[
+    bool,
+    typer.Option(
+        help="Allows skipping of table name validation from schema validation. Useful when querying non-Panther or non-Snowflake tables.",
+    ),
+]
+
+ValidTableNamesType: TypeAlias = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        help=(
+            "Fully qualified table names that should be considered valid during schema validation "
+            "(in addition to standard Panther/Snowflake tables), space separated. "
+            "Accepts '*' as wildcard matching 0 or more characters. Example: foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*"
+        ),
+    ),
+]

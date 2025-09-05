@@ -53,7 +53,7 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
-            self.assertFalse(args_passed.print_failed_test_results_only)
+            self.assertFalse(args_passed.show_failures_only)
 
     def test_debug_analysis_with_backend(self):
         """Test debug_analysis with a backend client."""
@@ -466,7 +466,7 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
-            self.assertFalse(args_passed.print_failed_test_results_only)
+            self.assertFalse(args_passed.show_failures_only)
 
             # Check that debug_args were passed correctly
             debug_args = call_args[1].get("debug_args", {})
