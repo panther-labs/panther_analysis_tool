@@ -20,7 +20,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
 from functools import wraps
-from inspect import Parameter, signature
+from inspect import signature
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
@@ -102,23 +102,23 @@ from panther_analysis_tool.command import (
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
-    APIHostT,
-    APITokenT,
-    AvailableDestinationT,
-    AWSProfileT,
-    FilterT,
-    IgnoreExtraKeysT,
-    IgnoreFilesT,
-    IgnoreTableNamesT,
-    KMSKeyT,
-    MinimumTestsT,
-    OutT,
-    PathT,
-    ShowFailuresOnlyT,
-    SkipDisabledTestsT,
-    SkipTestsT,
-    SortTestResultsT,
-    ValidTableNamesT,
+    APIHostType,
+    APITokenType,
+    AvailableDestinationType,
+    AWSProfileType,
+    FilterType,
+    IgnoreExtraKeysType,
+    IgnoreFilesType,
+    IgnoreTableNamesType,
+    KMSKeyType,
+    MinimumTestsType,
+    OutType,
+    PathType,
+    ShowFailuresOnlyType,
+    SkipDisabledTestsType,
+    SkipTestsType,
+    SortTestResultsType,
+    ValidTableNamesType,
 )
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
@@ -230,10 +230,10 @@ def app_command_with_config(
             conf = CONFIG_FILE
 
         # Apply use_yaml_config first, then app_command_with_config
-        func = call_and_exit(func)
-        func = use_yaml_config(default_value=conf)(func)
-        func = app.command(**command_kwargs)(func)
-        return func
+        func_2 = call_and_exit(func)
+        func_2 = use_yaml_config(default_value=conf)(func_2)
+        func_2 = app.command(**command_kwargs)(func_2)
+        return func_2
 
     return decorator
 
@@ -1732,22 +1732,22 @@ def global_options(
     )
 )
 def release(
-    _filter: FilterT = None,
-    ignore_files: IgnoreFilesT = None,
-    kms_key: KMSKeyT = None,
-    minimum_tests: MinimumTestsT = 0,
-    out: OutT = ".",
-    path: PathT = ".",
-    skip_tests: SkipTestsT = False,
-    skip_disabled_tests: SkipDisabledTestsT = False,
-    available_destination: AvailableDestinationT = None,
-    sort_test_results: SortTestResultsT = False,
-    show_failures_only: ShowFailuresOnlyT = False,
-    ignore_table_names: IgnoreTableNamesT = False,
-    valid_table_names: ValidTableNamesT = None,
-    aws_profile: AWSProfileT = None,
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
+    _filter: FilterType = None,
+    ignore_files: IgnoreFilesType = None,
+    kms_key: KMSKeyType = None,
+    minimum_tests: MinimumTestsType = 0,
+    out: OutType = ".",
+    path: PathType = ".",
+    skip_tests: SkipTestsType = False,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    available_destination: AvailableDestinationType = None,
+    sort_test_results: SortTestResultsType = False,
+    show_failures_only: ShowFailuresOnlyType = False,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
+    aws_profile: AWSProfileType = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
 ) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
@@ -1780,19 +1780,19 @@ def release(
 
 @app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
 def test(
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    _filter: FilterT = None,
-    minimum_tests: MinimumTestsT = 0,
-    path: PathT = ".",
-    ignore_extra_keys: IgnoreExtraKeysT = False,
-    ignore_files: IgnoreFilesT = None,
-    skip_disabled_tests: SkipDisabledTestsT = False,
-    available_destination: AvailableDestinationT = None,
-    sort_test_results: SortTestResultsT = False,
-    show_failures_only: ShowFailuresOnlyT = False,
-    ignore_table_names: IgnoreTableNamesT = False,
-    valid_table_names: ValidTableNamesT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    _filter: FilterType = None,
+    minimum_tests: MinimumTestsType = 0,
+    path: PathType = ".",
+    ignore_extra_keys: IgnoreExtraKeysType = False,
+    ignore_files: IgnoreFilesType = None,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    available_destination: AvailableDestinationType = None,
+    sort_test_results: SortTestResultsType = False,
+    show_failures_only: ShowFailuresOnlyType = False,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
     test_names: Annotated[
         Optional[List[str]],
         typer.Option(
@@ -1840,19 +1840,19 @@ def test(
 def debug_command(
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    _filter: FilterT = None,
-    minimum_tests: MinimumTestsT = 0,
-    path: PathT = ".",
-    ignore_extra_keys: IgnoreExtraKeysT = False,
-    ignore_files: IgnoreFilesT = None,
-    skip_disabled_tests: SkipDisabledTestsT = False,
-    available_destination: AvailableDestinationT = None,
-    sort_test_results: SortTestResultsT = False,
-    show_failures_only: ShowFailuresOnlyT = False,
-    ignore_table_names: IgnoreTableNamesT = False,
-    valid_table_names: ValidTableNamesT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    _filter: FilterType = None,
+    minimum_tests: MinimumTestsType = 0,
+    path: PathType = ".",
+    ignore_extra_keys: IgnoreExtraKeysType = False,
+    ignore_files: IgnoreFilesType = None,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    available_destination: AvailableDestinationType = None,
+    sort_test_results: SortTestResultsType = False,
+    show_failures_only: ShowFailuresOnlyType = False,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, list[Any]]:
     if ignore_files is None:
         ignore_files = []
@@ -1886,9 +1886,9 @@ def publish_command(
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
     # Shared API / AWS args
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     # GitHub args
     github_branch: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_BRANCH", help="The branch to base the release on")
@@ -1903,14 +1903,14 @@ def publish_command(
         str, typer.Option(envvar="PANTHER_BODY", help="The text body for the release")
     ] = "",
     # Standard shared args
-    _filter: FilterT = None,
-    kms_key: KMSKeyT = None,
-    minimum_tests: MinimumTestsT = 0,
-    out: OutT = ".",
-    skip_tests: SkipTestsT = False,
-    skip_disabled_tests: SkipDisabledTestsT = False,
-    available_destination: AvailableDestinationT = None,
-    ignore_files: IgnoreFilesT = None,
+    _filter: FilterType = None,
+    kms_key: KMSKeyType = None,
+    minimum_tests: MinimumTestsType = 0,
+    out: OutType = ".",
+    skip_tests: SkipTestsType = False,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    available_destination: AvailableDestinationType = None,
+    ignore_files: IgnoreFilesType = None,
 ) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
@@ -1939,28 +1939,28 @@ def publish_command(
 @app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
 def upload(
     # Shared dependencies
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     # Upload-specific flags
     auto_disable_base: Annotated[bool, typer.Option(help="Auto-disable base detection")] = False,
     max_retries: Annotated[int, typer.Option(help="Max upload retries")] = 10,
     no_async: Annotated[bool, typer.Option(help="Force synchronous upload")] = False,
     batch: Annotated[bool, typer.Option(help="Break upload into multiple zip files")] = False,
     # Shared args
-    _filter: FilterT = None,
-    minimum_tests: MinimumTestsT = 0,
-    out: OutT = ".",
-    path: PathT = ".",
-    skip_tests: SkipTestsT = False,
-    skip_disabled_tests: SkipDisabledTestsT = False,
-    ignore_extra_keys: IgnoreExtraKeysT = False,
-    ignore_files: IgnoreFilesT = None,
-    available_destination: AvailableDestinationT = None,
-    sort_test_results: SortTestResultsT = False,
-    show_failures_only: ShowFailuresOnlyT = False,
-    ignore_table_names: IgnoreTableNamesT = False,
-    valid_table_names: ValidTableNamesT = None,
+    _filter: FilterType = None,
+    minimum_tests: MinimumTestsType = 0,
+    out: OutType = ".",
+    path: PathType = ".",
+    skip_tests: SkipTestsType = False,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    ignore_extra_keys: IgnoreExtraKeysType = False,
+    ignore_files: IgnoreFilesType = None,
+    available_destination: AvailableDestinationType = None,
+    sort_test_results: SortTestResultsType = False,
+    show_failures_only: ShowFailuresOnlyType = False,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
@@ -2004,9 +2004,9 @@ def upload(
 @app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
 def delete(
     # Shared dependencies
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     # Delete-specific flags
     confirm_bypass: Annotated[bool, typer.Option(help="Skip manual confirmation")] = False,
     analysis_id: Annotated[
@@ -2037,9 +2037,9 @@ def delete(
     name="update-custom-schemas", help="Update or create custom schemas on a Panther deployment."
 )
 def update_custom_schemas_cmd(
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     path: Annotated[
         str,
         typer.Option(
@@ -2058,9 +2058,9 @@ def update_custom_schemas_cmd(
 
 @app_command_with_config(name="test-lookup-table", help="Validate a Lookup Table spec file.")
 def test_lookup_table_cmd(
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     path: Annotated[
         str,
         typer.Option(envvar="PANTHER_PATH", help="The relative path to a lookup table input file."),
@@ -2079,11 +2079,11 @@ def test_lookup_table_cmd(
     name="validate", help="Validate your bulk uploads against your panther instance."
 )
 def validate_cmd(
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    _filter: FilterT = None,
-    ignore_files: IgnoreFilesT = None,
-    path: PathT = ".",
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    _filter: FilterType = None,
+    ignore_files: IgnoreFilesType = None,
+    path: PathType = ".",
 ) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
@@ -2105,20 +2105,20 @@ def validate_cmd(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
 def zip_cmd(
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    _filter: FilterT = None,
-    ignore_files: IgnoreFilesT = None,
-    minimum_tests: MinimumTestsT = 0,
-    out: OutT = ".",
-    path: PathT = ".",
-    skip_tests: SkipTestsT = False,
-    skip_disabled_tests: SkipDisabledTestsT = False,
-    available_destination: AvailableDestinationT = None,
-    sort_test_results: SortTestResultsT = False,
-    show_failures_only: ShowFailuresOnlyT = False,
-    ignore_table_names: IgnoreTableNamesT = False,
-    valid_table_names: ValidTableNamesT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    _filter: FilterType = None,
+    ignore_files: IgnoreFilesType = None,
+    minimum_tests: MinimumTestsType = 0,
+    out: OutType = ".",
+    path: PathType = ".",
+    skip_tests: SkipTestsType = False,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    available_destination: AvailableDestinationType = None,
+    sort_test_results: SortTestResultsType = False,
+    show_failures_only: ShowFailuresOnlyType = False,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
@@ -2146,9 +2146,9 @@ def zip_cmd(
 
 @app_command_with_config(name="check-connection", help="Check your Panther API connection")
 def check_connection_cmd(
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
     args = argparse.Namespace(
         api_token=api_token,
@@ -2174,10 +2174,10 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
     ),
 )
 def benchmark_command(
-    _filter: FilterT = None,
-    ignore_files: IgnoreFilesT = None,
-    path: PathT = ".",
-    out: OutT = ".",
+    _filter: FilterType = None,
+    ignore_files: IgnoreFilesType = None,
+    path: PathType = ".",
+    out: OutType = ".",
     iterations: Annotated[
         int,
         typer.Option(
@@ -2209,8 +2209,8 @@ def benchmark_command(
             ),
         ),
     ] = None,
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
 ) -> Tuple[int, str]:
     # Here you might want to convert the hour back to string if needed, or pass as datetime object
     # Call your wrapped backend function
@@ -2233,14 +2233,14 @@ def benchmark_command(
     help="Enrich test data with additional enrichments from the Panther API.",
 )
 def enrich_test_data_command(
-    _filter: FilterT = None,
-    path: PathT = ".",
-    ignore_files: IgnoreFilesT = None,
-    ignore_table_names: IgnoreTableNamesT = False,
-    valid_table_names: ValidTableNamesT = None,
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    _filter: FilterType = None,
+    path: PathType = ".",
+    ignore_files: IgnoreFilesType = None,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
     if _filter is None:
         _filter = []
@@ -2267,10 +2267,10 @@ def enrich_test_data_command(
     name="check-packs", help="Ensure that packs don't have missing detections."
 )
 def check_packs_command(
-    path: PathT = ".",
-    api_token: APITokenT = None,
-    api_host: APIHostT = "",
-    aws_profile: AWSProfileT = None,
+    path: PathType = ".",
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
     args = argparse.Namespace(
         api_token=api_token,

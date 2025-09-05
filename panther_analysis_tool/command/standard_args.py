@@ -5,7 +5,7 @@ import typer
 API_DOCUMENTATION = "https://docs.panther.com/api-beta"
 
 
-APITokenT: TypeAlias = Annotated[
+APITokenType: TypeAlias = Annotated[
     Optional[str],
     typer.Option(
         envvar="PANTHER_API_TOKEN",
@@ -13,7 +13,7 @@ APITokenT: TypeAlias = Annotated[
     ),
 ]
 
-APIHostT: TypeAlias = Annotated[
+APIHostType: TypeAlias = Annotated[
     str,
     typer.Option(
         envvar="PANTHER_API_HOST",
@@ -21,7 +21,7 @@ APIHostT: TypeAlias = Annotated[
     ),
 ]
 
-AWSProfileT: TypeAlias = Annotated[
+AWSProfileType: TypeAlias = Annotated[
     Optional[str],
     typer.Option(
         envvar="PANTHER_AWS_PROFILE",
@@ -29,19 +29,19 @@ AWSProfileT: TypeAlias = Annotated[
     ),
 ]
 
-FilterT: TypeAlias = Annotated[
+FilterType: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         "--filter", envvar="PANTHER_FILTER", metavar="KEY=VALUE", help="Filter detections"
     ),
 ]
 
-KMSKeyT: TypeAlias = Annotated[
+KMSKeyType: TypeAlias = Annotated[
     Optional[str],
     typer.Option(envvar="PANTHER_KMS_KEY", help="The key id to use to sign the release asset."),
 ]
 
-MinimumTestsT: TypeAlias = Annotated[
+MinimumTestsType: TypeAlias = Annotated[
     int,
     typer.Option(
         envvar="PANTHER_MINIMUM_TESTS",
@@ -53,7 +53,7 @@ MinimumTestsT: TypeAlias = Annotated[
     ),
 ]
 
-OutT: TypeAlias = Annotated[
+OutType: TypeAlias = Annotated[
     str,
     typer.Option(
         envvar="PANTHER_OUT",
@@ -61,27 +61,27 @@ OutT: TypeAlias = Annotated[
     ),
 ]
 
-PathT: TypeAlias = Annotated[
+PathType: TypeAlias = Annotated[
     str,
     typer.Option(envvar="PANTHER_PATH", help="The relative path to Panther policies and rules."),
 ]
 
-SkipTestsT: TypeAlias = Annotated[
+SkipTestsType: TypeAlias = Annotated[
     bool, typer.Option(envvar="PANTHER_SKIP_TESTS", help="Skip all tests")
 ]
 
-SkipDisabledTestsT: TypeAlias = Annotated[
+SkipDisabledTestsType: TypeAlias = Annotated[
     bool, typer.Option(envvar="PANTHER_SKIP_DISABLED_TESTS", help="Skip disabled tests.")
 ]
 
-IgnoreExtraKeysT: TypeAlias = Annotated[
+IgnoreExtraKeysType: TypeAlias = Annotated[
     bool,
     typer.Option(
         help="Meant for advanced users; allows skipping of extra keys from schema validation."
     ),
 ]
 
-IgnoreFilesT: TypeAlias = Annotated[
+IgnoreFilesType: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         envvar="PANTHER_IGNORE_FILES",
@@ -89,7 +89,7 @@ IgnoreFilesT: TypeAlias = Annotated[
     ),
 ]
 
-AvailableDestinationT: TypeAlias = Annotated[
+AvailableDestinationType: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         envvar="PANTHER_AVAILABLE_DESTINATION",
@@ -100,25 +100,25 @@ AvailableDestinationT: TypeAlias = Annotated[
     ),
 ]
 
-SortTestResultsT: TypeAlias = Annotated[
+SortTestResultsType: TypeAlias = Annotated[
     bool,
     typer.Option(
         help="Sort test results by whether the test passed or failed (passing tests first), then by rule ID.",
     ),
 ]
 
-ShowFailuresOnlyT: TypeAlias = Annotated[
+ShowFailuresOnlyType: TypeAlias = Annotated[
     bool, typer.Option(help="Only print test results for failed tests.")
 ]
 
-IgnoreTableNamesT: TypeAlias = Annotated[
+IgnoreTableNamesType: TypeAlias = Annotated[
     bool,
     typer.Option(
         help="Allows skipping of table name validation from schema validation. Useful when querying non-Panther or non-Snowflake tables.",
     ),
 ]
 
-ValidTableNamesT: TypeAlias = Annotated[
+ValidTableNamesType: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         help=(
