@@ -25,7 +25,19 @@ from inspect import Parameter, signature
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
-from typing import Any, Callable, DefaultDict, Dict, List, Optional, TextIO, Tuple, Type, TypeAlias, cast
+from typing import (
+    Any,
+    Callable,
+    DefaultDict,
+    Dict,
+    List,
+    Optional,
+    TextIO,
+    Tuple,
+    Type,
+    TypeAlias,
+    cast,
+)
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -193,11 +205,13 @@ def call_and_exit(func: PantherCommand) -> Callable[..., None]:
 
     # This is needed to make typer think the signature of the wrapped function is the same as the original function
     # invalid mypy error https://github.com/python/mypy/issues/12472
-    wrapper.__signature__ = signature(func, eval_str=True) # type: ignore[attr-defined]
+    wrapper.__signature__ = signature(func, eval_str=True)  # type: ignore[attr-defined]
     return wrapper
 
 
-def app_command_with_config(**command_kwargs: Any) -> Callable[[PantherCommand], Callable[..., None]]:
+def app_command_with_config(
+    **command_kwargs: Any,
+) -> Callable[[PantherCommand], Callable[..., None]]:
     """
     A combined decorator that applies both @app_command_with_config and @use_yaml_config decorators.
 
