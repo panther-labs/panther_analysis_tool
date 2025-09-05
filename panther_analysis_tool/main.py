@@ -14,7 +14,6 @@ import subprocess  # nosec
 import sys
 import time
 import traceback
-import typing  # 'from typing import Optional' conflicts with 'from schema import Optional', below
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
@@ -24,10 +23,11 @@ from datetime import datetime
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
 # in the Python Repl.
-from typing import Any, DefaultDict, Dict, List, TextIO, Tuple, Type, cast
+from typing import Any, DefaultDict, Dict, List, Optional, TextIO, Tuple, Type, cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.directory import setup_temp
 
 # this is needed at this location so each process can have its own temp directory
@@ -64,7 +64,6 @@ from panther_analysis_tool.analysis_utils import (
     get_simple_detections_as_python,
     load_analysis,
     load_analysis_specs_ex,
-    load_module,
     lookup_base_detection,
     test_correlation_rule,
     transpile_inline_filters,
@@ -176,9 +175,7 @@ def zip_analysis_chunks(args: argparse.Namespace) -> List[str]:
     return filenames
 
 
-def zip_analysis(
-    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
-) -> Tuple[int, str]:
+def zip_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
     Returns 1 if the analysis tests or validation fails.
@@ -190,7 +187,7 @@ def zip_analysis(
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, invalid_specs = test_analysis(args, backend)
+        return_code, invalid_specs = test_analysis(backend, args)
         if return_code != 0:
             logging.error(invalid_specs)
             return return_code, ""
@@ -233,7 +230,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
         if not args.skip_tests:
-            return_code, invalid_specs = test_analysis(args, backend)
+            return_code, invalid_specs = test_analysis(backend, args)
             if return_code != 0:
                 logging.error(invalid_specs)
                 return return_code, ""
@@ -248,7 +245,7 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
 
         return 0, ""
 
-    return_code, archive = zip_analysis(args, backend)
+    return_code, archive = zip_analysis(backend, args)
     if return_code != 0:
         return return_code, ""
 
@@ -450,7 +447,7 @@ def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
     # set the output file to appropriate name for the release: panther-analysis-all.zip
     release_file = args.out + "/" + "panther-analysis-all.zip"
     signature_filename = args.out + "/" + "panther-analysis-all.sig"
-    return_code, archive = zip_analysis(args)
+    return_code, archive = zip_analysis(None, args)
     if return_code != 0:
         return return_code, ""
     os.rename(archive, release_file)
@@ -627,9 +624,7 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
-def debug_analysis(
-    args: argparse.Namespace, backend: typing.Optional[BackendClient] = None
-) -> Tuple[int, list]:
+def debug_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> Tuple[int, list]:
     """Debugs the analysis items in the given path.
 
     Args:
@@ -644,14 +639,14 @@ def debug_analysis(
     args.minimum_tests = 0
     args.sort_test_results = False
     args.print_failed_test_results_only = False
-    return test_analysis(args, backend, debug_args=debug_args)
+    return test_analysis(backend, args, debug_args=debug_args)
 
 
 # pylint: disable=too-many-locals
 def test_analysis(
+    backend: Optional[BackendClient],
     args: argparse.Namespace,
-    backend: typing.Optional[BackendClient] = None,
-    debug_args: typing.Optional[Dict[str, Any]] = None,
+    debug_args: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
 
@@ -825,7 +820,9 @@ def setup_data_models(
         if analysis_spec["Enabled"]:
             body = None
             if "Filename" in analysis_spec:
-                _, load_err = load_module(os.path.join(dir_name, analysis_spec["Filename"]))
+                _, load_err = analysis_utils.load_module(
+                    os.path.join(dir_name, analysis_spec["Filename"])
+                )
                 # If the module could not be loaded, continue to the next
                 if load_err:
                     invalid_specs.append((analysis_spec_filename, load_err))
@@ -870,10 +867,10 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     skip_disabled_tests: bool,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
-    all_test_results: typing.Optional[TestResultsContainer] = None,
-    backend: typing.Optional[BackendClient] = None,
-    test_names: typing.Optional[List[str]] = None,
-    debug_args: typing.Optional[Dict[str, Any]] = None,
+    all_test_results: Optional[TestResultsContainer] = None,
+    backend: Optional[BackendClient] = None,
+    test_names: Optional[List[str]] = None,
+    debug_args: Optional[Dict[str, Any]] = None,
 ) -> Tuple[DefaultDict[str, List[Any]], List[Any], List[Tuple[str, dict]]]:
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
@@ -1299,16 +1296,16 @@ def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
 def run_tests(  # pylint: disable=too-many-arguments
     analysis: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
-    detection: typing.Optional[Detection],
+    detection: Optional[Detection],
     detection_id: str,
     failed_tests: DefaultDict[str, list],
     minimum_tests: int,
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
-    all_test_results: typing.Optional[TestResultsContainer],
+    all_test_results: Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
-    test_names: typing.Optional[List[str]] = None,
-    debug_args: typing.Optional[Dict[str, Any]] = None,
+    test_names: Optional[List[str]] = None,
+    debug_args: Optional[Dict[str, Any]] = None,
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection_id].append(
@@ -1348,7 +1345,7 @@ def run_tests(  # pylint: disable=too-many-arguments
 def _process_correlation_rule_test_results(
     detection_id: str,
     correlation_rule_test_results: List[Dict[str, Any]],
-    all_test_results: typing.Optional[TestResultsContainer],
+    all_test_results: Optional[TestResultsContainer],
     failed_tests: DefaultDict[str, list],
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
@@ -1392,16 +1389,16 @@ def _process_correlation_rule_test_results(
 # pylint: disable=too-many-statements
 def _run_tests(  # pylint: disable=too-many-arguments
     analysis_data_models: Dict[str, DataModel],
-    detection: typing.Optional[Detection],
+    detection: Optional[Detection],
     tests: List[Dict[str, Any]],
     failed_tests: DefaultDict[str, list],
     destinations_by_name: Dict[str, FakeDestination],
     ignore_exception_types: List[Type[Exception]],
-    all_test_results: typing.Optional[TestResultsContainer],
+    all_test_results: Optional[TestResultsContainer],
     correlation_rule_test_results: List[Dict[str, Any]],
     detection_id: str,
-    test_names: typing.Optional[List[str]] = None,
-    debug_args: typing.Optional[Dict[str, Any]] = None,
+    test_names: Optional[List[str]] = None,
+    debug_args: Optional[Dict[str, Any]] = None,
 ) -> DefaultDict[str, list]:
     status_passed = "passed"
     status_errored = "errored"
@@ -1536,7 +1533,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
 
 def _print_test_result(
-    detection: typing.Optional[Detection],
+    detection: Optional[Detection],
     test_result: TestResult,
     failed_tests: DefaultDict[str, list],
 ) -> None:
@@ -2231,11 +2228,11 @@ def run() -> None:
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
-        logging.debug("Full error traceback:", exc_info=err, stack_info=True)
+        logging.debug("Full error traceback:", exc_info=err)
         sys.exit(1)
 
     if return_code == 1:
-        # out is excpected to be a a list of tuples of (filename, error_message)
+        # out is expected to be a list of tuples of (filename, error_message)
         if out and isinstance(out, list):
             try:
                 # Try some nicer error printing if we can

@@ -65,65 +65,60 @@ def get_client(aws_profile: Optional[str], service: str) -> boto3.client:
 def func_with_api_backend(
     func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(get_api_backend(args), args)
+    return lambda args: func(get_api_backend(args.api_token, args.api_host), args)
 
 
 def func_with_backend(
     func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(get_backend(args), args)
+    return lambda args: func(get_backend(args.api_token, args.api_host, args.aws_profile), args)
 
 
 def func_with_optional_backend(
-    func: Callable[[argparse.Namespace, Optional[BackendClient]], Any]
+    func: Callable[
+        [
+            Optional[BackendClient],
+            argparse.Namespace,
+        ],
+        Any,
+    ]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(args, get_optional_backend(args))
+    return lambda args: func(get_optional_backend(args.api_token, args.api_host), args)
 
 
-def get_optional_backend(args: argparse.Namespace) -> Optional[BackendClient]:
-    if args.api_token:
+def get_optional_backend(api_token: Optional[str], api_host: str) -> Optional[BackendClient]:
+    if api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(
-                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
-            )
+            PublicAPIClientOptions(token=api_token, user_id=PANTHER_USER_ID, host=api_host)
         )
 
     return None
 
 
-def get_api_backend(args: argparse.Namespace) -> BackendClient:
-    if not args.api_token:
+def get_api_backend(api_token: Optional[str], api_host: str) -> BackendClient:
+    if not api_token:
         raise BackendNotFoundException("This function requires an API token. API token not found.")
 
     return PublicAPIClient(
-        PublicAPIClientOptions(token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host)
+        PublicAPIClientOptions(token=api_token, user_id=PANTHER_USER_ID, host=api_host)
     )
 
 
-def get_backend(args: argparse.Namespace) -> BackendClient:
-    if args.api_token:
+def get_backend(
+    api_token: Optional[str], api_host: str, aws_profile: Optional[str]
+) -> BackendClient:
+    if api_token:
         return PublicAPIClient(
-            PublicAPIClientOptions(
-                token=args.api_token, user_id=PANTHER_USER_ID, host=args.api_host
-            )
+            PublicAPIClientOptions(token=api_token, user_id=PANTHER_USER_ID, host=api_host)
         )
-
-    datalake_lambda = get_datalake_lambda(args)
 
     return LambdaClient(
         LambdaClientOpts(
             user_id=PANTHER_USER_ID,
-            aws_profile=args.aws_profile,
-            datalake_lambda=datalake_lambda,
+            aws_profile=aws_profile,
+            datalake_lambda="panther-snowflake-api",
         )
     )
-
-
-def get_datalake_lambda(args: argparse.Namespace) -> str:
-    if "athena_datalake" not in args:
-        return ""
-
-    return "panther-athena-api" if args.athena_datalake else "panther-snowflake-api"
 
 
 def set_env(key: str, value: str) -> None:
