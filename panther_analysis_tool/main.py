@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import wraps
 from inspect import signature
+from pathlib import Path
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
@@ -45,6 +46,7 @@ from typer_config import use_yaml_config
 from typing_extensions import Annotated
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.directory import setup_temp
 
 # this is needed at this location so each process can have its own temp directory
@@ -98,6 +100,14 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    clone,
+    enable,
+    fetch,
+    fmt,
+    init_project,
+    merge,
+    rev,
+    standard_args,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2394,6 +2404,75 @@ def check_packs_command(
     path: PathType = ".",
 ) -> Tuple[int, str]:
     return check_packs(path)
+
+
+@app.command(name="init", help="Initialize a new panther project")
+def init_command():
+    init_project.run()
+
+
+def complete_id(ctx: typer.Context, args: List[str], incomplete: str):
+    cache = analysis_cache.AnalysisCache()
+    return [spec for spec in cache.list_spec_ids() if spec.startswith(incomplete)]
+
+
+@app.command(name="enable", help="Enable a detection")
+def enable_command(
+    filter: Optional[List[str]] = typer.Option(
+        [],
+        envvar="PANTHER_FILTER",
+        metavar="KEY=VALUE",
+        help="Filter detections by key=value pairs",
+    ),
+    id: Optional[str] = typer.Argument(
+        None,
+        help="The ID of the analysis item to enable.",
+        autocompletion=complete_id,
+    ),
+):
+    # You might want to process `filter` before passing to enable.run()
+    # For now, just call the function (adjust as needed)
+    enable.run(analysis_id=id, filter=filter)
+
+
+@app.command(name="fetch", help="Fetch a detection")
+def fetch_command():
+    fetch.run()
+
+
+@app.command(name="merge", help="Merge a detection")
+def merge_command(
+    id: Optional[str] = typer.Argument(
+        None, help="The ID of the analysis item to merge.", autocompletion=complete_id
+    ),
+    migrate: bool = typer.Option(
+        False, help="Migrate the analysis item to the latest panther version."
+    ),
+):
+    return merge.run(analysis_id=id, migrate=migrate)
+
+
+@app.command(name="clone", help="Clone a detection")
+def clone_command(
+    id: str = typer.Argument(
+        ..., help="The ID of the analysis item to clone.", autocompletion=complete_id
+    ),
+):
+    clone.run(analysis_id=id)
+
+
+@app.command(name="rev", help="Rev a detection")
+def rev_command(
+    id: str = typer.Argument(
+        ..., help="The ID of the analysis item to rev.", autocompletion=complete_id
+    ),
+):
+    rev.run(analysis_id=id)
+
+
+@app.command(name="fmt", help="Format a detection")
+def fmt_command():
+    fmt.run()
 
 
 # pylint: disable=too-many-statements

@@ -178,6 +178,7 @@ class LoadAnalysisSpecsResult:
     analysis_spec: Any
     yaml_ctx: YAML
     error: Optional[Exception]
+    raw_file_content: str
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
@@ -275,25 +276,24 @@ def load_analysis_specs_ex(
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
+    yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
     loaded_specs: List[Any] = []
     for directory in directories:
-        for relative_path, _, file_list in os.walk(directory):
-            # Skip hidden folders
-            if (
-                relative_path.split("/")[-1].startswith(".")
-                and relative_path != "./"
-                and relative_path != "."
-            ):
-                continue
+        for dirpath, dirnames, filenames in os.walk(directory):
+            dirnames[:] = [
+                dirname
+                for dirname in dirnames
+                if not dirname.startswith(".") and dirname != "__pycache__"
+            ]
 
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
             # when relative_path is the current dir
-            if directory in [".", "./"] and relative_path not in [".", "./"]:
+            if directory in [".", "./"] and dirpath not in [".", "./"]:
                 if not any(
                     (
-                        fnmatch(relative_path, path_pattern)
+                        fnmatch(dirpath, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
@@ -305,42 +305,44 @@ def load_analysis_specs_ex(
                         )
                     )
                 ):
-                    logging.debug("Skipping path %s", relative_path)
+                    logging.debug("Skipping path %s", dirpath)
                     continue
-            for filename in sorted(file_list):
+            for filename in sorted(filenames):
                 # Skip hidden files
                 if filename.startswith("."):
                     continue
-                spec_filename = os.path.abspath(os.path.join(relative_path, filename))
+                spec_filename = os.path.abspath(os.path.join(dirpath, filename))
                 # skip loading files that have already been imported
                 if spec_filename in loaded_specs:
                     continue
                 # Dont load files that are explictly ignored
-                relative_name = os.path.normpath(os.path.join(relative_path, filename))
+                relative_name = os.path.normpath(os.path.join(dirpath, filename))
                 if relative_name in ignored_normalized:
                     logging.info("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
                 # setup yaml object
-                yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                 if fnmatch(filename, "*.y*ml"):
                     with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
                         try:
+                            file_content = spec_file_obj.read()
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=yaml.load(spec_file_obj),
+                                relative_path=dirpath,
+                                analysis_spec=yaml.load(io.StringIO(file_content)),
                                 yaml_ctx=yaml,
                                 error=None,
+                                raw_file_content=file_content,
                             )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
-                                relative_path=relative_path,
+                                relative_path=dirpath,
                                 analysis_spec=None,
                                 yaml_ctx=yaml,
                                 error=err,
+                                raw_file_content=None,
                             )
 
 
@@ -509,7 +511,7 @@ def load_analysis(
     valid_table_names: List[str],
     ignore_files: List[str],
     ignore_extra_keys: bool,
-) -> Tuple[Any, List[Any]]:
+) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     """Loads each policy or rule into memory.
 
     Args:
@@ -601,7 +603,7 @@ def classify_analysis(
             analysis_schema.validate(analysis_spec)
 
             # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+            analysis_id = lookup_analysis_id(analysis_spec)
             if analysis_id in analysis_ids:
                 raise AnalysisIDConflictException(analysis_id)
             # check for duplicates where panther expects a unique set
@@ -696,7 +698,8 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
         return exc
 
 
-def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
+def lookup_analysis_id(analysis_spec: Any) -> str:
+    analysis_type = analysis_spec["AnalysisType"]
     analysis_id = "UNKNOWN_ID"
     if analysis_type == AnalysisTypes.DATA_MODEL:
         analysis_id = analysis_spec["DataModelID"]
