@@ -970,8 +970,8 @@ class TestPantherAnalysisTool(TestCase):
         )
 
         with patch("panther_analysis_tool.main.pat_utils.get_api_backend", return_value=backend):
-            return_code, return_str = validate.run(
-                backend,
+            return_code, return_str = mock_validate(
+                self,
                 f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split(),
             )
         self.assertEqual(return_code, 1)
