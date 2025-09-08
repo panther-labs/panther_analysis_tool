@@ -178,21 +178,12 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertTrue(loaded_spec != {})
 
     def test_ignored_files_are_not_loaded(self):
-        from panther_analysis_tool.main import test_analysis
-
-        def check_result(*args, **kwargs):
-            return_code, invalid_specs = test_analysis(*args, **kwargs)
-            self.assertEqual(return_code, 1)  # no specs throws error
-            self.assertIn("Nothing to test in", invalid_specs[0])
-
-        with patch(
-            "panther_analysis_tool.main.test_analysis", side_effect=check_result
-        ) as mock_test_analysis:
-            runner.invoke(
-                app,
-                f"test --path {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml --ignore-files {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml".split(),
-            )
-            self.assertEqual(mock_test_analysis.call_count, 1)
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml --ignore-files {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml".split(),
+        )
+        self.assertEqual(return_code, 1)  # no specs throws error
+        self.assertIn("Nothing to test in", invalid_specs[0])
 
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
