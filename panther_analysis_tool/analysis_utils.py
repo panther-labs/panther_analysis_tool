@@ -43,6 +43,7 @@ from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
 )
+from panther_analysis_tool.core.parse import Filter
 from panther_analysis_tool.schemas import ANALYSIS_CONFIG_SCHEMA, TYPE_SCHEMA
 from panther_analysis_tool.util import is_simple_detection
 from panther_analysis_tool.validation import (
@@ -81,7 +82,7 @@ class AnalysisContainsInvalidTableNamesException(Exception):
 
 
 def filter_analysis(
-    analysis: List[ClassifiedAnalysis], filters: Dict[str, List], filters_inverted: Dict[str, List]
+    analysis: List[ClassifiedAnalysis], filters: List[Filter], filters_inverted: List[Filter]
 ) -> List[ClassifiedAnalysis]:
     if filters is None:
         return analysis
@@ -100,13 +101,15 @@ def filter_analysis(
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         match = True
-        for key, values in filters.items():
+        for filt in filters:
+            key, values = filt.key, filt.values
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
             if not set(spec_value).intersection(values):
                 match = False
                 break
-        for key, values in filters_inverted.items():
+        for filt in filters_inverted:
+            key, values = filt.key, filt.values
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
             if set(spec_value).intersection(values):
@@ -168,22 +171,7 @@ class LoadAnalysisSpecsResult:
     relative_path: str
     analysis_spec: Any
     yaml_ctx: YAML
-    error: Exception
-
-    # pylint: disable=too-many-arguments
-    def __init__(
-        self,
-        spec_filename: str,
-        relative_path: str,
-        analysis_spec: Any,
-        yaml_ctx: YAML,
-        error: Any,
-    ):
-        self.spec_filename = spec_filename
-        self.relative_path = relative_path
-        self.analysis_spec = analysis_spec
-        self.yaml_ctx = yaml_ctx
-        self.error = error
+    error: Optional[Exception]
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):

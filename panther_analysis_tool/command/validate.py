@@ -18,8 +18,26 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
     if backend is None or not backend.supports_bulk_validate():
         return 1, "Invalid backend. `validate` is only supported via API token"
 
-    typed_args = ZipArgs.from_args(args)
-    chunks = analysis_chunks(typed_args)
+    out = "."
+    if "out" in args:
+        out = args.out
+
+    filters = []
+    if "filter" in args:
+        filters = args.filter
+
+    filters_inverted = []
+    if "filter_inverted" in args:
+        filters_inverted = args.filter_inverted
+
+    zip_args = ZipArgs(
+        out=out,
+        path=args.path,
+        ignore_files=args.ignore_files,
+        filters=filters,
+        filters_inverted=filters_inverted,
+    )
+    chunks = analysis_chunks(zip_args)
     buffer = io.BytesIO()
 
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_out:

@@ -1,3 +1,4 @@
+import argparse
 import io
 import logging
 import os
@@ -8,12 +9,39 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
+from typer.testing import CliRunner
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.backend.mocks import MockBackend
+from panther_analysis_tool.main import app, debug_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
+
+
+runner = CliRunner()
+
+
+def mock_debug_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+    return_code = -1
+    invalid_specs = None
+
+    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+        nonlocal return_code, invalid_specs
+        return_code, invalid_specs = debug_analysis(*args, **kwargs)
+        return return_code, invalid_specs
+
+    with patch(
+        "panther_analysis_tool.main.debug_analysis", side_effect=check_result
+    ) as mock_test_analysis:
+        result = runner.invoke(app, args)
+        if result.exception:
+            if not isinstance(result.exception, SystemExit):
+                # re-raise the exception
+                raise result.exception
+        tc.assertEqual(mock_test_analysis.call_count, 1)
+
+    return return_code, invalid_specs
 
 
 class TestDebugFunctionality(TestCase):
@@ -26,18 +54,20 @@ class TestDebugFunctionality(TestCase):
 
         # Simple path for mock tests (not used by integration test anymore)
         self.test_rule_path = "test_rule"
+        pat._DISABLE_PANTHER_EXCEPTION_HANDLER = True
+
+    def tearDown(self):
+        pat._DISABLE_PANTHER_EXCEPTION_HANDLER = False
 
     def test_debug_analysis_basic_functionality(self):
         """Test that debug_analysis function works with basic parameters."""
-        args = pat.setup_parser().parse_args(
-            ["debug", "Test.Debug.Rule", "Test Case 1", "--path", self.test_rule_path]
-        )
-
         # Mock test_analysis to verify it's called with correct debug args
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            return_code, invalid_specs = pat.debug_analysis(None, args)
+            return_code, invalid_specs = mock_debug_analysis(
+                self, ["debug", "Test.Debug.Rule", "Test Case 1", "--path", self.test_rule_path]
+            )
 
             # Verify test_analysis was called with debug args
             mock_test_analysis.assert_called_once()
@@ -53,20 +83,23 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
-            self.assertFalse(args_passed.print_failed_test_results_only)
+            self.assertFalse(args_passed.show_failures_only)
 
     def test_debug_analysis_with_backend(self):
         """Test debug_analysis with a backend client."""
-        args = pat.setup_parser().parse_args(
-            ["debug", "Test.Debug.Rule", "Test Case 1", "--path", self.test_rule_path]
-        )
-
         backend = MockBackend()
 
-        with patch.object(pat, "test_analysis") as mock_test_analysis:
+        with (
+            patch(
+                "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+            ),
+            patch.object(pat, "test_analysis") as mock_test_analysis,
+        ):
             mock_test_analysis.return_value = (0, [])
 
-            return_code, invalid_specs = pat.debug_analysis(backend, args)
+            return_code, invalid_specs = mock_debug_analysis(
+                self, ["debug", "Test.Debug.Rule", "Test Case 1", "--path", self.test_rule_path]
+            )
 
             # Verify backend was passed through
             mock_test_analysis.assert_called_once()
@@ -75,32 +108,39 @@ class TestDebugFunctionality(TestCase):
 
     def test_debug_parser_arguments(self):
         """Test that the debug command parser accepts correct arguments."""
-        parser = pat.setup_parser()
 
         # Test basic debug command
-        args = parser.parse_args(["debug", "Test.Rule.ID", "Test Name"])
+        with (patch.object(pat, "test_analysis") as mock_test_analysis,):
+            mock_test_analysis.return_value = (0, [])
+            mock_debug_analysis(self, ["debug", "Test.Rule.ID", "Test Name"])
 
-        self.assertEqual(args.ruleid, "Test.Rule.ID")
-        self.assertEqual(args.testname, "Test Name")
+            args = mock_test_analysis.call_args[0][1]
+            self.assertEqual(args.ruleid, "Test.Rule.ID")
+            self.assertEqual(args.testname, "Test Name")
 
-        # Test with additional arguments
-        args = parser.parse_args(
-            [
-                "debug",
-                "Test.Rule.ID",
-                "Test Name",
-                "--path",
-                "/some/path",
-                "--filter",
-                "Severity=High",
-                "--ignore-files",
-                "file1.yml",
-                "file2.yml",
-            ]
-        )
+        with (patch.object(pat, "test_analysis") as mock_test_analysis,):
+            mock_test_analysis.return_value = (0, [])
 
-        self.assertEqual(args.path, "/some/path")
-        self.assertEqual(args.ignore_files, ["file1.yml", "file2.yml"])
+            # Test with additional arguments
+            mock_debug_analysis(
+                self,
+                [
+                    "debug",
+                    "Test.Rule.ID",
+                    "Test Name",
+                    "--path",
+                    "/some/path",
+                    "--filter",
+                    "Severity=High",
+                    "--ignore-files",
+                    "file1.yml",
+                    "--ignore-files",
+                    "file2.yml",
+                ],
+            )
+            args = mock_test_analysis.call_args[0][1]
+            self.assertEqual(args.path, "/some/path")
+            self.assertEqual(args.ignore_files, ["file1.yml", "file2.yml"])
 
     def test_run_tests_debug_mode_output_redirection(self):
         """Test that debug mode redirects output to stdout instead of StringIO."""
@@ -398,11 +438,20 @@ class TestDebugFunctionality(TestCase):
 
     def test_test_analysis_with_debug_args(self):
         """Test that test_analysis properly handles debug_args parameter."""
-        args = pat.setup_parser().parse_args(["test", "--path", self.test_rule_path])
-
         # Set up required args attributes that test_analysis expects
-        args.filter = None
-        args.filter_inverted = {}
+        args = argparse.Namespace(
+            path=self.test_rule_path,
+            filter=None,
+            filter_inverted={},
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_files=[],
+            available_destination=None,
+            sort_test_results=False,
+            show_failures_only=False,
+            minimum_tests=0,
+            skip_disabled_tests=False,
+        )
 
         debug_args = {"debug_mode": True, "test_name": "Test Case 1"}
 
@@ -447,15 +496,13 @@ class TestDebugFunctionality(TestCase):
 
     def test_debug_analysis_integration(self):
         """Integration test focusing on debug_analysis -> test_analysis integration."""
-        args = pat.setup_parser().parse_args(
-            ["debug", "Test.Debug.Rule", "Test Case 1", "--path", self.test_rule_path]
-        )
-
         # Mock test_analysis to verify integration without filesystem complexity
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            return_code, invalid_specs = pat.debug_analysis(None, args)
+            return_code, invalid_specs = mock_debug_analysis(
+                self, ["debug", "Test.Debug.Rule", "Test Case 1", "--path", self.test_rule_path]
+            )
 
             # Verify debug_analysis correctly calls test_analysis
             mock_test_analysis.assert_called_once()
@@ -466,7 +513,7 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
-            self.assertFalse(args_passed.print_failed_test_results_only)
+            self.assertFalse(args_passed.show_failures_only)
 
             # Check that debug_args were passed correctly
             debug_args = call_args[1].get("debug_args", {})
@@ -479,22 +526,21 @@ class TestDebugFunctionality(TestCase):
 
     def test_debug_with_filters(self):
         """Test debug functionality with additional filters."""
-        args = pat.setup_parser().parse_args(
-            [
-                "debug",
-                "Test.Debug.Rule",
-                "Test Case 1",
-                "--path",
-                self.test_rule_path,
-                "--filter",
-                "Severity=Medium",
-            ]
-        )
-
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
 
-            pat.debug_analysis(None, args)
+            mock_debug_analysis(
+                self,
+                [
+                    "debug",
+                    "Test.Debug.Rule",
+                    "Test Case 1",
+                    "--path",
+                    self.test_rule_path,
+                    "--filter",
+                    "Severity=Medium",
+                ],
+            )
 
             # Verify that both the RuleID filter and additional filters are applied
             call_args = mock_test_analysis.call_args
@@ -505,8 +551,19 @@ class TestDebugFunctionality(TestCase):
 
     def test_test_analysis_skips_summary_in_debug_mode(self):
         """Test that test_analysis skips the summary when in debug mode."""
-        args = pat.setup_parser().parse_args(["test", "--path", self.test_rule_path])
-
+        args = argparse.Namespace(
+            path=self.test_rule_path,
+            filter=None,
+            filter_inverted={},
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_files=[],
+            available_destination=None,
+            sort_test_results=False,
+            show_failures_only=False,
+            minimum_tests=0,
+            skip_disabled_tests=False,
+        )
         # Set up required args attributes that test_analysis expects
         args.filter = None
         args.filter_inverted = {}

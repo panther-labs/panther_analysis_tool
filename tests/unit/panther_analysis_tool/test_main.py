@@ -1,15 +1,19 @@
 import json
 import os
 import shutil
+import traceback
 from datetime import datetime
 from unittest import mock
+from unittest.mock import patch
 
 import jsonschema
 from colorama import Fore, Style
 from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
+from typer.testing import CliRunner, Result
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool import main
 from panther_analysis_tool import main as pat
 from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
@@ -25,14 +29,92 @@ from panther_analysis_tool.backend.client import (
     TranspileToPythonResponse,
     UnsupportedEndpointError,
 )
+from panther_analysis_tool.backend.lambda_client import AWS_PROFILE_ENV_KEY
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.command import validate
 from panther_analysis_tool.core import parse
+from panther_analysis_tool.main import app, upload_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 
 print("Using fixtures path:", FIXTURES_PATH)
+
+runner = CliRunner()
+
+
+def mock_test_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+    return mock_test_analysis_results(tc, args)[:2]
+
+
+def mock_test_analysis_results(tc: TestCase, args: list[str]) -> tuple[int, list[str], Result]:
+    from panther_analysis_tool.main import test_analysis
+
+    return_code = -1
+    invalid_specs = None
+
+    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+        nonlocal return_code, invalid_specs
+        return_code, invalid_specs = test_analysis(*args, **kwargs)
+        return return_code, invalid_specs
+
+    with patch(
+        "panther_analysis_tool.main.test_analysis", side_effect=check_result
+    ) as mock_test_analysis:
+        result = runner.invoke(app, args)
+        if result.exception:
+            if not isinstance(result.exception, SystemExit):
+                # re-raise the exception
+                raise result.exception
+        tc.assertEqual(mock_test_analysis.call_count, 1)
+
+    return return_code, invalid_specs, result
+
+
+def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+    return_code = -1
+    invalid_specs = None
+
+    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+        nonlocal return_code, invalid_specs
+        return_code, invalid_specs = upload_analysis(*args, **kwargs)
+        return return_code, invalid_specs
+
+    with patch(
+        "panther_analysis_tool.main.upload_analysis", side_effect=check_result
+    ) as mock_upload_analysis:
+        result = runner.invoke(app, args)
+        if result.exception:
+            if not isinstance(result.exception, SystemExit):
+                # re-raise the exception
+                raise result.exception
+        tc.assertEqual(mock_upload_analysis.call_count, 1)
+
+    return return_code, invalid_specs
+
+
+def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+    from panther_analysis_tool.command.validate import run as validate_run
+
+    return_code = -1
+    invalid_specs = None
+
+    def check_result(*args, **kwargs) -> tuple[int, str]:
+        nonlocal return_code, invalid_specs
+        return_code, invalid_specs = validate_run(*args, **kwargs)
+        return return_code, invalid_specs
+
+    with patch(
+        "panther_analysis_tool.main.validate.run", side_effect=check_result
+    ) as mock_upload_analysis:
+        result = runner.invoke(app, args)
+        if result.exception:
+            if not isinstance(result.exception, SystemExit):
+                # re-raise the exception
+                raise result.exception
+        tc.assertEqual(mock_upload_analysis.call_count, 1)
+
+    return return_code, invalid_specs
 
 
 class TestPantherAnalysisTool(TestCase):
@@ -75,7 +157,12 @@ class TestPantherAnalysisTool(TestCase):
         # sqlfluff needs to be able to access its package metadata to work
         self.fs.add_package_metadata("sqlfluff")
 
+        main._DISABLE_PANTHER_EXCEPTION_HANDLER = True
+        # skip the http check
+        main._SKIP_HTTP_VERSION_CHECK = True
+
     def tearDown(self) -> None:
+        main._DISABLE_PANTHER_EXCEPTION_HANDLER = False
         with Pause(self.fs):
             for data_model_module in self.data_model_modules:
                 file_path = os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1])
@@ -91,13 +178,21 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertTrue(loaded_spec != {})
 
     def test_ignored_files_are_not_loaded(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml --ignore-files {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml".split()
-        )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
-        self.assertEqual(return_code, 1)  # no specs throws error
-        self.assertIn("Nothing to test in", invalid_specs[0])
+        from panther_analysis_tool.main import test_analysis
+
+        def check_result(*args, **kwargs):
+            return_code, invalid_specs = test_analysis(*args, **kwargs)
+            self.assertEqual(return_code, 1)  # no specs throws error
+            self.assertIn("Nothing to test in", invalid_specs[0])
+
+        with patch(
+            "panther_analysis_tool.main.test_analysis", side_effect=check_result
+        ) as mock_test_analysis:
+            runner.invoke(
+                app,
+                f"test --path {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml --ignore-files {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml".split(),
+            )
+            self.assertEqual(mock_test_analysis.call_count, 1)
 
     def test_valid_yaml_policy_spec(self):
         for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
@@ -124,9 +219,9 @@ class TestPantherAnalysisTool(TestCase):
         self.assertIsInstance(test_date_string, str)
 
     def test_load_policy_specs_from_folder(self):
-        args = pat.setup_parser().parse_args(f"test --path {DETECTIONS_FIXTURES_PATH}".split())
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
+        return_code, invalid_specs = mock_test_analysis(
+            self, ["test", "--path", DETECTIONS_FIXTURES_PATH]
+        )
         self.assertEqual(return_code, 1)
         self.assertEqual(
             invalid_specs[0][0], f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml"
@@ -134,38 +229,30 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 13)
 
     def test_policies_from_folder(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_rules_from_folder(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_queries_from_folder(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_scheduled_rules_from_folder(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
@@ -179,9 +266,7 @@ class TestPantherAnalysisTool(TestCase):
             original_path = os.getcwd()
             try:
                 os.chdir(valid_rule_path)
-                args = pat.setup_parser().parse_args("test".split())
-                args.filter_inverted = {}
-                return_code, invalid_specs = pat.test_analysis(None, args)
+                return_code, invalid_specs = mock_test_analysis(self, ["test"])
             finally:
                 os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
@@ -193,192 +278,202 @@ class TestPantherAnalysisTool(TestCase):
         with Pause(self.fs):
             original_path = os.getcwd()
             os.chdir(valid_rule_path)
-            args = pat.setup_parser().parse_args("test --path ./".split())
-            args.filter_inverted = {}
-            return_code, invalid_specs = pat.test_analysis(None, args)
+
+            return_code, invalid_specs = mock_test_analysis(self, ["test", "--path", "./"])
             os.chdir(original_path)
         # asserts are outside of the pause to ensure the fakefs gets resumed
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_filters(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_enabled_filter(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled=true".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled=true".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_enabled_filter_inverted(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled!=false".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled!=false".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_aws_profiles(self):
-        aws_profile = "AWS_PROFILE"
-        args = pat.setup_parser().parse_args(
-            f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile".split()
-        )
-        util.set_env(aws_profile, args.aws_profile)
-        self.assertEqual("myprofile", args.aws_profile)
-        self.assertEqual(args.aws_profile, os.environ.get(aws_profile))
+        backend = MockBackend()
+        with (
+            patch(
+                "panther_analysis_tool.main.pat_utils.get_backend", return_value=backend
+            ) as mock_get_backend,
+            patch("panther_analysis_tool.main.upload_zip") as mock_upload_zip,
+        ):
+            mock_upload_zip.return_value = (0, "")
+            result = runner.invoke(
+                app,
+                f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --aws-profile myprofile".split(),
+            )
+
+        if result.exception:
+            raise result.exception
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual("myprofile", mock_get_backend.call_args[0][2])
 
     def test_invalid_rule_definition(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_rule_test(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_characters(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=High ResourceTypes=AWS.IAM.User".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=High --filter ResourceTypes=AWS.IAM.User".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 10)
 
     def test_unknown_exception(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
     def test_with_invalid_mocks(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=Critical RuleID=Example.Rule.Invalid.Mock".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=Critical --filter RuleID=Example.Rule.Invalid.Mock".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
     def test_with_tag_filters(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_tag_filters_inverted(self):
         # Note: a comparison of the tests passed is required to make this test robust
         # (8 passing vs 1 passing)
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS Tags!=SOC2".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS --filter Tags!=SOC2".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
+        self.assertEqual(invalid_specs, [])
         self.assertEqual(return_code, 0)
-        self.assertEqual(len(invalid_specs), 0)
 
     def test_with_test_names_filter(self):
         # Test that we can filter tests by name using --test-names
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --test-names 'True Event'".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/valid_analysis",
+                "--test-names",
+                "True Event",
+            ],
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         # Should pass because the specified test exists in the fixtures
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_test_names_filter_and_rule_filter(self):
         # Test combining rule filter with test name filter
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter RuleID=Example.Rule --test-names 'True Event'".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/valid_analysis",
+                "--filter",
+                "RuleID=Example.Rule",
+                "--test-names",
+                "True Event",
+            ],
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         # Should pass because we're filtering to a specific rule and test
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_test_names_filter_nonexistent_test(self):
         # Test with a test name that doesn't exist
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --test-names 'Nonexistent Test'".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/valid_analysis",
+                "--test-names",
+                "Nonexistent Test",
+            ],
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         # Should still return 0 because no tests failing, just no tests matching the filter
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_minimum_tests(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_minimum_tests_failing(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 2".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 2".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         # Failing, because some of the fixtures only have one test case
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_with_minimum_tests_no_passing(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         # Failing, because while there are two unit tests they both have expected result False
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_resource_type(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
     def test_invalid_log_type(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split(),
         )
-        args.filter, args.filter_inverted = parse.parse_filter(args.filter)
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.equal = self.assertEqual(len(invalid_specs), 9)
 
@@ -388,16 +483,24 @@ class TestPantherAnalysisTool(TestCase):
             self.fs.create_dir("tmp/")
         except OSError:
             pass
-        args = pat.setup_parser().parse_args(
-            f"zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/".split()
-        )
 
-        return_code, out_filename = pat.zip_analysis(None, args)
-        self.assertEqual(return_code, 0)
-        self.assertTrue(out_filename.startswith("tmp/"))
-        statinfo = os.stat(out_filename)
-        self.assertTrue(statinfo.st_size > 0)
-        self.assertTrue(out_filename.endswith(".zip"))
+        from panther_analysis_tool.main import zip_analysis
+
+        def check_result(*args, **kwargs):
+            results = zip_analysis(*args, **kwargs)
+            for out_filename in results:
+                self.assertTrue(out_filename.startswith("tmp/"))
+                statinfo = os.stat(out_filename)
+                self.assertTrue(statinfo.st_size > 0)
+                self.assertTrue(out_filename.endswith(".zip"))
+
+        with patch(
+            "panther_analysis_tool.main.zip_analysis", side_effect=check_result
+        ) as mock_zip_analysis_chunks:
+            runner.invoke(
+                app, f"zip --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/".split()
+            )
+            self.assertEqual(mock_zip_analysis_chunks.call_count, 1)
 
     def test_zip_analysis_chunks(self):
         # Note: This is a workaround for CI
@@ -405,11 +508,10 @@ class TestPantherAnalysisTool(TestCase):
             self.fs.create_dir("tmp/")
         except OSError:
             pass
-        args = pat.setup_parser().parse_args(
-            f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/ --batch".split()
-        )
 
-        results = pat.zip_analysis_chunks(args)
+        results = pat.zip_analysis_chunks(
+            "tmp/", f"{DETECTIONS_FIXTURES_PATH}/valid_analysis", {}, {}, {}
+        )
         for out_filename in results:
             self.assertTrue(out_filename.startswith("tmp/"))
             statinfo = os.stat(out_filename)
@@ -425,10 +527,14 @@ class TestPantherAnalysisTool(TestCase):
         except OSError:
             pass
 
-        args = pat.setup_parser().parse_args(
-            f"release --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/release/".split()
+        results = runner.invoke(
+            app,
+            f"release --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --out tmp/release/".split(),
         )
-        return_code, _ = pat.generate_release_assets(args)
+        if results.exception:
+            raise results.exception
+
+        return_code = results.exit_code
         analysis_file = "tmp/release/panther-analysis-all.zip"
         statinfo = os.stat(analysis_file)
         self.assertTrue(statinfo.st_size > 0)
@@ -459,11 +565,11 @@ class TestPantherAnalysisTool(TestCase):
             )
         )
 
-        args = pat.setup_parser().parse_args(
-            f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
-        return_code, _ = pat.upload_analysis(backend, args)
-        self.assertEqual(return_code, 0)
+        with patch("panther_analysis_tool.main.pat_utils.get_backend", return_value=backend):
+            return_code, _ = mock_upload_analysis(
+                self, f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+            )
+            self.assertEqual(return_code, 0)
 
     def test_retry_uploads(self):
         import logging
@@ -473,125 +579,121 @@ class TestPantherAnalysisTool(TestCase):
             side_effect=BackendError("another upload is in process")
         )
 
-        args = pat.setup_parser().parse_args(
-            f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
-
         # fails max of 10 times on default
-        with mock.patch("time.sleep", return_value=None) as time_mock:
-            with mock.patch.multiple(
+        with (
+            mock.patch("time.sleep", return_value=None) as time_mock,
+            mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
-            ) as logging_mocks:
-                return_code, _ = pat.upload_analysis(backend, args)
-                self.assertEqual(return_code, 1)
-                self.assertEqual(logging_mocks["debug"].call_count, 20)
-                self.assertEqual(logging_mocks["warning"].call_count, 1)
-                # test + zip + upload messages
-                self.assertEqual(logging_mocks["info"].call_count, 3)
-                self.assertEqual(time_mock.call_count, 10)
+            ) as logging_mocks,
+            patch("panther_analysis_tool.main.pat_utils.get_backend", return_value=backend),
+        ):
+            return_code, _ = mock_upload_analysis(
+                self, f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+            )
+            self.assertEqual(return_code, 1)
+            self.assertEqual(time_mock.call_count, 10)
 
         # invalid retry count, default to 0
-        args = pat.setup_parser().parse_args(
-            f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1".split()
-        )
-        with mock.patch("time.sleep", return_value=None) as time_mock:
-            with mock.patch.multiple(
+        with (
+            mock.patch("time.sleep", return_value=None) as time_mock,
+            mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
-            ) as logging_mocks:
-                return_code, _ = pat.upload_analysis(backend, args)
-                self.assertEqual(return_code, 1)
-                self.assertEqual(logging_mocks["debug"].call_count, 0)
-                self.assertEqual(logging_mocks["warning"].call_count, 2)
-                self.assertEqual(logging_mocks["info"].call_count, 3)
-                self.assertEqual(time_mock.call_count, 0)
+            ) as logging_mocks,
+            patch("panther_analysis_tool.main.pat_utils.get_backend", return_value=backend),
+        ):
+            return_code, _ = mock_upload_analysis(
+                self,
+                f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries -1".split(),
+            )
+            self.assertEqual(return_code, 1)
+            self.assertEqual(time_mock.call_count, 0)
 
         # invalid retry count, default to 10
-        args = pat.setup_parser().parse_args(
-            f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100".split()
-        )
-        with mock.patch("time.sleep", return_value=None) as time_mock:
-            with mock.patch.multiple(
+        with (
+            mock.patch("time.sleep", return_value=None) as time_mock,
+            mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
-            ) as logging_mocks:
-                return_code, _ = pat.upload_analysis(backend, args)
-                self.assertEqual(return_code, 1)
-                self.assertEqual(logging_mocks["debug"].call_count, 20)
-                # warning about max and final error
-                self.assertEqual(logging_mocks["warning"].call_count, 2)
-                self.assertEqual(logging_mocks["info"].call_count, 3)
-                self.assertEqual(time_mock.call_count, 10)
+            ) as logging_mocks,
+            patch("panther_analysis_tool.main.pat_utils.get_backend", return_value=backend),
+        ):
+            return_code, _ = mock_upload_analysis(
+                self,
+                f"upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --max-retries 100".split(),
+            )
+            self.assertEqual(return_code, 1)
+            self.assertEqual(time_mock.call_count, 10)
 
     def test_available_destination_names_invalid_name_returned(self):
         """When an available destination is given but does not match the returned names"""
-        args = pat.setup_parser().parse_args(
-            f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis "
-            "--available-destination Pagerduty".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/valid_analysis",
+                "--available-destination",
+                "Pagerduty",
+            ],
         )
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
 
     def test_available_destination_names_valid_name_returned(self):
         """When an available destination is given but matches the returned name"""
-        args = pat.setup_parser().parse_args(
-            f"test "
-            f"--path "
-            f" {DETECTIONS_FIXTURES_PATH}/destinations "
-            "--available-destination Pagerduty".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/destinations",
+                "--available-destination",
+                "Pagerduty",
+            ],
         )
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
 
     def test_invalid_query(self):
-        args = pat.setup_parser().parse_args(f"test --path {FIXTURES_PATH}/queries/invalid".split())
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {FIXTURES_PATH}/queries/invalid".split()
+        )
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 4)
 
     def test_invalid_query_passes_when_unchecked(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_passes_when_table_name_provided(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *login_history".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* --valid-table-names *login_history".split(),
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_query_fails_when_partial_table_name_provided(self):
-        args = pat.setup_parser().parse_args(
-            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* *.*.login_history".split()
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* --valid-table-names *.*.login_history".split(),
         )
-        args.filter_inverted = {}
-        return_code, invalid_specs = pat.test_analysis(None, args)
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 1)
 
     def test_valid_simple_detections(self):
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test " f"--path " f" {FIXTURES_PATH}/simple-detections/valid ".split()
-            )
-            # Force the PAT schema explicitly to ignore extra keys.
-            pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-            return_code, invalid_specs = pat.test_analysis(None, args)
+        # Force the PAT schema explicitly to ignore extra keys.
+        pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {FIXTURES_PATH}/simple-detections/valid".split()
+        )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_invalid_simple_detections(self):
-        with Pause(self.fs):
-            args = pat.setup_parser().parse_args(
-                f"test " f"--path " f" {FIXTURES_PATH}/simple-detections/invalid ".split()
-            )
-            return_code, invalid_specs = pat.test_analysis(None, args)
+        return_code, invalid_specs = mock_test_analysis(
+            self, f"test --path {FIXTURES_PATH}/simple-detections/invalid".split()
+        )
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 3)
 
@@ -617,16 +719,20 @@ class TestPantherAnalysisTool(TestCase):
                     status_code=200,
                 )
             )
-            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
             # Force the PAT schema explicitly to ignore extra keys.
             pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-            return_code, invalid_specs = pat.test_analysis(backend, args)
+            with patch(
+                "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+            ):
+                return_code, invalid_specs = mock_test_analysis(self, ["test", "--path", file_path])
+
         # our mock transpiled code always returns true, so we should have some failing tests
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_run_tests_with_filters(self):
         with Pause(self.fs):
+
             file_path = f"{FIXTURES_PATH}/inline-filters"
             number_of_test_files = len(
                 [
@@ -670,8 +776,11 @@ class TestPantherAnalysisTool(TestCase):
                     status_code=200,
                 )
             )
-            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-            return_code, invalid_specs = pat.test_analysis(backend, args)
+            with patch(
+                "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+            ):
+                return_code, invalid_specs = mock_test_analysis(self, ["test", "--path", file_path])
+
         # our mock transpiled code always returns true, so we should have some failing tests
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
@@ -679,93 +788,86 @@ class TestPantherAnalysisTool(TestCase):
     def test_correlation_rules_skipped_if_feature_not_enabled(self):
         import logging
 
-        with Pause(self.fs):
-            file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
-            backend = MockBackend()
-            backend.test_correlation_rule = mock.MagicMock(
-                side_effect=BackendError("correlation rule testing not enabled for you")
-            )
-            with mock.patch.multiple(
+        file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
+        backend = MockBackend()
+        backend.test_correlation_rule = mock.MagicMock(
+            side_effect=BackendError("correlation rule testing not enabled for you")
+        )
+        with (
+            mock.patch.multiple(
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
-            ) as logging_mocks:
-                logging.warning("to instantiate the warning call args")
-                args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-                return_code, _ = pat.test_analysis(backend, args)
-                warning_logs = logging_mocks["warning"].call_args.args
-                warning_logged = False
-                for warning_log in warning_logs:
-                    if isinstance(warning_log, str):
-                        if "Error running tests remotely for correlation rule" in warning_log:
-                            warning_logged = True
-                self.assertTrue(warning_logged)
+            ) as logging_mocks,
+            patch(
+                "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+            ),
+        ):
+            logging.warning("to instantiate the warning call args")
+            return_code, _ = mock_test_analysis(self, ["test", "--path", file_path])
+            warning_logs = logging_mocks["warning"].call_args.args
+            warning_logged = False
+            for warning_log in warning_logs:
+                if isinstance(warning_log, str):
+                    if "Error running tests remotely for correlation rule" in warning_log:
+                        warning_logged = True
+            self.assertTrue(warning_logged)
         self.assertEqual(return_code, 0)
 
     def test_correlation_rules_can_report_pass(self):
-        import sys
-        from io import StringIO
-
-        old_stdout = sys.stdout
-        sys.stdout = mystdout = StringIO()
-        with Pause(self.fs):
-            file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
-            backend = MockBackend()
-            backend.test_correlation_rule = mock.MagicMock(
-                return_value=BackendResponse(
-                    data=TestCorrelationRuleResponse(
-                        results=[{"name": "t1", "error": None, "passed": True}]
-                    ),
-                    status_code=200,
-                )
+        file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
+        backend = MockBackend()
+        backend.test_correlation_rule = mock.MagicMock(
+            return_value=BackendResponse(
+                data=TestCorrelationRuleResponse(
+                    results=[{"name": "t1", "error": None, "passed": True}]
+                ),
+                status_code=200,
             )
-            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-            return_code, invalid_specs = pat.test_analysis(backend, args)
-        sys.stdout = old_stdout
+        )
+        with patch(
+            "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+        ):
+            return_code, invalid_specs, result = mock_test_analysis_results(
+                self, ["test", "--path", file_path]
+            )
+
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
-        stdout_str = mystdout.getvalue()
+        stdout_str = result.stdout
         self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 1)
 
     def test_correlation_rules_can_report_failure(self):
-        import sys
-        from io import StringIO
-
-        old_stdout = sys.stdout
-        sys.stdout = mystdout = StringIO()
-        with Pause(self.fs):
-            file_path = f"{FIXTURES_PATH}/correlation-unit-tests/fails"
-            backend = MockBackend()
-            backend.test_correlation_rule = mock.MagicMock(
-                return_value=BackendResponse(
-                    data=TestCorrelationRuleResponse(
-                        results=[{"name": "t1", "error": None, "passed": False}]
-                    ),
-                    status_code=200,
-                )
+        file_path = f"{FIXTURES_PATH}/correlation-unit-tests/fails"
+        backend = MockBackend()
+        backend.test_correlation_rule = mock.MagicMock(
+            return_value=BackendResponse(
+                data=TestCorrelationRuleResponse(
+                    results=[{"name": "t1", "error": None, "passed": False}]
+                ),
+                status_code=200,
             )
-            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-            return_code, invalid_specs = pat.test_analysis(backend, args)
-        sys.stdout = old_stdout
+        )
+        with patch(
+            "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+        ):
+            return_code, invalid_specs, result = mock_test_analysis_results(
+                self, ["test", "--path", file_path]
+            )
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 0)
-        stdout_str = mystdout.getvalue()
+        stdout_str = result.stdout
         self.assertEqual(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
         self.assertEqual(stdout_str.count("Failed: 1"), 1)
 
     def test_correlation_rules_skipped_without_backend(self):
         """Confirms that correlation rules are skipped if no backend is provided."""
-        import sys
-        from io import StringIO
-
-        old_stdout = sys.stdout
-        sys.stdout = mystdout = StringIO()
-        with Pause(self.fs):
-            file_path = f"{FIXTURES_PATH}/correlation-unit-tests"
-            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-            return_code, invalid_specs = pat.test_analysis(None, args)
-        sys.stdout = old_stdout
+        file_path = f"{FIXTURES_PATH}/correlation-unit-tests"
+        with patch("panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=None):
+            return_code, invalid_specs, result = mock_test_analysis_results(
+                self, ["test", "--path", file_path]
+            )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
-        stdout_str = mystdout.getvalue()
+        stdout_str = result.stdout
         # Ensure skipped tests don't count towards "Passed" total
         self.assertEqual(stdout_str.count("Passed: 0"), 1)
         # Ensure skipped tests are accurately summarized
@@ -787,8 +889,13 @@ class TestPantherAnalysisTool(TestCase):
                 logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
             ) as logging_mocks:
                 logging.warning("to instantiate the warning call args")
-                args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-                return_code, invalid_specs = pat.test_analysis(backend, args)
+                with patch(
+                    "panther_analysis_tool.main.pat_utils.get_optional_backend",
+                    return_value=backend,
+                ):
+                    return_code, invalid_specs = mock_test_analysis(
+                        self, ["test", "--path", file_path]
+                    )
                 warning_logs = logging_mocks["warning"].call_args.args
                 # assert that we were able to look up the base of this derived detection
                 self.assertTrue(all("Skipping Derived Detection" not in s for s in warning_logs))
@@ -798,44 +905,39 @@ class TestPantherAnalysisTool(TestCase):
     def test_logs_warning_if_cannot_retrieve_base(self):
         import logging
 
-        with Pause(self.fs):
-            file_path = f"{FIXTURES_PATH}/derived_without_base"
-            backend = MockBackend()
-            # we mock a response for getting an error when retrieving the base
-            backend.get_rule_body = mock.MagicMock(
-                return_value=BackendResponse(
-                    data=GetRuleBodyResponse(
-                        body="i am writing a unit test i can write anything i want here", tests=[]
-                    ),
-                    status_code=403,
-                )
+        file_path = f"{FIXTURES_PATH}/derived_without_base"
+        backend = MockBackend()
+        # we mock a response for getting an error when retrieving the base
+        backend.get_rule_body = mock.MagicMock(
+            return_value=BackendResponse(
+                data=GetRuleBodyResponse(
+                    body="i am writing a unit test i can write anything i want here", tests=[]
+                ),
+                status_code=403,
             )
-            with mock.patch.multiple(
-                logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
-            ) as logging_mocks:
-                logging.warning("to instantiate the warning call args")
-                args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-                return_code, invalid_specs = pat.test_analysis(backend, args)
-                warning_logs = logging_mocks["warning"].call_args.args
-                # assert that we skipped because we could not lookup base
-                self.assertTrue(any("Skipping Derived Detection" in s for s in warning_logs))
+        )
+        with mock.patch.multiple(
+            logging, debug=mock.DEFAULT, warning=mock.DEFAULT, info=mock.DEFAULT
+        ) as logging_mocks:
+            logging.warning("to instantiate the warning call args")
+            with patch(
+                "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
+            ):
+                return_code, invalid_specs = mock_test_analysis(self, ["test", "--path", file_path])
+            warning_logs = logging_mocks["warning"].call_args.args
+            # assert that we skipped because we could not lookup base
+            self.assertTrue(any("Skipping Derived Detection" in s for s in warning_logs))
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
     def test_can_inherit_tests_from_base(self):
-        import sys
-        from io import StringIO
-
-        old_stdout = sys.stdout
-        sys.stdout = mystdout = StringIO()
-        with Pause(self.fs):
-            file_path = f"{FIXTURES_PATH}/tests_can_be_inherited"
-            args = pat.setup_parser().parse_args(f"test " f"--path " f" {file_path}".split())
-            return_code, invalid_specs = pat.test_analysis(None, args)
-        sys.stdout = old_stdout
+        file_path = f"{FIXTURES_PATH}/tests_can_be_inherited"
+        return_code, invalid_specs, result = mock_test_analysis_results(
+            self, ["test", "--path", file_path]
+        )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
-        stdout_str = mystdout.getvalue()
+        stdout_str = result.stdout
         self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 2)
         self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t2"), 2)
 
@@ -846,11 +948,10 @@ class TestPantherAnalysisTool(TestCase):
             return_value=BulkUploadValidateStatusResponse(status="COMPLETE", error="")
         )
 
-        args = pat.setup_parser().parse_args(
-            f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
-
-        return_code, return_str = validate.run(backend, args)
+        with patch("panther_analysis_tool.main.pat_utils.get_api_backend", return_value=backend):
+            return_code, return_str = mock_validate(
+                self, f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+            )
         self.assertEqual(return_code, 0)
         self.assertTrue("Validation success" in return_str, f"match not found: {return_str}")
         backend.bulk_validate.assert_called_once()
@@ -864,12 +965,12 @@ class TestPantherAnalysisTool(TestCase):
             side_effect=BackendError("ruh oh something went wrong")
         )
 
-        args = pat.setup_parser().parse_args(
-            f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
+        with patch("panther_analysis_tool.main.pat_utils.get_api_backend", return_value=backend):
+            result = runner.invoke(
+                app, f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+            )
 
-        return_code, _ = validate.run(backend, args)
-        self.assertEqual(return_code, 1)
+        self.assertEqual(result.exit_code, 1)
 
     def test_bulk_validate_without_support(self):
         backend = MockBackend()
@@ -877,11 +978,11 @@ class TestPantherAnalysisTool(TestCase):
             side_effect=BackendError("ruh oh something went wrong")
         )
 
-        args = pat.setup_parser().parse_args(
-            f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
-
-        return_code, return_str = validate.run(backend, args)
+        with patch("panther_analysis_tool.main.pat_utils.get_api_backend", return_value=backend):
+            return_code, return_str = validate.run(
+                backend,
+                f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split(),
+            )
         self.assertEqual(return_code, 1)
         self.assertTrue(
             "Invalid backend. `validate` is only supported via API token" in return_str,
@@ -895,11 +996,10 @@ class TestPantherAnalysisTool(TestCase):
             side_effect=UnsupportedEndpointError("ruh oh something went wrong")
         )
 
-        args = pat.setup_parser().parse_args(
-            f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
-
-        return_code, return_str = validate.run(backend, args)
+        with patch("panther_analysis_tool.main.pat_utils.get_api_backend", return_value=backend):
+            return_code, return_str = mock_validate(
+                self, f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+            )
         self.assertEqual(return_code, 1)
         self.assertTrue(
             "Your Panther instance does not support this feature" in return_str,
@@ -923,11 +1023,10 @@ class TestPantherAnalysisTool(TestCase):
         )
         backend.bulk_validate = mock.MagicMock(return_value=fake_response)
 
-        args = pat.setup_parser().parse_args(
-            f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
-        )
-
-        return_code, return_str = validate.run(backend, args)
+        with patch("panther_analysis_tool.main.pat_utils.get_api_backend", return_value=backend):
+            return_code, return_str = mock_validate(
+                self, f"--debug validate --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
+            )
         self.assertEqual(return_code, 1)
         expected_strs = [fake_response.error]
         for issue in fake_response.get_issues():

@@ -41,7 +41,14 @@ def run(  # pylint: disable=too-many-locals
     if args.iterations <= 0:
         return 1, f"benchmark must perform at least 1 iteration, {args.iterations} requested"
 
-    analyses = analysis_for_chunks(ZipArgs.from_args(args), no_helpers=True)
+    zip_args = ZipArgs(
+        out=args.out,
+        path=args.path,
+        ignore_files=args.ignore_files,
+        filters=args.filter,
+        filters_inverted=args.filter_inverted,
+    )
+    analyses = analysis_for_chunks(zip_args, no_helpers=True)
 
     rule_or_err = validate_rule_count(analyses)
     if isinstance(rule_or_err, str):
