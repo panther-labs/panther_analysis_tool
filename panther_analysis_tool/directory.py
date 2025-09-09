@@ -15,11 +15,14 @@ def setup_temp() -> None:
     os.mkdir(temp_dir)
     tempfile.tempdir = temp_dir
 
-    def clean_me_up(*_: Any) -> None:
-        try:
-            shutil.rmtree(temp_dir)
-        finally:
-            pass
+    def clean_me_up(signum: int = 0, frame: Any = None) -> None:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    
+        # If this was called as a signal handler, re-raise the signal
+        if signum in (signal.SIGINT, signal.SIGTERM):
+            # Reset signal handler to default and re-raise
+            signal.signal(signum, signal.SIG_DFL)
+            os.kill(os.getpid(), signum)
 
     atexit.register(clean_me_up)
     signal.signal(signal.SIGINT, clean_me_up)
