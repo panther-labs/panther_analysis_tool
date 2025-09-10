@@ -17,7 +17,7 @@ def setup_temp() -> None:
 
     def clean_me_up(signum: int = 0, frame: Any = None) -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
-    
+
         # If this was called as a signal handler, re-raise the signal
         if signum in (signal.SIGINT, signal.SIGTERM):
             # Reset signal handler to default and re-raise
