@@ -75,7 +75,7 @@ def func_with_backend(
         get_backend(
             args.api_token,
             args.api_host,
-            args.aws_profile if hasattr(args, "aws_profile") else None,
+            getattr(args, "aws_profile", None),
         ),
         args,
     )
