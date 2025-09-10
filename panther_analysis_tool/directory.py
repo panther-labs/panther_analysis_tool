@@ -20,7 +20,8 @@ def setup_temp() -> None:
 
         # If this was called as a signal handler, re-raise the signal
         if signum in (signal.SIGINT, signal.SIGTERM):
-            # Reset signal handler to default and re-raise
+            # reset to the default python handler and redeliver the signal so that the
+            # python process exits properly
             signal.signal(signum, signal.SIG_DFL)
             os.kill(os.getpid(), signum)
 
