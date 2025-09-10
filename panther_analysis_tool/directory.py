@@ -15,7 +15,7 @@ def setup_temp() -> None:
     os.mkdir(temp_dir)
     tempfile.tempdir = temp_dir
 
-    def clean_me_up(signum: int = 0, frame: Any = None) -> None:
+    def clean_me_up(signum: int = 0, _frame: Any = None) -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
         # If this was called as a signal handler, re-raise the signal
