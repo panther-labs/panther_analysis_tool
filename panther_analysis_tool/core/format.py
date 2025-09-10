@@ -16,7 +16,9 @@ _rt_yaml.width = 80
 
 
 def analysis_spec_dump(data: Any, sort: bool = True) -> str:
-    if isinstance(data, str):
+    if isinstance(data, bytes):
+        data = _yaml.load(io.BytesIO(data))
+    elif isinstance(data, str):
         data = _yaml.load(io.StringIO(data))
     if sort:
         data = sort_yaml(data)

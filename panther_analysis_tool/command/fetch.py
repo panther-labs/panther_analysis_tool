@@ -77,7 +77,7 @@ def import_sqlite() -> None:
 
     # get all tables
     cursor.execute(
-        "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT, id_value TEXT, spec TEXT, file_path TEXT, version INTEGER);"
+        "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT, id_value TEXT, spec BLOB, file_path TEXT, version INTEGER);"
     )
     # unique constrain on id_field, id_value and version
     cursor.execute(
