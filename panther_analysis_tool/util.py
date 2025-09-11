@@ -71,7 +71,14 @@ def func_with_api_backend(
 def func_with_backend(
     func: Callable[[BackendClient, argparse.Namespace], Any]
 ) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(get_backend(args.api_token, args.api_host, args.aws_profile), args)
+    return lambda args: func(
+        get_backend(
+            args.api_token,
+            args.api_host,
+            getattr(args, "aws_profile", None),
+        ),
+        args,
+    )
 
 
 def func_with_optional_backend(
