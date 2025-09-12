@@ -1966,14 +1966,11 @@ def debug_command(
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
-    minimum_tests: MinimumTestsType = 0,
     path: PathType = ".",
     ignore_extra_keys: IgnoreExtraKeysType = False,
     ignore_files: IgnoreFilesType = None,
     skip_disabled_tests: SkipDisabledTestsType = False,
     available_destination: AvailableDestinationType = None,
-    sort_test_results: SortTestResultsType = False,
-    show_failures_only: ShowFailuresOnlyType = False,
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, list[Any]]:
@@ -1990,14 +1987,14 @@ def debug_command(
     args = TestAnalysisArgs(
         filters=filters,
         filters_inverted=filters_inverted,
-        minimum_tests=minimum_tests,
+        minimum_tests=0,  # debug_analysis overrides this anyway
         path=path,
         ignore_extra_keys=ignore_extra_keys,
         ignore_files=ignore_files,
         skip_disabled_tests=skip_disabled_tests,
         available_destination=available_destination,
-        sort_test_results=sort_test_results,
-        show_failures_only=show_failures_only,
+        sort_test_results=False,  # debug_analysis overrides this anyway
+        show_failures_only=False,  # debug_analysis overrides this anyway
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
         test_names=[],
@@ -2008,7 +2005,12 @@ def debug_command(
 
 
 @app_command_with_config(
-    name="publish", help="Publishes a new release, generates assets, and uploads them."
+    name="publish",
+    help=(
+        "Publishes a new release, generates the release assets, and uploads them. "
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig"
+    ),
 )
 def publish_command(
     github_tag: Annotated[
