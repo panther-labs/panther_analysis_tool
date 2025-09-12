@@ -37,7 +37,7 @@ FilterType: TypeAlias = Annotated[
 ]
 
 KMSKeyType: TypeAlias = Annotated[
-    Optional[str],
+    str,
     typer.Option(envvar="PANTHER_KMS_KEY", help="The key id to use to sign the release asset."),
 ]
 

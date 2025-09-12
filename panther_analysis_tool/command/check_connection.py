@@ -1,12 +1,11 @@
-import argparse
 import logging
 from typing import Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient
 
 
-def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
-    logging.info("checking connection to %s...", args.api_host)
+def run(backend: BackendClient, api_host: str) -> Tuple[int, str]:
+    logging.info("checking connection to %s...", api_host)
     result = backend.check()
 
     if not result.success:

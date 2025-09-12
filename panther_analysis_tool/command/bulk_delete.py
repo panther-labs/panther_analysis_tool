@@ -1,5 +1,5 @@
-import argparse
 import logging
+from dataclasses import dataclass
 from typing import List, Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -9,7 +9,14 @@ from panther_analysis_tool.backend.client import (
 )
 
 
-def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+@dataclass
+class BulkDeleteArgs:
+    query_id: List[str]
+    analysis_id: List[str]
+    confirm_bypass: bool
+
+
+def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
     # pylint: disable=too-many-return-statements
 
     logging.info("preparing bulk delete...")

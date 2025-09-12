@@ -1,8 +1,8 @@
-import argparse
 import io
 import logging
 import zipfile
-from typing import Tuple
+from dataclasses import dataclass
+from typing import List, Tuple
 
 from panther_analysis_tool import cli_output
 from panther_analysis_tool.backend.client import (
@@ -11,23 +11,29 @@ from panther_analysis_tool.backend.client import (
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import UnsupportedEndpointError
+from panther_analysis_tool.core.parse import Filter
 from panther_analysis_tool.zip_chunker import ZipArgs, analysis_chunks
 
 
-def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+@dataclass
+class ValidateArgs:
+    out: str
+    path: str
+    ignore_files: List[str]
+    filters: List[Filter]
+    filters_inverted: List[Filter]
+
+
+def run(backend: BackendClient, args: ValidateArgs) -> Tuple[int, str]:
     if backend is None or not backend.supports_bulk_validate():
         return 1, "Invalid backend. `validate` is only supported via API token"
 
-    out = getattr(args, "out", ".")
-    filters = getattr(args, "filter", [])
-    filters_inverted = getattr(args, "filter_inverted", [])
-
     zip_args = ZipArgs(
-        out=out,
+        out=args.out,
         path=args.path,
         ignore_files=args.ignore_files,
-        filters=filters,
-        filters_inverted=filters_inverted,
+        filters=args.filters,
+        filters_inverted=args.filters_inverted,
     )
     chunks = analysis_chunks(zip_args)
     buffer = io.BytesIO()

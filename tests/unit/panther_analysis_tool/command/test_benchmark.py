@@ -1,9 +1,6 @@
-import argparse
 import datetime
 import unittest
 from unittest import mock
-
-import dateutil.parser
 
 from panther_analysis_tool.analysis_utils import ClassifiedAnalysis
 from panther_analysis_tool.backend.client import (
@@ -70,19 +67,17 @@ class TestBenchmark(unittest.TestCase):
 
     def test_validate_log_type_happy_path_provided_match_only(self) -> None:
         log_type = "foo"
-        args = argparse.Namespace(log_type=log_type)
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
             analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type]},
         )
-        log_type_ret, err = validate_log_type(args, rule)
+        log_type_ret, err = validate_log_type(log_type, rule)
         self.assertEqual(log_type, log_type_ret)
         self.assertIsNone(err)
 
     def test_validate_log_type_happy_path_provided_match_one(self) -> None:
         log_type = "foo"
-        args = argparse.Namespace(log_type=log_type)
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
@@ -91,25 +86,23 @@ class TestBenchmark(unittest.TestCase):
                 "LogTypes": [log_type, "other.log.type"],
             },
         )
-        log_type_ret, err = validate_log_type(args, rule)
+        log_type_ret, err = validate_log_type(log_type, rule)
         self.assertEqual(log_type, log_type_ret)
         self.assertIsNone(err)
 
     def test_validate_log_type_happy_path_default(self) -> None:
         log_type = "foo"
-        args = argparse.Namespace()
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
             analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": [log_type]},
         )
-        log_type_ret, err = validate_log_type(args, rule)
+        log_type_ret, err = validate_log_type(None, rule)
         self.assertEqual(log_type, log_type_ret)
         self.assertIsNone(err)
 
     def test_validate_log_type_multiple_none_provided(self) -> None:
         log_type = "foo"
-        args = argparse.Namespace()
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
@@ -118,37 +111,34 @@ class TestBenchmark(unittest.TestCase):
                 "LogTypes": [log_type, "other.log.type"],
             },
         )
-        log_type_ret, err = validate_log_type(args, rule)
+        log_type_ret, err = validate_log_type(None, rule)
         self.assertIsNotNone(err)
         self.assertIsNone(log_type_ret)
 
     def test_validate_log_type_mismatch(self) -> None:
         log_type = "foo"
-        args = argparse.Namespace(log_type=log_type)
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
             analysis_spec={"AnalysisType": AnalysisTypes.RULE, "LogTypes": ["other.log.type"]},
         )
-        log_type_ret, err = validate_log_type(args, rule)
+        log_type_ret, err = validate_log_type(log_type, rule)
         self.assertIsNotNone(err)
 
     def test_validate_log_type_none_on_rule(self) -> None:
         log_type = "foo"
-        args = argparse.Namespace(log_type=log_type)
         rule = ClassifiedAnalysis(
             file_name="fake_file.yml",
             dir_name="fake_dir",
             analysis_spec={"AnalysisType": AnalysisTypes.RULE},
         )
-        log_type_ret, err = validate_log_type(args, rule)
+        log_type_ret, err = validate_log_type(log_type, rule)
         self.assertIsNotNone(err)
 
     def test_validate_hour_happy_path_provided(self) -> None:
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -163,7 +153,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, datetime.datetime)
         self.assertEqual(hour, ret)
 
@@ -171,7 +161,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -191,14 +180,13 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(None, log_type, backend)
         self.assertIsInstance(ret, datetime.datetime)
         self.assertEqual(hour, ret)
 
     def test_validate_hour_happy_path_provided_truncate(self) -> None:
         hour = datetime.datetime.now().astimezone() - datetime.timedelta(days=2)
         truncated_hour = hour.replace(minute=0, second=0, microsecond=0)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -213,7 +201,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, datetime.datetime)
         self.assertEqual(truncated_hour, ret)
 
@@ -221,7 +209,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -236,7 +223,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
@@ -244,7 +231,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -264,7 +250,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(None, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
@@ -272,7 +258,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(weeks=3)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -287,7 +272,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(hour.isoformat(), ret)
 
@@ -295,7 +280,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -308,7 +292,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
@@ -316,7 +300,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -329,7 +312,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(None, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
@@ -337,7 +320,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -352,7 +334,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
@@ -360,7 +342,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace()
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -380,7 +361,7 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(None, log_type, backend)
         self.assertIsInstance(ret, str)
         self.assertIn(log_type, ret)
 
@@ -388,7 +369,6 @@ class TestBenchmark(unittest.TestCase):
         hour = datetime.datetime.now().astimezone().replace(
             minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=2)
-        args = argparse.Namespace(hour=hour)
         log_type = "foo"
         backend = MockBackend()
         backend.get_metrics = mock.MagicMock(
@@ -408,5 +388,5 @@ class TestBenchmark(unittest.TestCase):
                 status_code=200,
             )
         )
-        ret = validate_hour(args, log_type, backend)
+        ret = validate_hour(hour, log_type, backend)
         self.assertIsInstance(ret, str)
