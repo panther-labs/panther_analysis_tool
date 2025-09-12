@@ -342,7 +342,7 @@ class TestPATSchemas(unittest.TestCase):
                     "Recipients": ["email@example.com"],
                     "SendEmpty": True,
                     "PreferAttachment": False,
-                }
+                },
             }
         )
 
