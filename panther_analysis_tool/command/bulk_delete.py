@@ -13,7 +13,7 @@ from panther_analysis_tool.backend.client import (
 class BulkDeleteArgs:
     query_id: List[str]
     analysis_id: List[str]
-    confirm_bypass: bool
+    confirm: bool
 
 
 def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
@@ -46,7 +46,7 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
             return code, msg
 
     # Prompt for user confirmation (unless bypassed)
-    if not args.confirm_bypass:
+    if args.confirm:
         confirm = input("\nContinue? (y/n) ")
 
         if confirm.lower() != "y":

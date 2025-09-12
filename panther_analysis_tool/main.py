@@ -2146,7 +2146,7 @@ def delete(
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
     # Delete-specific flags
-    confirm_bypass: Annotated[bool, typer.Option(help="Skip manual confirmation")] = False,
+    confirm: Annotated[bool, typer.Option(help="Require manual confirmation")] = True,
     analysis_id: Annotated[
         Optional[List[str]], typer.Option(help="List of detection IDs", show_default=False)
     ] = None,
@@ -2160,7 +2160,7 @@ def delete(
         query_id = []
 
     args = bulk_delete.BulkDeleteArgs(
-        confirm_bypass=confirm_bypass,
+        confirm=confirm,
         analysis_id=analysis_id,
         query_id=query_id,
     )
