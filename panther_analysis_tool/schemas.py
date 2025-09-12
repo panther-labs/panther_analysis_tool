@@ -271,6 +271,11 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
         Optional("LookbackWindowSeconds"): int,
+        Optional("EmailConfig"): {
+            "Recipients": [str],
+            Optional("SendEmpty"): bool,
+            Optional("PreferAttachment"): bool,
+        },
     },
     ignore_extra_keys=False,
     # Prevent user typos on optional fields
