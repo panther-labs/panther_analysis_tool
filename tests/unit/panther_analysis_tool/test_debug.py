@@ -110,7 +110,7 @@ class TestDebugFunctionality(TestCase):
         """Test that the debug command parser accepts correct arguments."""
 
         # Test basic debug command
-        with (patch.object(pat, "test_analysis") as mock_test_analysis,):
+        with (patch.object(pat, "test_analysis") as mock_test_analysis):
             mock_test_analysis.return_value = (0, [])
             mock_debug_analysis(self, ["debug", "Test.Rule.ID", "Test Name"])
 
