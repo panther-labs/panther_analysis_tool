@@ -20,7 +20,7 @@ def run(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
 
     out = getattr(args, "out", ".")
     filters = getattr(args, "filter", [])
-    filters_inverted=getattr(args, "filter_inverted", [])
+    filters_inverted = getattr(args, "filter_inverted", [])
 
     zip_args = ZipArgs(
         out=out,
