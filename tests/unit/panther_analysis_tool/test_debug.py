@@ -1,4 +1,3 @@
-import argparse
 import io
 import logging
 import os
@@ -13,7 +12,8 @@ from typer.testing import CliRunner
 
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.backend.mocks import MockBackend
-from panther_analysis_tool.main import app, debug_analysis
+from panther_analysis_tool.core.parse import Filter
+from panther_analysis_tool.main import TestAnalysisArgs, app, debug_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
@@ -80,7 +80,9 @@ class TestDebugFunctionality(TestCase):
 
             # Check that filter was set correctly
             args_passed = call_args[0][1]
-            self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
+            self.assertEqual(
+                args_passed.filters, [Filter(key="RuleID", values=["Test.Debug.Rule"])]
+            )
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
             self.assertFalse(args_passed.show_failures_only)
@@ -115,8 +117,9 @@ class TestDebugFunctionality(TestCase):
             mock_debug_analysis(self, ["debug", "Test.Rule.ID", "Test Name"])
 
             args = mock_test_analysis.call_args[0][1]
-            self.assertEqual(args.ruleid, "Test.Rule.ID")
-            self.assertEqual(args.testname, "Test Name")
+            debug_args = mock_test_analysis.call_args[1]["debug_args"]
+            self.assertEqual(args.filters, [Filter(key="RuleID", values=["Test.Rule.ID"])])
+            self.assertEqual(debug_args.get("test_name"), "Test Name")
 
         with (patch.object(pat, "test_analysis") as mock_test_analysis,):
             mock_test_analysis.return_value = (0, [])
@@ -439,10 +442,10 @@ class TestDebugFunctionality(TestCase):
     def test_test_analysis_with_debug_args(self):
         """Test that test_analysis properly handles debug_args parameter."""
         # Set up required args attributes that test_analysis expects
-        args = argparse.Namespace(
+        args = TestAnalysisArgs(
             path=self.test_rule_path,
-            filter=None,
-            filter_inverted={},
+            filters=[],
+            filters_inverted=[],
             ignore_table_names=True,
             valid_table_names=[],
             ignore_files=[],
@@ -451,6 +454,8 @@ class TestDebugFunctionality(TestCase):
             show_failures_only=False,
             minimum_tests=0,
             skip_disabled_tests=False,
+            ignore_extra_keys=False,
+            test_names=[],
         )
 
         debug_args = {"debug_mode": True, "test_name": "Test Case 1"}
@@ -510,7 +515,9 @@ class TestDebugFunctionality(TestCase):
 
             # Check that args were modified correctly by debug_analysis
             args_passed = call_args[0][1]
-            self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
+            self.assertEqual(
+                args_passed.filters, [Filter(key="RuleID", values=["Test.Debug.Rule"])]
+            )
             self.assertEqual(args_passed.minimum_tests, 0)
             self.assertFalse(args_passed.sort_test_results)
             self.assertFalse(args_passed.show_failures_only)
@@ -547,14 +554,16 @@ class TestDebugFunctionality(TestCase):
             args_passed = call_args[0][1]
 
             # The RuleID filter should be set by debug_analysis
-            self.assertEqual(args_passed.filter, {"RuleID": ["Test.Debug.Rule"]})
+            self.assertEqual(
+                args_passed.filters, [Filter(key="RuleID", values=["Test.Debug.Rule"])]
+            )
 
     def test_test_analysis_skips_summary_in_debug_mode(self):
         """Test that test_analysis skips the summary when in debug mode."""
-        args = argparse.Namespace(
+        args = TestAnalysisArgs(
             path=self.test_rule_path,
-            filter=None,
-            filter_inverted={},
+            filters=[],
+            filters_inverted=[],
             ignore_table_names=True,
             valid_table_names=[],
             ignore_files=[],
@@ -563,10 +572,9 @@ class TestDebugFunctionality(TestCase):
             show_failures_only=False,
             minimum_tests=0,
             skip_disabled_tests=False,
+            ignore_extra_keys=False,
+            test_names=[],
         )
-        # Set up required args attributes that test_analysis expects
-        args.filter = None
-        args.filter_inverted = {}
 
         debug_args = {"debug_mode": True, "test_name": "Test Case 1"}
 

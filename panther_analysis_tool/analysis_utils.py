@@ -44,7 +44,13 @@ from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysisContainer,
 )
 from panther_analysis_tool.core.parse import Filter
-from panther_analysis_tool.schemas import ANALYSIS_CONFIG_SCHEMA, TYPE_SCHEMA
+from panther_analysis_tool.schemas import (
+    ANALYSIS_CONFIG_SCHEMA,
+    DERIVED_SCHEMA,
+    POLICY_SCHEMA,
+    RULE_SCHEMA,
+    TYPE_SCHEMA,
+)
 from panther_analysis_tool.util import is_simple_detection
 from panther_analysis_tool.validation import (
     contains_invalid_field_set,
@@ -502,6 +508,7 @@ def load_analysis(
     ignore_table_names: bool,
     valid_table_names: List[str],
     ignore_files: List[str],
+    ignore_extra_keys: bool,
 ) -> Tuple[Any, List[Any]]:
     """Loads each policy or rule into memory.
 
@@ -534,6 +541,7 @@ def load_analysis(
         list(load_analysis_specs(search_directories, ignore_files)),
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
+        ignore_extra_keys=ignore_extra_keys,
     )
 
     return specs, invalid_specs
@@ -544,6 +552,7 @@ def classify_analysis(
     specs: List[Tuple[str, str, Any, Any]],
     ignore_table_names: bool,
     valid_table_names: List[str],
+    ignore_extra_keys: bool,
 ) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -585,6 +594,10 @@ def classify_analysis(
                     tmp_logtypes = analysis_schema.schema[tmp_logtypes_key]
                 analysis_schema.schema[tmp_logtypes_key] = [str]
 
+            if analysis_schema in [RULE_SCHEMA, POLICY_SCHEMA, DERIVED_SCHEMA]:
+                analysis_schema._ignore_extra_keys = (  # pylint: disable=protected-access
+                    ignore_extra_keys
+                )
             analysis_schema.validate(analysis_spec)
 
             # lookup the analysis type id and validate there aren't any conflicts

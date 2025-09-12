@@ -1,9 +1,8 @@
 # pylint: disable=wrong-import-order, wrong-import-position, ungrouped-imports, too-many-arguments
-import argparse
 import base64
 import contextlib
 import hashlib
-import importlib.util
+import importlib
 import io
 import json
 import logging
@@ -17,7 +16,7 @@ import traceback
 import zipfile
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import wraps
 from inspect import signature
@@ -138,12 +137,7 @@ from panther_analysis_tool.core.parse import Filter, parse_filter
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.schemas import (
-    DERIVED_SCHEMA,
-    LOOKUP_TABLE_SCHEMA,
-    POLICY_SCHEMA,
-    RULE_SCHEMA,
-)
+from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
     add_path_to_filename,
@@ -303,7 +297,32 @@ def zip_analysis_chunks(
     return filenames
 
 
-def zip_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> Tuple[int, str]:
+# pylint: disable=too-many-instance-attributes
+@dataclass
+class TestAnalysisArgs:
+    path: str
+    ignore_files: List[str]
+    filters: List[Filter]
+    filters_inverted: List[Filter]
+    ignore_extra_keys: bool
+    ignore_table_names: bool
+    valid_table_names: List[str]
+    available_destination: List[str]
+    sort_test_results: bool
+    show_failures_only: bool
+    minimum_tests: int
+    skip_disabled_tests: bool
+    test_names: List[str]
+
+
+@dataclass
+class ZipAnalysisArgs:
+    skip_tests: bool
+    out: str
+    test_analysis_args: TestAnalysisArgs
+
+
+def zip_analysis(backend: Optional[BackendClient], args: ZipAnalysisArgs) -> Tuple[int, str]:
     """Tests, validates, and then archives all policies and rules into a local zip file.
 
     Returns 1 if the analysis tests or validation fails.
@@ -315,12 +334,12 @@ def zip_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> 
         A tuple of return code and the archive filename.
     """
     if not args.skip_tests:
-        return_code, invalid_specs = test_analysis(backend, args)
+        return_code, invalid_specs = test_analysis(backend, args.test_analysis_args)
         if return_code != 0:
             logging.error(invalid_specs)
             return return_code, ""
 
-    logging.info("Zipping analysis items in %s to %s", args.path, args.out)
+    logging.info("Zipping analysis items in %s to %s", args.test_analysis_args.path, args.out)
     # example: 2019-08-05T18-23-25
     # The colon character is not valid in filenames.
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
@@ -329,10 +348,10 @@ def zip_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> 
 
     typed_args = ZipArgs(
         out=args.out,
-        path=args.path,
-        ignore_files=args.ignore_files,
-        filters=args.filter,
-        filters_inverted=args.filter_inverted,
+        path=args.test_analysis_args.path,
+        ignore_files=args.test_analysis_args.ignore_files,
+        filters=args.test_analysis_args.filters,
+        filters_inverted=args.test_analysis_args.filters_inverted,
     )
     chunks = analysis_chunks(typed_args)
     if len(chunks) != 1:
@@ -345,7 +364,18 @@ def zip_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> 
     return 0, filename
 
 
-def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+@dataclass
+class UploadAnalysisArgs:
+    auto_disable_base: bool
+    max_retries: int
+    no_async: bool
+    batch: bool
+    out: str
+    skip_tests: bool
+    analysis_args: TestAnalysisArgs
+
+
+def upload_analysis(backend: BackendClient, args: UploadAnalysisArgs) -> Tuple[int, str]:
     """Tests, validates, packages, and uploads all policies and rules into a Panther deployment.
 
     Returns 1 if the analysis tests, validation, packaging, or upload fails.
@@ -357,42 +387,52 @@ def upload_analysis(backend: BackendClient, args: argparse.Namespace) -> Tuple[i
     Returns:
         A tuple of return code and error if applicable.
     """
-    filters, filters_inverted = parse_filter(args.filter)
     if args.auto_disable_base:
         zipargs = ZipArgs(
             out=args.out,
-            path=args.path,
-            ignore_files=args.ignore_files,
-            filters=filters,
-            filters_inverted=filters_inverted,
+            path=args.analysis_args.path,
+            ignore_files=args.analysis_args.ignore_files,
+            filters=args.analysis_args.filters,
+            filters_inverted=args.analysis_args.filters_inverted,
         )
         disable_all_base_detections([zipargs.path], zipargs.ignore_files)
 
     use_async = (not args.no_async) and backend.supports_async_uploads()
     if args.batch and not use_async:
         if not args.skip_tests:
-            return_code, invalid_specs = test_analysis(backend, args)
+            return_code, invalid_specs = test_analysis(backend, args.analysis_args)
             if return_code != 0:
                 logging.error(invalid_specs)
                 return return_code, ""
 
         for idx, archive in enumerate(
-            zip_analysis_chunks(args.out, args.path, args.ignore_files, filters, filters_inverted)
+            zip_analysis_chunks(
+                args.out,
+                args.analysis_args.path,
+                args.analysis_args.ignore_files,
+                args.analysis_args.filters,
+                args.analysis_args.filters_inverted,
+            )
         ):
             batch_idx = idx + 1
             logging.info("Uploading Batch %d...", batch_idx)
-            return_code, err = upload_zip(backend, args, archive, False)
+            return_code, err = upload_zip(backend, args.max_retries, archive, False)
             if return_code != 0:
                 return return_code, err
             logging.info("Uploaded Batch %d", batch_idx)
 
         return 0, ""
 
-    return_code, archive = zip_analysis(backend, args)
+    zip_args = ZipAnalysisArgs(
+        skip_tests=args.skip_tests,
+        out=args.out,
+        test_analysis_args=args.analysis_args,
+    )
+    return_code, archive = zip_analysis(backend, zip_args)
     if return_code != 0:
         return return_code, ""
 
-    return upload_zip(backend, args, archive, use_async)
+    return upload_zip(backend, args.max_retries, archive, use_async)
 
 
 def print_upload_summary(response: dict) -> None:
@@ -425,11 +465,8 @@ def print_upload_summary(response: dict) -> None:
 
 
 def upload_zip(
-    backend: BackendClient, args: argparse.Namespace, archive: str, use_async: bool
+    backend: BackendClient, max_retries: int, archive: str, use_async: bool
 ) -> Tuple[int, str]:
-    # Extract max retries we should handle
-    max_retries = args.max_retries
-
     # Validate and limit max_retries
     if max_retries < 0:
         logging.warning("Invalid max-retries value %s, using 0 instead", max_retries)
@@ -494,7 +531,7 @@ def upload_zip(
                 return 1, f"Failed to upload to Panther: {err}"
 
 
-def parse_lookup_table(args: argparse.Namespace) -> dict:
+def parse_lookup_table(path: str) -> dict:
     """Validates and parses a Lookup Table spec file
 
     Returns a dict representing the Lookup Table
@@ -506,12 +543,12 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
         A dict representing the Lookup Table, empty when parsing fails
     """
 
-    logging.info("Parsing the Lookup Table spec defined in %s", args.path)
-    with open(args.path, "r", encoding="utf-8") as input_file:
+    logging.info("Parsing the Lookup Table spec defined in %s", path)
+    with open(path, "r", encoding="utf-8") as input_file:
         try:
             yaml = YAML(typ="safe")
             lookup_spec = yaml.load(input_file)
-            logging.info("Successfully parse the Lookup Table file %s", args.path)
+            logging.info("Successfully parse the Lookup Table file %s", path)
         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
             logging.error("Failed to parse the Lookup Table spec file %s", input_file)
             logging.error(err)
@@ -525,7 +562,7 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
                             "AlarmPeriodMinutes must not greater than 1 day (1440 minutes)"
                         )
                         return {}
-            logging.info("Successfully validated the Lookup Table file %s", args.path)
+            logging.info("Successfully validated the Lookup Table file %s", path)
         except (
             schema.SchemaError,
             schema.SchemaMissingKeyError,
@@ -540,7 +577,7 @@ def parse_lookup_table(args: argparse.Namespace) -> dict:
     return lookup_spec
 
 
-def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
+def test_lookup_table(path: str) -> Tuple[int, str]:
     """Validates a Lookup Table spec file
 
     Returns 1 if the validation fails
@@ -552,14 +589,14 @@ def test_lookup_table(args: argparse.Namespace) -> Tuple[int, str]:
         A tuple of return code and and empty string (to satisfy calling conventions)
     """
 
-    logging.info("Validating the Lookup Table spec defined in %s", args.path)
-    lookup_spec = parse_lookup_table(args)
+    logging.info("Validating the Lookup Table spec defined in %s", path)
+    lookup_spec = parse_lookup_table(path)
     if not lookup_spec:
         return 1, ""
     return 0, ""
 
 
-def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+def update_custom_schemas(backend: BackendClient, path: str) -> Tuple[int, str]:
     """
     Updates or creates custom schemas.
     Returns 1 if any file failed to be updated.
@@ -568,9 +605,9 @@ def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> T
     Returns:
         A tuple of return code and a placeholder string.
     """
-    normalized_path = user_defined.normalize_path(args.path)
+    normalized_path = user_defined.normalize_path(path)
     if not normalized_path:
-        return 1, f"path not found: {args.path}"
+        return 1, f"path not found: {path}"
 
     uploader = user_defined.Uploader(normalized_path, backend)
     results = uploader.process()
@@ -585,12 +622,27 @@ def update_custom_schemas(backend: BackendClient, args: argparse.Namespace) -> T
     return int(has_errors), ""
 
 
-def generate_release_assets(args: argparse.Namespace) -> Tuple[int, str]:
+@dataclass
+class GenerateReleaseAssetsArgs:
+    out: str
+    kms_key: str
+    aws_profile: Optional[str]
+    skip_tests: bool
+
+
+def generate_release_assets(
+    args: GenerateReleaseAssetsArgs, analysis_args: TestAnalysisArgs
+) -> Tuple[int, str]:
     # First, generate the appropriate zip file
     # set the output file to appropriate name for the release: panther-analysis-all.zip
     release_file = args.out + "/" + "panther-analysis-all.zip"
     signature_filename = args.out + "/" + "panther-analysis-all.sig"
-    return_code, archive = zip_analysis(None, args)
+    zip_args = ZipAnalysisArgs(
+        skip_tests=args.skip_tests,
+        out=args.out,
+        test_analysis_args=analysis_args,
+    )
+    return_code, archive = zip_analysis(None, zip_args)
     if return_code != 0:
         return return_code, ""
     os.rename(archive, release_file)
@@ -634,7 +686,18 @@ def generate_hash(filename: str) -> bytes:
     return hash_bytes.digest()
 
 
-def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
+@dataclass
+class PublishReleaseArgs:
+    github_owner: str
+    github_repository: str
+    github_branch: str
+    github_tag: str
+    body: str
+    generate_release_assets_args: GenerateReleaseAssetsArgs
+    analysis_args: TestAnalysisArgs
+
+
+def publish_release(args: PublishReleaseArgs) -> Tuple[int, str]:
     # first, ensure the appropriate github access token is set in the env
     api_token = os.environ.get("GITHUB_TOKEN")
     if not api_token:
@@ -655,7 +718,11 @@ def publish_release(args: argparse.Namespace) -> Tuple[int, str]:
         return 1, ""
     # create the release directory
     current_time = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    release_dir = args.out if args.out != "." else f"release-{current_time}"
+    release_dir = (
+        args.generate_release_assets_args.out
+        if args.generate_release_assets_args.out != "."
+        else f"release-{current_time}"
+    )
     # setup and generate release assets
     return_code = setup_release(args, release_dir, api_token)
     if return_code != 0:
@@ -694,7 +761,7 @@ def clone_github(
     return result.returncode, ""
 
 
-def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int:
+def setup_release(args: PublishReleaseArgs, release_dir: str, token: str) -> int:
     if not os.path.isdir(release_dir):
         logging.info(
             "Creating release directory: %s",
@@ -715,9 +782,9 @@ def setup_release(args: argparse.Namespace, release_dir: str, token: str) -> int
     owd = os.getcwd()
     # change dir to release directory
     os.chdir(release_dir)
-    args.path = "."
+    args.analysis_args.path = "."
     # run generate assets from release directory
-    return_code, _ = generate_release_assets(args)
+    return_code, _ = generate_release_assets(args.generate_release_assets_args, args.analysis_args)
     os.chdir(owd)
     return return_code
 
@@ -767,16 +834,21 @@ def upload_assets_github(upload_url: str, headers: dict, release_dir: str) -> in
     return return_code
 
 
-def debug_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -> Tuple[int, list]:
+def debug_analysis(
+    backend: Optional[BackendClient],
+    args: TestAnalysisArgs,
+    testname: str,
+    ruleid: str,
+) -> Tuple[int, list]:
     """Debugs the analysis items in the given path.
 
     Args:
         args: The populated Argparse namespace with parsed command-line arguments.
         backend: The backend client to use for testing.
     """
-    debug_args = {"debug_mode": True, "test_name": args.testname}
+    debug_args = {"debug_mode": True, "test_name": testname}
 
-    args.filter = {"RuleID": [args.ruleid]}
+    args.filters = [Filter(key="RuleID", values=[ruleid])]
     # We don't want these options as actual command line arguments because we need them to be
     #  these exact values in order to work well with test_analysis
     args.minimum_tests = 0
@@ -788,7 +860,7 @@ def debug_analysis(backend: Optional[BackendClient], args: argparse.Namespace) -
 # pylint: disable=too-many-locals
 def test_analysis(
     backend: Optional[BackendClient],
-    args: argparse.Namespace,
+    args: TestAnalysisArgs,
     debug_args: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, list]:
     """Imports each policy or rule and runs their tests.
@@ -803,23 +875,22 @@ def test_analysis(
 
     # First classify each file, always include globals and data models location
     specs, invalid_specs = load_analysis(
-        args.path, args.ignore_table_names, args.valid_table_names, args.ignore_files
+        args.path,
+        args.ignore_table_names,
+        args.valid_table_names,
+        args.ignore_files,
+        args.ignore_extra_keys,
     )
     if specs.empty():
         if invalid_specs:
             return 1, invalid_specs
         return 1, [f"Nothing to test in {args.path}"]
 
-    # Apply the filters as needed
-    if getattr(args, "filter_inverted", None) is None:
-        args.filter_inverted = {}
-
-    filters, filters_inverted = parse_filter(args.filter)
-    specs = specs.apply(lambda l: filter_analysis(l, filters, filters_inverted))
+    specs = specs.apply(lambda l: filter_analysis(l, args.filters, args.filters_inverted))
 
     if specs.empty():
         return 1, [
-            f"No analysis in {args.path} matched filters {args.filter} - {args.filter_inverted}"
+            f"No analysis in {args.path} matched filters {args.filters} - {args.filters_inverted}"
         ]
 
     # enrich simple detections with transpiled python as necessary
@@ -865,7 +936,7 @@ def test_analysis(
         ignore_exception_types=ignore_exception_types,
         all_test_results=all_test_results,
         backend=backend,
-        test_names=getattr(args, "test_names", None),
+        test_names=args.test_names,
         debug_args=debug_args,
     )
     invalid_specs.extend(invalid_detections)
@@ -1180,7 +1251,17 @@ def print_summary(
     print(f"\tInvalid: {len(invalid_specs)}\n")
 
 
-def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[int, str]:
+@dataclass
+class EnrichTestDataArgs:
+    path: str
+    ignore_files: List[str]
+    ignore_table_names: bool
+    valid_table_names: List[str]
+    filters: List[Filter]
+    filters_inverted: List[Filter]
+
+
+def enrich_test_data(backend: BackendClient, args: EnrichTestDataArgs) -> Tuple[int, str]:
     """Imports each policy or rule and enriches their test data, if any. The
         modifications are saved in the Analysis YAML files, but not committed
         to git. Users of panther_analysis_tool are expected to commit the changes
@@ -1223,6 +1304,7 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
         ],
         ignore_table_names=args.ignore_table_names,
         valid_table_names=args.valid_table_names,
+        ignore_extra_keys=False,
     )
 
     # If no specs were found, nothing to do
@@ -1232,14 +1314,13 @@ def enrich_test_data(backend: BackendClient, args: argparse.Namespace) -> Tuple[
             return 1, msg
         return 1, f"No analysis content to enrich tests data for in {args.path}"
 
-    filters, filters_inverted = parse_filter(args.filter)
-    specs = specs.apply(lambda l: filter_analysis(l, filters, filters_inverted))
+    specs = specs.apply(lambda l: filter_analysis(l, args.filters, args.filters_inverted))
 
     # If no specs after filtering, nothing to do
     if specs.empty():
         return (
             1,
-            f"No analysis content in {args.path} matched filters {args.filter} - {args.filter_inverted}",
+            f"No analysis content in {args.path} matched filters {args.filters} - {args.filters_inverted}",
         )
 
     # We only used classify_analysis to figure out what to filter out, if anything.
@@ -1310,12 +1391,12 @@ def get_shallow_dependencies(spec_: ClassifiedAnalysis) -> set[str]:
 
 
 # pylint: disable=too-many-statements
-def check_packs(args: argparse.Namespace) -> Tuple[int, str]:
+def check_packs(path: str) -> Tuple[int, str]:
     """
     Checks each existing pack whether it includes all necessary rules and other items. Also checks
     if any detections, queries, etc. are not included in any packs
     """
-    specs, _ = load_analysis(args.path, True, [], [])
+    specs, _ = load_analysis(path, True, [], [], False)
 
     dependencies = {}  # Create a mapping of dependencies of each analysis item
     log_types = {}  # Which items depend on which log types
@@ -1770,7 +1851,7 @@ def global_options(
 def release(
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
-    kms_key: KMSKeyType = None,
+    kms_key: KMSKeyType = "",
     minimum_tests: MinimumTestsType = 0,
     out: OutType = ".",
     path: PathType = ".",
@@ -1782,8 +1863,6 @@ def release(
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
     aws_profile: AWSProfileType = None,
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
 ) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
@@ -1791,26 +1870,34 @@ def release(
     if valid_table_names is None:
         valid_table_names = []
 
+    if available_destination is None:
+        available_destination = []
+
+    filters, filters_inverted = parse_filter(_filter)
+
     # Forward to your logic function
     return generate_release_assets(
-        argparse.Namespace(
-            filter=_filter,
-            ignore_files=ignore_files,
-            kms_key=kms_key,
-            minimum_tests=minimum_tests,
-            out=out,
-            path=path,
+        GenerateReleaseAssetsArgs(
             skip_tests=skip_tests,
+            kms_key=kms_key,
+            aws_profile=aws_profile,
+            out=out,
+        ),
+        TestAnalysisArgs(
+            filters=filters,
+            filters_inverted=filters_inverted,
+            ignore_files=ignore_files,
+            minimum_tests=minimum_tests,
+            path=path,
+            ignore_extra_keys=False,
             skip_disabled_tests=skip_disabled_tests,
             available_destination=available_destination,
             sort_test_results=sort_test_results,
             show_failures_only=show_failures_only,
             ignore_table_names=ignore_table_names,
             valid_table_names=valid_table_names,
-            aws_profile=aws_profile,
-            api_token=api_token,
-            api_host=api_host,
-        )
+            test_names=[],
+        ),
     )
 
 
@@ -1843,16 +1930,16 @@ def test(
 
     if valid_table_names is None:
         valid_table_names = []
+    if available_destination is None:
+        available_destination = []
+    if test_names is None:
+        test_names = []
 
-    if ignore_extra_keys:
-        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+    filters, filters_inverted = parse_filter(_filter)
 
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        filter=_filter,
+    args = TestAnalysisArgs(
+        filters=filters,
+        filters_inverted=filters_inverted,
         minimum_tests=minimum_tests,
         path=path,
         ignore_extra_keys=ignore_extra_keys,
@@ -1879,14 +1966,11 @@ def debug_command(
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
-    minimum_tests: MinimumTestsType = 0,
     path: PathType = ".",
     ignore_extra_keys: IgnoreExtraKeysType = False,
     ignore_files: IgnoreFilesType = None,
     skip_disabled_tests: SkipDisabledTestsType = False,
     available_destination: AvailableDestinationType = None,
-    sort_test_results: SortTestResultsType = False,
-    show_failures_only: ShowFailuresOnlyType = False,
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, list[Any]]:
@@ -1895,35 +1979,43 @@ def debug_command(
 
     if valid_table_names is None:
         valid_table_names = []
+    if available_destination is None:
+        available_destination = []
 
-    args = argparse.Namespace(
-        ruleid=ruleid,
-        testname=testname,
-        filter=_filter,
-        minimum_tests=minimum_tests,
+    filters, filters_inverted = parse_filter(_filter)
+
+    args = TestAnalysisArgs(
+        filters=filters,
+        filters_inverted=filters_inverted,
+        minimum_tests=0,  # debug_analysis overrides this anyway
         path=path,
         ignore_extra_keys=ignore_extra_keys,
         ignore_files=ignore_files,
         skip_disabled_tests=skip_disabled_tests,
         available_destination=available_destination,
-        sort_test_results=sort_test_results,
-        show_failures_only=show_failures_only,
+        sort_test_results=False,  # debug_analysis overrides this anyway
+        show_failures_only=False,  # debug_analysis overrides this anyway
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
+        test_names=[],
     )
-    return debug_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
+    return debug_analysis(
+        pat_utils.get_optional_backend(api_token, api_host), args, testname, ruleid
+    )
 
 
 @app_command_with_config(
-    name="publish", help="Publishes a new release, generates assets, and uploads them."
+    name="publish",
+    help=(
+        "Publishes a new release, generates the release assets, and uploads them. "
+        + "Generates a file called panther-analysis-all.zip and optionally generates "
+        + "panther-analysis-all.sig"
+    ),
 )
 def publish_command(
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
-    # Shared API / AWS args
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
     # GitHub args
     github_branch: Annotated[
@@ -1940,7 +2032,7 @@ def publish_command(
     ] = "",
     # Standard shared args
     _filter: FilterType = None,
-    kms_key: KMSKeyType = None,
+    kms_key: KMSKeyType = "",
     minimum_tests: MinimumTestsType = 0,
     out: OutType = ".",
     skip_tests: SkipTestsType = False,
@@ -1950,24 +2042,38 @@ def publish_command(
 ) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
+    if available_destination is None:
+        available_destination = []
 
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
+    filters, filters_inverted = parse_filter(_filter)
+
+    args = PublishReleaseArgs(
         github_tag=github_tag,
         github_branch=github_branch,
         github_owner=github_owner,
         github_repository=github_repository,
         body=body,
-        filter=_filter,
-        kms_key=kms_key,
-        minimum_tests=minimum_tests,
-        out=out,
-        skip_tests=skip_tests,
-        skip_disabled_tests=skip_disabled_tests,
-        available_destination=available_destination,
-        ignore_files=ignore_files,
+        generate_release_assets_args=GenerateReleaseAssetsArgs(
+            skip_tests=skip_tests,
+            out=out,
+            kms_key=kms_key,
+            aws_profile=aws_profile,
+        ),
+        analysis_args=TestAnalysisArgs(
+            filters=filters,
+            filters_inverted=filters_inverted,
+            minimum_tests=minimum_tests,
+            skip_disabled_tests=skip_disabled_tests,
+            available_destination=available_destination,
+            ignore_files=ignore_files,
+            path=".",
+            ignore_extra_keys=False,
+            ignore_table_names=True,
+            valid_table_names=[],
+            sort_test_results=False,
+            show_failures_only=False,
+            test_names=[],
+        ),
     )
     return publish_release(args)
 
@@ -1998,8 +2104,6 @@ def upload(
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, str]:
-    if _filter is None:
-        _filter = []
     if ignore_files is None:
         ignore_files = []
     if available_destination is None:
@@ -2007,32 +2111,30 @@ def upload(
     if valid_table_names is None:
         valid_table_names = []
 
-    if ignore_extra_keys:
-        RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        POLICY_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
-        DERIVED_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
+    filters, filters_inverted = parse_filter(_filter)
 
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
+    args = UploadAnalysisArgs(
         auto_disable_base=auto_disable_base,
         max_retries=max_retries,
         no_async=no_async,
         batch=batch,
-        filter=_filter,
-        minimum_tests=minimum_tests,
         out=out,
-        path=path,
         skip_tests=skip_tests,
-        skip_disabled_tests=skip_disabled_tests,
-        ignore_extra_keys=ignore_extra_keys,
-        ignore_files=ignore_files,
-        available_destination=available_destination,
-        sort_test_results=sort_test_results,
-        show_failures_only=show_failures_only,
-        ignore_table_names=ignore_table_names,
-        valid_table_names=valid_table_names,
+        analysis_args=TestAnalysisArgs(
+            filters=filters,
+            filters_inverted=filters_inverted,
+            minimum_tests=minimum_tests,
+            path=path,
+            skip_disabled_tests=skip_disabled_tests,
+            ignore_files=ignore_files,
+            available_destination=available_destination,
+            sort_test_results=sort_test_results,
+            show_failures_only=show_failures_only,
+            ignore_table_names=ignore_table_names,
+            valid_table_names=valid_table_names,
+            ignore_extra_keys=ignore_extra_keys,
+            test_names=[],
+        ),
     )
     return upload_analysis(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
@@ -2044,12 +2146,14 @@ def delete(
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
     # Delete-specific flags
-    confirm_bypass: Annotated[bool, typer.Option(help="Skip manual confirmation")] = False,
+    confirm: Annotated[bool, typer.Option(help="Require manual confirmation")] = True,
     analysis_id: Annotated[
-        Optional[List[str]], typer.Option(help="List of detection IDs", show_default=False)
+        Optional[List[str]],
+        typer.Option(help="List of detection IDs. Repeat the flag to define more than one ID."),
     ] = None,
     query_id: Annotated[
-        Optional[List[str]], typer.Option(help="List of saved query IDs", show_default=False)
+        Optional[List[str]],
+        typer.Option(help="List of saved query IDs. Repeat the flag to define more than one ID."),
     ] = None,
 ) -> Tuple[int, str]:
     if analysis_id is None:
@@ -2057,11 +2161,8 @@ def delete(
     if query_id is None:
         query_id = []
 
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
-        confirm_bypass=confirm_bypass,
+    args = bulk_delete.BulkDeleteArgs(
+        confirm=confirm,
         analysis_id=analysis_id,
         query_id=query_id,
     )
@@ -2083,32 +2184,17 @@ def update_custom_schemas_cmd(
         ),
     ] = ".",
 ) -> Tuple[int, str]:
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
-        path=path,
-    )
-    return update_custom_schemas(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return update_custom_schemas(pat_utils.get_backend(api_token, api_host, aws_profile), path)
 
 
 @app_command_with_config(name="test-lookup-table", help="Validate a Lookup Table spec file.")
 def test_lookup_table_cmd(
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
-    aws_profile: AWSProfileType = None,
     path: Annotated[
         str,
         typer.Option(envvar="PANTHER_PATH", help="The relative path to a lookup table input file."),
     ] = ".",
 ) -> Tuple[int, str]:
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
-        path=path,
-    )
-    return test_lookup_table(args)
+    return test_lookup_table(path)
 
 
 @app_command_with_config(
@@ -2121,15 +2207,15 @@ def validate_cmd(
     ignore_files: IgnoreFilesType = None,
     path: PathType = ".",
 ) -> Tuple[int, str]:
-    if _filter is None:
-        _filter = []
     if ignore_files is None:
         ignore_files = []
 
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        filter=_filter,
+    filters, filters_inverted = parse_filter(_filter)
+
+    args = validate.ValidateArgs(
+        out=".",
+        filters=filters,
+        filters_inverted=filters_inverted,
         ignore_files=ignore_files,
         path=path,
     )
@@ -2156,26 +2242,33 @@ def zip_cmd(
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
 ) -> Tuple[int, str]:
-    if _filter is None:
-        _filter = []
     if ignore_files is None:
         ignore_files = []
     if valid_table_names is None:
         valid_table_names = []
+    if available_destination is None:
+        available_destination = []
 
-    args = argparse.Namespace(
-        filter=_filter,
-        ignore_files=ignore_files,
-        minimum_tests=minimum_tests,
-        out=out,
-        path=path,
+    filters, filters_inverted = parse_filter(_filter)
+
+    args = ZipAnalysisArgs(
         skip_tests=skip_tests,
-        skip_disabled_tests=skip_disabled_tests,
-        available_destination=available_destination,
-        sort_test_results=sort_test_results,
-        show_failures_only=show_failures_only,
-        ignore_table_names=ignore_table_names,
-        valid_table_names=valid_table_names,
+        out=out,
+        test_analysis_args=TestAnalysisArgs(
+            filters=filters,
+            filters_inverted=filters_inverted,
+            ignore_files=ignore_files,
+            minimum_tests=minimum_tests,
+            path=path,
+            skip_disabled_tests=skip_disabled_tests,
+            available_destination=available_destination,
+            sort_test_results=sort_test_results,
+            show_failures_only=show_failures_only,
+            ignore_table_names=ignore_table_names,
+            valid_table_names=valid_table_names,
+            ignore_extra_keys=False,
+            test_names=[],
+        ),
     )
     return zip_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
 
@@ -2186,12 +2279,7 @@ def check_connection_cmd(
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
-    )
-    return check_connection.run(pat_utils.get_backend(api_token, api_host, aws_profile), args)
+    return check_connection.run(pat_utils.get_backend(api_token, api_host, aws_profile), api_host)
 
 
 def parse_date(text: Optional[str]) -> Optional[datetime]:
@@ -2210,6 +2298,8 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
     ),
 )
 def benchmark_command(
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     path: PathType = ".",
@@ -2245,15 +2335,15 @@ def benchmark_command(
             ),
         ),
     ] = None,
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
 ) -> Tuple[int, str]:
-    # Here you might want to convert the hour back to string if needed, or pass as datetime object
-    # Call your wrapped backend function
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        filter=_filter,
+    if ignore_files is None:
+        ignore_files = []
+
+    filters, filters_inverted = parse_filter(_filter)
+
+    args = benchmark.BenchmarkArgs(
+        filters=filters,
+        filters_inverted=filters_inverted,
         ignore_files=ignore_files,
         path=path,
         out=out,
@@ -2269,28 +2359,26 @@ def benchmark_command(
     help="Enrich test data with additional enrichments from the Panther API.",
 )
 def enrich_test_data_command(
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     _filter: FilterType = None,
     path: PathType = ".",
     ignore_files: IgnoreFilesType = None,
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
-    aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
-    if _filter is None:
-        _filter = []
     if ignore_files is None:
         ignore_files = []
     if valid_table_names is None:
         valid_table_names = []
 
+    filters, filters_inverted = parse_filter(_filter)
+
     # Call your backend function with the parsed arguments
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
-        filter=_filter,
+    args = EnrichTestDataArgs(
+        filters=filters,
+        filters_inverted=filters_inverted,
         path=path,
         ignore_files=ignore_files,
         ignore_table_names=ignore_table_names,
@@ -2304,17 +2392,8 @@ def enrich_test_data_command(
 )
 def check_packs_command(
     path: PathType = ".",
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
-    aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
-    args = argparse.Namespace(
-        api_token=api_token,
-        api_host=api_host,
-        aws_profile=aws_profile,
-        path=path,
-    )
-    return check_packs(args)
+    return check_packs(path)
 
 
 # pylint: disable=too-many-statements

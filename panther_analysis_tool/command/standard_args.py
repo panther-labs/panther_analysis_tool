@@ -32,12 +32,16 @@ AWSProfileType: TypeAlias = Annotated[
 FilterType: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
-        "--filter", envvar="PANTHER_FILTER", metavar="KEY=VALUE", help="Filter detections"
+        "--filter",
+        envvar="PANTHER_FILTER",
+        metavar="KEY=VALUE",
+        help="key=value or key!=value pairs used to filter detections. "
+        "Repeat the flag to define more than one filter, which will be combined with an AND operator.",
     ),
 ]
 
 KMSKeyType: TypeAlias = Annotated[
-    Optional[str],
+    str,
     typer.Option(envvar="PANTHER_KMS_KEY", help="The key id to use to sign the release asset."),
 ]
 
@@ -85,7 +89,7 @@ IgnoreFilesType: TypeAlias = Annotated[
     Optional[List[str]],
     typer.Option(
         envvar="PANTHER_IGNORE_FILES",
-        help="Relative path to files to be ignored (space separated). Example ./foo.yaml ./bar/baz.yaml",
+        help="Relative path to files to be ignored. Repeat the flag to define more than one file.",
     ),
 ]
 
@@ -95,7 +99,7 @@ AvailableDestinationType: TypeAlias = Annotated[
         envvar="PANTHER_AVAILABLE_DESTINATION",
         help=(
             "A destination name that may be returned by the destinations function. "
-            "Repeat the argument to define more than one name."
+            "Repeat the flag to define more than one destination."
         ),
     ),
 ]
@@ -123,8 +127,9 @@ ValidTableNamesType: TypeAlias = Annotated[
     typer.Option(
         help=(
             "Fully qualified table names that should be considered valid during schema validation "
-            "(in addition to standard Panther/Snowflake tables), space separated. "
-            "Accepts '*' as wildcard matching 0 or more characters. Example: foo.bar.baz bar.baz.* foo.*bar.baz baz.* *.foo.*"
+            "(in addition to standard Panther/Snowflake tables). "
+            "Repeat the flag to define more than one name. "
+            "Accepts '*' as wildcard matching 0 or more characters. Example: foo.*bar.baz"
         ),
     ),
 ]

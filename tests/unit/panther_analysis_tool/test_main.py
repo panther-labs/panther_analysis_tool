@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import traceback
 from datetime import datetime
 from unittest import mock
 from unittest.mock import patch
@@ -15,7 +14,6 @@ from typer.testing import CliRunner, Result
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool import main
 from panther_analysis_tool import main as pat
-from panther_analysis_tool import util
 from panther_analysis_tool.backend.client import (
     BackendError,
     BackendResponse,
@@ -31,9 +29,8 @@ from panther_analysis_tool.backend.client import (
 )
 from panther_analysis_tool.backend.lambda_client import AWS_PROFILE_ENV_KEY
 from panther_analysis_tool.backend.mocks import MockBackend
-from panther_analysis_tool.command import validate
-from panther_analysis_tool.core import parse
 from panther_analysis_tool.main import app, upload_analysis
+from panther_analysis_tool.schemas import RULE_SCHEMA
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
@@ -673,10 +670,9 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 1)
 
     def test_valid_simple_detections(self):
-        # Force the PAT schema explicitly to ignore extra keys.
-        pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
         return_code, invalid_specs = mock_test_analysis(
-            self, f"test --path {FIXTURES_PATH}/simple-detections/valid".split()
+            self,
+            ["test", "--path", f"{FIXTURES_PATH}/simple-detections/valid", "--ignore-extra-keys"],
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
@@ -710,12 +706,12 @@ class TestPantherAnalysisTool(TestCase):
                     status_code=200,
                 )
             )
-            # Force the PAT schema explicitly to ignore extra keys.
-            pat.RULE_SCHEMA._ignore_extra_keys = True  # pylint: disable=protected-access
             with patch(
                 "panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=backend
             ):
-                return_code, invalid_specs = mock_test_analysis(self, ["test", "--path", file_path])
+                return_code, invalid_specs = mock_test_analysis(
+                    self, ["test", "--path", file_path, "--ignore-extra-keys"]
+                )
 
         # our mock transpiled code always returns true, so we should have some failing tests
         self.assertEqual(return_code, 1)
@@ -1068,7 +1064,10 @@ class TestPantherAnalysisTool(TestCase):
         ]
 
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=True, valid_table_names=[]
+            specs,
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should have no invalid specs
@@ -1095,7 +1094,10 @@ class TestPantherAnalysisTool(TestCase):
         ]
 
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=True, valid_table_names=[]
+            specs,
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should have one invalid spec
@@ -1133,7 +1135,10 @@ class TestPantherAnalysisTool(TestCase):
         ]
 
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=True, valid_table_names=[]
+            specs,
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should have one valid spec and one invalid (duplicate)
@@ -1165,7 +1170,10 @@ class TestPantherAnalysisTool(TestCase):
         ]
 
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=True, valid_table_names=[]
+            specs,
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should have one valid spec and one invalid
@@ -1193,7 +1201,10 @@ class TestPantherAnalysisTool(TestCase):
 
         # Test with table name validation enabled (ignore_table_names=False)
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=False, valid_table_names=[]
+            specs,
+            ignore_table_names=False,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should have one invalid spec due to invalid table names
@@ -1205,7 +1216,10 @@ class TestPantherAnalysisTool(TestCase):
 
         # Test with table name validation disabled (ignore_table_names=True)
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=True, valid_table_names=[]
+            specs,
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should have no invalid specs when ignoring table names
@@ -1247,7 +1261,10 @@ class TestPantherAnalysisTool(TestCase):
 
         with mock.patch.object(logging, "warning") as mock_warning:
             all_specs, invalid_specs = pat.classify_analysis(
-                specs, ignore_table_names=True, valid_table_names=[]
+                specs,
+                ignore_table_names=True,
+                valid_table_names=[],
+                ignore_extra_keys=False,
             )
 
             # Should have no invalid specs (warnings don't make specs invalid)
@@ -1284,7 +1301,10 @@ class TestPantherAnalysisTool(TestCase):
         ]
 
         all_specs, invalid_specs = pat.classify_analysis(
-            specs, ignore_table_names=True, valid_table_names=[]
+            specs,
+            ignore_table_names=True,
+            valid_table_names=[],
+            ignore_extra_keys=False,
         )
 
         # Should classify as a valid detection
