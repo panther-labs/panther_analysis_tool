@@ -2298,6 +2298,8 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
     ),
 )
 def benchmark_command(
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     path: PathType = ".",
@@ -2333,8 +2335,6 @@ def benchmark_command(
             ),
         ),
     ] = None,
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
 ) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
@@ -2359,14 +2359,14 @@ def benchmark_command(
     help="Enrich test data with additional enrichments from the Panther API.",
 )
 def enrich_test_data_command(
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    aws_profile: AWSProfileType = None,
     _filter: FilterType = None,
     path: PathType = ".",
     ignore_files: IgnoreFilesType = None,
     ignore_table_names: IgnoreTableNamesType = False,
     valid_table_names: ValidTableNamesType = None,
-    api_token: APITokenType = None,
-    api_host: APIHostType = "",
-    aws_profile: AWSProfileType = None,
 ) -> Tuple[int, str]:
     if ignore_files is None:
         ignore_files = []
