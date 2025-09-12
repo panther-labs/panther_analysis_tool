@@ -2148,10 +2148,12 @@ def delete(
     # Delete-specific flags
     confirm: Annotated[bool, typer.Option(help="Require manual confirmation")] = True,
     analysis_id: Annotated[
-        Optional[List[str]], typer.Option(help="List of detection IDs", show_default=False)
+        Optional[List[str]],
+        typer.Option(help="List of detection IDs. Repeat the flag to define more than one ID."),
     ] = None,
     query_id: Annotated[
-        Optional[List[str]], typer.Option(help="List of saved query IDs", show_default=False)
+        Optional[List[str]],
+        typer.Option(help="List of saved query IDs. Repeat the flag to define more than one ID."),
     ] = None,
 ) -> Tuple[int, str]:
     if analysis_id is None:
