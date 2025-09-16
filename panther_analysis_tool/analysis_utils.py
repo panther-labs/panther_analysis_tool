@@ -169,24 +169,8 @@ class LoadAnalysisSpecsResult:
     analysis_spec: Any
     yaml_ctx: YAML
     error: Exception
-    raw_file_content: str
+    raw_file_content: bytes
 
-    # pylint: disable=too-many-arguments
-    def __init__(
-        self,
-        spec_filename: str,
-        relative_path: str,
-        analysis_spec: Any,
-        yaml_ctx: YAML,
-        error: Any,
-        raw_file_content: str,
-    ):
-        self.spec_filename = spec_filename
-        self.relative_path = relative_path
-        self.analysis_spec = analysis_spec
-        self.yaml_ctx = yaml_ctx
-        self.error = error
-        self.raw_file_content = raw_file_content
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
@@ -331,13 +315,13 @@ def load_analysis_specs_ex(
                 loaded_specs.append(spec_filename)
                 # setup yaml object
                 if fnmatch(filename, "*.y*ml"):
-                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
+                    with open(spec_filename, "rb") as spec_file_obj:
                         try:
                             file_content = spec_file_obj.read()
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
                                 relative_path=dirpath,
-                                analysis_spec=yaml.load(io.StringIO(file_content)),
+                                analysis_spec=yaml.load(io.BytesIO(file_content)),
                                 yaml_ctx=yaml,
                                 error=None,
                                 raw_file_content=file_content,
