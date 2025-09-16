@@ -328,7 +328,7 @@ class TestPATSchemas(unittest.TestCase):
                 "LookbackWindowSeconds": 60,
             }
         )
-        # email config
+        # Email Config
         SCHEDULED_QUERY_SCHEMA.validate(
             {
                 "QueryName": "my.query.id2",
