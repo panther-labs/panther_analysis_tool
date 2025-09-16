@@ -328,6 +328,23 @@ class TestPATSchemas(unittest.TestCase):
                 "LookbackWindowSeconds": 60,
             }
         )
+        # Email Config
+        SCHEDULED_QUERY_SCHEMA.validate(
+            {
+                "QueryName": "my.query.id2",
+                "AnalysisType": "scheduled_query",
+                "Query": "select 1",
+                "Enabled": False,
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
+                "Lookback": True,
+                "LookbackWindowSeconds": 60,
+                "EmailConfig": {
+                    "Recipients": ["email@example.com"],
+                    "SendEmpty": True,
+                    "PreferAttachment": False,
+                },
+            }
+        )
 
     def test_saved_query_validate_schema(self):
         # has required fields
