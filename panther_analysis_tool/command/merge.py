@@ -7,7 +7,7 @@ import re
 import sqlite3
 import subprocess
 import tempfile
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import ruamel
 
@@ -34,7 +34,7 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
     all_specs = list(load_analysis_specs_ex(["."], [], True))
     if not all_specs:
         print("Nothing to merge")
-        return 0
+        return 0, ""
 
     update_count = 0
     merge_conflicts = []
@@ -52,22 +52,23 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
             # user specified an analysis id, only merge that one
             continue
 
-        base_spec_str, base_file_content = loader.load_base_spec(user_spec, migrate)
-        if base_spec_str is None:
+        base_spec_bytes, base_file_content = loader.load_base_spec(user_spec, migrate)
+        if base_spec_bytes is None:
             logging.warning("Base version not found for %s, skipping", user_spec.spec_filename)
             continue
 
         # find latest version of the base spec
-        latest_base_spec_str, latest_file_content, latest_version = loader.load_latest_spec(
+        latest_base_spec_bytes, latest_file_content, latest_version = loader.load_latest_spec(
             user_spec
         )
-        if latest_base_spec_str is None:
+        if latest_base_spec_bytes is None:
             if migrate:
+                spec_path = pathlib.Path(user_spec.spec_filename)
                 if user_spec.analysis_spec.get("AnalysisType") == "pack":
                     # just delete packs
                     os.remove(user_spec.spec_filename)
                     continue
-                if loader.was_deleted_by_panther(user_spec.spec_filename):
+                if loader.was_deleted_by_panther(spec_path):
                     # the spec was deleted by panther
                     os.remove(user_spec.spec_filename)
                     filename = user_spec.analysis_spec.get("Filename")
@@ -79,7 +80,7 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
                         "Deleted %s because it was deleted by panther", user_spec.spec_filename
                     )
                     continue
-                if loader.still_exists_in_panther(user_spec.spec_filename):
+                if loader.still_exists_in_panther(spec_path):
                     # the spec still exists in panther. It is likely the ID changed,
                     # do the diff on it with the current content
                     # TODO: handle this
@@ -94,8 +95,8 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
             # already up to date
             continue
 
-        spec_conflict, spec_output = merge_yaml(base_spec_str, latest_base_spec_str, user_spec_str)
-        file_conflict, file_output = False, None
+        spec_conflict, spec_output = merge_yaml(base_spec_bytes.decode(), latest_base_spec_bytes.decode(), user_spec_str)
+        file_conflict, file_output = False, bytes()
 
         # next check for conflicts in the file
         file_content = load_file_of_spec(user_spec)
@@ -115,11 +116,15 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
             if analysis_id is not None:
                 # user specified an analysis id, go into merge conflict resolution mode
                 if spec_conflict:
-                    spec_output = resolve_yaml_conflict(spec_output)
-                if file_conflict:
-                    file_output = resolve_python_conflict(file_output)
-                    if file_output is None:
+                    output = resolve_yaml_conflict(spec_output)
+                    if output is None:
                         continue
+                    spec_output = output
+                if file_conflict:
+                    output = resolve_python_conflict(file_output)
+                    if output is None:
+                        continue
+                    file_output = output
             else:
                 merge_conflicts.append(util.get_spec_id(user_spec.analysis_spec))
                 continue
@@ -136,7 +141,7 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
             spec_file.write(merged_spec_str)
 
         # update the file
-        if file_output is not None:
+        if file_output != bytes():
             update_file_of_spec(user_spec, file_output)
 
         update_count += 1
@@ -148,8 +153,8 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
     if len(merge_conflicts) != 0:
         print(f"{len(merge_conflicts)} merge conflict(s) found")
         print("run `pat merge <id>` to resolve each conflict")
-        for spec_conflict in merge_conflicts:
-            print(f"  {spec_conflict}")
+        for conflict in merge_conflicts:
+            print(f"  {conflict}")
         return 0, ""
     else:
         # FIXME
@@ -171,53 +176,54 @@ class Loader:
 
     def load_base_spec(
         self, spec: LoadAnalysisSpecsResult, use_git: bool
-    ) -> Tuple[Optional[str], Optional[bytes]]:
+    ) -> Tuple[Optional[bytes], Optional[bytes]]:
         base_version = spec.analysis_spec.get("BaseVersion")
+        base_spec_bytes: Optional[bytes] = None
+        base_file_content: Optional[bytes] = None
         if base_version is None:
             if not use_git:
                 return None, None
 
-            base_spec_bytes = get_base_file_from_git(self.git_manager, spec.spec_filename)
+            base_spec_bytes = get_base_file_from_git(self.git_manager, pathlib.Path(spec.spec_filename))
             if base_spec_bytes is None:
                 return None, None
 
             base_spec = self.yaml.load(base_spec_bytes)
             filename = base_spec.get("Filename")
             if filename is None:
-                return base_spec_bytes.decode(), None
+                return base_spec_bytes, None
 
             # now fetch that file from git
             filename = pathlib.Path(spec.spec_filename).parent / filename
             base_file_content = get_base_file_from_git(self.git_manager, filename)
-            return base_spec_bytes.decode(), base_file_content
+            return base_spec_bytes, base_file_content
 
         # otherwise load the base spec from the database
         analysis_id = lookup_analysis_id(spec.analysis_spec)
-        base_analysis_id, base_spec_str = self.cache.get_spec_for_version(analysis_id, base_version)
-        if base_spec_str is None:
+        base_analysis_id, base_spec_bytes = self.cache.get_spec_for_version(analysis_id, base_version)
+        if base_analysis_id is None or base_spec_bytes is None:
             return None, None
         base_file_content = self.cache.get_file_for_spec(base_analysis_id)
 
-        return base_spec_str, base_file_content
+        return base_spec_bytes, base_file_content
 
     def load_latest_spec(
         self, spec: LoadAnalysisSpecsResult
-    ) -> Tuple[Optional[str], Optional[bytes], Optional[int]]:
+    ) -> Tuple[Optional[bytes], Optional[bytes], Optional[int]]:
         analysis_id = lookup_analysis_id(spec.analysis_spec)
-        spec_id, spec_str, spec_version = self.cache.get_latest_spec(analysis_id)
+        spec_id, spec_bytes, spec_version = self.cache.get_latest_spec(analysis_id)
         if spec_id is None:
             return None, None, None
 
         latest_file_content = self.cache.get_file_for_spec(spec_id)
 
-        return spec_str, latest_file_content, spec_version
+        return spec_bytes, latest_file_content, spec_version
 
-    def was_deleted_by_panther(self, filename: str) -> bool:
+    def was_deleted_by_panther(self, filename: pathlib.Path) -> bool:
         # see if the spec was deleted by panther
         merge_base = self.git_manager.merge_base("HEAD")
 
         # normalize the filename for the git repo
-        filename = pathlib.Path(filename)
         if filename.is_absolute():
             filename = filename.relative_to(self.git_manager.git_root())
 
@@ -240,10 +246,9 @@ class Loader:
         )
         return proc.stdout.decode().strip() != ""
 
-    def still_exists_in_panther(self, filename: str) -> Optional[bytes]:
+    def still_exists_in_panther(self, filename: pathlib.Path) -> Optional[bytes]:
         # see if the spec still exists in panther
         # normalize the filename for the git repo
-        filename = pathlib.Path(filename)
         if filename.is_absolute():
             filename = filename.relative_to(self.git_manager.git_root())
 
@@ -255,7 +260,7 @@ class Loader:
         )
         if proc.returncode != 0:
             return None
-        return proc.stdout.decode().strip()
+        return proc.stdout.strip()
 
 
 def load_file_of_spec(spec: LoadAnalysisSpecsResult) -> Optional[bytes]:
@@ -270,20 +275,20 @@ def load_file_of_spec(spec: LoadAnalysisSpecsResult) -> Optional[bytes]:
 def update_file_of_spec(spec: LoadAnalysisSpecsResult, file_content: bytes) -> None:
     file_name = spec.analysis_spec.get("Filename")
     if file_name is None:
-        raise ValueError(f"No file name found for spec {spec.analysis_spec['BaseID']}")
+        raise ValueError(f"No file name found for spec {lookup_analysis_id(spec.analysis_spec)}")
     path = pathlib.Path(spec.spec_filename).parent / file_name
     with open(path, "wb") as spec_file:
         spec_file.write(file_content)
 
 
-def strip_base_version(yaml: ruamel.yaml.YAML, spec: str) -> Tuple[str, Optional[int]]:
+def strip_base_version(yaml: ruamel.yaml.YAML, spec: Dict[str, Any]) -> Tuple[str, Optional[int]]:
     version = spec.pop("BaseVersion", None)
     string_io = io.StringIO()
     yaml.dump(spec, string_io)
     return string_io.getvalue(), version
 
 
-def merge_yaml(base: str, latest: str, user: str) -> Tuple[bool, any]:
+def merge_yaml(base: str, latest: str, user: str) -> Tuple[bool, bytes]:
     base = analysis_spec_dump(base)
     latest = analysis_spec_dump(latest)
     user = analysis_spec_dump(user)
@@ -363,12 +368,11 @@ def resolve_python_conflict(merge_result: bytes) -> Optional[bytes]:
     return output
 
 
-def get_base_file_from_git(git_manager: git.GitManager, filename: str) -> bytes:
+def get_base_file_from_git(git_manager: git.GitManager, filename: pathlib.Path) -> bytes:
     # get the base version from the git history
     merge_base = git_manager.merge_base("HEAD")
 
     # normalize the filename for the git repo
-    filename = pathlib.Path(filename)
     if filename.is_absolute():
         filename = filename.relative_to(git_manager.git_root())
 

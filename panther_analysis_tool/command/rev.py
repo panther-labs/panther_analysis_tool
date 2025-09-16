@@ -22,7 +22,7 @@ def rev_analysis(analysis_id: str) -> None:
         return 1, f"No spec found for {analysis_id}"
 
     # read the temp file and compare it to the original spec
-    temp_spec = editor.edit_file(spec.encode())
+    temp_spec = editor.edit_file(spec)
 
     if temp_spec == spec:
         print("No changes made")

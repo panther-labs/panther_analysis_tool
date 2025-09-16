@@ -25,7 +25,7 @@ class AnalysisCache:
         self.cursor.execute("SELECT id_value FROM analysis_specs")
         return [row[0] for row in self.cursor.fetchall()]
 
-    def get_file_for_spec(self, spec_id: int) -> Optional[str]:
+    def get_file_for_spec(self, spec_id: int) -> Optional[bytes]:
         """
         Get the file for a spec.
         """
@@ -36,7 +36,7 @@ class AnalysisCache:
             return None
         return self.get_file_by_id(row[0])
 
-    def get_file_by_id(self, file_id: int) -> Optional[str]:
+    def get_file_by_id(self, file_id: int) -> Optional[bytes]:
         """
         Get the file by id.
         """
@@ -46,8 +46,8 @@ class AnalysisCache:
         return row[0]
 
     def get_spec_for_version(
-        self, analysis_id: int, base_version: int
-    ) -> Tuple[int, Optional[str]]:
+        self, analysis_id: str, base_version: int
+    ) -> Tuple[Optional[int], Optional[bytes]]:
         self.cursor.execute(
             "SELECT id, spec FROM analysis_specs WHERE id_value = ? AND version = ?",
             (analysis_id, base_version),
@@ -58,8 +58,8 @@ class AnalysisCache:
         return row[0], row[1]
 
     def get_latest_spec(
-        self, analysis_id: int
-    ) -> Tuple[Optional[int], Optional[str], Optional[int]]:
+        self, analysis_id: str
+    ) -> Tuple[Optional[int], Optional[bytes], Optional[int]]:
         self.cursor.execute(
             "SELECT id, spec, version FROM analysis_specs WHERE id_value = ? ORDER BY version DESC LIMIT 1",
             (analysis_id,),
