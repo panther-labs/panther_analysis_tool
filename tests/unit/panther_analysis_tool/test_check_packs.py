@@ -1,7 +1,5 @@
 import os
-import re
 import unittest
-from argparse import Namespace
 from pathlib import Path
 
 from panther_analysis_tool.main import check_packs
@@ -16,8 +14,8 @@ class TestCheckPacks(unittest.TestCase):
         if self._bad_packs is not None:
             return self._bad_packs
 
-        args = Namespace(path=FIXTURES_PATH / "missing-dependencies")
-        exit_code, res = check_packs(args)
+        path = FIXTURES_PATH / "missing-dependencies"
+        exit_code, res = check_packs(path)
 
         assert exit_code == 1
         res = res.split("\n")
@@ -35,8 +33,8 @@ class TestCheckPacks(unittest.TestCase):
         return self._bad_packs
 
     def test_fixtures(self) -> None:
-        args = Namespace(path=FIXTURES_PATH / "packless-rule")
-        exit_code, res = check_packs(args)
+        path = FIXTURES_PATH / "packless-rule"
+        exit_code, res = check_packs(path)
 
         assert exit_code == 1
         assert "Test.Missing" in res
@@ -70,8 +68,7 @@ class TestCheckPacks(unittest.TestCase):
     def test_empty_dir(self) -> None:
         current_dir = os.path.dirname(os.path.realpath(__file__))
         print(current_dir)
-        args = Namespace(path=current_dir)
-        exit_code, res = check_packs(args)
+        exit_code, res = check_packs(current_dir)
 
         assert exit_code == 0
         assert res == "Looks like packs are up to date"

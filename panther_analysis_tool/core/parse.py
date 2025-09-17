@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Dict, List, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 from panther_analysis_tool.schemas import (
     GLOBAL_SCHEMA,
@@ -9,11 +10,19 @@ from panther_analysis_tool.schemas import (
 )
 
 
+@dataclass
+class Filter:
+    key: str
+    values: List[Any] | Any
+
+
 # Parses the filters, expects a list of strings
-def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
     parsed_filters: Dict[str, Any] = {}
     parsed_filters_inverted: Dict[str, Any] = {}
-    for filt in filters:
+    if str_filters is None:
+        return [], []
+    for filt in str_filters:
         split = filt.split("=")
         if len(split) != 2 or split[0] == "" or split[1] == "":
             logging.error("Filter %s is not in format KEY=VALUE", filt)
@@ -46,7 +55,12 @@ def parse_filter(filters: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 parsed_filters_inverted[key] = [bool_value]
             else:
                 parsed_filters[key] = [bool_value]
-    return parsed_filters, parsed_filters_inverted
+
+    filters = [Filter(key=key, values=values) for key, values in parsed_filters.items()]
+    filters_inverted = [
+        Filter(key=key, values=values) for key, values in parsed_filters_inverted.items()
+    ]
+    return filters, filters_inverted
 
 
 def strtobool(val: str) -> int:
