@@ -2324,7 +2324,7 @@ def benchmark_command(
                 "If hour is unspecified, the performance test will run against the hour in the last two weeks "
                 "with the largest log volume."
             ),
-            callback=parse_date,
+            parser=parse_date,
         ),
     ] = None,
     log_type: Annotated[
@@ -2408,12 +2408,12 @@ def run() -> None:
         app()
     except BackendNotFoundException as err:
         logging.error('Backend not found: "%s"', err)
-        raise typer.Exit(code=1)
+        sys.exit(1)
     except Exception as err:  # pylint: disable=broad-except
         # Catch arbitrary exceptions without printing help message
         logging.warning('Unhandled exception: "%s"', err)
         logging.debug("Full error traceback:", exc_info=err)
-        raise typer.Exit(code=1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
