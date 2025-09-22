@@ -1,4 +1,3 @@
-import io
 from typing import Tuple
 
 from panther_analysis_tool.analysis_utils import get_yaml_loader
@@ -9,6 +8,7 @@ def run(analysis_id: str) -> Tuple[int, str]:
     return rev_analysis(analysis_id)
 
 
+# pylint: disable=too-many-locals
 def rev_analysis(analysis_id: str) -> Tuple[int, str]:
     conn = analysis_cache.connect_to_cache()
     cursor = conn.cursor()

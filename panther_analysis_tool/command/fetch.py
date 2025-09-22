@@ -10,12 +10,13 @@ from typing import Tuple
 
 import requests
 
+from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
 from panther_analysis_tool.constants import (
     CACHE_DIR,
-    PANTHER_ANALYSIS_SQLITE_FILE,
     PANTHER_ANALYSIS_URL,
     AnalysisTypes,
 )
+from panther_analysis_tool.core import analysis_cache
 
 PANTHER_ANALYSIS_GITHUB_BRANCH = "dmiller-next"
 
@@ -93,23 +94,17 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
 
 
 def import_sqlite() -> None:
-    # defer importing to improve startup time
-    from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
-
-    sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
-    conn = sqlite3.connect(sqlite_file)
+    conn = analysis_cache.connect_to_cache()
     cursor = conn.cursor()
 
     create_tables(cursor)
 
-    # load all analysis specs
-    all_specs = load_analysis_specs_ex([CACHE_DIR], [], False)
-
     versions = {}
-    with open(os.path.join(CACHE_DIR, "panther-analysis", "version.json"), "r") as f:
-        versions = json.load(f)["versions"]
+    with open(os.path.join(CACHE_DIR, "panther-analysis", "version.json"), "rb") as version_file:
+        versions = json.load(version_file)["versions"]
 
-    for spec in all_specs:
+    # load all analysis specs
+    for spec in load_analysis_specs_ex([CACHE_DIR], [], False):
         if spec.error is not None:
             continue
 

@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import shutil
 from typing import Any, Callable, List, Optional, Tuple
 
 from panther_analysis_tool.analysis_utils import (
@@ -8,6 +9,7 @@ from panther_analysis_tool.analysis_utils import (
     lookup_analysis_id,
 )
 from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes
+
 
 def run(analysis_id: Optional[str], filters: List[str]) -> Tuple[int, str]:
     clone_analysis(analysis_id, filters, lambda x: None)
@@ -22,7 +24,7 @@ def clone_analysis(
         logging.info("Nothing to clone")
         return None
 
-    existing = [spec for spec in load_analysis_specs_ex(["."], [], True)]
+    existing = load_analysis_specs_ex(["."], [], True)
 
     if analysis_id is not None:
         for spec in existing:
@@ -63,7 +65,6 @@ def clone_analysis(
             case _:
                 raise ValueError(f"Unsupported analysis type: {spec.analysis_spec['AnalysisType']}")
     logging.info("Nothing to clone")
-    return None
 
 
 def create_clone(spec: LoadAnalysisSpecsResult, mutator: Optional[Callable[[Any], Any]]) -> None:
@@ -79,19 +80,15 @@ def create_clone(spec: LoadAnalysisSpecsResult, mutator: Optional[Callable[[Any]
 
     new_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(new_file_path, "w", encoding="utf-8") as f:
-        spec.yaml_ctx.dump(new_spec, f)
+    with open(new_file_path, "wb") as new_file:
+        spec.yaml_ctx.dump(new_spec, new_file)
 
     match spec.analysis_spec["AnalysisType"]:
         case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.GLOBAL:
             # clone the .py file
             filename = pathlib.Path(spec.spec_filename).parent / spec.analysis_spec["Filename"]
-            with open(filename, "r", encoding="utf-8") as f:
-                content = f.read()
             new_filename = filename.relative_to(cache_path / "panther-analysis")
             new_filename.parent.mkdir(parents=True, exist_ok=True)
-            with open(new_filename, "w", encoding="utf-8") as f:
-                f.write(content)
+            shutil.copy(filename, new_filename)
         case _:
             pass
-    return None

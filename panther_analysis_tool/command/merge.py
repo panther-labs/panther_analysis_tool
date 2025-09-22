@@ -23,11 +23,15 @@ from panther_analysis_tool.core import analysis_cache, editor, git
 from panther_analysis_tool.core.format import analysis_spec_dump
 
 
-def run(analysis_id: Optional[str] = None, migrate: bool = False) -> Tuple[int, str]:
+class MergeError(Exception):
+    pass
+
+
+def run(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]:
     return merge_analysis(analysis_id, migrate)
 
 
-def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> Tuple[int, str]:
+def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]:
     yaml = get_yaml_loader(True)
 
     # load all analysis specs
@@ -96,7 +100,7 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
             continue
 
         spec_conflict, spec_output = merge_yaml(
-            base_spec_bytes.decode(), latest_base_spec_bytes.decode(), user_spec_str
+            base_spec_bytes, latest_base_spec_bytes, user_spec_str.encode()
         )
         file_conflict, file_output = False, bytes()
 
@@ -110,8 +114,8 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
                 print(f"Latest file for {base_analysis_id}@{base_version} not found, skipping")
                 continue
 
-            file_conflict, file_output = merge_strings(
-                base_file_content.decode(), latest_file_content.decode(), file_content.decode()
+            file_conflict, file_output = merge_bytes(
+                base_file_content, latest_file_content, file_content
             )
 
         if spec_conflict or file_conflict:
@@ -134,12 +138,9 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
         # update the base spec
         merged_spec = yaml.load(spec_output.decode())
         merged_spec["BaseVersion"] = latest_version
-        string_io = io.StringIO()
-        yaml.dump(merged_spec, string_io)
-        merged_spec_str = string_io.getvalue()
 
         # update the base spec
-        with open(user_spec.spec_filename, "w", encoding="utf-8") as spec_file:
+        with open(user_spec.spec_filename, "wb") as spec_file:
             spec_file.write(analysis_spec_dump(merged_spec, True))
 
         # update the file
@@ -157,10 +158,8 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
         print("run `pat merge <id>` to resolve each conflict")
         for conflict in merge_conflicts:
             print(f"  {conflict}")
-        return 0, ""
-    else:
-        # FIXME
-        return 0, ""
+
+    return 0, ""
 
 
 class Loader:
@@ -294,27 +293,27 @@ def strip_base_version(yaml: ruamel.yaml.YAML, spec: Dict[str, Any]) -> Tuple[st
     return string_io.getvalue(), version
 
 
-def merge_yaml(base: str, latest: str, user: str) -> Tuple[bool, bytes]:
+def merge_yaml(base: bytes, latest: bytes, user: bytes) -> Tuple[bool, bytes]:
     base = analysis_spec_dump(base)
     latest = analysis_spec_dump(latest)
     user = analysis_spec_dump(user)
-    return merge_strings(base, latest, user)
+    return merge_bytes(base, latest, user)
 
 
-def merge_strings(base: str, latest: str, user: str) -> Tuple[bool, bytes]:
+def merge_bytes(base: bytes, latest: bytes, user: bytes) -> Tuple[bool, bytes]:
     # create a temp file for each
     with (
         tempfile.NamedTemporaryFile(delete=False) as temp_file_base,
         tempfile.NamedTemporaryFile(delete=False) as temp_file_latest,
         tempfile.NamedTemporaryFile(delete=False) as temp_file_user,
     ):
-        temp_file_base.write(base.encode())
+        temp_file_base.write(base)
         temp_file_base.flush()
 
-        temp_file_latest.write(latest.encode())
+        temp_file_latest.write(latest)
         temp_file_latest.flush()
 
-        temp_file_user.write(user.encode())
+        temp_file_user.write(user)
         temp_file_user.flush()
 
         proc = subprocess.run(  # nosec:B607 B603
@@ -384,10 +383,12 @@ def get_base_file_from_git(git_manager: git.GitManager, filename: pathlib.Path) 
 
     # now fetch that file from git
     proc = subprocess.run(
-        ["git", "show", f"{merge_base}:{filename}"], capture_output=True
+        ["git", "show", f"{merge_base}:{filename}"],
+        capture_output=True,
+        check=False,
     )  # nosec:B607 B603
     if proc.returncode != 0:
-        raise Exception(f"Failed to get base file from git: {proc.stderr.decode().strip()}")
+        raise MergeError(f"Failed to get base file from git: {proc.stderr.decode().strip()}")
     return proc.stdout
 
 
@@ -431,7 +432,7 @@ def get_path_from_spec(spec: LoadAnalysisSpecsResult) -> str:
     if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.RULE:
         folder = "rules"
     if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.DERIVED:
-        raise ValueError(f"Derived rules are not supported")
+        raise ValueError("Derived rules are not supported")
     if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.SCHEDULED_RULE:
         folder = "rules"
     if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.SIMPLE_DETECTION:

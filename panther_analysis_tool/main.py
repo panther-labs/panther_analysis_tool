@@ -2417,17 +2417,19 @@ def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[
 @app_command_with_config(name="enable", help="Enable a detection")
 def enable_command(
     filters: FilterType = None,
-    analysis_id: Annotated[Optional[str], typer.Argument(
-            "id",
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(
             help="The ID of the analysis item to enable.",
             autocompletion=complete_id,
-    )] = None,
+        ),
+    ] = None,
 ) -> Tuple[int, str]:
     # You might want to process `filter` before passing to enable.run()
     # For now, just call the function (adjust as needed)
     if filters is None:
         filters = []
-    return enable.run(analysis_id=analysis_id, filters=filters)
+    return enable.run(analysis_id, filters)
 
 
 @app_command_with_config(name="fetch", help="Fetch a detection")
@@ -2437,21 +2439,23 @@ def fetch_command() -> Tuple[int, str]:
 
 @app_command_with_config(name="merge", help="Merge a detection")
 def merge_command(
-    analysis_id: Annotated[Optional[str], typer.Argument(
-        "id", help="The ID of the analysis item to merge.", autocompletion=complete_id
-    )] = None,
-    migrate: Annotated[bool, typer.Option(
-        help="Migrate the analysis item to the latest panther version."
-    )] = False,
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(help="The ID of the analysis item to merge.", autocompletion=complete_id),
+    ] = None,
+    migrate: Annotated[
+        bool, typer.Option(help="Migrate the analysis item to the latest panther version.")
+    ] = False,
 ) -> Tuple[int, str]:
     return merge.run(analysis_id, migrate)
 
 
 @app_command_with_config(name="clone", help="Clone a detection")
 def clone_command(
-    analysis_id: Annotated[Optional[str], typer.Argument(
-        "id", help="The ID of the analysis item to clone.", autocompletion=complete_id
-    )] = None,
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(help="The ID of the analysis item to clone.", autocompletion=complete_id),
+    ] = None,
     filters: FilterType = None,
 ) -> Tuple[int, str]:
     if filters is None:
@@ -2461,9 +2465,10 @@ def clone_command(
 
 @app_command_with_config(name="rev", help="Rev a detection")
 def rev_command(
-    analysis_id: Annotated[str, typer.Argument(
-        "id", help="The ID of the analysis item to rev.", autocompletion=complete_id
-    )],
+    analysis_id: Annotated[
+        str,
+        typer.Argument(help="The ID of the analysis item to rev.", autocompletion=complete_id),
+    ],
 ) -> Tuple[int, str]:
     return rev.run(analysis_id)
 

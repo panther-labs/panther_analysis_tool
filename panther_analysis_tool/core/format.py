@@ -15,7 +15,7 @@ _rt_yaml.indent(mapping=2, sequence=4, offset=2)
 _rt_yaml.width = 80
 
 
-def analysis_spec_dump(data: Any, sort: bool = True) -> str:
+def analysis_spec_dump(data: Any, sort: bool = True) -> bytes:
     if isinstance(data, bytes):
         data = _yaml.load(io.BytesIO(data))
     elif isinstance(data, str):
@@ -24,7 +24,7 @@ def analysis_spec_dump(data: Any, sort: bool = True) -> str:
         data = sort_yaml(data)
     data = {k: v.strip() if isinstance(v, str) else v for k, v in data.items()}
     data = analysis_spec_to_ruamel(data)
-    dumped = io.StringIO()
+    dumped = io.BytesIO()
     _rt_yaml.dump(data, dumped)
     return dumped.getvalue()
 
