@@ -1,4 +1,3 @@
-import argparse
 import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
@@ -11,6 +10,7 @@ from panther_analysis_tool.analysis_utils import (
     to_relative_path,
 )
 from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
+from panther_analysis_tool.core.parse import Filter
 
 
 @dataclass
@@ -44,35 +44,8 @@ class ZipArgs:
     out: Any
     path: Any
     ignore_files: List[str]
-    filters: Dict[str, List]
-    filters_inverted: Dict[str, List]
-
-    @classmethod
-    def from_args(cls, args: argparse.Namespace) -> Any:
-        filters = []
-        filters_inverted = {}
-        out = "./"
-        try:
-            filters = args.filter
-        except:  # pylint: disable=bare-except # nosec
-            pass
-
-        try:
-            filters_inverted = args.filter_inverted
-        except:  # pylint: disable=bare-except # nosec
-            pass
-
-        try:
-            out = args.out
-        except:  # pylint: disable=bare-except # nosec
-            pass
-        return cls(
-            out=out,
-            path=args.path,
-            ignore_files=args.ignore_files,
-            filters=filters,  # type: ignore
-            filters_inverted=filters_inverted,
-        )
+    filters: List[Filter]
+    filters_inverted: List[Filter]
 
 
 def chunk_list(lst: List[Any], limit: int) -> Generator[List[Any], None, None]:
@@ -166,6 +139,7 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
             analysis.append(ClassifiedAnalysis(file_name, f_path, spec))
             files.add(file_name)
             files.add("./" + file_name)
+
     return filter_analysis(analysis, args.filters, args.filters_inverted)
 
 

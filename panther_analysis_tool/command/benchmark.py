@@ -1,8 +1,8 @@
-import argparse
 import datetime
 import io
 import sys
 import zipfile
+from dataclasses import dataclass
 from statistics import mean, median
 from typing import List, Optional, Tuple, Union
 
@@ -12,6 +12,7 @@ from panther_analysis_tool.analysis_utils import ClassifiedAnalysis
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import MetricsParams, PerfTestParams
 from panther_analysis_tool.constants import AnalysisTypes, ReplayStatus
+from panther_analysis_tool.core.parse import Filter
 from panther_analysis_tool.util import log_and_write_to_file
 from panther_analysis_tool.zip_chunker import (
     ZipArgs,
@@ -32,8 +33,21 @@ class PerformanceTestIteration:
         )
 
 
+# pylint: disable=too-many-instance-attributes
+@dataclass
+class BenchmarkArgs:
+    out: str
+    path: str
+    ignore_files: List[str]
+    filters: List[Filter]
+    filters_inverted: List[Filter]
+    iterations: int
+    log_type: Optional[str]
+    hour: Optional[datetime.datetime]
+
+
 def run(  # pylint: disable=too-many-locals
-    backend: BackendClient, args: argparse.Namespace
+    backend: BackendClient, args: BenchmarkArgs
 ) -> Tuple[int, str]:
     if backend is None or not backend.supports_perf_test():
         return 1, "Invalid backend. `benchmark` is only supported via API token"
@@ -41,17 +55,24 @@ def run(  # pylint: disable=too-many-locals
     if args.iterations <= 0:
         return 1, f"benchmark must perform at least 1 iteration, {args.iterations} requested"
 
-    analyses = analysis_for_chunks(ZipArgs.from_args(args), no_helpers=True)
+    zip_args = ZipArgs(
+        out=args.out,
+        path=args.path,
+        ignore_files=args.ignore_files,
+        filters=args.filters,
+        filters_inverted=args.filters_inverted,
+    )
+    analyses = analysis_for_chunks(zip_args, no_helpers=True)
 
     rule_or_err = validate_rule_count(analyses)
     if isinstance(rule_or_err, str):
         return 1, rule_or_err
 
-    log_type, err_msg = validate_log_type(args, rule_or_err)
+    log_type, err_msg = validate_log_type(args.log_type, rule_or_err)
     if err_msg is not None or not isinstance(log_type, str):
         return 1, err_msg or "No log_type found"
 
-    hour_or_err = validate_hour(args, log_type, backend)
+    hour_or_err = validate_hour(args.hour, log_type, backend)
     if isinstance(hour_or_err, str):
         return 1, hour_or_err
 
@@ -77,14 +98,14 @@ def run(  # pylint: disable=too-many-locals
         replay_response = backend.run_perf_test(params)
         if replay_response.data.state == ReplayStatus.CANCELED:
             if len(iterations) == 0:
-                log_extreme_timeout(args, hour_or_err, now)
+                log_extreme_timeout(args.out, hour_or_err, now)
                 logged = True
             break
         if replay_response.data.state in [
             ReplayStatus.ERROR_EVALUATION,
             ReplayStatus.ERROR_COMPUTATION,
         ]:
-            log_error(args, hour_or_err, now)
+            log_error(args.out, hour_or_err, now)
             if len(iterations) == 0:
                 logged = True
             break
@@ -96,7 +117,7 @@ def run(  # pylint: disable=too-many-locals
         )
 
     if not logged:
-        log_output(args, hour_or_err, iterations, rule_or_err, now)
+        log_output(args.out, hour_or_err, iterations, rule_or_err, now)
 
     return 0, ""
 
@@ -119,9 +140,8 @@ def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> Union[ClassifiedA
 
 
 def validate_log_type(
-    args: argparse.Namespace, rule: ClassifiedAnalysis
+    log_type: Optional[str], rule: ClassifiedAnalysis
 ) -> Tuple[Optional[str], Optional[str]]:
-    log_type = getattr(args, "log_type", None)
     rule_log_types = rule.analysis_spec.get("LogTypes", [])
     if log_type is None:
         if len(rule_log_types) > 1:
@@ -142,9 +162,8 @@ def validate_log_type(
 
 
 def validate_hour(
-    args: argparse.Namespace, log_type: str, backend: BackendClient
+    hour: Optional[datetime.datetime], log_type: str, backend: BackendClient
 ) -> Union[datetime.datetime, str]:
-    hour = getattr(args, "hour", None)
     now_truncated = datetime.datetime.now().replace(
         minute=0, second=0, microsecond=0
     ).astimezone() + datetime.timedelta(microseconds=-1)
@@ -211,8 +230,8 @@ def generate_command_log_text(hour: datetime.datetime) -> List[str]:
     ]
 
 
-def write_output(args: argparse.Namespace, to_write: List[str], now: datetime.datetime) -> None:
-    with open(args.out + f"/benchmark-{int(now.timestamp())}", "a", encoding="utf-8") as filename:
+def write_output(out: str, to_write: List[str], now: datetime.datetime) -> None:
+    with open(out + f"/benchmark-{int(now.timestamp())}", "a", encoding="utf-8") as filename:
         to_write.insert(0, f"Writing to file: {filename.name}")
         log_and_write_to_file(to_write, filename)
 
@@ -222,7 +241,7 @@ def nanos_to_seconds(nanos: float) -> float:
 
 
 def log_output(
-    args: argparse.Namespace,
+    out: str,
     hour: datetime.datetime,
     iterations: List[PerformanceTestIteration],
     rule: ClassifiedAnalysis,
@@ -266,11 +285,11 @@ def log_output(
     )
     to_write.extend([str(iteration) + "\n-----" for iteration in iterations])
 
-    write_output(args, to_write, now)
+    write_output(out, to_write, now)
 
 
 def log_extreme_timeout(
-    args: argparse.Namespace,
+    out: str,
     hour: datetime.datetime,
     now: datetime.datetime,
 ) -> None:
@@ -278,10 +297,10 @@ def log_extreme_timeout(
     to_write.append(
         "Your detection has timed out before completing the benchmark one hour of data! Please improve performance."
     )
-    write_output(args, to_write, now)
+    write_output(out, to_write, now)
 
 
-def log_error(args: argparse.Namespace, hour: datetime.datetime, now: datetime.datetime) -> None:
+def log_error(out: str, hour: datetime.datetime, now: datetime.datetime) -> None:
     to_write = generate_command_log_text(hour)
     to_write.append("benchmark failed with an error. Please ensure the correctness of your rule.")
-    write_output(args, to_write, now)
+    write_output(out, to_write, now)

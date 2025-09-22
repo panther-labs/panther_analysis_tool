@@ -1,10 +1,9 @@
-import argparse
 import logging
 import os
 import re
 from functools import reduce
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union
+from typing import Any, Dict, List, Optional, TextIO, Union
 
 import boto3
 import requests
@@ -60,37 +59,6 @@ def get_client(aws_profile: Optional[str], service: str) -> boto3.client:
     else:
         client = boto3.client(service)
     return client
-
-
-def func_with_api_backend(
-    func: Callable[[BackendClient, argparse.Namespace], Any]
-) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(get_api_backend(args.api_token, args.api_host), args)
-
-
-def func_with_backend(
-    func: Callable[[BackendClient, argparse.Namespace], Any]
-) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(
-        get_backend(
-            args.api_token,
-            args.api_host,
-            getattr(args, "aws_profile", None),
-        ),
-        args,
-    )
-
-
-def func_with_optional_backend(
-    func: Callable[
-        [
-            Optional[BackendClient],
-            argparse.Namespace,
-        ],
-        Any,
-    ]
-) -> Callable[[argparse.Namespace], Tuple[int, str]]:
-    return lambda args: func(get_optional_backend(args.api_token, args.api_host), args)
 
 
 def get_optional_backend(api_token: Optional[str], api_host: str) -> Optional[BackendClient]:
