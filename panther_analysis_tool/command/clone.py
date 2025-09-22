@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from panther_analysis_tool.analysis_utils import (
     LoadAnalysisSpecsResult,

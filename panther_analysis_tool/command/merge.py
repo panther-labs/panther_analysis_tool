@@ -140,7 +140,7 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
 
         # update the base spec
         with open(user_spec.spec_filename, "w", encoding="utf-8") as spec_file:
-            spec_file.write(merged_spec_str)
+            spec_file.write(analysis_spec_dump(merged_spec, True))
 
         # update the file
         if file_output != bytes():
