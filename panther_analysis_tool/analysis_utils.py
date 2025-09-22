@@ -178,7 +178,7 @@ class LoadAnalysisSpecsResult:
     analysis_spec: Any
     yaml_ctx: YAML
     error: Optional[Exception]
-    raw_file_content: bytes
+    raw_file_content: Optional[bytes]
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):

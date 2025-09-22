@@ -1,5 +1,5 @@
 import io
-from typing import Any, List
+from typing import Any, Iterable, List
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
@@ -110,7 +110,7 @@ def lookuptable_to_ruamel(data: Any) -> Any:
     return data
 
 
-def format_tests(tests: List[Any]) -> Any:
+def format_tests(tests: Iterable[Any]) -> Any:
     for test in tests:
         if isinstance(test, dict):
             for key, value in test.items():
@@ -131,10 +131,10 @@ def to_inline_map(data: Any) -> Any:
             m[to_inline_map(k)] = to_inline_map(v)
         return m
     elif isinstance(data, list):
-        m = CommentedSeq()
+        s = CommentedSeq()
         for v in data:
-            m.append(to_inline_map(v))
-        return m
+            s.append(to_inline_map(v))
+        return s
     elif isinstance(data, str):
         return DoubleQuotedScalarString(data)
     return data

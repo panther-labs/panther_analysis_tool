@@ -14,7 +14,7 @@ def connect_to_cache() -> sqlite3.Connection:
 
 
 class AnalysisCache:
-    def __init__(self):
+    def __init__(self) -> None:
         self.conn = connect_to_cache()
         self.cursor = self.conn.cursor()
 

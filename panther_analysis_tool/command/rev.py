@@ -6,11 +6,10 @@ from panther_analysis_tool.core import analysis_cache, editor
 
 
 def run(analysis_id: str) -> Tuple[int, str]:
-    rev_analysis(analysis_id)
-    return 0, ""
+    return rev_analysis(analysis_id)
 
 
-def rev_analysis(analysis_id: str) -> None:
+def rev_analysis(analysis_id: str) -> Tuple[int, str]:
     conn = analysis_cache.connect_to_cache()
     cursor = conn.cursor()
     cursor.execute(

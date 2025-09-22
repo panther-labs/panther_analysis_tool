@@ -8,7 +8,7 @@ def run() -> Tuple[int, str]:
     return format_specs()
 
 
-def format_specs() -> str:
+def format_specs() -> Tuple[int, str]:
     specs = load_analysis_specs_ex(["."], [], False)
 
     for spec in specs:

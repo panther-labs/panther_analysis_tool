@@ -1,4 +1,5 @@
 import subprocess
+from typing import Optional
 
 PANTHER_HTTPS_PATH = "https://github.com/panther-labs/panther-analysis.git"
 PANTHER_SSH_PATH = "git@github.com:panther-labs/panther-analysis.git"
@@ -6,9 +7,9 @@ PANTHER_PRIMARY_BRANCH = "main"
 
 
 class GitManager:
-    def __init__(self):
-        self._panther_remote = None
-        self._git_root = None
+    def __init__(self) -> None:
+        self._panther_remote: Optional[str] = None
+        self._git_root: Optional[str] = None
 
     def panther_latest_release_commit(self) -> str:
         """
@@ -25,8 +26,8 @@ class GitManager:
         )
         if panther_remote_output.returncode != 0:
             raise Exception(f"Failed to get panther remote: {panther_remote_output.stderr}")
-        panther_remote_output = panther_remote_output.stdout
-        for line in panther_remote_output.split("\n"):
+        panther_remote_stdout = panther_remote_output.stdout
+        for line in panther_remote_stdout.split("\n"):
             name, url, operation = line.strip().split()
             if url in [PANTHER_HTTPS_PATH, PANTHER_SSH_PATH] and operation == "(fetch)":
                 self._panther_remote = name
@@ -67,7 +68,12 @@ class GitManager:
         if self._git_root is not None:
             return self._git_root
 
-        self._git_root = subprocess.run(
+        rev_parse = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
-        ).stdout.strip()
+        )
+        if rev_parse.returncode != 0:
+            raise Exception(f"Failed to get git root: {rev_parse.stderr}")
+        if rev_parse.stdout is None:
+            raise Exception("Failed to get git root")
+        self._git_root = rev_parse.stdout.strip()
         return self._git_root

@@ -11,12 +11,12 @@ from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes
 
 
 def run(analysis_id: str) -> Tuple[int, str]:
-    clone_analysis(analysis_id, None, None)
+    clone_analysis(analysis_id, None, lambda x: None)
     return 0, ""
 
 
 def clone_analysis(
-    analysis_id: str, filter: Optional[List[str]], mutator: Callable[[Any], None]
+    analysis_id: Optional[str], filter: Optional[List[str]], mutator: Callable[[Any], None]
 ) -> None:
     all_specs = list(load_analysis_specs_ex([CACHE_DIR], [], True))
     if not all_specs:

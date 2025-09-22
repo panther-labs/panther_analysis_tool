@@ -2406,17 +2406,17 @@ def check_packs_command(
     return check_packs(path)
 
 
-@app.command(name="init", help="Initialize a new panther project")
-def init_command():
-    init_project.run()
+@app_command_with_config(name="init", help="Initialize a new panther project")
+def init_command() -> Tuple[int, str]:
+    return init_project.run()
 
 
-def complete_id(ctx: typer.Context, args: List[str], incomplete: str):
+def complete_id(ctx: typer.Context, args: List[str], incomplete: str) -> List[str]:
     cache = analysis_cache.AnalysisCache()
     return [spec for spec in cache.list_spec_ids() if spec.startswith(incomplete)]
 
 
-@app.command(name="enable", help="Enable a detection")
+@app_command_with_config(name="enable", help="Enable a detection")
 def enable_command(
     filter: Optional[List[str]] = typer.Option(
         [],
@@ -2429,18 +2429,18 @@ def enable_command(
         help="The ID of the analysis item to enable.",
         autocompletion=complete_id,
     ),
-):
+) -> Tuple[int, str]:
     # You might want to process `filter` before passing to enable.run()
     # For now, just call the function (adjust as needed)
-    enable.run(analysis_id=id, filter=filter)
+    return enable.run(analysis_id=id, filter=filter)
 
 
-@app.command(name="fetch", help="Fetch a detection")
-def fetch_command():
-    fetch.run()
+@app_command_with_config(name="fetch", help="Fetch a detection")
+def fetch_command() -> Tuple[int, str]:
+    return fetch.run()
 
 
-@app.command(name="merge", help="Merge a detection")
+@app_command_with_config(name="merge", help="Merge a detection")
 def merge_command(
     id: Optional[str] = typer.Argument(
         None, help="The ID of the analysis item to merge.", autocompletion=complete_id
@@ -2448,31 +2448,31 @@ def merge_command(
     migrate: bool = typer.Option(
         False, help="Migrate the analysis item to the latest panther version."
     ),
-):
+) -> Tuple[int, str]:
     return merge.run(analysis_id=id, migrate=migrate)
 
 
-@app.command(name="clone", help="Clone a detection")
+@app_command_with_config(name="clone", help="Clone a detection")
 def clone_command(
     id: str = typer.Argument(
         ..., help="The ID of the analysis item to clone.", autocompletion=complete_id
     ),
-):
-    clone.run(analysis_id=id)
+) -> Tuple[int, str]:
+    return clone.run(analysis_id=id)
 
 
-@app.command(name="rev", help="Rev a detection")
+@app_command_with_config(name="rev", help="Rev a detection")
 def rev_command(
     id: str = typer.Argument(
         ..., help="The ID of the analysis item to rev.", autocompletion=complete_id
     ),
-):
-    rev.run(analysis_id=id)
+) -> Tuple[int, str]:
+    return rev.run(analysis_id=id)
 
 
-@app.command(name="fmt", help="Format a detection")
-def fmt_command():
-    fmt.run()
+@app_command_with_config(name="fmt", help="Format a detection")
+def fmt_command() -> Tuple[int, str]:
+    return fmt.run()
 
 
 # pylint: disable=too-many-statements
