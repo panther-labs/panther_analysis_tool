@@ -4,7 +4,7 @@ import os
 import pathlib
 import shutil
 import sqlite3
-import subprocess
+import subprocess  # nosec:B404
 import zipfile
 from typing import Tuple
 
@@ -31,7 +31,7 @@ def import_from_github_branch() -> None:
     shutil.rmtree(os.path.join(CACHE_DIR), ignore_errors=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
 
-    subprocess.run(
+    subprocess.run(  # nosec:B607 B603
         [
             "git",
             "clone",
@@ -39,7 +39,8 @@ def import_from_github_branch() -> None:
             PANTHER_ANALYSIS_GITHUB_BRANCH,
             "https://github.com/panther-labs/panther-analysis.git",
             os.path.join(CACHE_DIR, "panther-analysis"),
-        ]
+        ],
+        check=True,
     )
 
     shutil.rmtree(os.path.join(CACHE_DIR, "panther-analysis", "templates"))
@@ -67,17 +68,11 @@ def import_from_github_release() -> None:
     import_sqlite()
 
 
-def import_sqlite() -> None:
-    # defer importing to improve startup time
-    from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
-
-    sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
-    conn = sqlite3.connect(sqlite_file)
-    cursor = conn.cursor()
-
+def create_tables(cursor: sqlite3.Cursor) -> None:
     # get all tables
     cursor.execute(
-        "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT, id_value TEXT, spec BLOB, file_path TEXT, version INTEGER);"
+        "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT,"
+        " id_value TEXT, spec BLOB, file_path TEXT, version INTEGER);"
     )
     # unique constrain on id_field, id_value and version
     cursor.execute(
@@ -89,11 +84,23 @@ def import_sqlite() -> None:
     )
 
     cursor.execute(
-        "CREATE TABLE IF NOT EXISTS file_mappings (id INTEGER PRIMARY KEY AUTOINCREMENT, spec_id INTEGER, file_id INTEGER, FOREIGN KEY (spec_id) REFERENCES analysis_specs(id), FOREIGN KEY (file_id) REFERENCES files(id));"
+        "CREATE TABLE IF NOT EXISTS file_mappings (id INTEGER PRIMARY KEY AUTOINCREMENT, spec_id INTEGER,"
+        " file_id INTEGER, FOREIGN KEY (spec_id) REFERENCES analysis_specs(id), FOREIGN KEY (file_id) REFERENCES files(id));"
     )
     cursor.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_mappings_unique ON file_mappings (spec_id, file_id);"
     )
+
+
+def import_sqlite() -> None:
+    # defer importing to improve startup time
+    from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
+
+    sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
+    conn = sqlite3.connect(sqlite_file)
+    cursor = conn.cursor()
+
+    create_tables(cursor)
 
     # load all analysis specs
     all_specs = load_analysis_specs_ex([CACHE_DIR], [], False)

@@ -13,7 +13,8 @@ def rev_analysis(analysis_id: str) -> Tuple[int, str]:
     conn = analysis_cache.connect_to_cache()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, id_field, id_value, spec, file_path, version FROM analysis_specs WHERE UPPER(id_value) = ? ORDER BY version DESC LIMIT 1",
+        "SELECT id, id_field, id_value, spec, file_path, version FROM analysis_specs WHERE UPPER(id_value) = ?"
+        " ORDER BY version DESC LIMIT 1",
         (analysis_id.upper(),),
     )
     spec_id, id_field, id_value, spec, file_path, version = cursor.fetchone()

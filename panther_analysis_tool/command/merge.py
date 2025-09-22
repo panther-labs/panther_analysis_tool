@@ -5,7 +5,7 @@ import os
 import pathlib
 import re
 import sqlite3
-import subprocess
+import subprocess  # nosec:B404
 import tempfile
 from typing import Any, Dict, Optional, Tuple
 
@@ -236,7 +236,7 @@ class Loader:
         # get the panther commit
         panther_commit = self.git_manager.panther_latest_release_commit()
 
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec:B607 B603
             [
                 "git",
                 "log",
@@ -261,7 +261,7 @@ class Loader:
         # get the panther commit
         panther_commit = self.git_manager.panther_latest_release_commit()
 
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec:B607 B603
             ["git", "show", f"{panther_commit}:{filename}"], check=False, capture_output=True
         )
         if proc.returncode != 0:
@@ -317,7 +317,7 @@ def merge_strings(base: str, latest: str, user: str) -> Tuple[bool, bytes]:
         temp_file_user.write(user.encode())
         temp_file_user.flush()
 
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec:B607 B603
             [
                 "git",
                 "merge-file",
@@ -383,7 +383,9 @@ def get_base_file_from_git(git_manager: git.GitManager, filename: pathlib.Path) 
         filename = filename.relative_to(git_manager.git_root())
 
     # now fetch that file from git
-    proc = subprocess.run(["git", "show", f"{merge_base}:{filename}"], capture_output=True)
+    proc = subprocess.run(
+        ["git", "show", f"{merge_base}:{filename}"], capture_output=True
+    )  # nosec:B607 B603
     if proc.returncode != 0:
         raise Exception(f"Failed to get base file from git: {proc.stderr.decode().strip()}")
     return proc.stdout

@@ -11,5 +11,5 @@ def run(analysis_id: Optional[str], **kwargs: Any) -> Tuple[int, str]:
             spec["Enabled"] = True
         return spec
 
-    clone_analysis(analysis_id, filter=kwargs["filter"], mutator=mutator)
+    clone_analysis(analysis_id, filters=kwargs["filters"], mutator=mutator)
     return 0, ""

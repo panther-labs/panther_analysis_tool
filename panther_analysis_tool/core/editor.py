@@ -1,5 +1,5 @@
 import os
-import subprocess
+import subprocess  # nosec:B404
 import tempfile
 
 from panther_analysis_tool.constants import DEFAULT_EDITOR
@@ -13,8 +13,7 @@ def edit_file(contents: bytes) -> bytes:
 
         # launch the editor with the temp file and wait for it to finish
         editor = os.getenv("EDITOR", DEFAULT_EDITOR)
-        rev_command = [editor, temp_file.name]
-        subprocess.run(rev_command, check=True)
+        subprocess.run([editor, temp_file.name], check=True)  # nosec:B603
 
         # read the temp file and compare it to the original spec
         with open(temp_file.name, "rb") as f:

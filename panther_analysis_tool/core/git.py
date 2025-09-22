@@ -1,4 +1,4 @@
-import subprocess
+import subprocess  # nosec:B404
 from typing import Optional
 
 PANTHER_HTTPS_PATH = "https://github.com/panther-labs/panther-analysis.git"
@@ -21,7 +21,7 @@ class GitManager:
         if self._panther_remote is not None:
             return self._panther_remote
 
-        panther_remote_output = subprocess.run(
+        panther_remote_output = subprocess.run(  # nosec:B607 B603
             ["git", "remote", "-v"], capture_output=True, text=True
         )
         if panther_remote_output.returncode != 0:
@@ -45,13 +45,15 @@ class GitManager:
             The merge base commit hash
         """
         panther_commit = self.panther_latest_release_commit()
-        merge_base_output = subprocess.run(
+        merge_base_output = subprocess.run(  # nosec:B607 B603
             ["git", "merge-base", panther_commit, branch], capture_output=True, text=True
         )
         if merge_base_output.returncode != 0:
             if "Not a valid object name" in merge_base_output.stderr:
                 # need to fetch the panther remote
-                subprocess.run(["git", "fetch", self.panther_remote()], check=True)
+                subprocess.run(
+                    ["git", "fetch", self.panther_remote()], check=True
+                )  # nosec:B607 B603
             elif merge_base_output.stderr == "":
                 raise Exception(f"Failed to find common ancestor:")
             else:
@@ -68,8 +70,11 @@ class GitManager:
         if self._git_root is not None:
             return self._git_root
 
-        rev_parse = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+        rev_parse = subprocess.run(  # nosec:B607 B603
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         if rev_parse.returncode != 0:
             raise Exception(f"Failed to get git root: {rev_parse.stderr}")

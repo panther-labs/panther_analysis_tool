@@ -20,7 +20,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import wraps
 from inspect import signature
-from pathlib import Path
 
 # Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
 # It seems to be unable to import the distutils module, however the module is present and importable
@@ -107,7 +106,6 @@ from panther_analysis_tool.command import (
     init_project,
     merge,
     rev,
-    standard_args,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2411,28 +2409,25 @@ def init_command() -> Tuple[int, str]:
     return init_project.run()
 
 
-def complete_id(ctx: typer.Context, args: List[str], incomplete: str) -> List[str]:
+def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[str]:
     cache = analysis_cache.AnalysisCache()
     return [spec for spec in cache.list_spec_ids() if spec.startswith(incomplete)]
 
 
 @app_command_with_config(name="enable", help="Enable a detection")
 def enable_command(
-    filter: Optional[List[str]] = typer.Option(
-        [],
-        envvar="PANTHER_FILTER",
-        metavar="KEY=VALUE",
-        help="Filter detections by key=value pairs",
-    ),
-    id: Optional[str] = typer.Argument(
-        None,
-        help="The ID of the analysis item to enable.",
-        autocompletion=complete_id,
-    ),
+    filters: FilterType = None,
+    analysis_id: Annotated[Optional[str], typer.Argument(
+            "id",
+            help="The ID of the analysis item to enable.",
+            autocompletion=complete_id,
+    )] = None,
 ) -> Tuple[int, str]:
     # You might want to process `filter` before passing to enable.run()
     # For now, just call the function (adjust as needed)
-    return enable.run(analysis_id=id, filter=filter)
+    if filters is None:
+        filters = []
+    return enable.run(analysis_id=analysis_id, filters=filters)
 
 
 @app_command_with_config(name="fetch", help="Fetch a detection")
@@ -2442,32 +2437,35 @@ def fetch_command() -> Tuple[int, str]:
 
 @app_command_with_config(name="merge", help="Merge a detection")
 def merge_command(
-    id: Optional[str] = typer.Argument(
-        None, help="The ID of the analysis item to merge.", autocompletion=complete_id
-    ),
-    migrate: bool = typer.Option(
-        False, help="Migrate the analysis item to the latest panther version."
-    ),
+    analysis_id: Annotated[Optional[str], typer.Argument(
+        "id", help="The ID of the analysis item to merge.", autocompletion=complete_id
+    )] = None,
+    migrate: Annotated[bool, typer.Option(
+        help="Migrate the analysis item to the latest panther version."
+    )] = False,
 ) -> Tuple[int, str]:
-    return merge.run(analysis_id=id, migrate=migrate)
+    return merge.run(analysis_id, migrate)
 
 
 @app_command_with_config(name="clone", help="Clone a detection")
 def clone_command(
-    id: str = typer.Argument(
-        ..., help="The ID of the analysis item to clone.", autocompletion=complete_id
-    ),
+    analysis_id: Annotated[Optional[str], typer.Argument(
+        "id", help="The ID of the analysis item to clone.", autocompletion=complete_id
+    )] = None,
+    filters: FilterType = None,
 ) -> Tuple[int, str]:
-    return clone.run(analysis_id=id)
+    if filters is None:
+        filters = []
+    return clone.run(analysis_id, filters)
 
 
 @app_command_with_config(name="rev", help="Rev a detection")
 def rev_command(
-    id: str = typer.Argument(
-        ..., help="The ID of the analysis item to rev.", autocompletion=complete_id
-    ),
+    analysis_id: Annotated[str, typer.Argument(
+        "id", help="The ID of the analysis item to rev.", autocompletion=complete_id
+    )],
 ) -> Tuple[int, str]:
-    return rev.run(analysis_id=id)
+    return rev.run(analysis_id)
 
 
 @app_command_with_config(name="fmt", help="Format a detection")
