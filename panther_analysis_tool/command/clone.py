@@ -9,6 +9,7 @@ from panther_analysis_tool.analysis_utils import (
     lookup_analysis_id,
 )
 from panther_analysis_tool.constants import CACHE_DIR, AnalysisTypes
+from panther_analysis_tool.core.formatter import analysis_spec_dump
 
 
 def run(analysis_id: Optional[str], filters: List[str]) -> Tuple[int, str]:
@@ -19,19 +20,19 @@ def run(analysis_id: Optional[str], filters: List[str]) -> Tuple[int, str]:
 def clone_analysis(
     analysis_id: Optional[str], filters: List[str], mutator: Callable[[Any], None]
 ) -> None:
-    all_specs = list(load_analysis_specs_ex([CACHE_DIR], [], True))
+    all_specs = list(load_analysis_specs_ex([CACHE_DIR], [], False))
     if not all_specs:
         logging.info("Nothing to clone")
         return None
 
-    existing = load_analysis_specs_ex(["."], [], True)
+    existing = load_analysis_specs_ex(["."], [], False)
 
     if analysis_id is not None:
         for spec in existing:
             if lookup_analysis_id(spec.analysis_spec) == analysis_id:
                 new_spec = mutator(spec.analysis_spec)
-                with open(spec.spec_filename, "w", encoding="utf-8") as updated_spec:
-                    spec.yaml_ctx.dump(new_spec, updated_spec)
+                with open(spec.spec_filename, "wb") as updated_spec:
+                    updated_spec.write(analysis_spec_dump(new_spec))
                 logging.info("Updated existing %s in %s", analysis_id, spec.spec_filename)
                 return None
 
@@ -81,7 +82,7 @@ def create_clone(spec: LoadAnalysisSpecsResult, mutator: Optional[Callable[[Any]
     new_file_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(new_file_path, "wb") as new_file:
-        spec.yaml_ctx.dump(new_spec, new_file)
+        new_file.write(analysis_spec_dump(new_spec))
 
     match spec.analysis_spec["AnalysisType"]:
         case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.GLOBAL:

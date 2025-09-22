@@ -1,5 +1,5 @@
 import io
-from typing import Any, Iterable, List
+from typing import Any, Iterable
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq

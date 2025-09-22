@@ -9,6 +9,7 @@ import logging
 import mimetypes
 import os
 import shutil
+import sqlite3
 import subprocess  # nosec
 import sys
 import time
@@ -2410,8 +2411,13 @@ def init_command() -> Tuple[int, str]:
 
 
 def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[str]:
-    cache = analysis_cache.AnalysisCache()
-    return [spec for spec in cache.list_spec_ids() if spec.startswith(incomplete)]
+    try:
+        cache = analysis_cache.AnalysisCache()
+        return [
+            spec for spec in cache.list_spec_ids() if spec.lower().startswith(incomplete.lower())
+        ]
+    except sqlite3.Error:
+        return []
 
 
 @app_command_with_config(name="enable", help="Enable a detection")
@@ -2425,8 +2431,6 @@ def enable_command(
         ),
     ] = None,
 ) -> Tuple[int, str]:
-    # You might want to process `filter` before passing to enable.run()
-    # For now, just call the function (adjust as needed)
     if filters is None:
         filters = []
     return enable.run(analysis_id, filters)
@@ -2463,6 +2467,7 @@ def clone_command(
     return clone.run(analysis_id, filters)
 
 
+# TODO: remove this
 @app_command_with_config(name="rev", help="Rev a detection")
 def rev_command(
     analysis_id: Annotated[

@@ -22,7 +22,7 @@ class AnalysisCache:
         """
         List all analysis specs in the cache directory.
         """
-        self.cursor.execute("SELECT id_value FROM analysis_specs")
+        self.cursor.execute("SELECT DISTINCT id_value FROM analysis_specs")
         return [row[0] for row in self.cursor.fetchall()]
 
     def get_file_for_spec(self, spec_id: int) -> Optional[bytes]:

@@ -18,9 +18,8 @@ from panther_analysis_tool.analysis_utils import (
     load_analysis_specs_ex,
     lookup_analysis_id,
 )
-from panther_analysis_tool.constants import AnalysisTypes
 from panther_analysis_tool.core import analysis_cache, editor, git
-from panther_analysis_tool.core.format import analysis_spec_dump
+from panther_analysis_tool.core.formatter import analysis_spec_dump
 
 
 class MergeError(Exception):
@@ -35,7 +34,7 @@ def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]
     yaml = get_yaml_loader(True)
 
     # load all analysis specs
-    all_specs = list(load_analysis_specs_ex(["."], [], True))
+    all_specs = list(load_analysis_specs_ex(["."], [], False))
     if not all_specs:
         print("Nothing to merge")
         return 0, ""
@@ -50,7 +49,6 @@ def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]
 
     # merge managed specs with user specs
     for user_spec in all_specs:
-        get_path_from_spec(user_spec)
         base_analysis_id = lookup_analysis_id(user_spec.analysis_spec)
         if analysis_id is not None and analysis_id != base_analysis_id:
             # user specified an analysis id, only merge that one
@@ -93,14 +91,14 @@ def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]
             logging.warning("Latest version of %s not found, skipping", base_analysis_id)
             continue
 
-        user_spec_str, base_version = strip_base_version(yaml, user_spec.analysis_spec.copy())
+        user_spec_bytes, base_version = strip_base_version(yaml, user_spec.analysis_spec.copy())
 
         if base_version == latest_version:
             # already up to date
             continue
 
         spec_conflict, spec_output = merge_yaml(
-            base_spec_bytes, latest_base_spec_bytes, user_spec_str.encode()
+            base_spec_bytes, latest_base_spec_bytes, user_spec_bytes
         )
         file_conflict, file_output = False, bytes()
 
@@ -286,11 +284,11 @@ def update_file_of_spec(spec: LoadAnalysisSpecsResult, file_content: bytes) -> N
         spec_file.write(file_content)
 
 
-def strip_base_version(yaml: ruamel.yaml.YAML, spec: Dict[str, Any]) -> Tuple[str, Optional[int]]:
+def strip_base_version(yaml: ruamel.yaml.YAML, spec: Dict[str, Any]) -> Tuple[bytes, Optional[int]]:
     version = spec.pop("BaseVersion", None)
-    string_io = io.StringIO()
-    yaml.dump(spec, string_io)
-    return string_io.getvalue(), version
+    bytes_io = io.BytesIO()
+    yaml.dump(spec, bytes_io)
+    return bytes_io.getvalue(), version
 
 
 def merge_yaml(base: bytes, latest: bytes, user: bytes) -> Tuple[bool, bytes]:
@@ -400,52 +398,3 @@ def snake_case(name: str) -> str:
     # substitute any consecutive underscores with a single underscore
     name = re.sub(r"_+", "_", name)
     return name.lower()
-
-
-def get_path_from_spec(spec: LoadAnalysisSpecsResult) -> str:
-    folder = ""
-    analysis_id = lookup_analysis_id(spec.analysis_spec)
-    name = snake_case(analysis_id)
-
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.DATA_MODEL:
-        folder = "data_models"
-        name = name if not name.startswith("standard_") else name[len("standard_") :]
-        if not name.endswith("_data_model"):
-            name += "_data_model"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.GLOBAL:
-        folder = "global_helpers"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.LOOKUP_TABLE:
-        folder = "lookup_tables"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.PACK:
-        folder = "packs"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.POLICY:
-        folder = "policies"
-    if spec.analysis_spec.get("AnalysisType") in [
-        AnalysisTypes.SAVED_QUERY,
-        AnalysisTypes.SCHEDULED_QUERY,
-    ]:
-        folder = "queries"
-        if name.startswith("query_"):
-            name = name[len("query_") :]
-        if not name.endswith("_query"):
-            name += "_query"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.RULE:
-        folder = "rules"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.DERIVED:
-        raise ValueError("Derived rules are not supported")
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.SCHEDULED_RULE:
-        folder = "rules"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.SIMPLE_DETECTION:
-        folder = "simple_rules"
-    if spec.analysis_spec.get("AnalysisType") == AnalysisTypes.CORRELATION_RULE:
-        folder = "correlation_rules"
-
-    if folder == "" or name == "":
-        raise ValueError(f"No folder or name found for spec {spec.spec_filename}")
-    name += ".yml"
-
-    if name != pathlib.Path(spec.spec_filename).name:
-        # logging.debug(f"Expected name {name} for spec {spec.spec_filename}")
-        pass
-
-    return f"{folder}/{name}"

@@ -1,7 +1,7 @@
 from typing import Tuple
 
 from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
-from panther_analysis_tool.core.format import analysis_spec_dump
+from panther_analysis_tool.core.formatter import analysis_spec_dump
 
 
 def run() -> Tuple[int, str]:
