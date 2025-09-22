@@ -95,7 +95,9 @@ def merge_analysis(analysis_id: Optional[str] = None, migrate: bool = False) -> 
             # already up to date
             continue
 
-        spec_conflict, spec_output = merge_yaml(base_spec_bytes.decode(), latest_base_spec_bytes.decode(), user_spec_str)
+        spec_conflict, spec_output = merge_yaml(
+            base_spec_bytes.decode(), latest_base_spec_bytes.decode(), user_spec_str
+        )
         file_conflict, file_output = False, bytes()
 
         # next check for conflicts in the file
@@ -184,7 +186,9 @@ class Loader:
             if not use_git:
                 return None, None
 
-            base_spec_bytes = get_base_file_from_git(self.git_manager, pathlib.Path(spec.spec_filename))
+            base_spec_bytes = get_base_file_from_git(
+                self.git_manager, pathlib.Path(spec.spec_filename)
+            )
             if base_spec_bytes is None:
                 return None, None
 
@@ -200,7 +204,9 @@ class Loader:
 
         # otherwise load the base spec from the database
         analysis_id = lookup_analysis_id(spec.analysis_spec)
-        base_analysis_id, base_spec_bytes = self.cache.get_spec_for_version(analysis_id, base_version)
+        base_analysis_id, base_spec_bytes = self.cache.get_spec_for_version(
+            analysis_id, base_version
+        )
         if base_analysis_id is None or base_spec_bytes is None:
             return None, None
         base_file_content = self.cache.get_file_for_spec(base_analysis_id)
