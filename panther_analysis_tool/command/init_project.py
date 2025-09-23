@@ -27,3 +27,13 @@ def setup_folder_structure() -> None:
             gitignore_file.write("\n# IDEs\n")
             gitignore_file.write(".vscode/\n")
             gitignore_file.write(".idea/\n")
+
+    # TODO maybe generate a .panther_settings.yaml file?
+    # TODO prompt user for next steps?
+    # for example:
+    #   "how to install shell completions"
+    #   "pat enable <ID>"
+    #   "pat enable --filter LogType=AWS.Cloudtrail"
+    #   "pat explore"
+
+    # TODO fetch existing log sources and recommend detections to enable

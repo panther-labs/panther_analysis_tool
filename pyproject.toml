@@ -51,7 +51,7 @@ dependencies = [
     "ply==3.11",
     "policyuniverse==1.5.1.20230817",
     "propcache==0.2.1",
-    "pygments==2.19.1",
+    "pygments (==2.19.2)",
     "pytest==8.3.4",
     "python-dateutil==2.8.2",
     "pyyaml==6.0.2",
@@ -75,6 +75,7 @@ dependencies = [
     "urllib3==1.26.19",
     "wrapt==1.15.0",
     "yarl==1.18.3",
+    "textual (>=5.3.0,<6.0.0)",
     "typer (>=0.16.0,<0.17.0)",
     "typer-config (>=1.4.2,<2.0.0)",
 ]

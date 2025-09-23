@@ -102,6 +102,7 @@ from panther_analysis_tool.command import (
     check_connection,
     clone,
     enable,
+    explore,
     fetch,
     fmt,
     init_project,
@@ -2481,6 +2482,11 @@ def rev_command(
 @app_command_with_config(name="fmt", help="Format a detection")
 def fmt_command() -> Tuple[int, str]:
     return fmt.run()
+
+
+@app.command(name="explore", help="explore content")
+def explore_command():
+    explore.run()
 
 
 # pylint: disable=too-many-statements
