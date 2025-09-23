@@ -1,9 +1,9 @@
 import ast
+from dataclasses import dataclass
 import io
 import logging
 import os
 import pathlib
-import re
 import sqlite3
 import subprocess  # nosec:B404
 import tempfile
@@ -11,7 +11,6 @@ from typing import Any, Dict, Optional, Tuple
 
 import ruamel
 
-from panther_analysis_tool import util
 from panther_analysis_tool.analysis_utils import (
     LoadAnalysisSpecsResult,
     get_yaml_loader,
@@ -34,110 +33,75 @@ def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]
     yaml = get_yaml_loader(True)
 
     # load all analysis specs
-    all_specs = list(load_analysis_specs_ex(["."], [], False))
-    if not all_specs:
+    existing_specs = list(load_analysis_specs_ex(["."], [], False))
+    if not existing_specs:
         print("Nothing to merge")
         return 0, ""
 
+    do_interactive_merge = analysis_id is None
     update_count = 0
     merge_conflicts = []
     cache = analysis_cache.AnalysisCache()
     cursor = cache.cursor
     git_manager = git.GitManager()
 
-    loader = Loader(cursor, cache, git_manager, yaml)
+    loader = SpecLoader(cursor, cache, git_manager, yaml)
 
-    # merge managed specs with user specs
-    for user_spec in all_specs:
+    for user_spec in existing_specs:
         base_analysis_id = lookup_analysis_id(user_spec.analysis_spec)
         if analysis_id is not None and analysis_id != base_analysis_id:
             # user specified an analysis id, only merge that one
             continue
 
-        base_spec_bytes, base_file_content = loader.load_base_spec(user_spec, migrate)
-        if base_spec_bytes is None:
-            logging.warning("Base version not found for %s, skipping", user_spec.spec_filename)
-            continue
-
-        # find latest version of the base spec
-        latest_base_spec_bytes, latest_file_content, latest_version = loader.load_latest_spec(
-            user_spec
-        )
-        if latest_base_spec_bytes is None:
-            if migrate:
-                spec_path = pathlib.Path(user_spec.spec_filename)
-                if user_spec.analysis_spec.get("AnalysisType") == "pack":
-                    # just delete packs
-                    os.remove(user_spec.spec_filename)
-                    continue
-                if loader.was_deleted_by_panther(spec_path):
-                    # the spec was deleted by panther
-                    os.remove(user_spec.spec_filename)
-                    filename = user_spec.analysis_spec.get("Filename")
-                    if filename is not None:
-                        filename = pathlib.Path(user_spec.spec_filename).parent / filename
-                        if loader.was_deleted_by_panther(filename):
-                            os.remove(filename)
-                    logging.info(
-                        "Deleted %s because it was deleted by panther", user_spec.spec_filename
-                    )
-                    continue
-                if loader.still_exists_in_panther(spec_path):
-                    # the spec still exists in panther. It is likely the ID changed,
-                    # do the diff on it with the current content
-                    # TODO: handle this
-                    logging.info("Spec changed IDs :%s", user_spec.spec_filename)
-                    continue
-            logging.warning("Latest version of %s not found, skipping", base_analysis_id)
+        load_specs = _load_specs(loader, user_spec, migrate)
+        if load_specs is None:
             continue
 
         user_spec_bytes, base_version = strip_base_version(yaml, user_spec.analysis_spec.copy())
 
-        if base_version == latest_version:
+        if base_version == load_specs.latest_version:
             # already up to date
             continue
 
         spec_conflict, spec_output = merge_yaml(
-            base_spec_bytes, latest_base_spec_bytes, user_spec_bytes
+            load_specs.base_spec_bytes, load_specs.latest_spec_bytes, user_spec_bytes
         )
         file_conflict, file_output = False, bytes()
 
         # next check for conflicts in the file
         file_content = load_file_of_spec(user_spec)
         if file_content is not None:
-            if base_file_content is None:
+            if load_specs.base_file_content is None:
                 print(f"Base file for {base_analysis_id}@{base_version} not found, skipping")
                 continue
-            if latest_file_content is None:
+            if load_specs.latest_file_content is None:
                 print(f"Latest file for {base_analysis_id}@{base_version} not found, skipping")
                 continue
 
             file_conflict, file_output = merge_bytes(
-                base_file_content, latest_file_content, file_content
+                load_specs.base_file_content, load_specs.latest_file_content, file_content
             )
 
         if spec_conflict or file_conflict:
-            if analysis_id is not None:
-                # user specified an analysis id, go into merge conflict resolution mode
-                if spec_conflict:
-                    output = resolve_yaml_conflict(spec_output)
-                    if output is None:
-                        continue
-                    spec_output = output
-                if file_conflict:
-                    output = resolve_python_conflict(file_output)
-                    if output is None:
-                        continue
-                    file_output = output
-            else:
-                merge_conflicts.append(util.get_spec_id(user_spec.analysis_spec))
+            if not do_interactive_merge:
+                merge_conflicts.append(lookup_analysis_id(user_spec.analysis_spec))
                 continue
+
+            if spec_conflict:
+                output = resolve_yaml_conflict(spec_output)
+                if output is None:
+                    continue
+                spec_output = output
+            if file_conflict:
+                output = resolve_python_conflict(file_output)
+                if output is None:
+                    continue
+                file_output = output
+
 
         # update the base spec
         merged_spec = yaml.load(spec_output.decode())
-        merged_spec["BaseVersion"] = latest_version
-
-        # update the base spec
+        merged_spec["BaseVersion"] = load_specs.latest_version
         with open(user_spec.spec_filename, "wb") as spec_file:
             spec_file.write(analysis_spec_dump(merged_spec, True))
 
@@ -160,7 +124,38 @@ def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]
     return 0, ""
 
 
-class Loader:
+@dataclass
+class LoadSpecsResult:
+    base_spec_bytes: bytes
+    base_file_content: Optional[bytes]
+    latest_spec_bytes: bytes
+    latest_file_content: Optional[bytes]
+    latest_version: int
+
+def _load_specs(loader: "SpecLoader", user_spec: LoadAnalysisSpecsResult, migrate: bool) -> Optional[LoadSpecsResult]:
+    base_spec_bytes, base_file_content = loader.load_base_spec(user_spec, migrate)
+    if base_spec_bytes is None:
+        logging.warning("Base version not found for %s, skipping", user_spec.spec_filename)
+        return None
+
+    # find latest version of the spec
+    latest_base_spec_bytes, latest_file_content, latest_version = loader.load_latest_spec(
+        user_spec
+    )
+    if latest_base_spec_bytes is None:
+        if migrate:
+            _migrate_file(user_spec, loader.git_manager)
+            return None
+        base_analysis_id = lookup_analysis_id(user_spec.analysis_spec)
+        logging.warning("Latest version of %s not found, skipping", base_analysis_id)
+        return None
+    if latest_version is None:
+        logging.warning("Latest version of %s not found, skipping", base_analysis_id)
+        return None
+    return LoadSpecsResult(base_spec_bytes, base_file_content, latest_base_spec_bytes, latest_file_content, latest_version)
+
+
+class SpecLoader:
     def __init__(
         self,
         cursor: sqlite3.Cursor,
@@ -201,69 +196,91 @@ class Loader:
 
         # otherwise load the base spec from the database
         analysis_id = lookup_analysis_id(spec.analysis_spec)
-        base_analysis_id, base_spec_bytes = self.cache.get_spec_for_version(
-            analysis_id, base_version
-        )
-        if base_analysis_id is None or base_spec_bytes is None:
+        base_analysis_spec = self.cache.get_spec_for_version(analysis_id, base_version)
+        if base_analysis_spec is None:
             return None, None
-        base_file_content = self.cache.get_file_for_spec(base_analysis_id)
+        base_file_content = self.cache.get_file_for_spec(base_analysis_spec.id)
 
-        return base_spec_bytes, base_file_content
+        return base_analysis_spec.spec, base_file_content
 
     def load_latest_spec(
         self, spec: LoadAnalysisSpecsResult
     ) -> Tuple[Optional[bytes], Optional[bytes], Optional[int]]:
         analysis_id = lookup_analysis_id(spec.analysis_spec)
-        spec_id, spec_bytes, spec_version = self.cache.get_latest_spec(analysis_id)
-        if spec_id is None:
+        analysis_spec = self.cache.get_latest_spec(analysis_id)
+        if analysis_spec is None:
             return None, None, None
 
-        latest_file_content = self.cache.get_file_for_spec(spec_id)
+        latest_file_content = self.cache.get_file_for_spec(analysis_spec.id)
 
-        return spec_bytes, latest_file_content, spec_version
+        return analysis_spec.spec, latest_file_content, analysis_spec.version
 
-    def was_deleted_by_panther(self, filename: pathlib.Path) -> bool:
-        # see if the spec was deleted by panther
-        merge_base = self.git_manager.merge_base("HEAD")
 
-        # normalize the filename for the git repo
-        if filename.is_absolute():
-            filename = filename.relative_to(self.git_manager.git_root())
+def was_deleted_by_panther(git_manager: git.GitManager, filename: pathlib.Path) -> bool:
+    # see if the spec was deleted by panther
+    merge_base = git_manager.merge_base("HEAD")
 
-        # get the panther commit
-        panther_commit = self.git_manager.panther_latest_release_commit()
+    # normalize the filename for the git repo
+    if filename.is_absolute():
+        filename = filename.relative_to(git_manager.git_root())
 
-        proc = subprocess.run(  # nosec:B607 B603
-            [
-                "git",
-                "log",
-                "--diff-filter=D",
-                "--oneline",
-                "-1",
-                f"{merge_base}..{panther_commit}",
-                "--",
-                filename,
-            ],
-            check=False,
-            capture_output=True,
-        )
-        return proc.stdout.decode().strip() != ""
+    # get the panther commit
+    panther_commit = git_manager.panther_latest_release_commit()
 
-    def still_exists_in_panther(self, filename: pathlib.Path) -> Optional[bytes]:
-        # see if the spec still exists in panther
-        # normalize the filename for the git repo
-        if filename.is_absolute():
-            filename = filename.relative_to(self.git_manager.git_root())
+    proc = subprocess.run(  # nosec:B607 B603
+        [
+            "git",
+            "log",
+            "--diff-filter=D",
+            "--oneline",
+            "-1",
+            f"{merge_base}..{panther_commit}",
+            "--",
+            filename,
+        ],
+        check=False,
+        capture_output=True,
+    )
+    return proc.stdout.decode().strip() != ""
 
-        # get the panther commit
-        panther_commit = self.git_manager.panther_latest_release_commit()
+def still_exists_in_panther(git_manager: git.GitManager, filename: pathlib.Path) -> Optional[bytes]:
+    # see if the spec still exists in panther
+    # normalize the filename for the git repo
+    if filename.is_absolute():
+        filename = filename.relative_to(git_manager.git_root())
 
-        proc = subprocess.run(  # nosec:B607 B603
-            ["git", "show", f"{panther_commit}:{filename}"], check=False, capture_output=True
-        )
-        if proc.returncode != 0:
-            return None
-        return proc.stdout.strip()
+    # get the panther commit
+    panther_commit = git_manager.panther_latest_release_commit()
+
+    proc = subprocess.run(  # nosec:B607 B603
+        ["git", "show", f"{panther_commit}:{filename}"], check=False, capture_output=True
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+def _migrate_file(user_spec: LoadAnalysisSpecsResult, git_manager: git.GitManager) -> None:
+    spec_path = pathlib.Path(user_spec.spec_filename)
+    if user_spec.analysis_spec.get("AnalysisType") == "pack":
+        # just delete packs
+        os.remove(user_spec.spec_filename)
+        return
+    if was_deleted_by_panther(git_manager, spec_path):
+        # the spec was deleted by panther
+        os.remove(user_spec.spec_filename)
+        filename = user_spec.analysis_spec.get("Filename")
+        if filename is not None:
+            filename = pathlib.Path(user_spec.spec_filename).parent / filename
+            if was_deleted_by_panther(git_manager, filename):
+                os.remove(filename)
+        logging.info("Deleted %s because it was deleted by panther", user_spec.spec_filename)
+        return
+    if still_exists_in_panther(git_manager, spec_path):
+        # the spec still exists in panther. It is likely the ID changed,
+        # do the diff on it with the current content
+        # TODO: handle this
+        logging.info("Spec changed IDs :%s", user_spec.spec_filename)
 
 
 def load_file_of_spec(spec: LoadAnalysisSpecsResult) -> Optional[bytes]:
@@ -364,7 +381,7 @@ def resolve_python_conflict(merge_result: bytes) -> Optional[bytes]:
         print("Invalid python file")
         print(f'  File "{error.filename}", line {error.lineno}')
         print(f"    {error.text.strip()}" if error.text else "")
-        print(f'    {" " * (error.offset - 1)}^' if error.offset else "")
+        print(f'    {" " * (error.offset - 1)}^' if error.offset is not None else "")
         print(f"SyntaxError: {error.msg}")
         return None
 
@@ -388,13 +405,3 @@ def get_base_file_from_git(git_manager: git.GitManager, filename: pathlib.Path) 
     if proc.returncode != 0:
         raise MergeError(f"Failed to get base file from git: {proc.stderr.decode().strip()}")
     return proc.stdout
-
-
-def snake_case(name: str) -> str:
-    name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
-    # replace camelcase with underscores
-    # (but don't add _ at the start and don't add _ between acronyms)
-    name = re.sub(r"(?<=[^A-Z])([A-Z][0-9A-Z]*)", r"_\1", name)
-    # substitute any consecutive underscores with a single underscore
-    name = re.sub(r"_+", "_", name)
-    return name.lower()

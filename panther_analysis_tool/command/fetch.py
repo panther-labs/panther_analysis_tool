@@ -3,7 +3,6 @@ import json
 import os
 import pathlib
 import shutil
-import sqlite3
 import subprocess  # nosec:B404
 import zipfile
 from typing import Tuple
@@ -69,35 +68,9 @@ def import_from_github_release() -> None:
     import_sqlite()
 
 
-def create_tables(cursor: sqlite3.Cursor) -> None:
-    # get all tables
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT,"
-        " id_value TEXT, spec BLOB, file_path TEXT, version INTEGER);"
-    )
-    # unique constrain on id_field, id_value and version
-    cursor.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_specs_unique ON analysis_specs (id_field, id_value, version);"
-    )
-
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, content BLOB UNIQUE);"
-    )
-
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS file_mappings (id INTEGER PRIMARY KEY AUTOINCREMENT, spec_id INTEGER,"
-        " file_id INTEGER, FOREIGN KEY (spec_id) REFERENCES analysis_specs(id), FOREIGN KEY (file_id) REFERENCES files(id));"
-    )
-    cursor.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_mappings_unique ON file_mappings (spec_id, file_id);"
-    )
-
-
 def import_sqlite() -> None:
-    conn = analysis_cache.connect_to_cache()
-    cursor = conn.cursor()
-
-    create_tables(cursor)
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
 
     versions = {}
     with open(os.path.join(CACHE_DIR, "panther-analysis", "version.json"), "rb") as version_file:
@@ -138,28 +111,18 @@ def import_sqlite() -> None:
 
         file_id = None
         if content is not None:
-            try:
-                file_id = cursor.execute(
-                    "INSERT INTO files (content) VALUES (?);", (content,)
-                ).lastrowid
-            except sqlite3.IntegrityError:
-                file_id = cursor.execute(
-                    "SELECT id FROM files WHERE content = ?;", (content,)
-                ).fetchone()[0]
+            file_id = cache.insert_file(content)
 
         id_value = spec.analysis_spec.get(id_field)
         relpath = pathlib.Path(spec.spec_filename).relative_to(
             pathlib.Path(CACHE_DIR).absolute() / "panther-analysis"
         )
         spec_version = versions[id_value]["version"]
-        spec_id = cursor.execute(
-            "INSERT INTO analysis_specs (id_field, id_value, spec, file_path, version) VALUES (?, ?, ?, ?, ?);",
-            (id_field, id_value, spec.raw_file_content, str(relpath), spec_version),
-        ).lastrowid
+        spec_id = cache.insert_spec(
+            id_field, id_value, spec.raw_file_content, str(relpath), spec_version
+        )
 
         if file_id is not None:
-            cursor.execute(
-                "INSERT INTO file_mappings (spec_id, file_id) VALUES (?, ?);", (spec_id, file_id)
-            )
-    conn.commit()
-    conn.close()
+            cache.insert_file_mapping(spec_id, file_id)
+    cache.conn.commit()
+    cache.conn.close()
