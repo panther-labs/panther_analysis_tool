@@ -9,6 +9,7 @@ import logging
 import mimetypes
 import os
 import shutil
+import sqlite3
 import subprocess  # nosec
 import sys
 import time
@@ -45,6 +46,7 @@ from typer_config import use_yaml_config
 from typing_extensions import Annotated
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.directory import setup_temp
 
 # this is needed at this location so each process can have its own temp directory
@@ -98,6 +100,13 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    clone,
+    enable,
+    fetch,
+    fmt,
+    init_project,
+    merge,
+    rev,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2394,6 +2403,84 @@ def check_packs_command(
     path: PathType = ".",
 ) -> Tuple[int, str]:
     return check_packs(path)
+
+
+@app_command_with_config(name="init", help="Initialize a new panther project")
+def init_command() -> Tuple[int, str]:
+    return init_project.run()
+
+
+def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[str]:
+    try:
+        cache = analysis_cache.AnalysisCache()
+        return [
+            spec for spec in cache.list_spec_ids() if spec.lower().startswith(incomplete.lower())
+        ]
+    except sqlite3.Error:
+        return []
+
+
+@app_command_with_config(name="enable", help="Enable a detection")
+def enable_command(
+    filters: FilterType = None,
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="The ID of the analysis item to enable.",
+            autocompletion=complete_id,
+        ),
+    ] = None,
+) -> Tuple[int, str]:
+    if filters is None:
+        filters = []
+    return enable.run(analysis_id, filters)
+
+
+@app_command_with_config(name="fetch", help="Fetch a detection")
+def fetch_command() -> Tuple[int, str]:
+    return fetch.run()
+
+
+@app_command_with_config(name="merge", help="Merge a detection")
+def merge_command(
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(help="The ID of the analysis item to merge.", autocompletion=complete_id),
+    ] = None,
+    migrate: Annotated[
+        bool, typer.Option(help="Migrate the analysis item to the latest panther version.")
+    ] = False,
+) -> Tuple[int, str]:
+    return merge.run(analysis_id, migrate)
+
+
+@app_command_with_config(name="clone", help="Clone a detection")
+def clone_command(
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(help="The ID of the analysis item to clone.", autocompletion=complete_id),
+    ] = None,
+    filters: FilterType = None,
+) -> Tuple[int, str]:
+    if filters is None:
+        filters = []
+    return clone.run(analysis_id, filters)
+
+
+# TODO: remove this
+@app_command_with_config(name="rev", help="Rev a detection")
+def rev_command(
+    analysis_id: Annotated[
+        str,
+        typer.Argument(help="The ID of the analysis item to rev.", autocompletion=complete_id),
+    ],
+) -> Tuple[int, str]:
+    return rev.run(analysis_id)
+
+
+@app_command_with_config(name="fmt", help="Format a detection")
+def fmt_command() -> Tuple[int, str]:
+    return fmt.run()
 
 
 # pylint: disable=too-many-statements
