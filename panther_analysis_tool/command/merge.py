@@ -1,5 +1,4 @@
 import ast
-from dataclasses import dataclass
 import io
 import logging
 import os
@@ -7,6 +6,7 @@ import pathlib
 import sqlite3
 import subprocess  # nosec:B404
 import tempfile
+from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
 import ruamel
@@ -98,7 +98,6 @@ def merge_analysis(analysis_id: Optional[str], migrate: bool) -> Tuple[int, str]
                     continue
                 file_output = output
 
-
         # update the base spec
         merged_spec = yaml.load(spec_output.decode())
         merged_spec["BaseVersion"] = load_specs.latest_version
@@ -132,16 +131,17 @@ class LoadSpecsResult:
     latest_file_content: Optional[bytes]
     latest_version: int
 
-def _load_specs(loader: "SpecLoader", user_spec: LoadAnalysisSpecsResult, migrate: bool) -> Optional[LoadSpecsResult]:
+
+def _load_specs(
+    loader: "SpecLoader", user_spec: LoadAnalysisSpecsResult, migrate: bool
+) -> Optional[LoadSpecsResult]:
     base_spec_bytes, base_file_content = loader.load_base_spec(user_spec, migrate)
     if base_spec_bytes is None:
         logging.warning("Base version not found for %s, skipping", user_spec.spec_filename)
         return None
 
     # find latest version of the spec
-    latest_base_spec_bytes, latest_file_content, latest_version = loader.load_latest_spec(
-        user_spec
-    )
+    latest_base_spec_bytes, latest_file_content, latest_version = loader.load_latest_spec(user_spec)
     if latest_base_spec_bytes is None:
         if migrate:
             _migrate_file(user_spec, loader.git_manager)
@@ -152,7 +152,13 @@ def _load_specs(loader: "SpecLoader", user_spec: LoadAnalysisSpecsResult, migrat
     if latest_version is None:
         logging.warning("Latest version of %s not found, skipping", base_analysis_id)
         return None
-    return LoadSpecsResult(base_spec_bytes, base_file_content, latest_base_spec_bytes, latest_file_content, latest_version)
+    return LoadSpecsResult(
+        base_spec_bytes,
+        base_file_content,
+        latest_base_spec_bytes,
+        latest_file_content,
+        latest_version,
+    )
 
 
 class SpecLoader:
@@ -242,6 +248,7 @@ def was_deleted_by_panther(git_manager: git.GitManager, filename: pathlib.Path) 
         capture_output=True,
     )
     return proc.stdout.decode().strip() != ""
+
 
 def still_exists_in_panther(git_manager: git.GitManager, filename: pathlib.Path) -> Optional[bytes]:
     # see if the spec still exists in panther
