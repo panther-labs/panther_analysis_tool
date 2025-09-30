@@ -19,7 +19,10 @@ class TestInitProject(unittest.TestCase):
         self.assertEqual(gitignore_content.count("panther-analysis-*.zip"), 1, gitignore_content)
 
     def test_init_project_with_no_gitignore(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir, patch("sys.stdout", new=StringIO()) as mock_stdout:
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("sys.stdout", new=StringIO()) as mock_stdout,
+        ):
             init_project.run(temp_dir)
             self.assertTrue(os.path.exists(Path(temp_dir) / ".gitignore"))
             self.assertIn(".gitignore file created", mock_stdout.getvalue())
@@ -29,11 +32,14 @@ class TestInitProject(unittest.TestCase):
             self.check_gitignore_content(gitignore_content)
 
     def test_init_project_with_gitignore(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir, patch("sys.stdout", new=StringIO()) as mock_stdout:
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("sys.stdout", new=StringIO()) as mock_stdout,
+        ):
             gitignore_path = Path(temp_dir) / ".gitignore"
             gitignore_path.touch()
             gitignore_path.write_text("# something aleady here\n./stuff\n.vscode/\nstuff")
-            
+
             init_project.run(temp_dir)
             self.assertTrue(os.path.exists(gitignore_path))
             self.assertNotIn(".gitignore file created", mock_stdout.getvalue())
