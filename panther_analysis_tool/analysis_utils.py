@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 from fnmatch import fnmatch
 from importlib.abc import Loader
 from typing import Any, Dict, Iterator, List, Optional, Tuple
@@ -744,3 +745,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         print("\t[ERROR] Error loading module, skipping\n")
         return None, err
     return module, None
+
+
+def get_tmp_helper_module_location() -> str:
+    return os.path.join(tempfile.gettempdir(), "panther-path", "globals")
