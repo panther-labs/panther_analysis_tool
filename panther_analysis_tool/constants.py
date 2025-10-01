@@ -31,6 +31,7 @@ POLICIES_PATH_PATTERN = "*policies*"
 QUERIES_PATH_PATTERN = "*queries*"
 RULES_PATH_PATTERN = "*rules*"
 
+
 class AnalysisTypes:
     DATA_MODEL = "datamodel"
     GLOBAL = "global"

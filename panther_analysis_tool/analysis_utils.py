@@ -17,14 +17,14 @@ from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
+from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
-    BackendError,
     GetRuleBodyParams,
     TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_LOCATION,
@@ -745,6 +745,7 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         print("\t[ERROR] Error loading module, skipping\n")
         return None, err
     return module, None
+
 
 def get_tmp_helper_module_location() -> str:
     return os.path.join(tempfile.gettempdir(), "panther-path", "globals")
