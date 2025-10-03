@@ -98,6 +98,7 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    poc_yaml_resolver,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2394,6 +2395,14 @@ def check_packs_command(
     path: PathType = ".",
 ) -> Tuple[int, str]:
     return check_packs(path)
+
+
+@app_command_with_config(
+    name="yaml-resolver",
+    help="Resolve YAML issues.",
+)
+def yaml_resolver_command() -> Tuple[int, str]:
+    return poc_yaml_resolver.run()
 
 
 # pylint: disable=too-many-statements
