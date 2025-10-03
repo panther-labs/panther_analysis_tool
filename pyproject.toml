@@ -2,9 +2,7 @@
 name = "panther_analysis_tool"
 version = "1.1.0"
 description = "Panther command line interface for writing, testing, and packaging policies/rules."
-authors = [
-    {name = "Panther Labs Inc", email = "pypi@runpanther.io"}
-]
+authors = [{ name = "Panther Labs Inc", email = "pypi@runpanther.io" }]
 readme = "README.md"
 requires-python = ">=3.11, <4.0"
 dependencies = [
@@ -51,7 +49,7 @@ dependencies = [
     "ply==3.11",
     "policyuniverse==1.5.1.20230817",
     "propcache==0.2.1",
-    "pygments==2.19.1",
+    "pygments==2.19.2",
     "pytest==8.3.4",
     "python-dateutil==2.8.2",
     "pyyaml==6.0.2",
@@ -77,13 +75,12 @@ dependencies = [
     "yarl==1.18.3",
     "typer (>=0.16.0,<0.17.0)",
     "typer-config (>=1.4.2,<2.0.0)",
+    "textual (>=6.2.1,<6.3.0)",
+    "textual[syntax] (>=6.2.1,<6.3.0)",
 ]
 
-license = {text = "Apache-2.0"}
-keywords = [
-    "Security",
-    "CLI",
-]
+license = { text = "Apache-2.0" }
+keywords = ["Security", "CLI"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -122,6 +119,7 @@ responses = "*"
 typed-ast = "1.5.5"
 types-python-dateutil = "*"
 types-requests = "*"
+textual-dev = "*"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -153,7 +151,7 @@ disable = [
     "too-many-branches",
     "deprecated-module",
     "too-many-lines",
-    "too-few-public-methods"
+    "too-few-public-methods",
 ]
 
 [tool.sqlfluff.core]
