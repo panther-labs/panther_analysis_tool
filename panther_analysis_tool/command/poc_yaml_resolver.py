@@ -16,6 +16,7 @@ from . import fake_customer_files
 yaml_parser = yaml.YAML(typ="rt")
 yaml_parser.preserve_quotes = True
 
+
 @dataclasses.dataclass
 class YamlDiffItem:
     key: str
@@ -54,8 +55,10 @@ class CustomerYAMLWindow(YAMLWindow):
 class PantherYAMLWindow(YAMLWindow):
     BORDER_TITLE = "Panther YAML"
 
+
 class CustomerValueYAMLWindow(YAMLWindow):
     BORDER_TITLE = "Your Value [y]"
+
 
 class PantherValueYAMLWindow(YAMLWindow):
     BORDER_TITLE = "Panther Value [p]"
@@ -63,6 +66,7 @@ class PantherValueYAMLWindow(YAMLWindow):
 
 class CustomerPythonWindow(PythonWindow):
     BORDER_TITLE = "Your Python"
+
 
 class DiffResolver(Widget):
     def __init__(self, diff_item: YamlDiffItem):
@@ -91,7 +95,7 @@ class YAMLResolver(App):
     diff_items: list[YamlDiffItem]
     current_item_index: int = 0
     final_dict: dict[str, Any]
-    
+
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", show=True),
         Binding("p", "choose_panther", r"Select Panther's value", show=True),
@@ -131,7 +135,7 @@ class YAMLResolver(App):
             CustomerPythonWindow(fake_customer_files.CUSTOMER_PYTHON, id="customer-python"),
             CustomerYAMLWindow(fake_customer_files.CUSTOMER_YAML, id="customer-yaml"),
             PantherYAMLWindow(fake_customer_files.PANTHER_YAML, id="panther-yaml"),
-            id="file-viewing"
+            id="file-viewing",
         )
         yield DiffResolver(self.diff_items[0])
         yield Footer()
@@ -182,13 +186,13 @@ class YAMLResolver(App):
 
         label = diff_resolver.query_one(Label)
         label.update(f"Resolving conflict for YAML key: {new_diff_item.key}")
-        
+
         diff_resolver.query_one(PantherValueYAMLWindow).text = diff_resolver.fmt_panther_val()
         diff_resolver.query_one(CustomerValueYAMLWindow).text = diff_resolver.fmt_cust_val()
-        
+
         self.query_one("#panther-yaml", YAMLWindow).highlight_line(new_diff_item.key)
         self.query_one("#customer-yaml", YAMLWindow).highlight_line(new_diff_item.key)
-        
+
         self.refresh()
 
     def action_switch_focus(self) -> None:
