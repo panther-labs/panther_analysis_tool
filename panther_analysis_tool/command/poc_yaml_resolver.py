@@ -1,17 +1,20 @@
 import dataclasses
+import io
 import sys
-from typing import Any, List, Tuple
+from typing import Any, List, Literal, Tuple
 
 from ruamel import yaml
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Grid
+from textual.containers import Horizontal
 from textual.widget import Widget
-from textual.widgets import Footer, Label, Static, TextArea
+from textual.widgets import Footer, Label, TextArea
 
 from . import fake_customer_files
 
+yaml_parser = yaml.YAML(typ="rt")
+yaml_parser.preserve_quotes = True
 
 @dataclasses.dataclass
 class YamlDiffItem:
@@ -22,7 +25,7 @@ class YamlDiffItem:
 
 
 class PythonWindow(TextArea):
-    def __init__(self, title: str, text: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, text: str, *args: Any, **kwargs: Any) -> None:
         super().__init__(text, theme="monokai", language="python", read_only=True, *args, **kwargs)
 
     def on_mount(self) -> None:
@@ -30,7 +33,7 @@ class PythonWindow(TextArea):
 
 
 class YAMLWindow(TextArea):
-    def __init__(self, title: str, text: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, text: str, *args: Any, **kwargs: Any) -> None:
         super().__init__(text, theme="monokai", language="yaml", read_only=True, *args, **kwargs)
         self.show_line_numbers = True
         self.highlight_cursor_line = True
@@ -45,55 +48,65 @@ class YAMLWindow(TextArea):
 
 
 class CustomerYAMLWindow(YAMLWindow):
-    BORDER_TITLE = "Customer YAML"
+    BORDER_TITLE = "Your YAML"
 
 
 class PantherYAMLWindow(YAMLWindow):
     BORDER_TITLE = "Panther YAML"
 
+class CustomerValueYAMLWindow(YAMLWindow):
+    BORDER_TITLE = "Your Value [y]"
+
+class PantherValueYAMLWindow(YAMLWindow):
+    BORDER_TITLE = "Panther Value [p]"
+
 
 class CustomerPythonWindow(PythonWindow):
-    BORDER_TITLE = "Customer Python"
+    BORDER_TITLE = "Your Python"
 
-
-class DiffResolver(Static):
+class DiffResolver(Widget):
     def __init__(self, diff_item: YamlDiffItem):
         super().__init__()
         self.diff_item = diff_item
 
+    def fmt_panther_val(self) -> str:
+        out = io.StringIO()
+        yaml_parser.dump(self.diff_item.panther_val, out)
+        return out.getvalue()
+
+    def fmt_cust_val(self) -> str:
+        out = io.StringIO()
+        yaml_parser.dump(self.diff_item.cust_val, out)
+        return out.getvalue()
+
     def compose(self) -> ComposeResult:
         yield Label(f"Resolving conflict for YAML key: {self.diff_item.key}")
-        yield Label(f"Base value: {self.diff_item.base_val}")
-        yield Label(f"Panther value [p]: {self.diff_item.panther_val}")
-        yield Label(f"Your value [y]: {self.diff_item.cust_val}")
+        yield Horizontal(
+            PantherValueYAMLWindow(text="", id="panther-value-yaml"),
+            CustomerValueYAMLWindow(text="", id="customer-value-yaml"),
+        )
 
 
 class YAMLResolver(App):
     diff_items: list[YamlDiffItem]
     current_item_index: int = 0
     final_dict: dict[str, Any]
-
+    
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", show=True),
         Binding("p", "choose_panther", r"Select Panther's value", show=True),
         Binding("y", "choose_yours", r"Select our value", show=True),
         Binding("tab", "switch_focus", "Switch focus", show=True, priority=True),
+        Binding("s", "switch_view", "Switch view", show=True),
     ]
 
     CSS = """
-        Grid {
+        #file-viewing {
             grid-size: 2 2;
             height: 3fr;
         }
         #customer-python {
             row-span: 2;
-        }
-        TitledWindow {
-            height: 100%;
-            border: solid gray;
-        }
-        TitledWindow:focus-within {
-            border: solid blue;
         }
         TextArea {
             height: 1fr;
@@ -109,30 +122,38 @@ class YAMLResolver(App):
             height: auto;
             align: center middle;
         }
-        Header {
-            background: $boost;
-            color: $text;
-            text-align: center;
-            padding: 1;
-        }
     """
 
+    view: Literal["yaml", "python"] = "yaml"
+
     def compose(self) -> ComposeResult:
-        yield Grid(
-            PantherYAMLWindow("Panther YAML", fake_customer_files.PANTHER_YAML, id="panther-yaml"),
-            CustomerPythonWindow(
-                "Customer Python", fake_customer_files.CUSTOMER_PYTHON, id="customer-python"
-            ),
-            CustomerYAMLWindow(
-                "Customer YAML", fake_customer_files.CUSTOMER_YAML, id="customer-yaml"
-            ),
+        yield Horizontal(
+            CustomerPythonWindow(fake_customer_files.CUSTOMER_PYTHON, id="customer-python"),
+            CustomerYAMLWindow(fake_customer_files.CUSTOMER_YAML, id="customer-yaml"),
+            PantherYAMLWindow(fake_customer_files.PANTHER_YAML, id="panther-yaml"),
+            id="file-viewing"
         )
         yield DiffResolver(self.diff_items[0])
         yield Footer()
 
     def on_mount(self) -> None:
-        self.set_focus(self.query_one("#panther-yaml"))
+        self.update_view()
         self.update_diff_item()
+
+    def action_switch_view(self) -> None:
+        self.view = "python" if self.view == "yaml" else "yaml"
+        self.update_view()
+        self.refresh()
+
+    def update_view(self) -> None:
+        if self.view == "yaml":
+            self.query_one(CustomerPythonWindow).styles.display = "none"
+            self.query_one(CustomerYAMLWindow).styles.display = "block"
+            self.query_one(PantherYAMLWindow).styles.display = "block"
+        elif self.view == "python":
+            self.query_one(CustomerPythonWindow).styles.display = "block"
+            self.query_one(CustomerYAMLWindow).styles.display = "none"
+            self.query_one(PantherYAMLWindow).styles.display = "none"
 
     def action_choose_panther(self) -> None:
         self.update_final_dict(self.diff_items[self.current_item_index].panther_val)
@@ -158,13 +179,16 @@ class YAMLResolver(App):
         diff_resolver = self.query_one(DiffResolver)
         new_diff_item = self.diff_items[self.current_item_index]
         diff_resolver.diff_item = new_diff_item
-        labels = diff_resolver.query(Label)
-        labels[0].update(f"Resolving conflict for YAML key: {new_diff_item.key}")
-        labels[1].update(f"Base value: {new_diff_item.base_val}")
-        labels[2].update(f"Panther value [p]: {new_diff_item.panther_val}")
-        labels[3].update(f"Your value [y]: {new_diff_item.cust_val}")
+
+        label = diff_resolver.query_one(Label)
+        label.update(f"Resolving conflict for YAML key: {new_diff_item.key}")
+        
+        diff_resolver.query_one(PantherValueYAMLWindow).text = diff_resolver.fmt_panther_val()
+        diff_resolver.query_one(CustomerValueYAMLWindow).text = diff_resolver.fmt_cust_val()
+        
         self.query_one("#panther-yaml", YAMLWindow).highlight_line(new_diff_item.key)
         self.query_one("#customer-yaml", YAMLWindow).highlight_line(new_diff_item.key)
+        
         self.refresh()
 
     def action_switch_focus(self) -> None:
@@ -176,9 +200,6 @@ class YAMLResolver(App):
 
 
 def run() -> Tuple[int, str]:
-    yaml_parser = yaml.YAML(typ="rt")
-    yaml_parser.preserve_quotes = True
-
     customer_dict = yaml_parser.load(fake_customer_files.CUSTOMER_YAML)
     base_dict = yaml_parser.load(fake_customer_files.BASE_YAML)
     panther_dict = yaml_parser.load(fake_customer_files.PANTHER_YAML)
