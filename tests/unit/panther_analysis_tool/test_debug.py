@@ -47,7 +47,7 @@ def mock_debug_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
 class TestDebugFunctionality(TestCase):
     """Test suite for debugging functionality in panther_analysis_tool."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures and mock filesystem."""
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
@@ -56,10 +56,10 @@ class TestDebugFunctionality(TestCase):
         self.test_rule_path = "test_rule"
         pat._DISABLE_PANTHER_EXCEPTION_HANDLER = True
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         pat._DISABLE_PANTHER_EXCEPTION_HANDLER = False
 
-    def test_debug_analysis_basic_functionality(self):
+    def test_debug_analysis_basic_functionality(self) -> None:
         """Test that debug_analysis function works with basic parameters."""
         # Mock test_analysis to verify it's called with correct debug args
         with patch.object(pat, "test_analysis") as mock_test_analysis:
@@ -87,7 +87,7 @@ class TestDebugFunctionality(TestCase):
             self.assertFalse(args_passed.sort_test_results)
             self.assertFalse(args_passed.show_failures_only)
 
-    def test_debug_analysis_with_backend(self):
+    def test_debug_analysis_with_backend(self) -> None:
         """Test debug_analysis with a backend client."""
         backend = MockBackend()
 
@@ -108,7 +108,7 @@ class TestDebugFunctionality(TestCase):
             call_args = mock_test_analysis.call_args
             self.assertEqual(call_args[0][0], backend)
 
-    def test_debug_parser_arguments(self):
+    def test_debug_parser_arguments(self) -> None:
         """Test that the debug command parser accepts correct arguments."""
 
         # Test basic debug command
@@ -145,7 +145,7 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(args.path, "/some/path")
             self.assertEqual(args.ignore_files, ["file1.yml", "file2.yml"])
 
-    def test_run_tests_debug_mode_output_redirection(self):
+    def test_run_tests_debug_mode_output_redirection(self) -> None:
         """Test that debug mode redirects output to stdout instead of StringIO."""
         # Use the RuleThatPrints fixture
         import os
@@ -201,7 +201,7 @@ class TestDebugFunctionality(TestCase):
             output = mock_stdout.getvalue()
             self.assertIn("Test output", output)
 
-    def test_run_tests_debug_mode_exception_handling(self):
+    def test_run_tests_debug_mode_exception_handling(self) -> None:
         """Test that debug mode prints exceptions with traceback."""
         import os
         from collections import defaultdict
@@ -259,7 +259,7 @@ class TestDebugFunctionality(TestCase):
             mock_error.assert_called()
             mock_print_tb.assert_called()
 
-    def test_run_tests_debug_mode_traceback_modification(self):
+    def test_run_tests_debug_mode_traceback_modification(self) -> None:
         """Test that debug mode modifies traceback to show exceptions relative to rule.py."""
         import os
         from collections import defaultdict
@@ -316,7 +316,7 @@ class TestDebugFunctionality(TestCase):
         self.assertEqual(traceback.extract_tb(err)[0].name, "rule")
         self.assertEqual(len(traceback.extract_tb(err)), 2)
 
-    def test_run_tests_debug_mode_nonexistent_test_warning(self):
+    def test_run_tests_debug_mode_nonexistent_test_warning(self) -> None:
         """Test that debug mode warns when specified test doesn't exist."""
         from collections import defaultdict
 
@@ -360,7 +360,7 @@ class TestDebugFunctionality(TestCase):
             # Should warn about nonexistent test
             mock_warning.assert_called_with("No test found with name %s", "Nonexistent Test")
 
-    def test_run_tests_normal_mode_vs_debug_mode(self):
+    def test_run_tests_normal_mode_vs_debug_mode(self) -> None:
         """Test the difference between normal mode and debug mode behavior."""
         import os
         from collections import defaultdict
@@ -439,7 +439,7 @@ class TestDebugFunctionality(TestCase):
             # But output should go to stdout
             self.assertIn("Test output", mock_stdout.getvalue())
 
-    def test_test_analysis_with_debug_args(self):
+    def test_test_analysis_with_debug_args(self) -> None:
         """Test that test_analysis properly handles debug_args parameter."""
         # Set up required args attributes that test_analysis expects
         args = TestAnalysisArgs(
@@ -499,7 +499,7 @@ class TestDebugFunctionality(TestCase):
             call_args = mock_setup_tests.call_args
             self.assertEqual(call_args[1]["debug_args"], debug_args)
 
-    def test_debug_analysis_integration(self):
+    def test_debug_analysis_integration(self) -> None:
         """Integration test focusing on debug_analysis -> test_analysis integration."""
         # Mock test_analysis to verify integration without filesystem complexity
         with patch.object(pat, "test_analysis") as mock_test_analysis:
@@ -531,7 +531,7 @@ class TestDebugFunctionality(TestCase):
             self.assertEqual(return_code, 0)
             self.assertEqual(len(invalid_specs), 0)
 
-    def test_debug_with_filters(self):
+    def test_debug_with_filters(self) -> None:
         """Test debug functionality with additional filters."""
         with patch.object(pat, "test_analysis") as mock_test_analysis:
             mock_test_analysis.return_value = (0, [])
@@ -558,7 +558,7 @@ class TestDebugFunctionality(TestCase):
                 args_passed.filters, [Filter(key="RuleID", values=["Test.Debug.Rule"])]
             )
 
-    def test_test_analysis_skips_summary_in_debug_mode(self):
+    def test_test_analysis_skips_summary_in_debug_mode(self) -> None:
         """Test that test_analysis skips the summary when in debug mode."""
         args = TestAnalysisArgs(
             path=self.test_rule_path,

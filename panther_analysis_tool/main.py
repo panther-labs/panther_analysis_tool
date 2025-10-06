@@ -98,6 +98,7 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    init_project,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2394,6 +2395,11 @@ def check_packs_command(
     path: PathType = ".",
 ) -> Tuple[int, str]:
     return check_packs(path)
+
+
+@app_command_with_config(name="init", help="Initialize a new panther project")
+def init_command() -> Tuple[int, str]:
+    return init_project.run(working_dir=".")
 
 
 # pylint: disable=too-many-statements
