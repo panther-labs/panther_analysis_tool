@@ -242,7 +242,9 @@ class AnalysisCache:
             "INSERT INTO file_mappings (spec_id, file_id) VALUES (?, ?);", (spec_id, file_id)
         )
 
-    def insert_analysis_spec(self, analysis_spec: AnalysisSpec, pyFileContents: bytes) -> None:
+    def insert_analysis_spec(
+        self, analysis_spec: AnalysisSpec, pyFileContents: Optional[bytes]
+    ) -> None:
         """
         Insert an analysis spec into the cache.
 
@@ -267,6 +269,9 @@ class AnalysisCache:
                 self._insert_file_mapping(spec_id, file_id)
 
             self.conn.commit()
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed" not in str(e):
+                raise e  # simply skip duplicates
         except Exception as e:
             self.conn.rollback()
             raise e
