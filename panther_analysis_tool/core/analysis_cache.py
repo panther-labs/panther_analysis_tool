@@ -30,6 +30,7 @@ class AnalysisSpec:
         id_field (str): The field used as the identifier for the analysis spec (e.g. RuleID, PolicyID, etc.).
         id_value (str): The ID of the analysis item.
     """
+
     id: int
     spec: bytes
     version: int
