@@ -91,3 +91,6 @@ class ReplayStatus:
 
 
 ENABLE_CORRELATION_RULES_FLAG = "EnableCorrelationRules"
+
+CACHE_DIR = ".cache"
+PANTHER_ANALYSIS_SQLITE_FILE = "panther-analysis.sqlite"
