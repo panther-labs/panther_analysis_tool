@@ -59,5 +59,6 @@ def setup_folder_structure(working_dir: Path) -> None:
     )
 
     print(
-        "\nOr run `pat --help` to see all available commands. Visit https://docs.panther.com/panther-developer-workflows/overview for more information."
+        "\nOr run `pat --help` to see all available commands. "
+        "Visit https://docs.panther.com/panther-developer-workflows/overview for more information."
     )
