@@ -179,7 +179,7 @@ class AnalysisCache:
             id_value=row[5],
         )
 
-    def insert_file(self, content: bytes) -> Optional[int]:
+    def _insert_file(self, content: bytes) -> int:
         """
         Insert a file into the cache or retrieve its ID if it already exists.
 
@@ -187,7 +187,7 @@ class AnalysisCache:
             content (bytes): The content of the file to insert.
 
         Returns:
-            Optional[int]: The ID of the inserted or existing file, None if insertion fails.
+            int: The ID of the inserted or existing file.
         """
         try:
             file_id = self.cursor.execute(
@@ -197,9 +197,11 @@ class AnalysisCache:
             file_id = self.cursor.execute(
                 "SELECT id FROM files WHERE content = ?;", (content,)
             ).fetchone()[0]
+        if file_id is None:
+            raise ValueError("Failed to insert file, file_id is None")
         return file_id
 
-    def insert_spec(
+    def _insert_spec(
         self,
         id_field: str,
         id_value: str,
@@ -228,7 +230,7 @@ class AnalysisCache:
         assert spec_id is not None  # nosec: B101
         return spec_id
 
-    def insert_file_mapping(self, spec_id: int, file_id: int) -> None:
+    def _insert_file_mapping(self, spec_id: int, file_id: int) -> None:
         """
         Insert a mapping between a spec and a file in the cache.
 
@@ -239,6 +241,35 @@ class AnalysisCache:
         self.cursor.execute(
             "INSERT INTO file_mappings (spec_id, file_id) VALUES (?, ?);", (spec_id, file_id)
         )
+
+    def insert_analysis_spec(self, analysis_spec: AnalysisSpec, pyFileContents: bytes) -> None:
+        """
+        Insert an analysis spec into the cache.
+
+        Args:
+            analysis_spec (AnalysisSpec): The analysis spec to insert.
+            pyFileContents (bytes): The contents of the Python file associated with the analysis spec.
+
+        Returns:
+            None
+        """
+
+        try:
+            spec_id = self._insert_spec(
+                analysis_spec.id_field,
+                analysis_spec.id_value,
+                analysis_spec.spec,
+                analysis_spec.file_path,
+                analysis_spec.version,
+            )
+            if pyFileContents is not None:
+                file_id = self._insert_file(pyFileContents)
+                self._insert_file_mapping(spec_id, file_id)
+
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            raise e
 
     def relative_path_to_file(self, filename: str) -> pathlib.Path:
         """
