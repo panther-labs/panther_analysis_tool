@@ -11,8 +11,7 @@ from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from typer.testing import CliRunner, Result
 
-from panther_analysis_tool import analysis_utils
-from panther_analysis_tool import main
+from panther_analysis_tool import analysis_utils, main
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.backend.client import (
     BackendError,
@@ -27,10 +26,8 @@ from panther_analysis_tool.backend.client import (
     TranspileToPythonResponse,
     UnsupportedEndpointError,
 )
-from panther_analysis_tool.backend.lambda_client import AWS_PROFILE_ENV_KEY
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.main import app, upload_analysis
-from panther_analysis_tool.schemas import RULE_SCHEMA
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
@@ -115,7 +112,7 @@ def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
 
 
 class TestPantherAnalysisTool(TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         # Data Models and Globals write the source code to a file and import it as module.
         # This will not work if we are simply writing on the in-memory, fake filesystem.
         # We thus copy to a temporary space the Data Model Python modules.
@@ -132,7 +129,7 @@ class TestPantherAnalysisTool(TestCase):
         ]
         for data_model_module in self.data_model_modules:
             shutil.copy(data_model_module, _DATAMODEL_FOLDER)
-        os.makedirs(pat.TMP_HELPER_MODULE_LOCATION, exist_ok=True)
+        os.makedirs(analysis_utils.get_tmp_helper_module_location(), exist_ok=True)
         self.global_modules = {
             "panther": os.path.join(
                 DETECTIONS_FIXTURES_PATH, "valid_analysis/global_helpers/helpers.py"
@@ -145,10 +142,10 @@ class TestPantherAnalysisTool(TestCase):
             ),
         }
         for module_name, filename in self.global_modules.items():
-            shutil.copy(filename, os.path.join(pat.TMP_HELPER_MODULE_LOCATION, f"{module_name}.py"))
+            shutil.copy(filename, os.path.join(analysis_utils.get_tmp_helper_module_location(), f"{module_name}.py"))
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
-        self.fs.add_real_directory(pat.TMP_HELPER_MODULE_LOCATION, read_only=False)
+        self.fs.add_real_directory(analysis_utils.get_tmp_helper_module_location(), read_only=False)
         # jsonschema needs to be able to access '.../site-packages/jsonschema/schemas/vocabularies' to work
         self.fs.add_real_directory(jsonschema.__path__[0])
         # sqlfluff needs to be able to access its package metadata to work
@@ -166,7 +163,7 @@ class TestPantherAnalysisTool(TestCase):
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-    def test_valid_json_policy_spec(self):
+    def test_valid_json_policy_spec(self) -> None:
         for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
@@ -174,7 +171,7 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertIsInstance(loaded_spec, dict)
                 self.assertTrue(loaded_spec != {})
 
-    def test_ignored_files_are_not_loaded(self):
+    def test_ignored_files_are_not_loaded(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml --ignore-files {DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml".split(),
@@ -182,7 +179,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)  # no specs throws error
         self.assertIn("Nothing to test in", invalid_specs[0])
 
-    def test_valid_yaml_policy_spec(self):
+    def test_valid_yaml_policy_spec(self) -> None:
         for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
         ):
@@ -190,7 +187,7 @@ class TestPantherAnalysisTool(TestCase):
                 self.assertIsInstance(loaded_spec, dict)
                 self.assertTrue(loaded_spec != {})
 
-    def test_valid_pack_spec(self):
+    def test_valid_pack_spec(self) -> None:
         pack_loaded = False
         for spec_filename, _, loaded_spec, _ in analysis_utils.load_analysis_specs(
             [DETECTIONS_FIXTURES_PATH], ignore_files=[]
@@ -201,12 +198,12 @@ class TestPantherAnalysisTool(TestCase):
                 pack_loaded = True
         self.assertTrue(pack_loaded)
 
-    def test_datetime_converted(self):
+    def test_datetime_converted(self) -> None:
         test_date = datetime.now()
         test_date_string = pat.datetime_converted(test_date)
         self.assertIsInstance(test_date_string, str)
 
-    def test_load_policy_specs_from_folder(self):
+    def test_load_policy_specs_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, ["test", "--path", DETECTIONS_FIXTURES_PATH]
         )
@@ -216,35 +213,35 @@ class TestPantherAnalysisTool(TestCase):
         )
         self.assertEqual(len(invalid_specs), 13)
 
-    def test_policies_from_folder(self):
+    def test_policies_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/policies".split()
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_rules_from_folder(self):
+    def test_rules_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/rules".split()
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_queries_from_folder(self):
+    def test_queries_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries".split()
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_scheduled_rules_from_folder(self):
+    def test_scheduled_rules_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/scheduled_rules".split()
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_rules_from_current_dir(self):
+    def test_rules_from_current_dir(self) -> None:
         # This is a work around to test running tool against current directory
         return_code = -1
         invalid_specs = None
@@ -273,7 +270,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_filters(self):
+    def test_with_filters(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter AnalysisType=policy,global".split(),
@@ -281,7 +278,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_enabled_filter(self):
+    def test_enabled_filter(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled=true".split(),
@@ -289,7 +286,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_enabled_filter_inverted(self):
+    def test_enabled_filter_inverted(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH}/disabled_rule --filter Enabled!=false".split(),
@@ -297,7 +294,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_aws_profiles(self):
+    def test_aws_profiles(self) -> None:
         backend = MockBackend()
         with (
             patch(
@@ -317,7 +314,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual("myprofile", mock_get_backend.call_args[0][2])
 
-    def test_invalid_rule_definition(self):
+    def test_invalid_rule_definition(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled".split(),
@@ -325,7 +322,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
-    def test_invalid_rule_test(self):
+    def test_invalid_rule_test(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test".split(),
@@ -333,7 +330,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
-    def test_invalid_characters(self):
+    def test_invalid_characters(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=High --filter ResourceTypes=AWS.IAM.User".split(),
@@ -341,7 +338,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 10)
 
-    def test_unknown_exception(self):
+    def test_unknown_exception(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception".split(),
@@ -349,7 +346,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
-    def test_with_invalid_mocks(self):
+    def test_with_invalid_mocks(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=Critical --filter RuleID=Example.Rule.Invalid.Mock".split(),
@@ -357,7 +354,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
-    def test_with_tag_filters(self):
+    def test_with_tag_filters(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --filter Tags=AWS,CIS".split(),
@@ -365,7 +362,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_tag_filters_inverted(self):
+    def test_with_tag_filters_inverted(self) -> None:
         # Note: a comparison of the tests passed is required to make this test robust
         # (8 passing vs 1 passing)
         return_code, invalid_specs = mock_test_analysis(
@@ -375,7 +372,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(invalid_specs, [])
         self.assertEqual(return_code, 0)
 
-    def test_with_test_names_filter(self):
+    def test_with_test_names_filter(self) -> None:
         # Test that we can filter tests by name using --test-names
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -391,7 +388,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_test_names_filter_and_rule_filter(self):
+    def test_with_test_names_filter_and_rule_filter(self) -> None:
         # Test combining rule filter with test name filter
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -432,7 +429,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_minimum_tests_failing(self):
+    def test_with_minimum_tests_failing(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 2".split()
         )
@@ -440,7 +437,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_minimum_tests_no_passing(self):
+    def test_with_minimum_tests_no_passing(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=IAM.MFAEnabled.Required.Tests --minimum-tests 2".split(),
@@ -449,7 +446,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
-    def test_invalid_resource_type(self):
+    def test_invalid_resource_type(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type".split(),
@@ -457,7 +454,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 9)
 
-    def test_invalid_log_type(self):
+    def test_invalid_log_type(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split(),
@@ -465,7 +462,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.equal = self.assertEqual(len(invalid_specs), 9)
 
-    def test_zip_analysis(self):
+    def test_zip_analysis(self) -> None:
         # Note: This is a workaround for CI
         try:
             self.fs.create_dir("tmp/")
@@ -490,7 +487,7 @@ class TestPantherAnalysisTool(TestCase):
             )
             self.assertEqual(mock_zip_analysis_chunks.call_count, 1)
 
-    def test_zip_analysis_chunks(self):
+    def test_zip_analysis_chunks(self) -> None:
         # Note: This is a workaround for CI
         try:
             self.fs.create_dir("tmp/")
@@ -508,7 +505,7 @@ class TestPantherAnalysisTool(TestCase):
 
         self.assertEqual(7, len(results))
 
-    def test_generate_release_assets(self):
+    def test_generate_release_assets(self) -> None:
         # Note: This is a workaround for CI
         try:
             self.fs.create_dir("tmp/release/")
@@ -528,7 +525,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertTrue(statinfo.st_size > 0)
         self.assertEqual(return_code, 0)
 
-    def test_feature_flags_dont_err_the_upload(self):
+    def test_feature_flags_dont_err_the_upload(self) -> None:
         backend = MockBackend()
         backend.feature_flags = mock.MagicMock(
             side_effect=BaseException("something about the lambda doesnt support your request")
@@ -559,7 +556,7 @@ class TestPantherAnalysisTool(TestCase):
             )
             self.assertEqual(return_code, 0)
 
-    def test_retry_uploads(self):
+    def test_retry_uploads(self) -> None:
         import logging
 
         backend = MockBackend()
@@ -611,7 +608,7 @@ class TestPantherAnalysisTool(TestCase):
             self.assertEqual(return_code, 1)
             self.assertEqual(time_mock.call_count, 10)
 
-    def test_available_destination_names_invalid_name_returned(self):
+    def test_available_destination_names_invalid_name_returned(self) -> None:
         """When an available destination is given but does not match the returned names"""
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -625,7 +622,7 @@ class TestPantherAnalysisTool(TestCase):
         )
         self.assertEqual(return_code, 1)
 
-    def test_available_destination_names_valid_name_returned(self):
+    def test_available_destination_names_valid_name_returned(self) -> None:
         """When an available destination is given but matches the returned name"""
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -639,21 +636,21 @@ class TestPantherAnalysisTool(TestCase):
         )
         self.assertEqual(return_code, 0)
 
-    def test_invalid_query(self):
+    def test_invalid_query(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {FIXTURES_PATH}/queries/invalid".split()
         )
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 4)
 
-    def test_invalid_query_passes_when_unchecked(self):
+    def test_invalid_query_passes_when_unchecked(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {FIXTURES_PATH}/queries/invalid --ignore-table-names".split()
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_invalid_query_passes_when_table_name_provided(self):
+    def test_invalid_query_passes_when_table_name_provided(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* --valid-table-names *login_history".split(),
@@ -661,7 +658,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_invalid_query_fails_when_partial_table_name_provided(self):
+    def test_invalid_query_fails_when_partial_table_name_provided(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {FIXTURES_PATH}/queries/invalid --valid-table-names datalake.public* --valid-table-names *.*.login_history".split(),
@@ -669,7 +666,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 1)
 
-    def test_valid_simple_detections(self):
+    def test_valid_simple_detections(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             ["test", "--path", f"{FIXTURES_PATH}/simple-detections/valid", "--ignore-extra-keys"],
@@ -677,7 +674,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_invalid_simple_detections(self):
+    def test_invalid_simple_detections(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {FIXTURES_PATH}/simple-detections/invalid".split()
         )
@@ -685,7 +682,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 3)
 
     # This function was generated in whole or in part by GitHub Copilot.
-    def test_simple_detection_with_transpile(self):
+    def test_simple_detection_with_transpile(self) -> None:
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/simple-detections/valid"
             number_of_test_files = len(
@@ -717,7 +714,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 1)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_run_tests_with_filters(self):
+    def test_run_tests_with_filters(self) -> None:
         with Pause(self.fs):
 
             file_path = f"{FIXTURES_PATH}/inline-filters"
@@ -772,7 +769,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_correlation_rules_skipped_if_feature_not_enabled(self):
+    def test_correlation_rules_skipped_if_feature_not_enabled(self) -> None:
         import logging
 
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
@@ -799,7 +796,7 @@ class TestPantherAnalysisTool(TestCase):
             self.assertTrue(warning_logged)
         self.assertEqual(return_code, 0)
 
-    def test_correlation_rules_can_report_pass(self):
+    def test_correlation_rules_can_report_pass(self) -> None:
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
         backend = MockBackend()
         backend.test_correlation_rule = mock.MagicMock(
@@ -822,7 +819,7 @@ class TestPantherAnalysisTool(TestCase):
         stdout_str = result.stdout
         self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 1)
 
-    def test_correlation_rules_can_report_failure(self):
+    def test_correlation_rules_can_report_failure(self) -> None:
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests/fails"
         backend = MockBackend()
         backend.test_correlation_rule = mock.MagicMock(
@@ -845,7 +842,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(stdout_str.count(f"[{Fore.RED}FAIL{Style.RESET_ALL}] t1"), 1)
         self.assertEqual(stdout_str.count("Failed: 1"), 1)
 
-    def test_correlation_rules_skipped_without_backend(self):
+    def test_correlation_rules_skipped_without_backend(self) -> None:
         """Confirms that correlation rules are skipped if no backend is provided."""
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests"
         with patch("panther_analysis_tool.main.pat_utils.get_optional_backend", return_value=None):
@@ -860,7 +857,7 @@ class TestPantherAnalysisTool(TestCase):
         # Ensure skipped tests are accurately summarized
         self.assertEqual(stdout_str.count("Skipped: 2"), 1)
 
-    def test_can_retrieve_base_detection_for_test(self):
+    def test_can_retrieve_base_detection_for_test(self) -> None:
         import logging
 
         with Pause(self.fs):
@@ -889,7 +886,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_logs_warning_if_cannot_retrieve_base(self):
+    def test_logs_warning_if_cannot_retrieve_base(self) -> None:
         import logging
 
         file_path = f"{FIXTURES_PATH}/derived_without_base"
@@ -917,7 +914,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_can_inherit_tests_from_base(self):
+    def test_can_inherit_tests_from_base(self) -> None:
         file_path = f"{FIXTURES_PATH}/tests_can_be_inherited"
         return_code, invalid_specs, result = mock_test_analysis_results(
             self, ["test", "--path", file_path]
@@ -928,7 +925,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t1"), 2)
         self.assertEqual(stdout_str.count(f"[{Fore.GREEN}PASS{Style.RESET_ALL}] t2"), 2)
 
-    def test_bulk_validate_happy_path(self):
+    def test_bulk_validate_happy_path(self) -> None:
         backend = MockBackend()
         backend.supports_bulk_validate = mock.MagicMock(return_value=True)
         backend.bulk_validate = mock.MagicMock(
@@ -945,7 +942,7 @@ class TestPantherAnalysisTool(TestCase):
         params = backend.bulk_validate.call_args[0][0]
         self.assertIsNotNone(params.zip_bytes, "zip data was unexpectedly empty")
 
-    def test_bulk_validate_with_exception(self):
+    def test_bulk_validate_with_exception(self) -> None:
         backend = MockBackend()
         backend.supports_bulk_validate = mock.MagicMock(return_value=True)
         backend.bulk_validate = mock.MagicMock(
@@ -959,7 +956,7 @@ class TestPantherAnalysisTool(TestCase):
 
         self.assertEqual(result.exit_code, 1)
 
-    def test_bulk_validate_without_support(self):
+    def test_bulk_validate_without_support(self) -> None:
         backend = MockBackend()
         backend.bulk_validate = mock.MagicMock(
             side_effect=BackendError("ruh oh something went wrong")
@@ -976,7 +973,7 @@ class TestPantherAnalysisTool(TestCase):
             f"match not found in {return_str}",
         )
 
-    def test_bulk_validate_unsupported_exception(self):
+    def test_bulk_validate_unsupported_exception(self) -> None:
         backend = MockBackend()
         backend.supports_bulk_validate = mock.MagicMock(return_value=True)
         backend.bulk_validate = mock.MagicMock(
@@ -993,7 +990,7 @@ class TestPantherAnalysisTool(TestCase):
             f"match not found in {return_str}",
         )
 
-    def test_bulk_validate_with_expected_failures(self):
+    def test_bulk_validate_with_expected_failures(self) -> None:
         backend = MockBackend()
         backend.supports_bulk_validate = mock.MagicMock(return_value=True)
         fake_response = BulkUploadValidateStatusResponse(
@@ -1026,7 +1023,7 @@ class TestPantherAnalysisTool(TestCase):
                 f"expected to find {expected} in {return_str} but no matches found",
             )
 
-    def test_classify_analysis_valid_specs(self):
+    def test_classify_analysis_valid_specs(self) -> None:
         """Test classify_analysis with valid analysis specs"""
         # Valid rule spec
         valid_rule_spec = {
@@ -1081,7 +1078,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(all_specs.lookup_tables), 0)
         self.assertEqual(len(all_specs.packs), 0)
 
-    def test_classify_analysis_invalid_specs(self):
+    def test_classify_analysis_invalid_specs(self) -> None:
         """Test classify_analysis with invalid analysis specs"""
         # Invalid spec - missing required fields
         invalid_spec = {
@@ -1107,7 +1104,7 @@ class TestPantherAnalysisTool(TestCase):
         # Should have no valid specs
         self.assertTrue(all_specs.empty())
 
-    def test_classify_analysis_duplicate_ids(self):
+    def test_classify_analysis_duplicate_ids(self) -> None:
         """Test classify_analysis with duplicate analysis IDs"""
         duplicate_rule_spec1 = {
             "AnalysisType": "rule",
@@ -1149,7 +1146,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(invalid_specs[0][0], "test_rule2.yml")
         self.assertIsInstance(invalid_specs[0][1], analysis_utils.AnalysisIDConflictException)
 
-    def test_classify_analysis_with_parsing_errors(self):
+    def test_classify_analysis_with_parsing_errors(self) -> None:
         """Test classify_analysis with parsing errors passed in"""
         valid_spec = {
             "AnalysisType": "rule",
@@ -1184,7 +1181,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(invalid_specs[0][0], "invalid_yaml.yml")
         self.assertIsInstance(invalid_specs[0][1], ValueError)
 
-    def test_classify_analysis_scheduled_query_table_names(self):
+    def test_classify_analysis_scheduled_query_table_names(self) -> None:
         """Test classify_analysis with scheduled query table name validation"""
         # Valid scheduled query spec with invalid table name
         scheduled_query_spec = {
@@ -1226,7 +1223,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
         self.assertEqual(len(all_specs.queries), 1)
 
-    def test_classify_analysis_dedup_warnings(self):
+    def test_classify_analysis_dedup_warnings(self) -> None:
         """Test classify_analysis with DedupPeriodMinutes warnings"""
         import logging
 
@@ -1284,7 +1281,7 @@ class TestPantherAnalysisTool(TestCase):
                 )
             )
 
-    def test_classify_analysis_derived_detection(self):
+    def test_classify_analysis_derived_detection(self) -> None:
         """Test classify_analysis with derived detection"""
         # Derived detection spec
         derived_spec = {
