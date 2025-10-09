@@ -98,6 +98,7 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    fetch,
     init_project,
     validate,
 )
@@ -2400,6 +2401,11 @@ def check_packs_command(
 @app_command_with_config(name="init", help="Initialize a new panther project")
 def init_command() -> Tuple[int, str]:
     return init_project.run(working_dir=".")
+
+
+@app_command_with_config(name="fetch", help="Fetch a detection")
+def fetch_command() -> Tuple[int, str]:
+    return fetch.run()
 
 
 # pylint: disable=too-many-statements

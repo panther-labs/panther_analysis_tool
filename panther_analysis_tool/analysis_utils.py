@@ -70,8 +70,8 @@ class AnalysisContainsDuplicatesException(Exception):
     """Exception for duplicate values in analysis specs"""
 
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = f'Specification file for [{analysis_id}] contains fields \
-        with duplicate values: [{", ".join(x for x in invalid_fields)}]'
+        self.message = f"Specification file for [{analysis_id}] contains fields \
+        with duplicate values: [{', '.join(x for x in invalid_fields)}]"
         super().__init__(self.message)
 
 
@@ -80,7 +80,7 @@ class AnalysisContainsInvalidTableNamesException(Exception):
 
     def __init__(self, analysis_id: str, invalid_table_names: List[str]):
         self.message = (
-            f'Specification file for [{analysis_id}] contains invalid Panther table names: [{", ".join(x for x in invalid_table_names)}]. '
+            f"Specification file for [{analysis_id}] contains invalid Panther table names: [{', '.join(x for x in invalid_table_names)}]. "
             'Try using a fully qualified table name such as "panther_logs.public.log_type" '
             "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables."
         )
@@ -100,11 +100,15 @@ def filter_analysis(
         analysis_spec = item.analysis_spec
         if fnmatch(dir_name, HELPERS_PATH_PATTERN):
             logging.debug("auto-adding helpers file %s", os.path.join(file_name))
-            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
+            filtered_analysis.append(
+                ClassifiedAnalysis(file_name, dir_name, analysis_spec)
+            )
             continue
         if fnmatch(dir_name, DATA_MODEL_PATH_PATTERN):
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
-            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
+            filtered_analysis.append(
+                ClassifiedAnalysis(file_name, dir_name, analysis_spec)
+            )
             continue
         match = True
         for filt in filters:
@@ -142,12 +146,21 @@ def load_analysis_specs(
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
-    for result in load_analysis_specs_ex(directories, ignore_files, roundtrip_yaml=False):
-        yield result.spec_filename, result.relative_path, result.analysis_spec, result.error
+    for result in load_analysis_specs_ex(
+        directories, ignore_files, roundtrip_yaml=False
+    ):
+        yield (
+            result.spec_filename,
+            result.relative_path,
+            result.analysis_spec,
+            result.error,
+        )
 
 
 def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> None:
-    analysis_specs = list(load_analysis_specs_ex(paths, ignore_files, roundtrip_yaml=True))
+    analysis_specs = list(
+        load_analysis_specs_ex(paths, ignore_files, roundtrip_yaml=True)
+    )
     base_ids_to_disable = set()
     base_detection_key = "BaseDetection"
     rule_id_key = "RuleID"
@@ -163,7 +176,9 @@ def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> No
             rule: Dict[str, Any] = analysis_spec_res.analysis_spec
             if rule.get(rule_id_key, "") == base_detection_id:
                 logging.info(
-                    "Setting %s=False for %s", enabled_key, analysis_spec_res.spec_filename
+                    "Setting %s=False for %s",
+                    enabled_key,
+                    analysis_spec_res.spec_filename,
                 )
                 rule[enabled_key] = False
                 analysis_spec_res.serialize_to_file()
@@ -178,6 +193,7 @@ class LoadAnalysisSpecsResult:
     analysis_spec: Any
     yaml_ctx: YAML
     error: Optional[Exception]
+    raw_spec_file_content: Optional[bytes]
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
@@ -202,21 +218,31 @@ class LoadAnalysisSpecsResult:
     # pylint: disable=no-else-return
     def analysis_id(self) -> str:
         """Returns the analysis ID for this analysis spec."""
-        analysis_type = self.analysis_spec["AnalysisType"]
-        if analysis_type in [
-            AnalysisTypes.RULE,
-            AnalysisTypes.SCHEDULED_RULE,
-            AnalysisTypes.CORRELATION_RULE,
-        ]:
-            return self.analysis_spec["RuleID"]
-        elif analysis_type == AnalysisTypes.POLICY:
-            return self.analysis_spec["PolicyID"]
-
-        raise ValueError(f"Unknown analysis type '{analysis_type}'")
+        return self.analysis_spec[self.analysis_id_field_name()]
 
     def analysis_type(self) -> str:
         """Returns the analysis type for this analysis spec."""
         return self.analysis_spec["AnalysisType"]
+
+    def analysis_id_field_name(self) -> str:
+        """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
+        match self.analysis_type():
+            case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
+                return "RuleID"
+            case AnalysisTypes.DATA_MODEL:
+                return "DataModelID"
+            case AnalysisTypes.POLICY:
+                return "PolicyID"
+            case AnalysisTypes.GLOBAL:
+                return "GlobalID"
+            case AnalysisTypes.SCHEDULED_QUERY | AnalysisTypes.SAVED_QUERY:
+                return "QueryName"
+            case AnalysisTypes.PACK:
+                return "PackID"
+            case AnalysisTypes.LOOKUP_TABLE:
+                return "LookupName"
+            case _:
+                raise ValueError(f"Unsupported analysis type: {self.analysis_type()}")
 
     # pylint: disable=line-too-long
     def __str__(self) -> str:
@@ -275,25 +301,24 @@ def load_analysis_specs_ex(
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
+    yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
     loaded_specs: List[Any] = []
     for directory in directories:
-        for relative_path, _, file_list in os.walk(directory):
-            # Skip hidden folders
-            if (
-                relative_path.split("/")[-1].startswith(".")
-                and relative_path != "./"
-                and relative_path != "."
-            ):
-                continue
+        for dirpath, dirnames, filenames in os.walk(directory):
+            dirnames[:] = [
+                dirname
+                for dirname in dirnames
+                if not dirname.startswith(".") and dirname != "__pycache__"
+            ]
 
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
             # when relative_path is the current dir
-            if directory in [".", "./"] and relative_path not in [".", "./"]:
+            if directory in [".", "./"] and dirpath not in [".", "./"]:
                 if not any(
                     (
-                        fnmatch(relative_path, path_pattern)
+                        fnmatch(dirpath, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
@@ -305,42 +330,44 @@ def load_analysis_specs_ex(
                         )
                     )
                 ):
-                    logging.debug("Skipping path %s", relative_path)
+                    logging.debug("Skipping path %s", dirpath)
                     continue
-            for filename in sorted(file_list):
+            for filename in sorted(filenames):
                 # Skip hidden files
                 if filename.startswith("."):
                     continue
-                spec_filename = os.path.abspath(os.path.join(relative_path, filename))
+                spec_filename = os.path.abspath(os.path.join(dirpath, filename))
                 # skip loading files that have already been imported
                 if spec_filename in loaded_specs:
                     continue
                 # Dont load files that are explictly ignored
-                relative_name = os.path.normpath(os.path.join(relative_path, filename))
+                relative_name = os.path.normpath(os.path.join(dirpath, filename))
                 if relative_name in ignored_normalized:
                     logging.info("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
                 # setup yaml object
-                yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
                 if fnmatch(filename, "*.y*ml"):
-                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
+                    with open(spec_filename, "rb") as spec_file_obj:
                         try:
+                            file_content = spec_file_obj.read()
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=yaml.load(spec_file_obj),
+                                relative_path=dirpath,
+                                analysis_spec=yaml.load(io.BytesIO(file_content)),
                                 yaml_ctx=yaml,
                                 error=None,
+                                raw_spec_file_content=file_content,
                             )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
-                                relative_path=relative_path,
+                                relative_path=dirpath,
                                 analysis_spec=None,
                                 yaml_ctx=yaml,
                                 error=err,
+                                raw_spec_file_content=None,
                             )
 
 
@@ -365,7 +392,9 @@ def get_simple_detections_as_python(
                     item = specs[i]
                     spec = item.analysis_spec
                     spec["body"] = result
-                    enriched_specs.append(ClassifiedAnalysis(item.file_name, item.dir_name, spec))
+                    enriched_specs.append(
+                        ClassifiedAnalysis(item.file_name, item.dir_name, spec)
+                    )
             else:
                 logging.warning(
                     "Error transpiling simple detection(s) to Python, skipping tests for simple detections."
@@ -376,11 +405,15 @@ def get_simple_detections_as_python(
                 be_err,
             )
     else:
-        logging.info("No backend client provided, skipping tests for simple detections.")
+        logging.info(
+            "No backend client provided, skipping tests for simple detections."
+        )
     return enriched_specs if enriched_specs else specs
 
 
-def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) -> Dict[str, Any]:
+def lookup_base_detection(
+    the_id: str, backend: Optional[BackendClient] = None
+) -> Dict[str, Any]:
     """Attempts to lookup base detection via its id"""
     out: Dict[str, Any] = {}
     if backend is not None:
@@ -392,7 +425,8 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
                 out["tests"] = response.data.tests
             else:
                 logging.warning(
-                    "Unexpected error getting base detection, status code %s", response.status_code
+                    "Unexpected error getting base detection, status code %s",
+                    response.status_code,
                 )
         except (BackendError, BaseException) as be_err:  # pylint: disable=broad-except
             logging.warning(
@@ -500,7 +534,9 @@ def transpile_inline_filters(
                 be_err,
             )
     else:
-        logging.info("No backend client provided, skipping InlineFilters during testing")
+        logging.info(
+            "No backend client provided, skipping InlineFilters during testing"
+        )
 
 
 def load_analysis(
@@ -608,7 +644,10 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
+            if (
+                analysis_type == AnalysisTypes.SCHEDULED_QUERY
+                and not ignore_table_names
+            ):
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -645,7 +684,9 @@ def classify_analysis(
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
 
         except schema.SchemaWrongKeyError as err:
-            invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
+            invalid_specs.append(
+                (analysis_spec_filename, handle_wrong_key_error(err, keys))
+            )
         except (
             schema.SchemaMissingKeyError,
             schema.SchemaForbiddenKeyError,
@@ -662,7 +703,9 @@ def classify_analysis(
             if "LogTypes" in str(err):
                 error = schema.SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
             elif "ResourceTypes" in str(err):
-                error = schema.SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
+                error = schema.SchemaError(
+                    f"{first_half}: RESOURCE_TYPE_REGEX{second_half}"
+                )
             invalid_specs.append((analysis_spec_filename, error))
         except jsonschema.exceptions.ValidationError as err:
             error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
@@ -690,7 +733,9 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
     msg = "{} not in list of valid keys: {}"
     try:
         if matches:
-            raise schema.SchemaWrongKeyError(msg.format(matches.group(1), keys)) from err
+            raise schema.SchemaWrongKeyError(
+                msg.format(matches.group(1), keys)
+            ) from err
         raise schema.SchemaWrongKeyError(msg.format("UNKNOWN_KEY", keys)) from err
     except schema.SchemaWrongKeyError as exc:
         return exc

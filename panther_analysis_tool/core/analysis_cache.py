@@ -6,17 +6,6 @@ from typing import Optional
 from panther_analysis_tool.constants import CACHE_DIR, PANTHER_ANALYSIS_SQLITE_FILE
 
 
-def connect_to_cache() -> sqlite3.Connection:
-    """
-    Connect to the analysis cache database.
-
-    Returns:
-        sqlite3.Connection: A connection to the SQLite database used for caching analysis content.
-    """
-    SQLITE_FILE = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
-    return sqlite3.connect(SQLITE_FILE)
-
-
 @dataclasses.dataclass
 class AnalysisSpec:
     """
@@ -26,15 +15,12 @@ class AnalysisSpec:
         id (int): The unique identifier for the analysis spec.
         spec (bytes): The YAML configuration of the analysis spec.
         version (int): The version number of the analysis spec.
-        file_path (str): The file path where the associated Python file for the analysis spec is located.
         id_field (str): The field used as the identifier for the analysis spec (e.g. RuleID, PolicyID, etc.).
         id_value (str): The ID of the analysis item.
     """
-
-    id: int
+    id: Optional[int]
     spec: bytes
     version: int
-    file_path: str
     id_field: str
     id_value: str
 
@@ -48,7 +34,10 @@ class AnalysisCache:
         """
         Initialize the AnalysisCache by connecting to the cache database and creating a cursor.
         """
-        self.conn = connect_to_cache()
+        sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
+        sqlite_file.touch(exist_ok=True)
+
+        self.conn = sqlite3.connect(sqlite_file)
         self.cursor = self.conn.cursor()
 
     def create_tables(self) -> None:
@@ -66,7 +55,7 @@ class AnalysisCache:
         """
         # get all tables
         self.cursor.execute(
-            "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT, id_value TEXT, spec BLOB, file_path TEXT, version INTEGER);"
+            "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT, id_value TEXT, spec BLOB, version INTEGER);"
         )
         # unique constrain on id_field, id_value and version
         self.cursor.execute(
@@ -121,7 +110,9 @@ class AnalysisCache:
         Returns:
             Optional[bytes]: The file content as bytes if found, None otherwise.
         """
-        row = self.cursor.execute("SELECT content FROM files WHERE id = ?", (file_id,)).fetchone()
+        row = self.cursor.execute(
+            "SELECT content FROM files WHERE id = ?", (file_id,)
+        ).fetchone()
         if row is None:
             return None
         return row[0]
@@ -138,7 +129,7 @@ class AnalysisCache:
             Optional[AnalysisSpec]: The AnalysisSpec if found, None otherwise.
         """
         self.cursor.execute(
-            "SELECT id, spec, version, file_path, id_field, id_value FROM analysis_specs WHERE id_value = ? AND version = ?",
+            "SELECT id, spec, version, id_field, id_value FROM analysis_specs WHERE id_value = ? AND version = ?",
             (analysis_id, base_version),
         )
         row = self.cursor.fetchone()
@@ -148,9 +139,8 @@ class AnalysisCache:
             id=row[0],
             spec=row[1],
             version=row[2],
-            file_path=row[3],
-            id_field=row[4],
-            id_value=row[5],
+            id_field=row[3],
+            id_value=row[4],
         )
 
     def get_latest_spec(self, analysis_id: str) -> Optional[AnalysisSpec]:
@@ -164,7 +154,7 @@ class AnalysisCache:
             Optional[AnalysisSpec]: The latest AnalysisSpec if found, None otherwise.
         """
         self.cursor.execute(
-            "SELECT id, spec, version, file_path, id_field, id_value FROM analysis_specs WHERE id_value = ? ORDER BY version DESC LIMIT 1",
+            "SELECT id, spec, version, id_field, id_value FROM analysis_specs WHERE id_value = ? ORDER BY version DESC LIMIT 1",
             (analysis_id,),
         )
         row = self.cursor.fetchone()
@@ -174,9 +164,8 @@ class AnalysisCache:
             id=row[0],
             spec=row[1],
             version=row[2],
-            file_path=row[3],
-            id_field=row[4],
-            id_value=row[5],
+            id_field=row[3],
+            id_value=row[4],
         )
 
     def _insert_file(self, content: bytes) -> int:
@@ -206,7 +195,6 @@ class AnalysisCache:
         id_field: str,
         id_value: str,
         spec_content: Optional[bytes],
-        file_path: str,
         spec_version: int,
     ) -> int:
         """
@@ -216,15 +204,14 @@ class AnalysisCache:
             id_field (str): The field used as the identifier for the spec.
             id_value (str): The value of the identifier field.
             spec_content (Optional[bytes]): The binary content of the spec.
-            file_path (str): The file path where the spec is located.
             spec_version (int): The version number of the spec.
 
         Returns:
             int: The ID of the newly inserted spec.
         """
         spec_id = self.cursor.execute(
-            "INSERT INTO analysis_specs (id_field, id_value, spec, file_path, version) VALUES (?, ?, ?, ?, ?);",
-            (id_field, id_value, spec_content, file_path, spec_version),
+            "INSERT INTO analysis_specs (id_field, id_value, spec, version) VALUES (?, ?, ?, ?);",
+            (id_field, id_value, spec_content, spec_version),
         ).lastrowid
         # make typechecker happy
         assert spec_id is not None  # nosec: B101
@@ -239,7 +226,8 @@ class AnalysisCache:
             file_id (int): The ID of the associated file.
         """
         self.cursor.execute(
-            "INSERT INTO file_mappings (spec_id, file_id) VALUES (?, ?);", (spec_id, file_id)
+            "INSERT INTO file_mappings (spec_id, file_id) VALUES (?, ?);",
+            (spec_id, file_id),
         )
 
     def insert_analysis_spec(
@@ -261,7 +249,6 @@ class AnalysisCache:
                 analysis_spec.id_field,
                 analysis_spec.id_value,
                 analysis_spec.spec,
-                analysis_spec.file_path,
                 analysis_spec.version,
             )
             if pyFileContents is not None:
@@ -275,17 +262,3 @@ class AnalysisCache:
         except Exception as e:
             self.conn.rollback()
             raise e
-
-    def relative_path_to_file(self, filename: str) -> pathlib.Path:
-        """
-        Get the relative path to a file in the cache under `.cache/panther-analysis`.
-
-        Args:
-            filename (str): The filename to get the relative path to.
-
-        Returns:
-            pathlib.Path: The relative path to the file.
-        """
-        return pathlib.Path(filename).relative_to(
-            pathlib.Path(CACHE_DIR).absolute() / "panther-analysis"
-        )
