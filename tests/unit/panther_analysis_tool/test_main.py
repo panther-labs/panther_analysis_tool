@@ -11,7 +11,8 @@ from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from typer.testing import CliRunner, Result
 
-from panther_analysis_tool import analysis_utils, main
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool import main
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.backend.client import (
     BackendError,
@@ -142,7 +143,10 @@ class TestPantherAnalysisTool(TestCase):
             ),
         }
         for module_name, filename in self.global_modules.items():
-            shutil.copy(filename, os.path.join(analysis_utils.get_tmp_helper_module_location(), f"{module_name}.py"))
+            shutil.copy(
+                filename,
+                os.path.join(analysis_utils.get_tmp_helper_module_location(), f"{module_name}.py"),
+            )
         self.setUpPyfakefs()
         self.fs.add_real_directory(FIXTURES_PATH)
         self.fs.add_real_directory(analysis_utils.get_tmp_helper_module_location(), read_only=False)
