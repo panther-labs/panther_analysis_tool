@@ -10,8 +10,8 @@ from panther_analysis_tool.constants import AnalysisTypes
 def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
     return {
         AnalysisTypes.RULE: LoadAnalysisSpecsResult(
-            f"filname.rule",
-            f"filepath.rule",
+            "filname.rule",
+            "filepath.rule",
             get_yaml_loader(roundtrip=True).load(
                 """
                 RuleID: foo.bar.rule
@@ -28,10 +28,11 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
             ),
             yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None,
+            raw_spec_file_content=None,
         ),
         AnalysisTypes.SCHEDULED_RULE: LoadAnalysisSpecsResult(
-            f"filname.scheduled_rule",
-            f"filepath.scheduled_rule",
+            "filname.scheduled_rule",
+            "filepath.scheduled_rule",
             get_yaml_loader(roundtrip=True).load(
                 """
                 RuleID: foo.bar.scheduled_rule
@@ -48,10 +49,11 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
             ),
             yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None,
+            raw_spec_file_content=None,
         ),
         AnalysisTypes.POLICY: LoadAnalysisSpecsResult(
-            f"filname.policy",
-            f"filepath.policy",
+            "filname.policy",
+            "filepath.policy",
             get_yaml_loader(roundtrip=True).load(
                 """
                 PolicyID: foo.bar.policy
@@ -68,5 +70,6 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
             ),
             yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None,
+            raw_spec_file_content=None,
         ),
     }

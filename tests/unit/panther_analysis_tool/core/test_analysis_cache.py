@@ -39,7 +39,7 @@ class TestAnalysisCache(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             analysis_cache = self.get_analysis_cache(temp_dir)
             analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field1", "id_value1", b"test", "test.py", 1)
+            analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
             self.assertEqual(
                 analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0],
                 1,
@@ -50,9 +50,9 @@ class TestAnalysisCache(unittest.TestCase):
             )
             self.assertEqual(
                 analysis_cache.cursor.execute(
-                    "SELECT id_field, id_value, spec, file_path, version FROM analysis_specs WHERE id = 1"
+                    "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
                 ).fetchone(),
-                ("id_field1", "id_value1", b"test", "test.py", 1),
+                ("id_field1", "id_value1", b"test", 1),
             )
 
     def test_insert_file(self) -> None:
@@ -90,8 +90,8 @@ class TestAnalysisCache(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             analysis_cache = self.get_analysis_cache(temp_dir)
             analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field1", "id_value1", b"test", "test.py", 1)
-            analysis_cache._insert_spec("id_field2", "id_value2", b"test", "test.py", 1)
+            analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
+            analysis_cache._insert_spec("id_field2", "id_value2", b"test", 1)
             self.assertEqual(analysis_cache.list_spec_ids(), ["id_value1", "id_value2"])
 
     def test_insert_analysis_spec(self) -> None:
@@ -103,7 +103,6 @@ class TestAnalysisCache(unittest.TestCase):
                     id=1,
                     spec=b"test",
                     version=1,
-                    file_path="test.py",
                     id_field="id_field",
                     id_value="id_value",
                 ),
@@ -121,9 +120,9 @@ class TestAnalysisCache(unittest.TestCase):
             )
             self.assertEqual(
                 analysis_cache.cursor.execute(
-                    "SELECT id_field, id_value, spec, file_path, version FROM analysis_specs WHERE id = 1"
+                    "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
                 ).fetchone(),
-                ("id_field", "id_value", b"test", "test.py", 1),
+                ("id_field", "id_value", b"test", 1),
             )
             self.assertEqual(
                 analysis_cache.cursor.execute(
@@ -147,7 +146,6 @@ class TestAnalysisCache(unittest.TestCase):
                     id=1,
                     spec=b"test",
                     version=1,
-                    file_path="test.py",
                     id_field="id_field",
                     id_value="id_value",
                 ),
@@ -165,9 +163,9 @@ class TestAnalysisCache(unittest.TestCase):
             )
             self.assertEqual(
                 analysis_cache.cursor.execute(
-                    "SELECT id_field, id_value, spec, file_path, version FROM analysis_specs WHERE id = 1"
+                    "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
                 ).fetchone(),
-                ("id_field", "id_value", b"test", "test.py", 1),
+                ("id_field", "id_value", b"test", 1),
             )
             self.assertEqual(
                 analysis_cache.cursor.execute(
@@ -189,7 +187,6 @@ class TestAnalysisCache(unittest.TestCase):
                 id=1,
                 spec=b"test",
                 version=1,
-                file_path="test.py",
                 id_field="id_field",
                 id_value="id_value",
             )
@@ -210,7 +207,7 @@ class TestAnalysisCache(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             analysis_cache = self.get_analysis_cache(temp_dir)
             analysis_cache.create_tables()
-            spec_id = analysis_cache._insert_spec("id_field1", "id_value1", b"test", "test.py", 1)
+            spec_id = analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
             file_id = analysis_cache._insert_file(b"test") or -1
             analysis_cache._insert_file_mapping(spec_id, file_id)
             self.assertEqual(analysis_cache.get_file_for_spec(spec_id), b"test")
@@ -226,15 +223,14 @@ class TestAnalysisCache(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             analysis_cache = self.get_analysis_cache(temp_dir)
             analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field", "id_value", b"test1", "test.py", 1)
-            analysis_cache._insert_spec("id_field", "id_value", b"test2", "test.py", 2)
+            analysis_cache._insert_spec("id_field", "id_value", b"test1", 1)
+            analysis_cache._insert_spec("id_field", "id_value", b"test2", 2)
             self.assertEqual(
                 analysis_cache.get_spec_for_version("id_value", 2),
                 AnalysisSpec(
                     id=2,
                     spec=b"test2",
                     version=2,
-                    file_path="test.py",
                     id_field="id_field",
                     id_value="id_value",
                 ),
@@ -245,30 +241,16 @@ class TestAnalysisCache(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             analysis_cache = self.get_analysis_cache(temp_dir)
             analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field", "id_value", b"test1", "test.py", 1)
-            analysis_cache._insert_spec("id_field", "id_value", b"test2", "test.py", 2)
+            analysis_cache._insert_spec("id_field", "id_value", b"test1", 1)
+            analysis_cache._insert_spec("id_field", "id_value", b"test2", 2)
             self.assertEqual(
                 analysis_cache.get_latest_spec("id_value"),
                 AnalysisSpec(
                     id=2,
                     spec=b"test2",
                     version=2,
-                    file_path="test.py",
                     id_field="id_field",
                     id_value="id_value",
                 ),
             )
             self.assertEqual(analysis_cache.get_latest_spec("id_value3"), None)
-
-    def test_relative_path_to_file(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-
-            test_path = pathlib.Path.cwd() / CACHE_DIR / "panther-analysis" / "stuff" / "test.py"
-            expected_path = pathlib.Path("stuff") / "test.py"
-            actual_path = analysis_cache.relative_path_to_file(test_path.as_posix())
-
-            self.assertEqual(
-                actual_path, expected_path, f"Expected '{expected_path}' but got '{actual_path}'"
-            )

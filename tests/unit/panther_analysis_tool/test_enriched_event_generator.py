@@ -138,14 +138,15 @@ class TestEnrichedEventGenerator(TestCase):
 
         # now add one we filter
         analysis_items[AnalysisTypes.DATA_MODEL] = LoadAnalysisSpecsResult(
-            f"filname.data_model",
-            f"filepath.data_model",
+            "filname.data_model",
+            "filepath.data_model",
             {
-                "DataModelID": f"foo.bar.data_model",
+                "DataModelID": "foo.bar.data_model",
                 "AnalysisType": "data_model",
             },
             yaml_ctx=get_yaml_loader(roundtrip=True),
             error=None,
+            raw_spec_file_content=None,
         )
 
         input = list(analysis_items.values())
