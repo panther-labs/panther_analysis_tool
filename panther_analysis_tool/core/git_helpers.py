@@ -1,7 +1,7 @@
 import os
 import pathlib
 import shutil
-import subprocess
+import subprocess  # nosec:B404
 
 import requests
 
@@ -51,7 +51,7 @@ def panther_analysis_latest_release_commit() -> str:
     """
     Get the commit hash for the latest release of Panther Analysis.
     """
-    response = requests.get(panther_analysis_release_url())
+    response = requests.get(panther_analysis_release_url(), timeout=10)
     return response.json()["tag_name"]
 
 
@@ -94,7 +94,7 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
         os.chdir(repo_path)
 
         if commit != "":
-            completed_process = subprocess.run(
+            completed_process = subprocess.run(  # nosec:B607 B603
                 ["git", "checkout", commit],
                 check=True,
                 capture_output=True,
@@ -114,5 +114,5 @@ def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:
         file_path.strip().lstrip("./").lstrip("/")
     )  # remove leading ./ if present or any leading /
     url = f"https://raw.githubusercontent.com/panther-labs/panther-analysis/{commit}/{file_path}"
-    response = requests.get(url)
+    response = requests.get(url, timeout=10)
     return response.text

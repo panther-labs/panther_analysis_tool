@@ -216,6 +216,7 @@ class LoadAnalysisSpecsResult:
         """Returns the analysis type for this analysis spec."""
         return self.analysis_spec["AnalysisType"]
 
+    # pylint: disable=too-many-return-statements
     def analysis_id_field_name(self) -> str:
         """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
         match self.analysis_type():
