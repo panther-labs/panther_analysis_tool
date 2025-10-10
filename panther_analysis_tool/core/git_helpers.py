@@ -104,13 +104,15 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
                     f"Failed to checkout commit {commit}: return code was {completed_process.returncode}"
                 )
 
-        os.chdir(cwd) # revert to original cwd
+        os.chdir(cwd)  # revert to original cwd
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to clone panther-analysis: {e}")
 
 
 def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:
-    file_path = file_path.strip().lstrip("./").lstrip("/") # remove leading ./ if present or any leading / 
+    file_path = (
+        file_path.strip().lstrip("./").lstrip("/")
+    )  # remove leading ./ if present or any leading /
     url = f"https://raw.githubusercontent.com/panther-labs/panther-analysis/{commit}/{file_path}"
     response = requests.get(url)
     return response.text

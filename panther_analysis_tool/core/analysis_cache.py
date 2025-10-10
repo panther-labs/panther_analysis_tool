@@ -18,6 +18,7 @@ class AnalysisSpec:
         id_field (str): The field used as the identifier for the analysis spec (e.g. RuleID, PolicyID, etc.).
         id_value (str): The ID of the analysis item.
     """
+
     id: Optional[int]
     spec: bytes
     version: int
@@ -110,9 +111,7 @@ class AnalysisCache:
         Returns:
             Optional[bytes]: The file content as bytes if found, None otherwise.
         """
-        row = self.cursor.execute(
-            "SELECT content FROM files WHERE id = ?", (file_id,)
-        ).fetchone()
+        row = self.cursor.execute("SELECT content FROM files WHERE id = ?", (file_id,)).fetchone()
         if row is None:
             return None
         return row[0]

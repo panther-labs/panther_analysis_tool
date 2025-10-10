@@ -68,7 +68,7 @@ class TestGitHelpers(unittest.TestCase):
     def test_get_panther_analysis_file_contents(self) -> None:
         with mock.patch("requests.get", return_value=mock.Mock(text="stuff")):
             result = git_helpers.get_panther_analysis_file_contents(
-                "f40e2829304b30eacdb51f6d9023c89fa8f19b58", 
+                "f40e2829304b30eacdb51f6d9023c89fa8f19b58",
                 "rules/atlassian_rules/user_logged_in_as_user.yml",
             )
             self.assertEqual(result, "stuff")

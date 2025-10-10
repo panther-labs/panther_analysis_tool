@@ -254,4 +254,3 @@ class TestAnalysisCache(unittest.TestCase):
                 ),
             )
             self.assertEqual(analysis_cache.get_latest_spec("id_value3"), None)
-

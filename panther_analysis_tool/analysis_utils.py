@@ -100,15 +100,11 @@ def filter_analysis(
         analysis_spec = item.analysis_spec
         if fnmatch(dir_name, HELPERS_PATH_PATTERN):
             logging.debug("auto-adding helpers file %s", os.path.join(file_name))
-            filtered_analysis.append(
-                ClassifiedAnalysis(file_name, dir_name, analysis_spec)
-            )
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         if fnmatch(dir_name, DATA_MODEL_PATH_PATTERN):
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
-            filtered_analysis.append(
-                ClassifiedAnalysis(file_name, dir_name, analysis_spec)
-            )
+            filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
         match = True
         for filt in filters:
@@ -146,9 +142,7 @@ def load_analysis_specs(
     Yields:
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
-    for result in load_analysis_specs_ex(
-        directories, ignore_files, roundtrip_yaml=False
-    ):
+    for result in load_analysis_specs_ex(directories, ignore_files, roundtrip_yaml=False):
         yield (
             result.spec_filename,
             result.relative_path,
@@ -158,9 +152,7 @@ def load_analysis_specs(
 
 
 def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> None:
-    analysis_specs = list(
-        load_analysis_specs_ex(paths, ignore_files, roundtrip_yaml=True)
-    )
+    analysis_specs = list(load_analysis_specs_ex(paths, ignore_files, roundtrip_yaml=True))
     base_ids_to_disable = set()
     base_detection_key = "BaseDetection"
     rule_id_key = "RuleID"
@@ -392,9 +384,7 @@ def get_simple_detections_as_python(
                     item = specs[i]
                     spec = item.analysis_spec
                     spec["body"] = result
-                    enriched_specs.append(
-                        ClassifiedAnalysis(item.file_name, item.dir_name, spec)
-                    )
+                    enriched_specs.append(ClassifiedAnalysis(item.file_name, item.dir_name, spec))
             else:
                 logging.warning(
                     "Error transpiling simple detection(s) to Python, skipping tests for simple detections."
@@ -405,15 +395,11 @@ def get_simple_detections_as_python(
                 be_err,
             )
     else:
-        logging.info(
-            "No backend client provided, skipping tests for simple detections."
-        )
+        logging.info("No backend client provided, skipping tests for simple detections.")
     return enriched_specs if enriched_specs else specs
 
 
-def lookup_base_detection(
-    the_id: str, backend: Optional[BackendClient] = None
-) -> Dict[str, Any]:
+def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) -> Dict[str, Any]:
     """Attempts to lookup base detection via its id"""
     out: Dict[str, Any] = {}
     if backend is not None:
@@ -534,9 +520,7 @@ def transpile_inline_filters(
                 be_err,
             )
     else:
-        logging.info(
-            "No backend client provided, skipping InlineFilters during testing"
-        )
+        logging.info("No backend client provided, skipping InlineFilters during testing")
 
 
 def load_analysis(
@@ -644,10 +628,7 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if (
-                analysis_type == AnalysisTypes.SCHEDULED_QUERY
-                and not ignore_table_names
-            ):
+            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
                 invalid_table_names = contains_invalid_table_names(
                     analysis_spec, analysis_id, valid_table_names
                 )
@@ -684,9 +665,7 @@ def classify_analysis(
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
 
         except schema.SchemaWrongKeyError as err:
-            invalid_specs.append(
-                (analysis_spec_filename, handle_wrong_key_error(err, keys))
-            )
+            invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
         except (
             schema.SchemaMissingKeyError,
             schema.SchemaForbiddenKeyError,
@@ -703,9 +682,7 @@ def classify_analysis(
             if "LogTypes" in str(err):
                 error = schema.SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
             elif "ResourceTypes" in str(err):
-                error = schema.SchemaError(
-                    f"{first_half}: RESOURCE_TYPE_REGEX{second_half}"
-                )
+                error = schema.SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
         except jsonschema.exceptions.ValidationError as err:
             error_message = f"{getattr(err, 'json_path', 'error')}: {err.message}"
@@ -733,9 +710,7 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
     msg = "{} not in list of valid keys: {}"
     try:
         if matches:
-            raise schema.SchemaWrongKeyError(
-                msg.format(matches.group(1), keys)
-            ) from err
+            raise schema.SchemaWrongKeyError(msg.format(matches.group(1), keys)) from err
         raise schema.SchemaWrongKeyError(msg.format("UNKNOWN_KEY", keys)) from err
     except schema.SchemaWrongKeyError as exc:
         return exc

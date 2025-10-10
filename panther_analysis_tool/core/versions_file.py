@@ -9,7 +9,7 @@ from panther_analysis_tool.constants import CACHE_DIR
 
 class AnalysisVersionHistoryItem(pydantic.BaseModel):
     """
-    A model for an analysis version history item. The combined commit hash and file path 
+    A model for an analysis version history item. The combined commit hash and file path
     can be used to get the analysis item from the panther-analysis repository.
 
     Attributes:
@@ -17,6 +17,7 @@ class AnalysisVersionHistoryItem(pydantic.BaseModel):
         yaml_file_path: The file path of the YAML file, relative to the root of the panther-analysis repository.
         py_file_path: The file path of the Python file, relative to the root of the panther-analysis repository.
     """
+
     commit_hash: str
     yaml_file_path: str
     py_file_path: Optional[str] = None
@@ -32,6 +33,7 @@ class AnalysisVersionItem(pydantic.BaseModel):
         type: The type of the analysis item (e.g. rule, policy, datamodel, etc.).
         version: The version number of the analysis item.
     """
+
     history: dict[int, AnalysisVersionHistoryItem]
     sha256: str
     type: str
@@ -45,6 +47,7 @@ class Versions(pydantic.BaseModel):
     Attributes:
         versions: A dictionary of analysis ID to analysis version item.
     """
+
     versions: dict[str, AnalysisVersionItem]
 
 
