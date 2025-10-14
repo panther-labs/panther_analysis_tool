@@ -51,11 +51,18 @@ class Versions(pydantic.BaseModel):
     versions: dict[str, AnalysisVersionItem]
 
 
-def get_versions() -> Versions:
-    version_file_path = pathlib.Path(CACHE_DIR) / "panther-analysis" / ".versions.yml"
-    if not version_file_path.exists():
-        raise FileNotFoundError(f"No versions file at {version_file_path}")
+_VERSIONS: Optional[Versions] = None
 
-    with open(version_file_path, "rb") as version_file:
-        versions = yaml.YAML(typ="safe").load(version_file)
-        return Versions(**versions)
+
+def get_versions() -> Versions:
+    global _VERSIONS
+    if _VERSIONS is None:
+        version_file_path = pathlib.Path(CACHE_DIR) / "panther-analysis" / ".versions.yml"
+        if not version_file_path.exists():
+            raise FileNotFoundError(f"No versions file at {version_file_path}")
+
+        with open(version_file_path, "rb") as version_file:
+            versions = yaml.YAML(typ="safe").load(version_file)
+            _VERSIONS = Versions(**versions)
+
+    return _VERSIONS

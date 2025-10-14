@@ -6,7 +6,7 @@ from panther_analysis_tool.analysis_utils import (
     LoadAnalysisSpecsResult,
     load_analysis_specs_ex,
 )
-from panther_analysis_tool.constants import CACHE_DIR
+from panther_analysis_tool.constants import CACHE_DIR, PANTHER_ANALYSIS_SQLITE_FILE
 from panther_analysis_tool.core import analysis_cache, git_helpers, versions_file
 
 
@@ -16,6 +16,10 @@ def run() -> Tuple[int, str]:
 
 
 def fetch() -> None:
+    sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
+    sqlite_file.parent.mkdir(parents=True, exist_ok=True)
+    sqlite_file.touch(exist_ok=True)
+
     # allows for testing against a different branch or manual override
     release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
     commit = ""

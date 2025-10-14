@@ -70,8 +70,8 @@ class AnalysisContainsDuplicatesException(Exception):
     """Exception for duplicate values in analysis specs"""
 
     def __init__(self, analysis_id: str, invalid_fields: List[str]):
-        self.message = f"Specification file for [{analysis_id}] contains fields \
-        with duplicate values: [{', '.join(x for x in invalid_fields)}]"
+        self.message = f'Specification file for [{analysis_id}] contains fields \
+        with duplicate values: [{", ".join(x for x in invalid_fields)}]'
         super().__init__(self.message)
 
 
@@ -80,7 +80,7 @@ class AnalysisContainsInvalidTableNamesException(Exception):
 
     def __init__(self, analysis_id: str, invalid_table_names: List[str]):
         self.message = (
-            f"Specification file for [{analysis_id}] contains invalid Panther table names: [{', '.join(x for x in invalid_table_names)}]. "
+            f'Specification file for [{analysis_id}] contains invalid Panther table names: [{", ".join(x for x in invalid_table_names)}]. '
             'Try using a fully qualified table name such as "panther_logs.public.log_type" '
             "or setting --ignore-table-names for queries using non-Panther or non-Snowflake tables."
         )
@@ -106,26 +106,43 @@ def filter_analysis(
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
-        match = True
-        for filt in filters:
-            key, values = filt.key, filt.values
-            spec_value = analysis_spec.get(key, "")
-            spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-            if not set(spec_value).intersection(values):
-                match = False
-                break
-        for filt in filters_inverted:
-            key, values = filt.key, filt.values
-            spec_value = analysis_spec.get(key, "")
-            spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-            if set(spec_value).intersection(values):
-                match = False
-                break
 
-        if match:
+        if filter_analysis_spec(analysis_spec, filters, filters_inverted):
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
+            continue
 
     return filtered_analysis
+
+
+def filter_analysis_spec(
+    analysis_spec: Dict[str, Any], filters: List[Filter], filters_inverted: List[Filter]
+) -> bool:
+    """
+    Filters the analysis spec based on the filters and filters_inverted.
+    Spec fields that match the filters are included, and spec fields that match the filters_inverted are excluded.
+    Multiple filters are ANDed together, and multiple filter values in the same filter are ORed together.
+
+    Args:
+        analysis_spec: The analysis spec to filter.
+        filters: The filters to apply.
+        filters_inverted: The inverted filters to apply.
+
+    Returns:
+        True if the analysis spec matches the filters and filters_inverted, False otherwise.
+    """
+    for filt in filters:
+        key, values = filt.key, filt.values
+        spec_value = analysis_spec.get(key, "")
+        spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+        if not set(spec_value).intersection(values):
+            return False
+    for filt in filters_inverted:
+        key, values = filt.key, filt.values
+        spec_value = analysis_spec.get(key, "")
+        spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+        if set(spec_value).intersection(values):
+            return False
+    return True
 
 
 def load_analysis_specs(
@@ -143,12 +160,7 @@ def load_analysis_specs(
         A tuple of the relative filepath, directory name, and loaded analysis specification dict.
     """
     for result in load_analysis_specs_ex(directories, ignore_files, roundtrip_yaml=False):
-        yield (
-            result.spec_filename,
-            result.relative_path,
-            result.analysis_spec,
-            result.error,
-        )
+        yield result.spec_filename, result.relative_path, result.analysis_spec, result.error
 
 
 def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> None:
@@ -168,9 +180,7 @@ def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> No
             rule: Dict[str, Any] = analysis_spec_res.analysis_spec
             if rule.get(rule_id_key, "") == base_detection_id:
                 logging.info(
-                    "Setting %s=False for %s",
-                    enabled_key,
-                    analysis_spec_res.spec_filename,
+                    "Setting %s=False for %s", enabled_key, analysis_spec_res.spec_filename
                 )
                 rule[enabled_key] = False
                 analysis_spec_res.serialize_to_file()
@@ -530,7 +540,7 @@ def load_analysis(
     valid_table_names: List[str],
     ignore_files: List[str],
     ignore_extra_keys: bool,
-) -> Tuple[Any, List[Any]]:
+) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     """Loads each policy or rule into memory.
 
     Args:
@@ -622,7 +632,7 @@ def classify_analysis(
             analysis_schema.validate(analysis_spec)
 
             # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+            analysis_id = lookup_analysis_id(analysis_spec)
             if analysis_id in analysis_ids:
                 raise AnalysisIDConflictException(analysis_id)
             # check for duplicates where panther expects a unique set
@@ -717,7 +727,9 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
         return exc
 
 
-def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
+def lookup_analysis_id(analysis_spec: Any) -> str:
+    """Returns the analysis ID for a given analysis spec."""
+    analysis_type = analysis_spec["AnalysisType"]
     analysis_id = "UNKNOWN_ID"
     if analysis_type == AnalysisTypes.DATA_MODEL:
         analysis_id = analysis_spec["DataModelID"]

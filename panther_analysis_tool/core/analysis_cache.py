@@ -6,6 +6,14 @@ from typing import Optional
 from panther_analysis_tool.constants import CACHE_DIR, PANTHER_ANALYSIS_SQLITE_FILE
 
 
+class NoCacheException(Exception):
+    """
+    Exception raised when no cache is found.
+    """
+
+    pass
+
+
 @dataclasses.dataclass
 class AnalysisSpec:
     """
@@ -36,6 +44,10 @@ class AnalysisCache:
         Initialize the AnalysisCache by connecting to the cache database and creating a cursor.
         """
         sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
+        if not sqlite_file.exists():
+            raise NoCacheException(
+                "No cache found. Please run `pat fetch` to fetch the latest Panther Analysis content."
+            )
         sqlite_file.touch(exist_ok=True)
 
         self.conn = sqlite3.connect(sqlite_file)
