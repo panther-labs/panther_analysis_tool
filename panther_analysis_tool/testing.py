@@ -77,6 +77,7 @@ class TestResultsPerFunction:  # pylint: disable=R0902
     severityFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
     runbookFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
     destinationsFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
+    uniqueFunction: Optional[FunctionTestResult] = None  # pylint: disable=C0103
 
 
 @dataclass
@@ -217,6 +218,11 @@ class TestCaseEvaluator:
                     self._detection_result.alert_context_exception is None,
                     self._detection_result.alert_context_output,
                     self._detection_result.alert_context_exception,
+                ),
+                uniqueFunction=FunctionTestResult.new(
+                    self._detection_result.unique_exception is None,
+                    self._detection_result.unique_output,
+                    self._detection_result.unique_exception,
                 ),
             )
 
