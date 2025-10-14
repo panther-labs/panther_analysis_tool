@@ -1823,7 +1823,7 @@ def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[
         return [
             spec_id for spec_id in cache.list_spec_ids() if incomplete.lower() in spec_id.lower()
         ]
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return []
 
 

@@ -16,14 +16,14 @@ from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
+    BackendError,
     GetRuleBodyParams,
     TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_LOCATION,
@@ -728,6 +728,7 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
 
 
 def lookup_analysis_id(analysis_spec: Any) -> str:
+    """Returns the analysis ID for a given analysis spec."""
     analysis_type = analysis_spec["AnalysisType"]
     analysis_id = "UNKNOWN_ID"
     if analysis_type == AnalysisTypes.DATA_MODEL:

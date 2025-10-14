@@ -2,6 +2,7 @@ import os
 import pathlib
 import tempfile
 import unittest
+from typing import Optional
 
 from ruamel import yaml
 
@@ -24,7 +25,7 @@ _FAKE_RULE_1_V1 = yaml.dump(
         "AnalysisType": "rule",
         "Filename": "fake_rule_1.py",
         "RuleID": "fake.rule.1",
-        "Enabled": True,
+        "Enabled": False,
         "Description": "Fake rule 1 v1",
     }
 )
@@ -34,7 +35,7 @@ _FAKE_RULE_2_V1 = yaml.dump(
         "AnalysisType": "rule",
         "Filename": "fake_rule_2.py",
         "RuleID": "fake.rule.2",
-        "Enabled": True,
+        "Enabled": False,
         "Description": "Fake rule 2 v1",
     }
 )
@@ -44,7 +45,7 @@ _FAKE_RULE_2_V2 = yaml.dump(
         "AnalysisType": "rule",
         "Filename": "fake_rule_2.py",
         "RuleID": "fake.rule.2",
-        "Enabled": True,
+        "Enabled": False,
         "Description": "Fake rule 2 v2",
     }
 )
@@ -53,9 +54,75 @@ _FAKE_POLICY_1_V1 = yaml.dump(
     {
         "AnalysisType": "policy",
         "PolicyID": "fake.policy.1",
-        "Enabled": True,
+        "Enabled": False,
         "Description": "Fake policy 1 v1",
         "Filename": "fake_policy_1.py",
+    }
+)
+
+_FAKE_DATAMODEL_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "datamodel",
+        "Filename": "fake_datamodel_1.py",
+        "DataModelID": "fake.datamodel.1",
+        "Description": "Fake datamodel 1 v1",
+        "Enabled": False,
+    }
+)
+
+_FAKE_LOOKUP_TABLE_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "lookup_table",
+        "LookupName": "fake.lookup_table.1",
+        "Enabled": False,
+        "Description": "Fake lookup table 1 v1",
+    }
+)
+
+_FAKE_GLOBAL_HELPER_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "global",
+        "GlobalID": "fake.global_helper.1",
+        "Enabled": False,
+        "Description": "Fake global helper 1 v1",
+        "Filename": "fake_global_helper_1.py",
+    }
+)
+
+_FAKE_CORRELATION_RULE_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "correlation_rule",
+        "RuleID": "fake.correlation_rule.1",
+        "Enabled": False,
+        "Description": "Fake correlation rule 1 v1",
+    }
+)
+
+_FAKE_SCHEDULED_RULE_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "scheduled_rule",
+        "RuleID": "fake.scheduled_rule.1",
+        "Enabled": False,
+        "Description": "Fake scheduled rule 1 v1",
+        "Filename": "fake_scheduled_rule_1.py",
+    }
+)
+
+_FAKE_SAVED_QUERY_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "saved_query",
+        "QueryName": "fake.saved_query.1",
+        "Enabled": False,
+        "Description": "Fake saved query 1 v1",
+    }
+)
+
+_FAKE_SCHEDULED_QUERY_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "scheduled_query",
+        "QueryName": "fake.scheduled_query.1",
+        "Enabled": False,
+        "Description": "Fake scheduled query 1 v1",
     }
 )
 
@@ -107,6 +174,93 @@ _FAKE_VERSIONS_FILE = yaml.dump(
                     },
                 },
             },
+            "fake.datamodel.1": {
+                "version": 1,
+                "type": "datamodel",
+                "sha256": "fake_sha256_datamodel_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_datamodel_1",
+                        "yaml_file_path": "data_models/fake_datamodel_1.yaml",
+                        "py_file_path": "data_models/fake_datamodel_1.py",
+                    },
+                },
+            },
+            "fake.lookup_table.1": {
+                "version": 1,
+                "type": "lookup_table",
+                "sha256": "fake_sha256_lookup_table_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_lookup_table_1",
+                        "yaml_file_path": "lookup_tables/fake_lookup_table_1.yaml",
+                    },
+                },
+            },
+            "fake.global_helper.1": {
+                "version": 1,
+                "type": "global",
+                "sha256": "fake_sha256_global_helper_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_global_helper_1",
+                        "yaml_file_path": "global_helpers/fake_global_helper_1.yaml",
+                        "py_file_path": "global_helpers/fake_global_helper_1.py",
+                    },
+                },
+            },
+            "fake.correlation_rule.1": {
+                "version": 1,
+                "type": "correlation_rule",
+                "sha256": "fake_sha256_correlation_rule_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_correlation_rule_1",
+                        "yaml_file_path": "correlation_rules/fake_correlation_rule_1.yaml",
+                    },
+                },
+            },
+            "fake.scheduled_rule.1": {
+                "version": 1,
+                "type": "scheduled_rule",
+                "sha256": "fake_sha256_scheduled_rule_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_scheduled_rule_1",
+                        "yaml_file_path": "scheduled_rules/fake_scheduled_rule_1.yaml",
+                        "py_file_path": "scheduled_rules/fake_scheduled_rule_1.py",
+                    },
+                },
+            },
+            "fake.saved_query.1": {
+                "version": 1,
+                "type": "saved_query",
+                "sha256": "fake_sha256_saved_query_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_saved_query_1",
+                        "yaml_file_path": "queries/fake_saved_query_1.yaml",
+                    },
+                },
+            },
+            "fake.scheduled_query.1": {
+                "version": 1,
+                "type": "scheduled_query",
+                "sha256": "fake_sha256_scheduled_query_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_scheduled_query_1",
+                        "yaml_file_path": "queries/fake_scheduled_query_1.yaml",
+                    },
+                },
+            },
         },
     }
 )
@@ -128,47 +282,53 @@ class TestEnable(unittest.TestCase):
 
         cache = analysis_cache.AnalysisCache()
         cache.create_tables()
-        cache.insert_analysis_spec(
-            analysis_cache.AnalysisSpec(
-                id=None,
-                spec=bytes(_FAKE_RULE_1_V1, "utf-8"),
-                version=1,
-                id_field="RuleID",
-                id_value="fake.rule.1",
-            ),
-            bytes(_FAKE_PY, "utf-8"),
+        self.insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
+        self.insert_spec(cache, _FAKE_RULE_2_V1, 1, "RuleID", "fake.rule.2", _FAKE_PY)
+        self.insert_spec(cache, _FAKE_RULE_2_V2, 2, "RuleID", "fake.rule.2", _FAKE_PY)
+        self.insert_spec(cache, _FAKE_POLICY_1_V1, 1, "PolicyID", "fake.policy.1", _FAKE_PY)
+        self.insert_spec(
+            cache, _FAKE_DATAMODEL_1_V1, 1, "DataModelID", "fake.datamodel.1", _FAKE_PY
         )
-        cache.insert_analysis_spec(
-            analysis_cache.AnalysisSpec(
-                id=None,
-                spec=bytes(_FAKE_RULE_2_V1, "utf-8"),
-                version=1,
-                id_field="RuleID",
-                id_value="fake.rule.2",
-            ),
-            bytes(_FAKE_PY, "utf-8"),
+        self.insert_spec(
+            cache, _FAKE_LOOKUP_TABLE_1_V1, 1, "LookupName", "fake.lookup_table.1", _FAKE_PY
         )
-        cache.insert_analysis_spec(
-            analysis_cache.AnalysisSpec(
-                id=None,
-                spec=bytes(_FAKE_RULE_2_V2, "utf-8"),
-                version=2,
-                id_field="RuleID",
-                id_value="fake.rule.2",
-            ),
-            bytes(_FAKE_PY, "utf-8"),
+        self.insert_spec(
+            cache, _FAKE_GLOBAL_HELPER_1_V1, 1, "GlobalID", "fake.global_helper.1", _FAKE_PY
         )
-        cache.insert_analysis_spec(
-            analysis_cache.AnalysisSpec(
-                id=None,
-                spec=bytes(_FAKE_POLICY_1_V1, "utf-8"),
-                version=1,
-                id_field="PolicyID",
-                id_value="fake.policy.1",
-            ),
-            bytes(_FAKE_PY, "utf-8"),
+        self.insert_spec(
+            cache, _FAKE_CORRELATION_RULE_1_V1, 1, "RuleID", "fake.correlation_rule.1", _FAKE_PY
         )
+        self.insert_spec(
+            cache, _FAKE_SCHEDULED_RULE_1_V1, 1, "RuleID", "fake.scheduled_rule.1", _FAKE_PY
+        )
+        self.insert_spec(
+            cache, _FAKE_SAVED_QUERY_1_V1, 1, "QueryName", "fake.saved_query.1", _FAKE_PY
+        )
+        self.insert_spec(
+            cache, _FAKE_SCHEDULED_QUERY_1_V1, 1, "QueryName", "fake.scheduled_query.1", _FAKE_PY
+        )
+
         return cache
+
+    def insert_spec(
+        self,
+        cache: analysis_cache.AnalysisCache,
+        spec: str,
+        version: int,
+        id_field: str,
+        id_value: str,
+        py_contents: Optional[str] = None,
+    ) -> None:
+        cache.insert_analysis_spec(
+            analysis_cache.AnalysisSpec(
+                id=None,
+                spec=bytes(spec, "utf-8"),
+                version=version,
+                id_field=id_field,
+                id_value=id_value,
+            ),
+            bytes(py_contents, "utf-8") if py_contents is not None else None,
+        )
 
     def test_set_enabled_field(self) -> None:
         for analysis_type in [
@@ -210,34 +370,10 @@ class TestEnable(unittest.TestCase):
             self.assertEqual(items, [])
 
     def test_get_analysis_items_no_filters_and_no_id(self) -> None:
-        yaml = analysis_utils.get_yaml_loader(roundtrip=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             self.set_up_cache(temp_dir)
             items = enable.get_analysis_items(analysis_id=None, filter_args=[])
-            self.assertEqual(len(items), 3)
-            self.assertEqual(
-                items,
-                [
-                    enable.AnalysisItem(
-                        analysis_spec=yaml.load(_FAKE_POLICY_1_V1),
-                        yaml_file_path="policies/fake_policy_1.yaml",
-                        python_file_path="policies/fake_policy_1.py",
-                        python_file_bytes=bytes(_FAKE_PY, "utf-8"),
-                    ),
-                    enable.AnalysisItem(
-                        analysis_spec=yaml.load(_FAKE_RULE_1_V1),
-                        yaml_file_path="rules/fake_rule_1.yaml",
-                        python_file_path="rules/fake_rule_1.py",
-                        python_file_bytes=bytes(_FAKE_PY, "utf-8"),
-                    ),
-                    enable.AnalysisItem(
-                        analysis_spec=yaml.load(_FAKE_RULE_2_V2),
-                        yaml_file_path="rules/fake_rule_2.yaml",
-                        python_file_path="rules/fake_rule_2.py",
-                        python_file_bytes=bytes(_FAKE_PY, "utf-8"),
-                    ),
-                ],
-            )
+            self.assertEqual(len(items), 10)
 
     def test_get_analysis_items_filters_and_no_id(self) -> None:
         yaml = analysis_utils.get_yaml_loader(roundtrip=True)
@@ -285,12 +421,89 @@ class TestEnable(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             self.set_up_cache(temp_dir)
             items = enable.get_analysis_items(analysis_id=None, filter_args=[])
-            self.assertEqual(len(items), 3)
+            self.assertEqual(len(items), 10)
             enable.clone_analysis_items(items)
 
-            self.assertTrue((pathlib.Path(temp_dir) / "rules" / "fake_rule_1.yaml").exists())
-            self.assertTrue((pathlib.Path(temp_dir) / "rules" / "fake_rule_1.py").exists())
-            self.assertTrue((pathlib.Path(temp_dir) / "rules" / "fake_rule_2.yaml").exists())
-            self.assertTrue((pathlib.Path(temp_dir) / "rules" / "fake_rule_2.py").exists())
-            self.assertTrue((pathlib.Path(temp_dir) / "policies" / "fake_policy_1.yaml").exists())
-            self.assertTrue((pathlib.Path(temp_dir) / "policies" / "fake_policy_1.py").exists())
+            _dir = pathlib.Path(temp_dir)
+            self.assertTrue((_dir / "rules" / "fake_rule_1.yaml").exists())
+            self.assertTrue((_dir / "rules" / "fake_rule_1.py").exists())
+            self.assertTrue((_dir / "rules" / "fake_rule_2.yaml").exists())
+            self.assertTrue((_dir / "rules" / "fake_rule_2.py").exists())
+            self.assertTrue((_dir / "policies" / "fake_policy_1.yaml").exists())
+            self.assertTrue((_dir / "policies" / "fake_policy_1.py").exists())
+            self.assertTrue((_dir / "data_models" / "fake_datamodel_1.yaml").exists())
+            self.assertTrue((_dir / "data_models" / "fake_datamodel_1.py").exists())
+            self.assertTrue((_dir / "lookup_tables" / "fake_lookup_table_1.yaml").exists())
+            self.assertTrue((_dir / "global_helpers" / "fake_global_helper_1.yaml").exists())
+            self.assertTrue((_dir / "global_helpers" / "fake_global_helper_1.py").exists())
+            self.assertTrue((_dir / "correlation_rules" / "fake_correlation_rule_1.yaml").exists())
+            self.assertTrue((_dir / "scheduled_rules" / "fake_scheduled_rule_1.yaml").exists())
+            self.assertTrue((_dir / "scheduled_rules" / "fake_scheduled_rule_1.py").exists())
+            self.assertTrue((_dir / "queries" / "fake_saved_query_1.yaml").exists())
+            self.assertTrue((_dir / "queries" / "fake_scheduled_query_1.yaml").exists())
+
+    def test_enable_works_with_all_types(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.set_up_cache(temp_dir)
+
+            for _id in [
+                "fake.rule.1",
+                "fake.rule.2",
+                "fake.policy.1",
+                "fake.datamodel.1",
+                "fake.lookup_table.1",
+                "fake.global_helper.1",
+                "fake.correlation_rule.1",
+                "fake.scheduled_rule.1",
+                "fake.saved_query.1",
+                "fake.scheduled_query.1",
+            ]:
+                code, err_str = enable.run(analysis_id=_id, filter_args=[])
+                self.assertEqual(code, 0, f"{_id} {err_str}")
+                self.assertEqual(err_str, "", f"{_id} {err_str}")
+
+    def test_enable_sets_base_version_field(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.set_up_cache(temp_dir)
+            code, err_str = enable.run(analysis_id=None, filter_args=["AnalysisType=rule"])
+            self.assertEqual(code, 0, f"{err_str}")
+            self.assertEqual(err_str, "", f"{err_str}")
+
+            rule_path = pathlib.Path(temp_dir) / "rules"
+            self.assertTrue((rule_path / "fake_rule_1.yaml").exists())
+            self.assertTrue((rule_path / "fake_rule_1.py").exists())
+            self.assertTrue((rule_path / "fake_rule_2.yaml").exists())
+            self.assertTrue((rule_path / "fake_rule_2.py").exists())
+            self.assertEqual(
+                analysis_utils.get_yaml_loader(True).load(
+                    (rule_path / "fake_rule_1.yaml").read_text()
+                )["BaseVersion"],
+                1,
+            )
+            self.assertEqual(
+                analysis_utils.get_yaml_loader(True).load(
+                    (rule_path / "fake_rule_2.yaml").read_text()
+                )["BaseVersion"],
+                2,
+            )
+
+    def test_enable_messaging(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.set_up_cache(temp_dir)
+
+            code, err_str = enable.run(analysis_id="bad", filter_args=[])
+            self.assertEqual(code, 1)
+            self.assertEqual(
+                err_str, "No items matched the analysis ID. Nothing to clone and enable."
+            )
+
+            code, err_str = enable.run(analysis_id=None, filter_args=["AnalysisType=bad"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_str, "No items matched the filters. Nothing to clone and enable.")
+
+            code, err_str = enable.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
+            self.assertEqual(code, 1)
+            self.assertEqual(
+                err_str,
+                "No items matched the analysis ID and filters. Nothing to clone and enable.",
+            )

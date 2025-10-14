@@ -27,8 +27,8 @@ class AnalysisItem:
 def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     try:
         items_to_clone = get_analysis_items(analysis_id, filter_args)
-    except analysis_cache.NoCacheException as e:
-        return 1, str(e)
+    except analysis_cache.NoCacheException as err:
+        return 1, str(err)
 
     if len(items_to_clone) == 0:
         label = "analysis ID and filters"
@@ -41,6 +41,7 @@ def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
 
     for item in items_to_clone:
         set_enabled_field(item.analysis_spec)
+        set_base_version_field(item.analysis_spec)
 
     clone_analysis_items(items_to_clone)
     return 0, ""
@@ -60,6 +61,11 @@ def set_enabled_field(spec: Dict[str, Any]) -> None:
         AnalysisTypes.SIMPLE_DETECTION,
     ]:
         spec["Enabled"] = True
+
+
+def set_base_version_field(spec: Dict[str, Any]) -> None:
+    versions = versions_file.get_versions().versions
+    spec["BaseVersion"] = versions[analysis_utils.lookup_analysis_id(spec)].version
 
 
 def get_analysis_items(analysis_id: Optional[str], filter_args: List[str]) -> List[AnalysisItem]:

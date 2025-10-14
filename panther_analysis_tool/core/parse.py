@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,8 +24,7 @@ def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], L
     for filt in str_filters:
         split = filt.split("=")
         if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.error("Filter %s is not in format KEY=VALUE", filt)
-            exit(1)
+            raise ValueError(f"Filter {filt} is not in format KEY=VALUE")
         # Check for "!="
         invert_filter = split[0].endswith("!")
         if invert_filter:
@@ -38,8 +36,7 @@ def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], L
             | extract_keys_schema(RULE_SCHEMA)
         )
         if key not in valid_keys:
-            logging.error("Filter key %s is not a valid filter field", key)
-            exit(1)
+            raise ValueError(f"Filter key {key} is not a valid filter field")
         if invert_filter:
             parsed_filters_inverted[key] = split[1].split(",")
         else:
@@ -49,8 +46,7 @@ def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], L
             try:
                 bool_value = bool(strtobool(split[1]))
             except ValueError:
-                logging.error("Filter key %s should have either true or false", key)
-                exit(1)
+                raise ValueError(f"Filter key {key} should have either true or false")
             if invert_filter:
                 parsed_filters_inverted[key] = [bool_value]
             else:
