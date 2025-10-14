@@ -17,7 +17,7 @@ class Filter:
 
 
 # Parses the filters, expects a list of strings
-def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
+def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
     parsed_filters: Dict[str, Any] = {}
     parsed_filters_inverted: Dict[str, Any] = {}
     if str_filters is None:

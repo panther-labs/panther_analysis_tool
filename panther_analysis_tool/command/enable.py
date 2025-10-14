@@ -1,0 +1,107 @@
+import dataclasses
+import pathlib
+from typing import Any, Dict, List, Optional, Tuple
+
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import AnalysisTypes
+from panther_analysis_tool.core import analysis_cache, parse, versions_file
+
+
+@dataclasses.dataclass
+class AnalysisItem:
+    analysis_spec: dict[str, Any]
+    yaml_file_path: str
+    python_file_path: Optional[str] = None
+    python_file_bytes: Optional[bytes] = None
+
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, AnalysisItem)
+            and self.analysis_spec == value.analysis_spec
+            and self.yaml_file_path == value.yaml_file_path
+            and self.python_file_path == value.python_file_path
+            and self.python_file_bytes == value.python_file_bytes
+        )
+
+
+def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
+    try:
+        items_to_clone = get_analysis_items(analysis_id, filter_args)
+    except analysis_cache.NoCacheException as e:
+        return 1, str(e)
+
+    if len(items_to_clone) == 0:
+        label = "analysis ID and filters"
+        if analysis_id is None and len(filter_args) > 0:
+            label = "filters"
+        elif analysis_id is not None and len(filter_args) == 0:
+            label = "analysis ID"
+
+        return 1, f"No items matched the {label}. Nothing to clone and enable."
+
+    for item in items_to_clone:
+        set_enabled_field(item.analysis_spec)
+
+    clone_analysis_items(items_to_clone)
+    return 0, ""
+
+
+def set_enabled_field(spec: Dict[str, Any]) -> None:
+    if spec["AnalysisType"] in [
+        AnalysisTypes.RULE,
+        AnalysisTypes.SCHEDULED_RULE,
+        AnalysisTypes.CORRELATION_RULE,
+        AnalysisTypes.POLICY,
+        AnalysisTypes.DATA_MODEL,
+        AnalysisTypes.LOOKUP_TABLE,
+        AnalysisTypes.SAVED_QUERY,
+        AnalysisTypes.SCHEDULED_QUERY,
+        AnalysisTypes.DERIVED,
+        AnalysisTypes.SIMPLE_DETECTION,
+    ]:
+        spec["Enabled"] = True
+
+
+def get_analysis_items(analysis_id: Optional[str], filter_args: List[str]) -> List[AnalysisItem]:
+    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+    cache = analysis_cache.AnalysisCache()
+    versions = versions_file.get_versions().versions
+    filters, filters_inverted = parse.parse_filter_args(filter_args)
+
+    all_specs: List[AnalysisItem] = []
+    for _id in cache.list_spec_ids() if analysis_id is None else [analysis_id]:
+        analysis_spec = cache.get_latest_spec(_id)
+        if analysis_spec is None:
+            continue
+
+        loaded: dict[str, Any] = yaml.load(analysis_spec.spec)
+
+        if not analysis_utils.filter_analysis_spec(loaded, filters, filters_inverted):
+            continue
+
+        all_specs.append(
+            AnalysisItem(
+                analysis_spec=loaded,
+                yaml_file_path=versions[_id].history[versions[_id].version].yaml_file_path,
+                python_file_path=versions[_id].history[versions[_id].version].py_file_path,
+                python_file_bytes=cache.get_file_for_spec(analysis_spec.id or -1),
+            )
+        )
+
+    return all_specs
+
+
+def clone_analysis_items(items_to_clone: List[AnalysisItem]) -> None:
+    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+
+    for item in items_to_clone:
+        yaml_path = pathlib.Path(item.yaml_file_path)
+        yaml_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(yaml_path, "wb") as yaml_file:
+            yaml.dump(item.analysis_spec, yaml_file)
+
+        if item.python_file_path is not None and item.python_file_bytes is not None:
+            py_path = pathlib.Path(item.python_file_path)
+            py_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(py_path, "wb") as py_file:
+                py_file.write(item.python_file_bytes)

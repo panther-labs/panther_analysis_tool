@@ -45,6 +45,7 @@ from typer_config import use_yaml_config
 from typing_extensions import Annotated
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.directory import setup_temp
 
 # this is needed at this location so each process can have its own temp directory
@@ -98,6 +99,7 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    enable,
     fetch,
     init_project,
     validate,
@@ -135,7 +137,7 @@ from panther_analysis_tool.core.definitions import (
     TestResultContainer,
     TestResultsContainer,
 )
-from panther_analysis_tool.core.parse import Filter, parse_filter
+from panther_analysis_tool.core.parse import Filter, parse_filter_args
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
@@ -1803,6 +1805,28 @@ def print_and_exit(message: str) -> None:
     raise typer.Exit(code=0)
 
 
+def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[str]:
+    """
+    Complete the ID of the analysis item to help with tab completion as a user is typing.
+    Returns an empty list on error.
+
+    Args:
+        _ctx: The context of the typer command. Unused within the function.
+        _args: The arguments of the typer command. Unused within the function.
+        incomplete: The incomplete ID of the analysis item. Used to filter the list of completion candidates.
+
+    Returns:
+        A list of completion candidates.
+    """
+    try:
+        cache = analysis_cache.AnalysisCache()
+        return [
+            spec_id for spec_id in cache.list_spec_ids() if incomplete.lower() in spec_id.lower()
+        ]
+    except Exception:
+        return []
+
+
 @app.callback()
 def global_options(
     # pylint: disable=unused-argument
@@ -1875,7 +1899,7 @@ def release(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     # Forward to your logic function
     return generate_release_assets(
@@ -1937,7 +1961,7 @@ def test(
     if test_names is None:
         test_names = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -1984,7 +2008,7 @@ def debug_command(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -2047,7 +2071,7 @@ def publish_command(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = PublishReleaseArgs(
         github_tag=github_tag,
@@ -2113,7 +2137,7 @@ def upload(
     if valid_table_names is None:
         valid_table_names = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = UploadAnalysisArgs(
         auto_disable_base=auto_disable_base,
@@ -2212,7 +2236,7 @@ def validate_cmd(
     if ignore_files is None:
         ignore_files = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = validate.ValidateArgs(
         out=".",
@@ -2251,7 +2275,7 @@ def zip_cmd(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = ZipAnalysisArgs(
         skip_tests=skip_tests,
@@ -2341,7 +2365,7 @@ def benchmark_command(
     if ignore_files is None:
         ignore_files = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = benchmark.BenchmarkArgs(
         filters=filters,
@@ -2375,7 +2399,7 @@ def enrich_test_data_command(
     if valid_table_names is None:
         valid_table_names = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     # Call your backend function with the parsed arguments
     args = EnrichTestDataArgs(
@@ -2406,6 +2430,22 @@ def init_command() -> Tuple[int, str]:
 @app_command_with_config(name="fetch", help="Fetch a detection")
 def fetch_command() -> Tuple[int, str]:
     return fetch.run()
+
+
+@app_command_with_config(name="enable", help="Enable a detection")
+def enable_command(
+    filters: FilterType = None,
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="The ID of the analysis item to enable.",
+            autocompletion=complete_id,
+        ),
+    ] = None,
+) -> Tuple[int, str]:
+    if filters is None:
+        filters = []
+    return enable.run(analysis_id, filters)
 
 
 # pylint: disable=too-many-statements
