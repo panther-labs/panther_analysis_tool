@@ -809,6 +809,7 @@ class AnalysisItem:
     def description(self) -> str:
         return self.yaml_file_contents.get("Description", "")
 
+    # pylint: disable=too-many-return-statements
     def pretty_analysis_type(self) -> str:
         match self.analysis_type():
             case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
