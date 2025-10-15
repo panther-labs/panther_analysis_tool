@@ -1,0 +1,17 @@
+#facets {
+    height: auto;
+}
+
+#main-content {
+    height: 1fr;
+}
+
+#table {
+    border: solid $primary;
+    height: 1fr;
+    width: 3fr;
+}
+
+#tree {
+    width: 1fr;
+}
