@@ -100,6 +100,7 @@ from panther_analysis_tool.command import (
     bulk_delete,
     check_connection,
     enable,
+    explore,
     fetch,
     init_project,
     validate,
@@ -2446,6 +2447,11 @@ def enable_command(
     if filters is None:
         filters = []
     return enable.run(analysis_id, filters)
+
+
+@app.command(name="explore", help="explore content")
+def explore_command() -> Tuple[int, str]:
+    return explore.run()
 
 
 # pylint: disable=too-many-statements

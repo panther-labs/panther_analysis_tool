@@ -777,3 +777,55 @@ def load_module(filename: str) -> Tuple[Any, Any]:
         print("\t[ERROR] Error loading module, skipping\n")
         return None, err
     return module, None
+
+
+@dataclasses.dataclass
+class AnalysisItem:
+    yaml_file_contents: dict[str, Any]
+    raw_yaml_file_contents: Optional[bytes] = None
+    yaml_file_path: Optional[str] = None
+    python_file_contents: Optional[bytes] = None
+    python_file_path: Optional[str] = None
+
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, AnalysisItem)
+            and self.yaml_file_contents == value.yaml_file_contents
+            and self.yaml_file_path == value.yaml_file_path
+            and self.python_file_path == value.python_file_path
+            and self.python_file_contents == value.python_file_contents
+        )
+
+    def analysis_type(self) -> str:
+        return self.yaml_file_contents["AnalysisType"]
+
+    def analysis_id(self) -> str:
+        return lookup_analysis_id(self.yaml_file_contents)
+
+    def description(self) -> str:
+        return self.yaml_file_contents.get("Description", "")
+
+    def pretty_analysis_type(self) -> str:
+        match self.analysis_type():
+            case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
+                return "Rule"
+            case AnalysisTypes.DATA_MODEL:
+                return "Data Model"
+            case AnalysisTypes.POLICY:
+                return "Policy"
+            case AnalysisTypes.GLOBAL:
+                return "Global Helper"
+            case AnalysisTypes.SCHEDULED_QUERY:
+                return "Scheduled Query"
+            case AnalysisTypes.SAVED_QUERY:
+                return "SavedQuery"
+            case AnalysisTypes.PACK:
+                return "Pack"
+            case AnalysisTypes.LOOKUP_TABLE:
+                return "Lookup Table"
+            case AnalysisTypes.DERIVED:
+                return "Derived Detection"
+            case AnalysisTypes.SIMPLE_DETECTION:
+                return "Simple Detection"
+            case _:
+                raise ValueError(f"Unsupported analysis type: {self.analysis_type()}")
