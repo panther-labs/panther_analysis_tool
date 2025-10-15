@@ -7,38 +7,6 @@ import requests
 
 from panther_analysis_tool.constants import CACHE_DIR
 
-_NOT_NEEDED_PANTHER_ANALYSIS_ITEMS = [
-    "templates",
-    "test_scenarios",
-    "style_guides",
-    "indexes",
-    "packs",
-    ".cursor",
-    ".scripts",
-    ".vscode",
-    ".idea",
-    ".img",
-    ".gitignore",
-    ".gitattributes",
-    ".github",
-    ".bandit",
-    ".pre-commit-config.yaml",
-    ".pylintrc",
-    ".python-version",
-    "CLAUDE.md",
-    "CODE_OF_CONDUCT.md",
-    "CONTRIBUTING.md",
-    "SECURITY.md",
-    "README.md",
-    "deprecated.txt",
-    "Dockerfile",
-    "LICENSE.txt",
-    "Makefile",
-    "Pipfile",
-    "Pipfile.lock",
-    "pyproject.toml",
-]
-
 
 def panther_analysis_release_url(tag: str = "latest") -> str:
     """
@@ -81,14 +49,10 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
                 f"Failed to clone panther-analysis: return code was {completed_process.returncode}"
             )
 
-        # clear out stuff we don't need
-        for item in _NOT_NEEDED_PANTHER_ANALYSIS_ITEMS:
-            path = repo_path / item
-            if path.exists():
-                if path.is_dir():
-                    shutil.rmtree(path)
-                else:
-                    path.unlink()
+        # these have yaml files so removing them to avoid having to read them
+        shutil.rmtree(repo_path / "test_scenarios")
+        shutil.rmtree(repo_path / "templates")
+        shutil.rmtree(repo_path / ".github")
 
         cwd = os.getcwd()
         os.chdir(repo_path)
@@ -107,6 +71,13 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
         os.chdir(cwd)  # revert to original cwd
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to clone panther-analysis: {e}")
+
+
+def delete_cloned_panther_analysis() -> None:
+    """
+    Delete the cloned Panther Analysis repository from the cache directory.
+    """
+    shutil.rmtree(pathlib.Path(CACHE_DIR) / "panther-analysis")
 
 
 def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:
