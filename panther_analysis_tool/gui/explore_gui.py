@@ -18,8 +18,16 @@ class ExploreApp(App):
         Binding("ctrl+d", "toggle_dark", "Toggle dark mode", show=True),
         Binding("ctrl+q", "quit", "Quit", show=True),
         Binding("tab", "switch_focus", "Switch focus", show=True, priority=True),
-        Binding("escape", "close_editors", "Back to analysis item explorer", show=True, priority=True),
-        Binding("ctrl+e", "enable_analysis_item", "Clone and enable selected analysis item", show=True, priority=True),
+        Binding(
+            "escape", "close_editors", "Back to analysis item explorer", show=True, priority=True
+        ),
+        Binding(
+            "ctrl+e",
+            "enable_analysis_item",
+            "Clone and enable selected analysis item",
+            show=True,
+            priority=True,
+        ),
     ]
 
     CSS_PATH = "explore_gui.tcss"
@@ -136,7 +144,9 @@ class ExploreApp(App):
         if code != 0:
             self.notify(err_str, severity="error")
         else:
-            self.notify(f"{self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()} ready to use!")
+            self.notify(
+                f"{self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()} ready to use!"
+            )
             self.refresh_bindings()
 
         self.view_editors = False
