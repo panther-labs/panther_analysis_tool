@@ -40,21 +40,11 @@ from typing import (
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import typer
-from typer_config import use_yaml_config
-from typing_extensions import Annotated
-
-from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.core import analysis_cache
-from panther_analysis_tool.directory import setup_temp
-
-# this is needed at this location so each process can have its own temp directory
-setup_temp()
-
 import botocore
 import dateutil.parser
 import requests
 import schema
+import typer
 from colorama import Fore, Style
 from gql.transport.aiohttp import log as aiohttp_logger
 from panther_core.data_model import DataModel
@@ -71,8 +61,10 @@ from panther_core.testing import (
 from ruamel.yaml import YAML, SafeConstructor, constructor
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
+from typer_config import use_yaml_config
+from typing_extensions import Annotated
 
-from panther_analysis_tool import cli_output
+from panther_analysis_tool import analysis_utils, cli_output
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     classify_analysis,
@@ -129,10 +121,10 @@ from panther_analysis_tool.constants import (
     CONFIG_FILE,
     ENABLE_CORRELATION_RULES_FLAG,
     PACKAGE_NAME,
-    TMP_HELPER_MODULE_LOCATION,
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     TestResultContainer,
@@ -140,6 +132,7 @@ from panther_analysis_tool.core.definitions import (
 )
 from panther_analysis_tool.core.parse import Filter, parse_filter_args
 from panther_analysis_tool.destination import FakeDestination
+from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
 from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA
@@ -991,19 +984,20 @@ def test_analysis(
 
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
+    helper_location = analysis_utils.get_tmp_helper_module_location()
     # ensure the directory does not exist, else clear it
     cleanup_global_helpers(global_analysis)
-    os.makedirs(TMP_HELPER_MODULE_LOCATION)
+    os.makedirs(helper_location)
     # setup temp dir for globals
-    if TMP_HELPER_MODULE_LOCATION not in sys.path:
-        sys.path.append(TMP_HELPER_MODULE_LOCATION)
+    if helper_location not in sys.path:
+        sys.path.append(helper_location)
     # place globals in temp dir
     for item in global_analysis:
         dir_name = item.dir_name
         analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["GlobalID"]
         source = os.path.join(dir_name, analysis_spec["Filename"])
-        destination = os.path.join(TMP_HELPER_MODULE_LOCATION, f"{analysis_id}.py")
+        destination = os.path.join(helper_location, f"{analysis_id}.py")
         shutil.copyfile(source, destination)
         # force reload of the module as necessary
         if analysis_id in sys.modules:
@@ -1015,6 +1009,7 @@ def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
 
 
 def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
+    helper_location = analysis_utils.get_tmp_helper_module_location()
     # clear the modules from the modules cache
     for item in global_analysis:
         analysis_id = item.analysis_spec["GlobalID"]
@@ -1022,8 +1017,8 @@ def cleanup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
         if analysis_id in sys.modules:
             del sys.modules[analysis_id]
     # ensure the directory does not exist, else clear it
-    if os.path.exists(TMP_HELPER_MODULE_LOCATION):
-        shutil.rmtree(TMP_HELPER_MODULE_LOCATION)
+    if os.path.exists(helper_location):
+        shutil.rmtree(helper_location)
 
 
 def setup_data_models(
@@ -2456,6 +2451,7 @@ def explore_command() -> Tuple[int, str]:
 
 # pylint: disable=too-many-statements
 def run() -> None:
+    setup_temp()
     # setup logger and print version info as necessary
     logging.basicConfig(
         format="%(levelname)s: %(message)s",
