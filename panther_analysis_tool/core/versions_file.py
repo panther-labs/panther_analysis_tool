@@ -57,7 +57,7 @@ _VERSIONS: Optional[Versions] = None
 def get_versions() -> Versions:
     global _VERSIONS
     if _VERSIONS is None:
-        version_file_path = pathlib.Path(CACHE_DIR) / "panther-analysis" / ".versions.yml"
+        version_file_path = pathlib.Path(CACHE_DIR) / ".versions.yml"
         if not version_file_path.exists():
             raise FileNotFoundError(f"No versions file at {version_file_path}")
 

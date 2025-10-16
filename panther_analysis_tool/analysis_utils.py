@@ -354,10 +354,14 @@ def load_analysis_specs_ex(
                     with open(spec_filename, "rb") as spec_file_obj:
                         try:
                             file_content = spec_file_obj.read()
+                            yaml_content: dict[str, Any] = yaml.load(io.BytesIO(file_content))
+
+                            if yaml_content is None or "AnalysisType" not in yaml_content:
+                                continue  # skip files that aren't analysis items
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
                                 relative_path=dirpath,
-                                analysis_spec=yaml.load(io.BytesIO(file_content)),
+                                analysis_spec=yaml_content,
                                 yaml_ctx=yaml,
                                 error=None,
                                 raw_spec_file_content=file_content,
@@ -805,6 +809,7 @@ class AnalysisItem:
     def description(self) -> str:
         return self.yaml_file_contents.get("Description", "")
 
+    # pylint: disable=too-many-return-statements
     def pretty_analysis_type(self) -> str:
         match self.analysis_type():
             case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:

@@ -1,5 +1,6 @@
 import os
 import pathlib
+import shutil
 from typing import Dict, Tuple
 
 from panther_analysis_tool.analysis_utils import (
@@ -29,7 +30,12 @@ def fetch() -> None:
         commit = git_helpers.panther_analysis_latest_release_commit()
 
     git_helpers.clone_panther_analysis(release_branch, commit)
+    shutil.move(
+        pathlib.Path(CACHE_DIR) / "panther-analysis" / ".versions.yml",
+        pathlib.Path(CACHE_DIR) / ".versions.yml",
+    )  # move versions file so PA can be deleted
     populate_sqlite()
+    git_helpers.delete_cloned_panther_analysis()
 
 
 def populate_sqlite() -> None:
@@ -45,9 +51,6 @@ def populate_sqlite() -> None:
     for spec in load_analysis_specs_ex([CACHE_DIR], [], False):
         if spec.error is not None:
             continue
-
-        if "AnalysisType" not in spec.analysis_spec:
-            raise ValueError(f"Analysis type not found in spec: {spec.analysis_spec}")
 
         id_value = spec.analysis_id()
         if id_value in user_analysis_specs:
