@@ -1496,22 +1496,6 @@ files = [
 six = "*"
 
 [[package]]
-name = "nose2"
-version = "0.13.0"
-description = "unittest with plugins"
-optional = false
-python-versions = ">=3.6"
-groups = ["dev"]
-files = [
-    {file = "nose2-0.13.0-py3-none-any.whl", hash = "sha256:e29017c9309fe2c8b8a1f1db7a0e7526acaba0c3990f32a0d961e6a7bc5cc190"},
-    {file = "nose2-0.13.0.tar.gz", hash = "sha256:57c68ad676ef4b88b50694937eb52f4943aa1ca261074b4909b6e163046b46f0"},
-]
-
-[package.extras]
-coverage-plugin = ["coverage"]
-dev = ["Sphinx", "sphinx-issues", "sphinx-rtd-theme"]
-
-[[package]]
 name = "packaging"
 version = "23.1"
 description = "Core utilities for Python packages"
@@ -3477,4 +3461,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <4.0"
-content-hash = "c1226247d7c0d328d509062e4b10cdbbd1d1acec1fe771d4c05a5c283d5b4245"
+content-hash = "63cf10e5f63afb902eee824d748522ce04ceb0b9c98e7db2e6fdc376a428f152"
