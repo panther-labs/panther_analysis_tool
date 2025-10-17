@@ -306,15 +306,19 @@ def _contains_schema_tests(filename: str) -> bool:
 
 
 def normalize_path(path: str) -> Optional[str]:
-    """Resolve the given path to its absolute form, taking into
+    """
+    Resolve the given path to its absolute form, taking into
     account user home prefix notation.
     Returns:
         The absolute path or None if the path does not exist.
     """
-    absolute_path = os.path.abspath(os.path.expanduser(path))
-    if not os.path.exists(absolute_path):
+    try:
+        absolute_path = os.path.abspath(os.path.expanduser(path))
+        if not os.path.exists(absolute_path):
+            return None
+        return absolute_path
+    except FileNotFoundError:
         return None
-    return absolute_path
 
 
 def report_summary(base_path: str, results: List[UploaderResult]) -> List[Tuple[bool, str]]:

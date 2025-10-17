@@ -7,7 +7,11 @@ from panther_analysis_tool.analysis_utils import (
     LoadAnalysisSpecsResult,
     load_analysis_specs_ex,
 )
-from panther_analysis_tool.constants import CACHE_DIR, PANTHER_ANALYSIS_SQLITE_FILE
+from panther_analysis_tool.constants import (
+    CACHE_DIR,
+    CACHED_VERSIONS_FILE_PATH,
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+)
 from panther_analysis_tool.core import analysis_cache, git_helpers, versions_file
 
 
@@ -17,7 +21,7 @@ def run() -> Tuple[int, str]:
 
 
 def fetch() -> None:
-    sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
+    sqlite_file = PANTHER_ANALYSIS_SQLITE_FILE_PATH
     sqlite_file.parent.mkdir(parents=True, exist_ok=True)
     sqlite_file.touch(exist_ok=True)
 
@@ -31,8 +35,8 @@ def fetch() -> None:
 
     git_helpers.clone_panther_analysis(release_branch, commit)
     shutil.move(
-        pathlib.Path(CACHE_DIR) / "panther-analysis" / ".versions.yml",
-        pathlib.Path(CACHE_DIR) / ".versions.yml",
+        git_helpers.CLONED_VERSIONS_FILE_PATH,
+        CACHED_VERSIONS_FILE_PATH,
     )  # move versions file so PA can be deleted
     populate_sqlite()
     git_helpers.delete_cloned_panther_analysis()
@@ -48,7 +52,7 @@ def populate_sqlite() -> None:
         user_analysis_specs[user_specs.analysis_id()] = user_specs
 
     # load all analysis specs
-    for spec in load_analysis_specs_ex([CACHE_DIR], [], False):
+    for spec in load_analysis_specs_ex([str(CACHE_DIR)], [], False):
         if spec.error is not None:
             continue
 

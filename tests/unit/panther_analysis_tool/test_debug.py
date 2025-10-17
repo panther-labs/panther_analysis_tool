@@ -1,13 +1,10 @@
 import io
-import logging
 import os
-import sys
 import traceback
 import unittest
-from unittest import mock
 from unittest.mock import MagicMock, patch
 
-from pyfakefs.fake_filesystem_unittest import Pause, TestCase
+from pyfakefs.fake_filesystem_unittest import TestCase
 from typer.testing import CliRunner
 
 from panther_analysis_tool import main as pat

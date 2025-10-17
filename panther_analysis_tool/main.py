@@ -985,6 +985,7 @@ def test_analysis(
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     helper_location = analysis_utils.get_tmp_helper_module_location()
+    logging.debug("Setting up global helpers in %s", helper_location)
     # ensure the directory does not exist, else clear it
     cleanup_global_helpers(global_analysis)
     os.makedirs(helper_location)

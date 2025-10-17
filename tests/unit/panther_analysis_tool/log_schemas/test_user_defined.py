@@ -16,7 +16,7 @@ FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 
 
 class TestUtilities(unittest.TestCase):
-    def test_report_summary(self):
+    def test_report_summary(self) -> None:
         summary = user_defined.report_summary(
             "/a/b/schemas",
             [
@@ -38,7 +38,7 @@ class TestUtilities(unittest.TestCase):
             ],
         )
 
-    def test_discover_files(self):
+    def test_discover_files(self) -> None:
         path = os.path.join(FIXTURES_PATH, "custom-schemas", "valid")
         files = user_defined.discover_files(path, user_defined.Uploader._SCHEMA_FILE_GLOB_PATTERNS)
         self.assertListEqual(
@@ -53,7 +53,7 @@ class TestUtilities(unittest.TestCase):
             ],
         )
 
-    def test_ignore_schema_test_files(self):
+    def test_ignore_schema_test_files(self) -> None:
         base_path = os.path.join(FIXTURES_PATH, "custom-schemas", "valid")
         schema_files = ["lookup-table-schema-1.yml", "schema-1.yml", "schema-2.yml", "schema-3.yml"]
         schema_test_files = ["schema_1_tests.yml", "schema_2_tests.yaml"]
@@ -65,7 +65,7 @@ class TestUtilities(unittest.TestCase):
             user_defined.ignore_schema_test_files(all_files), all_files[: len(schema_files)]
         )
 
-    def test_normalize_path(self):
+    def test_normalize_path(self) -> None:
         # If path does not exist
         self.assertIsNone(user_defined.normalize_path("some-random-path"))
         self.assertTrue(user_defined.normalize_path(".").endswith(os.path.abspath(".")))
@@ -147,6 +147,7 @@ class TestUploader(unittest.TestCase):
             is_managed=False,
             reference_url="https://github.com/random",
             spec="",
+            description="",
             field_discovery_enabled=False,
         )
         self.put_schema_response2 = lambda: {
@@ -165,14 +166,14 @@ class TestUploader(unittest.TestCase):
             }
         }
 
-    def test_existing_schemas(self):
+    def test_existing_schemas(self) -> None:
         backend = MockBackend()
         backend.list_schemas = mock.MagicMock(return_value=self.list_schemas_response)
         uploader = user_defined.Uploader(self.valid_schema_path, backend)
         self.assertListEqual(uploader.existing_schemas, self.list_schemas_response.data.schemas)
         backend.list_schemas.assert_called_once()
 
-    def test_existing_schemas_empty_results_from_backend(self):
+    def test_existing_schemas_empty_results_from_backend(self) -> None:
         backend = MockBackend()
         backend.list_schemas = mock.MagicMock(
             return_value=BackendResponse(status_code=200, data=ListSchemasResponse(schemas=[]))
@@ -182,7 +183,7 @@ class TestUploader(unittest.TestCase):
         self.assertListEqual(uploader.existing_schemas, [])
         backend.list_schemas.assert_called_once()
 
-    def test_find_schema(self):
+    def test_find_schema(self) -> None:
         backend = MockBackend()
         backend.list_schemas = mock.MagicMock(return_value=self.list_schemas_response)
         uploader = user_defined.Uploader(self.valid_schema_path, backend)
@@ -192,7 +193,7 @@ class TestUploader(unittest.TestCase):
         self.assertIsNone(uploader.find_schema("unknown-schema"))
         backend.list_schemas.assert_called_once()
 
-    def test_files(self):
+    def test_files(self) -> None:
         uploader = user_defined.Uploader(self.valid_schema_path, None)
         self.assertListEqual(
             uploader.files,
@@ -204,7 +205,7 @@ class TestUploader(unittest.TestCase):
             ],
         )
 
-    def test_process(self):
+    def test_process(self) -> None:
         backend = MockBackend()
         backend.list_schemas = mock.MagicMock(return_value=self.list_schemas_response)
 

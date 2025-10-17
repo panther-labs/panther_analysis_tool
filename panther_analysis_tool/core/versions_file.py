@@ -1,10 +1,9 @@
-import pathlib
 from typing import Optional
 
 import pydantic
 from ruamel import yaml
 
-from panther_analysis_tool.constants import CACHE_DIR
+from panther_analysis_tool.constants import CACHED_VERSIONS_FILE_PATH
 
 
 class AnalysisVersionHistoryItem(pydantic.BaseModel):
@@ -57,11 +56,10 @@ _VERSIONS: Optional[Versions] = None
 def get_versions() -> Versions:
     global _VERSIONS
     if _VERSIONS is None:
-        version_file_path = pathlib.Path(CACHE_DIR) / ".versions.yml"
-        if not version_file_path.exists():
-            raise FileNotFoundError(f"No versions file at {version_file_path}")
+        if not CACHED_VERSIONS_FILE_PATH.exists():
+            raise FileNotFoundError(f"No versions file at {CACHED_VERSIONS_FILE_PATH}")
 
-        with open(version_file_path, "rb") as version_file:
+        with open(CACHED_VERSIONS_FILE_PATH, "rb") as version_file:
             versions = yaml.YAML(typ="safe").load(version_file)
             _VERSIONS = Versions(**versions)
 

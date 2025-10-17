@@ -1,256 +1,175 @@
-import os
 import pathlib
-import tempfile
-import unittest
 
-from panther_analysis_tool.constants import CACHE_DIR, PANTHER_ANALYSIS_SQLITE_FILE
+from _pytest.monkeypatch import MonkeyPatch
+
+from panther_analysis_tool.constants import PANTHER_ANALYSIS_SQLITE_FILE_PATH
 from panther_analysis_tool.core.analysis_cache import AnalysisCache, AnalysisSpec
 
 
-class TestAnalysisCache(unittest.TestCase):
-    def get_analysis_cache(self, temp_dir: str) -> AnalysisCache:
-        os.chdir(temp_dir)
-        os.makedirs(CACHE_DIR, exist_ok=True)
-        file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
-        file.touch()
-        return AnalysisCache()
+def get_analysis_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> AnalysisCache:
+    monkeypatch.chdir(tmp_path)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    return AnalysisCache()
 
-    def test_create_tables(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            # get number of tables in sqlite database
-            tables = analysis_cache.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-            tables = [table[0] for table in tables]
-            self.assertIn("analysis_specs", tables)
-            self.assertIn("files", tables)
-            self.assertIn("file_mappings", tables)
 
-            indexes = analysis_cache.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='index'"
-            ).fetchall()
-            indexes = [index[0] for index in indexes]
-            self.assertIn("idx_analysis_specs_unique", indexes)
-            self.assertIn("idx_file_mappings_unique", indexes)
+def test_create_tables(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
 
-    def test_insert_spec(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0],
-                1,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0],
-                1,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute(
-                    "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
-                ).fetchone(),
-                ("id_field1", "id_value1", b"test", 1),
-            )
+    tables = analysis_cache.cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()
+    tables = [table[0] for table in tables]
+    assert "analysis_specs" in tables
+    assert "files" in tables
+    assert "file_mappings" in tables
 
-    def test_insert_file(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            file_id = analysis_cache._insert_file(b"test")
-            self.assertEqual(file_id, 1)
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0], 1
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT content FROM files WHERE id = 1").fetchone()[
-                    0
-                ],
-                b"test",
-            )
+    indexes = analysis_cache.cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='index'"
+    ).fetchall()
+    indexes = [index[0] for index in indexes]
+    assert "idx_analysis_specs_unique" in indexes
+    assert "idx_file_mappings_unique" in indexes
 
-    def test_insert_file_mapping(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache._insert_file_mapping(1, 1)
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0], 1
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute(
-                    "SELECT spec_id, file_id FROM file_mappings WHERE id = 1"
-                ).fetchone(),
-                (1, 1),
-            )
 
-    def test_list_spec_ids(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
-            analysis_cache._insert_spec("id_field2", "id_value2", b"test", 1)
-            self.assertEqual(analysis_cache.list_spec_ids(), ["id_value1", "id_value2"])
+def test_insert_spec(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute(
+        "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
+    ).fetchone() == ("id_field1", "id_value1", b"test", 1)
 
-    def test_insert_analysis_spec(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache.insert_analysis_spec(
-                AnalysisSpec(
-                    id=1,
-                    spec=b"test",
-                    version=1,
-                    id_field="id_field",
-                    id_value="id_value",
-                ),
-                b"test",
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0],
-                1,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0], 1
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0], 1
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute(
-                    "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
-                ).fetchone(),
-                ("id_field", "id_value", b"test", 1),
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute(
-                    "SELECT spec_id, file_id FROM file_mappings WHERE id = 1"
-                ).fetchone(),
-                (1, 1),
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT content FROM files WHERE id = 1").fetchone()[
-                    0
-                ],
-                b"test",
-            )
 
-    def test_insert_analysis_spec_with_none_py_file_contents(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache.insert_analysis_spec(
-                AnalysisSpec(
-                    id=1,
-                    spec=b"test",
-                    version=1,
-                    id_field="id_field",
-                    id_value="id_value",
-                ),
-                None,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0],
-                1,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0], 0
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0], 0
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute(
-                    "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
-                ).fetchone(),
-                ("id_field", "id_value", b"test", 1),
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute(
-                    "SELECT spec_id, file_id FROM file_mappings WHERE id = 1"
-                ).fetchone(),
-                None,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT content FROM files WHERE id = 1").fetchone(),
-                None,
-            )
+def test_insert_file(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    file_id = analysis_cache._insert_file(b"test")
+    assert file_id == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 1
+    assert (
+        analysis_cache.cursor.execute("SELECT content FROM files WHERE id = 1").fetchone()[0]
+        == b"test"
+    )
 
-    def test_insert_analysis_spec_duplicate(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
 
-            test_spec = AnalysisSpec(
-                id=1,
-                spec=b"test",
-                version=1,
-                id_field="id_field",
-                id_value="id_value",
-            )
-            analysis_cache.insert_analysis_spec(test_spec, b"test")
-            analysis_cache.insert_analysis_spec(test_spec, b"test")
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0],
-                1,
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0], 1
-            )
-            self.assertEqual(
-                analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0], 1
-            )
+def test_insert_file_mapping(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache._insert_file_mapping(1, 1)
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute(
+        "SELECT spec_id, file_id FROM file_mappings WHERE id = 1"
+    ).fetchone() == (1, 1)
 
-    def test_get_file_for_spec(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            spec_id = analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
-            file_id = analysis_cache._insert_file(b"test") or -1
-            analysis_cache._insert_file_mapping(spec_id, file_id)
-            self.assertEqual(analysis_cache.get_file_for_spec(spec_id), b"test")
 
-    def test_get_file_by_id(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            file_id = analysis_cache._insert_file(b"test") or -1
-            self.assertEqual(analysis_cache.get_file_by_id(file_id), b"test")
+def test_list_spec_ids(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
+    analysis_cache._insert_spec("id_field2", "id_value2", b"test", 1)
+    assert analysis_cache.list_spec_ids() == ["id_value1", "id_value2"]
 
-    def test_get_spec_for_version(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field", "id_value", b"test1", 1)
-            analysis_cache._insert_spec("id_field", "id_value", b"test2", 2)
-            self.assertEqual(
-                analysis_cache.get_spec_for_version("id_value", 2),
-                AnalysisSpec(
-                    id=2,
-                    spec=b"test2",
-                    version=2,
-                    id_field="id_field",
-                    id_value="id_value",
-                ),
-            )
-            self.assertEqual(analysis_cache.get_spec_for_version("id_value", 3), None)
 
-    def test_get_latest_spec(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            analysis_cache = self.get_analysis_cache(temp_dir)
-            analysis_cache.create_tables()
-            analysis_cache._insert_spec("id_field", "id_value", b"test1", 1)
-            analysis_cache._insert_spec("id_field", "id_value", b"test2", 2)
-            self.assertEqual(
-                analysis_cache.get_latest_spec("id_value"),
-                AnalysisSpec(
-                    id=2,
-                    spec=b"test2",
-                    version=2,
-                    id_field="id_field",
-                    id_value="id_value",
-                ),
-            )
-            self.assertEqual(analysis_cache.get_latest_spec("id_value3"), None)
+def test_insert_analysis_spec(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache.insert_analysis_spec(
+        AnalysisSpec(id=1, spec=b"test", version=1, id_field="id_field", id_value="id_value"),
+        b"test",
+    )
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute(
+        "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
+    ).fetchone() == ("id_field", "id_value", b"test", 1)
+    assert analysis_cache.cursor.execute(
+        "SELECT spec_id, file_id FROM file_mappings WHERE id = 1"
+    ).fetchone() == (1, 1)
+    assert (
+        analysis_cache.cursor.execute("SELECT content FROM files WHERE id = 1").fetchone()[0]
+        == b"test"
+    )
+
+
+def test_insert_analysis_spec_with_none_py_file_contents(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache.insert_analysis_spec(
+        AnalysisSpec(id=1, spec=b"test", version=1, id_field="id_field", id_value="id_value"), None
+    )
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0] == 0
+    assert analysis_cache.cursor.execute(
+        "SELECT id_field, id_value, spec, version FROM analysis_specs WHERE id = 1"
+    ).fetchone() == ("id_field", "id_value", b"test", 1)
+    assert (
+        analysis_cache.cursor.execute(
+            "SELECT spec_id, file_id FROM file_mappings WHERE id = 1"
+        ).fetchone()
+        == None
+    )
+    assert (
+        analysis_cache.cursor.execute("SELECT content FROM files WHERE id = 1").fetchone() == None
+    )
+
+
+def test_insert_analysis_spec_duplicate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache.insert_analysis_spec(
+        AnalysisSpec(id=1, spec=b"test", version=1, id_field="id_field", id_value="id_value"),
+        b"test",
+    )
+    analysis_cache.insert_analysis_spec(
+        AnalysisSpec(id=1, spec=b"test", version=1, id_field="id_field", id_value="id_value"),
+        b"test",
+    )
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM analysis_specs").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 1
+    assert analysis_cache.cursor.execute("SELECT COUNT(*) FROM file_mappings").fetchone()[0] == 1
+
+
+def test_get_file_for_spec(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    spec_id = analysis_cache._insert_spec("id_field1", "id_value1", b"test", 1)
+    file_id = analysis_cache._insert_file(b"test") or -1
+    analysis_cache._insert_file_mapping(spec_id, file_id)
+    assert analysis_cache.get_file_for_spec(spec_id) == b"test"
+
+
+def test_get_file_by_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    file_id = analysis_cache._insert_file(b"test") or -1
+    assert analysis_cache.get_file_by_id(file_id) == b"test"
+
+
+def test_get_spec_for_version(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache._insert_spec("id_field", "id_value", b"test1", 1)
+    analysis_cache._insert_spec("id_field", "id_value", b"test2", 2)
+    assert analysis_cache.get_spec_for_version("id_value", 2) == AnalysisSpec(
+        id=2, spec=b"test2", version=2, id_field="id_field", id_value="id_value"
+    )
+    assert analysis_cache.get_spec_for_version("id_value", 3) == None
+
+
+def test_get_latest_spec(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    analysis_cache = get_analysis_cache(tmp_path, monkeypatch)
+    analysis_cache.create_tables()
+    analysis_cache._insert_spec("id_field", "id_value", b"test1", 1)
+    analysis_cache._insert_spec("id_field", "id_value", b"test2", 2)
+    assert analysis_cache.get_latest_spec("id_value") == AnalysisSpec(
+        id=2, spec=b"test2", version=2, id_field="id_field", id_value="id_value"
+    )
+    assert analysis_cache.get_latest_spec("id_value3") == None
