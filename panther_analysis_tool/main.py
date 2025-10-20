@@ -1877,7 +1877,7 @@ def global_options(
         "panther-analysis-all.sig"
     )
 )
-def release( # pylint: disable=too-many-arguments
+def release(  # pylint: disable=too-many-arguments
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     kms_key: KMSKeyType = "",
@@ -1931,7 +1931,7 @@ def release( # pylint: disable=too-many-arguments
 
 
 @app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
-def test( # pylint: disable=too-many-arguments
+def test(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -1989,7 +1989,7 @@ def test( # pylint: disable=too-many-arguments
     name="debug",
     help="Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.",
 )
-def debug_command( # pylint: disable=too-many-arguments
+def debug_command(  # pylint: disable=too-many-arguments
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
     api_token: APITokenType = None,
@@ -2041,7 +2041,7 @@ def debug_command( # pylint: disable=too-many-arguments
         + "panther-analysis-all.sig"
     ),
 )
-def publish_command( # pylint: disable=too-many-arguments
+def publish_command(  # pylint: disable=too-many-arguments
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
@@ -2108,7 +2108,7 @@ def publish_command( # pylint: disable=too-many-arguments
 
 
 @app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
-def upload( # pylint: disable=too-many-arguments
+def upload(  # pylint: disable=too-many-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2169,7 +2169,7 @@ def upload( # pylint: disable=too-many-arguments
 
 
 @app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
-def delete( # pylint: disable=too-many-arguments
+def delete(  # pylint: disable=too-many-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2255,7 +2255,7 @@ def validate_cmd(
 @app_command_with_config(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
-def zip_cmd( # pylint: disable=too-many-arguments
+def zip_cmd(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2326,7 +2326,7 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
         "is an extension of Data Replay and is subject to the same limitations."
     ),
 )
-def benchmark_command( # pylint: disable=too-many-arguments
+def benchmark_command(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2387,7 +2387,7 @@ def benchmark_command( # pylint: disable=too-many-arguments
     name="enrich-test-data",
     help="Enrich test data with additional enrichments from the Panther API.",
 )
-def enrich_test_data_command( # pylint: disable=too-many-arguments
+def enrich_test_data_command(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
