@@ -25,6 +25,32 @@ class ClassifiedAnalysis:
             return True
         return False
 
+    def analysis_type(self) -> str:
+        return self.analysis_spec["AnalysisType"] or ""
+
+    def analysis_id(self) -> str:
+        """Returns the analysis ID for a given analysis spec."""
+        analysis_type = self.analysis_type()
+        analysis_id = "UNKNOWN_ID"
+        match analysis_type:
+            case AnalysisTypes.DATA_MODEL:
+                analysis_id = self.analysis_spec["DataModelID"]
+            case AnalysisTypes.GLOBAL:
+                analysis_id = self.analysis_spec["GlobalID"]
+            case AnalysisTypes.LOOKUP_TABLE:
+                analysis_id = self.analysis_spec["LookupName"]
+            case AnalysisTypes.PACK:
+                analysis_id = self.analysis_spec["PackID"]
+            case AnalysisTypes.POLICY:
+                analysis_id = self.analysis_spec["PolicyID"]
+            case AnalysisTypes.SCHEDULED_QUERY | AnalysisTypes.SAVED_QUERY:
+                analysis_id = self.analysis_spec["QueryName"]
+            case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
+                analysis_id = self.analysis_spec["RuleID"]
+            case _:
+                analysis_id = "UNKNOWN_ID"
+        return analysis_id
+
 
 @dataclasses.dataclass
 class ClassifiedAnalysisContainer:

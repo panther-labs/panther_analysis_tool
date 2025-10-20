@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 from datetime import datetime
@@ -208,7 +209,7 @@ class TestPantherAnalysisTool(TestCase):
         test_date_string = pat.datetime_converted(test_date)
         self.assertIsInstance(test_date_string, str)
 
-    def test_load_policy_specs_from_folder(self) -> None:
+    def test_invalid_detections_are_marked_invaled(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, ["test", "--path", DETECTIONS_FIXTURES_PATH]
         )
@@ -582,7 +583,6 @@ class TestPantherAnalysisTool(TestCase):
             self.assertEqual(return_code, 0)
 
     def test_retry_uploads(self) -> None:
-        import logging
 
         backend = MockBackend()
         backend.bulk_upload = mock.MagicMock(
@@ -632,6 +632,11 @@ class TestPantherAnalysisTool(TestCase):
             )
             self.assertEqual(return_code, 1)
             self.assertEqual(time_mock.call_count, 10)
+
+    def test_test_analysis_command_no_args(self) -> None:
+        return_code, invalid_specs = mock_test_analysis(self, ["test"])
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 23)
 
     def test_available_destination_names_invalid_name_returned(self) -> None:
         """When an available destination is given but does not match the returned names"""
@@ -795,7 +800,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_correlation_rules_skipped_if_feature_not_enabled(self) -> None:
-        import logging
 
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
         backend = MockBackend()
@@ -883,7 +887,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(stdout_str.count("Skipped: 2"), 1)
 
     def test_can_retrieve_base_detection_for_test(self) -> None:
-        import logging
 
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/derived_without_base"
@@ -912,7 +915,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_logs_warning_if_cannot_retrieve_base(self) -> None:
-        import logging
 
         file_path = f"{FIXTURES_PATH}/derived_without_base"
         backend = MockBackend()
@@ -1250,7 +1252,6 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_classify_analysis_dedup_warnings(self) -> None:
         """Test classify_analysis with DedupPeriodMinutes warnings"""
-        import logging
 
         # Rule spec with DedupPeriodMinutes = 0
         rule_spec_zero_dedup = {
