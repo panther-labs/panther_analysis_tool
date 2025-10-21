@@ -43,7 +43,7 @@ class ExploreApp(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Footer()
-        yield Input(placeholder="Search", id="search-input")
+        yield Input(placeholder="Search by Type, ID, or Description...", id="search-input")
 
         yield Horizontal(
             Tree(id="tree", label="Analysis Content"),  # Will be populated in on_mount
