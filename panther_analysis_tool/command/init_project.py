@@ -4,11 +4,12 @@ from typing import Tuple
 
 
 def run(working_dir: str) -> Tuple[int, str]:
-    setup_folder_structure(Path(working_dir))
+    setup_git_ignore(Path(working_dir))
+    print_ready_message()
     return 0, ""
 
 
-def setup_folder_structure(working_dir: Path) -> None:
+def setup_git_ignore(working_dir: Path) -> None:
     if not os.path.exists(working_dir / ".gitignore"):
         print(".gitignore file created")
         Path(working_dir / ".gitignore").touch()
@@ -46,13 +47,18 @@ def setup_folder_structure(working_dir: Path) -> None:
                     gitignore_file.write(f"# {ignorable['name']}\n")
                     gitignore_file.write(f"{value}\n\n")
 
+
+def print_ready_message() -> None:
     print("Project is ready to use!\n")
 
     print("Next, you can start exploring and using Panther out of the box content:")
+    print(
+        "    Run `pat fetch` to fetch the latest content from the Panther Analysis. Rerun this every time you want to update your content."
+    )
     print("    Run `pat explore` to see the available content.")
     print("    Run `pat enable` to create a clone of a detection you want to use.")
     print(
-        "    Run `pat enable --filter LogType=<LOG_TYPE>` to enable all detections for a given log type you have onboarded."
+        "    Run `pat enable --filter LogTypes=<LOG_TYPE>` to enable all detections for a given log type you have onboarded."
     )
     print(
         "    Run `pat test` to test your content and then run `pat upload` to upload your content to Panther."
