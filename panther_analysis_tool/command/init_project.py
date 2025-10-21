@@ -52,7 +52,9 @@ def print_ready_message() -> None:
     print("Project is ready to use!\n")
 
     print("Next, you can start exploring and using Panther out of the box content:")
-    print("    Run `pat fetch` to fetch the latest content from the Panther Analysis. Rerun this every time you want to update your content.")
+    print(
+        "    Run `pat fetch` to fetch the latest content from the Panther Analysis. Rerun this every time you want to update your content."
+    )
     print("    Run `pat explore` to see the available content.")
     print("    Run `pat enable` to create a clone of a detection you want to use.")
     print(
