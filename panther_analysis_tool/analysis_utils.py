@@ -595,10 +595,10 @@ def classify_analysis(
     # or uploaded
     all_specs = ClassifiedAnalysisContainer()
 
-    invalid_specs = []
+    invalid_specs: List[Tuple[str, Exception]] = []
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
-    analysis_ids: List[Any] = []
+    analysis_ids: List[str] = []
 
     # Create a json validator and check the schema only once rather than during every loop
     json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)

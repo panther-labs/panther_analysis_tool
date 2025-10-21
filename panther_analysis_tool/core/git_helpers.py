@@ -1,11 +1,13 @@
 import os
-import pathlib
 import shutil
 import subprocess  # nosec:B404
 
 import requests
 
 from panther_analysis_tool.constants import CACHE_DIR
+
+CLONED_REPO_PATH = CACHE_DIR / "panther-analysis"
+CLONED_VERSIONS_FILE_PATH = CLONED_REPO_PATH / ".versions.yml"
 
 
 def panther_analysis_release_url(tag: str = "latest") -> str:
@@ -27,9 +29,8 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
     """
     Clone the Panther Analysis repository to the cache directory.
     """
-    repo_path = pathlib.Path(CACHE_DIR) / "panther-analysis"
-    if repo_path.exists():
-        shutil.rmtree(repo_path)
+    if CLONED_REPO_PATH.exists():
+        shutil.rmtree(CLONED_REPO_PATH)
 
     try:
         completed_process = subprocess.run(  # nosec:B607 B603
@@ -39,7 +40,7 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
                 "-b",
                 branch,
                 "https://github.com/panther-labs/panther-analysis.git",
-                str(repo_path),
+                str(CLONED_REPO_PATH),
             ],
             check=True,
             capture_output=True,
@@ -50,12 +51,12 @@ def clone_panther_analysis(branch: str, commit: str = "") -> None:
             )
 
         # these have yaml files so removing them to avoid having to read them
-        shutil.rmtree(repo_path / "test_scenarios")
-        shutil.rmtree(repo_path / "templates")
-        shutil.rmtree(repo_path / ".github")
+        shutil.rmtree(CLONED_REPO_PATH / "test_scenarios")
+        shutil.rmtree(CLONED_REPO_PATH / "templates")
+        shutil.rmtree(CLONED_REPO_PATH / ".github")
 
         cwd = os.getcwd()
-        os.chdir(repo_path)
+        os.chdir(CLONED_REPO_PATH)
 
         if commit != "":
             completed_process = subprocess.run(  # nosec:B607 B603
@@ -77,7 +78,7 @@ def delete_cloned_panther_analysis() -> None:
     """
     Delete the cloned Panther Analysis repository from the cache directory.
     """
-    shutil.rmtree(pathlib.Path(CACHE_DIR) / "panther-analysis")
+    shutil.rmtree(CLONED_REPO_PATH)
 
 
 def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:

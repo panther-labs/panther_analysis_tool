@@ -15,8 +15,6 @@ dependencies = [
     "async-timeout==5.0.1",
     "attrs==25.1.0",
     "backoff==2.2.1",
-    "boto3==1.28.44",
-    "botocore==1.31.44",
     "certifi==2024.7.4",
     "chardet==5.2.0",
     "charset-normalizer==3.4.1",
@@ -50,7 +48,6 @@ dependencies = [
     "policyuniverse==1.5.1.20230817",
     "propcache==0.2.1",
     "pygments==2.19.2",
-    "pytest==8.3.4",
     "python-dateutil==2.8.2",
     "pyyaml==6.0.2",
     "referencing==0.36.2",
@@ -59,7 +56,6 @@ dependencies = [
     "rpds-py==0.22.3",
     "ruamel-yaml==0.17.32",
     "ruamel-yaml-clib==0.2.7",
-    "s3transfer==0.6.2",
     "schema==0.7.5",
     "semver==2.13.0",
     "six==1.16.0",
@@ -70,7 +66,6 @@ dependencies = [
     "tomli==2.2.1",
     "tqdm==4.67.1",
     "typing-extensions==4.14.1",
-    "urllib3==1.26.19",
     "wrapt==1.15.0",
     "yarl==1.18.3",
     "typer (>=0.16.0,<0.17.0)",
@@ -78,6 +73,10 @@ dependencies = [
     "pydantic==2.12.0",
     "textual (>=6.3.0,<7.0.0)",
     "textual[syntax] (>=6.3.0,<7.0.0)",
+    "urllib3 (>=2.5.0,<3.0.0)",
+    "boto3 (>=1.40.53,<2.0.0)",
+    "botocore (>=1.40.53,<2.0.0)",
+    "s3transfer (>=0.14.0,<0.15.0)",
 ]
 
 license = { text = "Apache-2.0" }
@@ -110,18 +109,19 @@ requires-poetry = ">=2.0"
 [tool.poetry.group.dev.dependencies]
 bandit = "1.7.5"
 black = "24.3.0"
-coverage = "7.3.1"
 isort = "5.12.0"
 mypy = "1.5.1"
-nose2 = "^0.13.0"
 pyfakefs = "^5.9.3"
 pylint = "2.17.5"
-responses = "*"
 typed-ast = "1.5.5"
-types-python-dateutil = "*"
-types-requests = "*"
-types-pyyaml = "*"
-textual-dev = "*"
+pytest = "^8.4.2"
+pytest-cov = "^7.0.0"
+coverage = "^7.11.0"
+textual-dev = "^1.8.0"
+types-pyyaml = "^6.0.12.20250915"
+types-requests = "^2.32.4.20250913"
+types-python-dateutil = "^2.9.0.20251008"
+responses = "^0.25.8"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -159,3 +159,23 @@ disable = [
 [tool.sqlfluff.core]
 dialect = "snowflake"
 templater = "jinja"
+
+[tool.pytest.ini_options]
+python_classes = [
+    "!TestCorrelationRuleParams",
+    "!TestCorrelationRuleResponse",
+    "!TestResultsContainer",
+    "!TestResultContainer",
+    "!TestAnalysisArgs",
+    "!TestError",
+    "!TestResultsPerFunction",
+    "!TestResult",
+    "!TestExpectations",
+    "!TestSpecification",
+    "!TestCaseEvaluator",
+]
+norecursedirs = [
+    # fixtures folder contains test detections in python which pytest will load as real python modules,
+    # so we need to exclude it from test collection to avoid errors
+    "fixtures",
+]

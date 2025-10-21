@@ -1,50 +1,47 @@
-import os
-import tempfile
-import unittest
+import pathlib
 from io import StringIO
-from pathlib import Path
 from unittest.mock import patch
+
+from _pytest.monkeypatch import MonkeyPatch
 
 from panther_analysis_tool.command import init_project
 
 
-class TestInitProject(unittest.TestCase):
-    def check_gitignore_content(self, gitignore_content: str) -> None:
-        self.assertEqual(gitignore_content.count(".vscode/"), 1, gitignore_content)
-        self.assertEqual(gitignore_content.count(".idea/"), 1, gitignore_content)
-        self.assertEqual(gitignore_content.count(".cache"), 1, gitignore_content)
-        self.assertEqual(gitignore_content.count(".panther_settings.*"), 1, gitignore_content)
-        self.assertEqual(gitignore_content.count("__pycache__/"), 1, gitignore_content)
-        self.assertEqual(gitignore_content.count("*.pyc"), 1, gitignore_content)
-        self.assertEqual(gitignore_content.count("panther-analysis-*.zip"), 1, gitignore_content)
+def check_gitignore_content(gitignore_content: str) -> None:
+    assert gitignore_content.count(".vscode/") == 1
+    assert gitignore_content.count(".idea/") == 1
+    assert gitignore_content.count(".cache") == 1
+    assert gitignore_content.count(".panther_settings.*") == 1
+    assert gitignore_content.count("__pycache__/") == 1
+    assert gitignore_content.count("*.pyc") == 1
+    assert gitignore_content.count("panther-analysis-*.zip") == 1
 
-    def test_init_project_with_no_gitignore(self) -> None:
-        with (
-            tempfile.TemporaryDirectory() as temp_dir,
-            patch("sys.stdout", new=StringIO()) as mock_stdout,
-        ):
-            init_project.run(temp_dir)
-            self.assertTrue(os.path.exists(Path(temp_dir) / ".gitignore"))
-            self.assertIn(".gitignore file created", mock_stdout.getvalue())
-            self.assertIn("Project is ready to use!", mock_stdout.getvalue())
 
-            gitignore_content = (Path(temp_dir) / ".gitignore").read_text()
-            self.check_gitignore_content(gitignore_content)
+def test_init_project_with_no_gitignore(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    assert tmp_path.exists()
+    monkeypatch.chdir(tmp_path)
+    with (patch("sys.stdout", new=StringIO()) as mock_stdout,):
+        init_project.run(str(tmp_path))
+        assert (tmp_path / ".gitignore").exists()
+        assert ".gitignore file created" in mock_stdout.getvalue()
+        assert "Project is ready to use!" in mock_stdout.getvalue()
 
-    def test_init_project_with_gitignore(self) -> None:
-        with (
-            tempfile.TemporaryDirectory() as temp_dir,
-            patch("sys.stdout", new=StringIO()) as mock_stdout,
-        ):
-            gitignore_path = Path(temp_dir) / ".gitignore"
-            gitignore_path.touch()
-            gitignore_path.write_text("# something aleady here\n./stuff\n.vscode/\nstuff")
+        gitignore_content = (tmp_path / ".gitignore").read_text()
+        check_gitignore_content(gitignore_content)
 
-            init_project.run(temp_dir)
-            self.assertTrue(os.path.exists(gitignore_path))
-            self.assertNotIn(".gitignore file created", mock_stdout.getvalue())
-            self.assertIn("Project is ready to use!", mock_stdout.getvalue())
 
-            gitignore_content = gitignore_path.read_text()
-            self.assertIn("# something aleady here\n./stuff\n.vscode", gitignore_content)
-            self.check_gitignore_content(gitignore_content)
+def test_init_project_with_gitignore(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    with (patch("sys.stdout", new=StringIO()) as mock_stdout,):
+        gitignore_path = tmp_path / ".gitignore"
+        gitignore_path.touch()
+        gitignore_path.write_text("# something aleady here\n./stuff\n.vscode/\nstuff")
+
+        init_project.run(str(tmp_path))
+        assert gitignore_path.exists()
+        assert ".gitignore file created" not in mock_stdout.getvalue()
+        assert "Project is ready to use!" in mock_stdout.getvalue()
+
+        gitignore_content = gitignore_path.read_text()
+        assert "# something aleady here\n./stuff\n.vscode" in gitignore_content
+        check_gitignore_content(gitignore_content)

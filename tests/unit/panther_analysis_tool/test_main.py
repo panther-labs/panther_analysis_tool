@@ -1,7 +1,9 @@
 import json
+import logging
 import os
 import shutil
 from datetime import datetime
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -46,9 +48,9 @@ def mock_test_analysis_results(tc: TestCase, args: list[str]) -> tuple[int, list
     from panther_analysis_tool.main import test_analysis
 
     return_code = -1
-    invalid_specs = None
+    invalid_specs: list[str] = []
 
-    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, list[str]]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = test_analysis(*args, **kwargs)
         return return_code, invalid_specs
@@ -66,11 +68,11 @@ def mock_test_analysis_results(tc: TestCase, args: list[str]) -> tuple[int, list
     return return_code, invalid_specs, result
 
 
-def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, str]:
     return_code = -1
-    invalid_specs = None
+    invalid_specs: str = ""
 
-    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, str]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = upload_analysis(*args, **kwargs)
         return return_code, invalid_specs
@@ -88,13 +90,13 @@ def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]
     return return_code, invalid_specs
 
 
-def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, str]:
     from panther_analysis_tool.command.validate import run as validate_run
 
     return_code = -1
-    invalid_specs = None
+    invalid_specs: str = ""
 
-    def check_result(*args, **kwargs) -> tuple[int, str]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, str]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = validate_run(*args, **kwargs)
         return return_code, invalid_specs
@@ -109,7 +111,7 @@ def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
                 raise result.exception
         tc.assertEqual(mock_upload_analysis.call_count, 1)
 
-    return return_code, invalid_specs
+    return return_code, str(invalid_specs)
 
 
 class TestPantherAnalysisTool(TestCase):
@@ -207,15 +209,35 @@ class TestPantherAnalysisTool(TestCase):
         test_date_string = pat.datetime_converted(test_date)
         self.assertIsInstance(test_date_string, str)
 
-    def test_load_policy_specs_from_folder(self) -> None:
+    def test_invalid_detections_are_marked_invaled(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, ["test", "--path", DETECTIONS_FIXTURES_PATH]
         )
         self.assertEqual(return_code, 1)
+
+        names = []
+        for invalid_spec in invalid_specs:
+            names.append(invalid_spec[0])
+        names.sort()
+
         self.assertEqual(
-            invalid_specs[0][0], f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml"
+            names,
+            [
+                f"{DETECTIONS_FIXTURES_PATH}/disabled_rule/example_rule.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_invalid_pack.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_policy_bad_resource_type.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_policy_import.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_policy_invalid_characters.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_policy_missing_policy_file.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_policy_set_duplicates.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_rule_bad_log_type.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_rule_set_duplicates.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/example_strict_invalid_yaml.yml",
+                f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/data_models/example_data_model.yml",
+            ],
         )
-        self.assertEqual(len(invalid_specs), 13)
 
     def test_policies_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -410,7 +432,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_test_names_filter_nonexistent_test(self):
+    def test_with_test_names_filter_nonexistent_test(self) -> None:
         # Test with a test name that doesn't exist
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -426,7 +448,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_minimum_tests(self):
+    def test_with_minimum_tests(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
         )
@@ -464,7 +486,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split(),
         )
         self.assertEqual(return_code, 1)
-        self.equal = self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_zip_analysis(self) -> None:
         # Note: This is a workaround for CI
@@ -475,7 +497,7 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
+        def check_result(*args: Any, **kwargs: Any) -> None:
             results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
@@ -499,7 +521,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         results = pat.zip_analysis_chunks(
-            "tmp/", f"{DETECTIONS_FIXTURES_PATH}/valid_analysis", {}, {}, {}
+            "tmp/", f"{DETECTIONS_FIXTURES_PATH}/valid_analysis", [], [], []
         )
         for out_filename in results:
             self.assertTrue(out_filename.startswith("tmp/"))
@@ -561,7 +583,6 @@ class TestPantherAnalysisTool(TestCase):
             self.assertEqual(return_code, 0)
 
     def test_retry_uploads(self) -> None:
-        import logging
 
         backend = MockBackend()
         backend.bulk_upload = mock.MagicMock(
@@ -611,6 +632,11 @@ class TestPantherAnalysisTool(TestCase):
             )
             self.assertEqual(return_code, 1)
             self.assertEqual(time_mock.call_count, 10)
+
+    def test_test_analysis_command_no_args(self) -> None:
+        return_code, invalid_specs = mock_test_analysis(self, ["test"])
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 23)
 
     def test_available_destination_names_invalid_name_returned(self) -> None:
         """When an available destination is given but does not match the returned names"""
@@ -774,7 +800,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_correlation_rules_skipped_if_feature_not_enabled(self) -> None:
-        import logging
 
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
         backend = MockBackend()
@@ -862,7 +887,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(stdout_str.count("Skipped: 2"), 1)
 
     def test_can_retrieve_base_detection_for_test(self) -> None:
-        import logging
 
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/derived_without_base"
@@ -891,7 +915,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_logs_warning_if_cannot_retrieve_base(self) -> None:
-        import logging
 
         file_path = f"{FIXTURES_PATH}/derived_without_base"
         backend = MockBackend()
@@ -1229,7 +1252,6 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_classify_analysis_dedup_warnings(self) -> None:
         """Test classify_analysis with DedupPeriodMinutes warnings"""
-        import logging
 
         # Rule spec with DedupPeriodMinutes = 0
         rule_spec_zero_dedup = {

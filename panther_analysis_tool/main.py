@@ -1,4 +1,3 @@
-# pylint: disable=wrong-import-order, wrong-import-position, ungrouped-imports, too-many-arguments
 import base64
 import contextlib
 import hashlib
@@ -20,10 +19,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import wraps
 from inspect import signature
-
-# Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
-# It seems to be unable to import the distutils module, however the module is present and importable
-# in the Python Repl.
 from typing import (
     Any,
     Callable,
@@ -985,6 +980,7 @@ def test_analysis(
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     helper_location = analysis_utils.get_tmp_helper_module_location()
+    logging.debug("Setting up global helpers in %s", helper_location)
     # ensure the directory does not exist, else clear it
     cleanup_global_helpers(global_analysis)
     os.makedirs(helper_location)
@@ -993,6 +989,12 @@ def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
         sys.path.append(helper_location)
     # place globals in temp dir
     for item in global_analysis:
+        logging.debug(
+            "Setting up global helper: %s %s %s",
+            item.file_name,
+            item.analysis_type(),
+            item.analysis_id(),
+        )
         dir_name = item.dir_name
         analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["GlobalID"]
@@ -1647,9 +1649,9 @@ def _run_tests(  # pylint: disable=too-many-arguments
 
         test_output = ""
         try:
-            entry = unit_test.get("Resource") or unit_test["Log"]
-            log_type = entry.get("p_log_type", "")
-            mocks = unit_test.get("Mocks")
+            entry: dict = unit_test["Resource"] if "Resource" in unit_test else unit_test["Log"]
+            log_type: str = entry.get("p_log_type", "") or ""
+            mocks: list[dict] = unit_test.get("Mocks") or []
             mock_methods: Dict[str, Any] = {}
             if mocks:
                 mock_methods = {
@@ -1696,7 +1698,12 @@ def _run_tests(  # pylint: disable=too-many-arguments
                     traceback.print_tb(err_tb)
 
         except (AttributeError, KeyError) as err:
-            logging.warning("AttributeError: {%s}", err)
+            logging.warning(
+                "AttributeError: {%s} for [%s] in test [%s]",
+                err,
+                detection.detection_id,
+                unit_test["Name"],
+            )
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
             continue
@@ -1715,7 +1722,7 @@ def _run_tests(  # pylint: disable=too-many-arguments
         spec = TestSpecification(
             id=unit_test["Name"],
             name=unit_test["Name"],
-            data=unit_test.get("Resource") or unit_test["Log"],
+            data=unit_test["Resource"] if "Resource" in unit_test else unit_test["Log"],
             mocks=unit_test.get("Mocks", {}),
             expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
         )
@@ -1870,7 +1877,7 @@ def global_options(
         "panther-analysis-all.sig"
     )
 )
-def release(
+def release(  # pylint: disable=too-many-arguments
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     kms_key: KMSKeyType = "",
@@ -1924,7 +1931,7 @@ def release(
 
 
 @app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
-def test(
+def test(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -1982,7 +1989,7 @@ def test(
     name="debug",
     help="Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.",
 )
-def debug_command(
+def debug_command(  # pylint: disable=too-many-arguments
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
     api_token: APITokenType = None,
@@ -2034,7 +2041,7 @@ def debug_command(
         + "panther-analysis-all.sig"
     ),
 )
-def publish_command(
+def publish_command(  # pylint: disable=too-many-arguments
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
@@ -2101,7 +2108,7 @@ def publish_command(
 
 
 @app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
-def upload(
+def upload(  # pylint: disable=too-many-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2162,7 +2169,7 @@ def upload(
 
 
 @app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
-def delete(
+def delete(  # pylint: disable=too-many-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2248,7 +2255,7 @@ def validate_cmd(
 @app_command_with_config(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
-def zip_cmd(
+def zip_cmd(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2319,7 +2326,7 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
         "is an extension of Data Replay and is subject to the same limitations."
     ),
 )
-def benchmark_command(
+def benchmark_command(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2380,7 +2387,7 @@ def benchmark_command(
     name="enrich-test-data",
     help="Enrich test data with additional enrichments from the Panther API.",
 )
-def enrich_test_data_command(
+def enrich_test_data_command(  # pylint: disable=too-many-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,

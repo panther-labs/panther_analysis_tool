@@ -1,9 +1,8 @@
 import dataclasses
-import pathlib
 import sqlite3
 from typing import Optional
 
-from panther_analysis_tool.constants import CACHE_DIR, PANTHER_ANALYSIS_SQLITE_FILE
+from panther_analysis_tool.constants import PANTHER_ANALYSIS_SQLITE_FILE_PATH
 
 
 class NoCacheException(Exception):
@@ -43,14 +42,13 @@ class AnalysisCache:
         """
         Initialize the AnalysisCache by connecting to the cache database and creating a cursor.
         """
-        sqlite_file = pathlib.Path(CACHE_DIR) / PANTHER_ANALYSIS_SQLITE_FILE
-        if not sqlite_file.exists():
+        if not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists():
             raise NoCacheException(
                 "No cache found. Please run `pat fetch` to fetch the latest Panther Analysis content."
             )
-        sqlite_file.touch(exist_ok=True)
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch(exist_ok=True)
 
-        self.conn = sqlite3.connect(sqlite_file)
+        self.conn = sqlite3.connect(PANTHER_ANALYSIS_SQLITE_FILE_PATH)
         self.cursor = self.conn.cursor()
 
     def create_tables(self) -> None:
