@@ -90,6 +90,7 @@ from panther_analysis_tool.command import (
     explore,
     fetch,
     init_project,
+    merge,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2430,12 +2431,12 @@ def init_command() -> Tuple[int, str]:
     return init_project.run(working_dir=".")
 
 
-@app_command_with_config(name="fetch", help="Fetch a detection")
+@app_command_with_config(name="fetch", help="Fetch all Panther Analysis content")
 def fetch_command() -> Tuple[int, str]:
     return fetch.run()
 
 
-@app_command_with_config(name="enable", help="Enable a detection")
+@app_command_with_config(name="enable", help="Enable an analysis item")
 def enable_command(
     filters: FilterType = None,
     analysis_id: Annotated[
@@ -2451,9 +2452,26 @@ def enable_command(
     return enable.run(analysis_id, filters)
 
 
-@app.command(name="explore", help="explore content")
+@app.command(name="explore", help="Explore content")
 def explore_command() -> Tuple[int, str]:
     return explore.run()
+
+
+@app_command_with_config(name="merge", help="Merge an analysis item")
+def merge_command(
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(help="The ID of the analysis item to merge.", autocompletion=complete_id),
+    ] = None,
+) -> Tuple[int, str]:
+    return merge.run(analysis_id)
+
+
+@app_command_with_config(name="rev", hidden=True)
+def rev_command() -> Tuple[int, str]:
+    # not intended to be used by users, but is helpful for development
+    # by manually inserting an updated version of a panther analysis item into the analysis cache
+    return rev.run()
 
 
 # pylint: disable=too-many-statements

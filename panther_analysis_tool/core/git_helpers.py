@@ -1,6 +1,8 @@
 import os
+import pathlib
 import shutil
-import subprocess  # nosec:B404
+import subprocess
+from typing import Tuple  # nosec:B404
 
 import requests
 
@@ -88,3 +90,47 @@ def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:
     url = f"https://raw.githubusercontent.com/panther-labs/panther-analysis/{commit}/{file_path}"
     response = requests.get(url, timeout=10)
     return response.text
+
+
+def merge_file(
+    user_file_path: str, base_file_path: str, latest_file_path: str
+) -> Tuple[bool, bytes]:
+    """
+    Merge a file with git.
+
+    Args:
+        user_file_path (str): The path to the user file.
+        base_file_path (str): The path to the base file.
+        latest_file_path (str): The path to the latest file.
+
+    Returns:
+        bool: True if there was a merge conflict, False otherwise.
+        bytes: The merged file contents.
+    """
+    if not pathlib.Path(user_file_path).exists():
+        raise FileNotFoundError(f"User file {user_file_path} not found")
+    if not pathlib.Path(base_file_path).exists():
+        raise FileNotFoundError(f"Base file {base_file_path} not found")
+    if not pathlib.Path(latest_file_path).exists():
+        raise FileNotFoundError(f"Latest file {latest_file_path} not found")
+
+    proc = subprocess.run(  # nosec:B607 B603
+        [
+            "git",
+            "merge-file",
+            "-p",
+            "-L",
+            "ours",
+            "-L",
+            "base",
+            "-L",
+            "panther",
+            user_file_path,
+            base_file_path,
+            latest_file_path,
+        ],
+        check=False,
+        capture_output=True,
+    )
+
+    return proc.returncode != 0, proc.stdout
