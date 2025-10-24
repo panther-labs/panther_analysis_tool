@@ -71,8 +71,9 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
         user_spec_base_version: int = user_spec.analysis_spec.get("BaseVersion") or -1
         if user_spec_base_version > latest_spec.version:
             logging.warning(
-                "User spec %s has a base version greater than the latest version, skipping",
+                "User spec %s has a base version greater than the latest version %s, skipping",
                 user_spec_id,
+                latest_spec.version,
             )
             continue
         if user_spec_base_version == latest_spec.version:
@@ -88,9 +89,11 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
 
         # load the python file for the user spec from the file system
         user_py: bytes | None = None
+        py_path: str | None = None
         if user_spec.analysis_spec.get("Filename") is not None:
-            py_path = pathlib.Path(user_spec.spec_filename).parent / user_spec.analysis_spec.get(
-                "Filename"
+            py_path = str(
+                pathlib.Path(user_spec.spec_filename).parent
+                / user_spec.analysis_spec.get("Filename")
             )
             with open(py_path, "rb") as py_file:
                 user_py = py_file.read()
@@ -146,7 +149,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
         )
         if has_conflict:
             merge_conflict_item_ids.append(user_item_id)
-            # no need to merge yaml if python has a conflict because 
+            # no need to merge yaml if python has a conflict because
             # we are just tracking what items have conflicts, not which files,
             # and has_conflict would be False if analysis_id provided
             continue

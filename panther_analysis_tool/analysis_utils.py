@@ -803,6 +803,7 @@ class AnalysisItem:
             and self.yaml_file_path == value.yaml_file_path
             and self.python_file_path == value.python_file_path
             and self.python_file_contents == value.python_file_contents
+            and self.raw_yaml_file_contents == value.raw_yaml_file_contents
         )
 
     def analysis_type(self) -> str:
