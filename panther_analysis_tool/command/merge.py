@@ -64,7 +64,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
         # load the latest analysis item from the cache using the user spec's ID
         latest_spec = cache.get_latest_spec(user_spec_id)
         if latest_spec is None:
-            logging.warning("Latest version of %s not found, skipping", user_spec_id)
+            # this happens with custom analysis items
             continue
 
         # check if the user spec's BaseVersion is less than the latest version, skip merge if it is not
@@ -138,28 +138,25 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
         user_item_id = user_item.analysis_id()
 
         # merge python
-        has_conflict = merge_file(
-            solve_merge=analysis_id is not None,
-            user_item_id=user_item_id,
-            # or b"" makes typing happy but it should never be None
-            user=user_item.python_file_contents or b"",
-            base=base_item.python_file_contents or b"",
-            latest=latest_item.python_file_contents or b"",
-            output_path=str(user_item.python_file_path),
-        )
-        if has_conflict:
-            merge_conflict_item_ids.append(user_item_id)
-            # no need to merge yaml if python has a conflict because
-            # we are just tracking what items have conflicts, not which files,
-            # and has_conflict would be False if analysis_id provided
-            continue
-        else:
-            updated_item_ids.append(user_item_id)
+        if user_item.python_file_contents is not None:
+            has_conflict = merge_file(
+                solve_merge=analysis_id is not None,
+                # or b"" makes typing happy but it should never be None
+                user=user_item.python_file_contents or b"",
+                base=base_item.python_file_contents or b"",
+                latest=latest_item.python_file_contents or b"",
+                output_path=str(user_item.python_file_path),
+            )
+            if has_conflict:
+                merge_conflict_item_ids.append(user_item_id)
+                # no need to merge yaml if python has a conflict because
+                # we are just tracking what items have conflicts, not which files,
+                # and has_conflict would be False if analysis_id provided
+                continue
 
         # merge yaml
         has_conflict = merge_file(
             solve_merge=analysis_id is not None,
-            user_item_id=user_item_id,
             # or b"" makes typing happy but it should never be None
             user=user_item.raw_yaml_file_contents or b"",
             base=base_item.raw_yaml_file_contents or b"",
@@ -168,8 +165,10 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
         )
         if has_conflict:
             merge_conflict_item_ids.append(user_item_id)
-        else:
-            updated_item_ids.append(user_item_id)
+            continue
+        
+        # consider updated if no conflict with both files
+        updated_item_ids.append(user_item_id)
 
     if analysis_id is None:
         if len(updated_item_ids) > 0:
@@ -182,11 +181,13 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
             )
             for conflict in merge_conflict_item_ids:
                 print(f"  * {conflict}")
-        print("Run `git diff` to see the changes.")
+        print(
+            "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+        )
 
 
 def merge_file(
-    solve_merge: bool, user_item_id: str, user: bytes, base: bytes, latest: bytes, output_path: str
+    solve_merge: bool, user: bytes, base: bytes, latest: bytes, output_path: str
 ) -> bool:
     with (
         tempfile.NamedTemporaryFile(delete=False) as temp_file_user,

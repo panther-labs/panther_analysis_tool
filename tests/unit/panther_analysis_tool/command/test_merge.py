@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable
+from typing import Any, Callable, Protocol
 from unittest.mock import call
 
 import pytest
@@ -81,6 +81,51 @@ def make_analysis_spec() -> make_analysis_spec_type:
     return _make_analysis_spec
 
 
+class MakeAnalysisItemType(Protocol):
+    def __call__(
+        self,
+        yaml_file_contents: dict[str, Any],
+        raw_yaml_file_contents: bytes | None = None,
+        yaml_file_path: str | None = None,
+        python_file_contents: bytes | None = None,
+        python_file_path: str | None = None,
+    ) -> analysis_utils.AnalysisItem: ...
+
+@pytest.fixture
+def make_analysis_item() -> MakeAnalysisItemType:
+    def _make_analysis_item(
+        yaml_file_contents: dict[str, Any],
+        raw_yaml_file_contents: bytes | None = None,
+        yaml_file_path: str | None = None,
+        python_file_contents: bytes | None = None,
+        python_file_path: str | None = None,
+    ) -> analysis_utils.AnalysisItem:
+        return analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml_file_contents,
+            raw_yaml_file_contents=raw_yaml_file_contents,
+            yaml_file_path=yaml_file_path,
+            python_file_contents=python_file_contents,
+            python_file_path=python_file_path,
+        )
+
+    return _make_analysis_item
+
+
+def load_spec_to_analysis_item(spec: analysis_utils.LoadAnalysisSpecsResult, py: bytes | None) -> analysis_utils.AnalysisItem:
+    return analysis_utils.AnalysisItem(
+        yaml_file_contents=spec.analysis_spec,
+        raw_yaml_file_contents=spec.raw_spec_file_content,
+        yaml_file_path=spec.spec_filename,
+        python_file_contents=py,
+        python_file_path=str(pathlib.Path(spec.spec_filename).parent / spec.analysis_spec.get("Filename")) if "Filename" in spec.analysis_spec else None,
+    )
+
+
+################################################################################
+### TEST get_mergeable_items
+################################################################################
+
+
 def test_get_mergeable_items_no_analysis_id(
     mocker: MockerFixture,
     tmp_path: pathlib.Path,
@@ -121,65 +166,49 @@ def test_get_mergeable_items_no_analysis_id(
     get_spec_for_version_mock.assert_has_calls([call("1", 2), call("2", 1)])
 
     # check item 0
+    yaml_file_contents = {
+        "AnalysisType": "rule",
+        "RuleID": "1",
+        "Filename": "rule_1.py",
+    }
     assert mergeable_items[0].user_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "rule",
-            "RuleID": "1",
-            "BaseVersion": 2,
-            "Filename": "rule_1.py",
-        },
+        yaml_file_contents=yaml_file_contents | {"BaseVersion": 2},
         raw_yaml_file_contents=b'AnalysisType: rule\nRuleID: "1"\nBaseVersion: 2\nFilename: rule_1.py\n',
         yaml_file_path=str(tmp_path / "rule_1.yml"),
         python_file_contents=b"user_python",
         python_file_path=str(tmp_path / "rule_1.py"),
     )
     assert mergeable_items[0].latest_panther_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "rule",
-            "RuleID": "1",
-            "Filename": "rule_1.py",
-        },
+        yaml_file_contents=yaml_file_contents,
         raw_yaml_file_contents=b'AnalysisType: rule\nRuleID: "1"\nFilename: rule_1.py\n',
         python_file_contents=b"latest_python",
     )
     assert mergeable_items[0].base_panther_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "rule",
-            "RuleID": "1",
-            "Filename": "rule_1.py",
-        },
+        yaml_file_contents=yaml_file_contents,
         raw_yaml_file_contents=b'AnalysisType: rule\nRuleID: "1"\nFilename: rule_1.py\n',
         python_file_contents=b"base_python",
     )
 
     # check item 1
+    yaml_file_contents = {
+        "AnalysisType": "policy",
+        "PolicyID": "2",
+        "Filename": "policy_2.py",
+    }
     assert mergeable_items[1].user_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "policy",
-            "PolicyID": "2",
-            "BaseVersion": 1,
-            "Filename": "policy_2.py",
-        },
+        yaml_file_contents=yaml_file_contents | {"BaseVersion": 1},
         raw_yaml_file_contents=b'AnalysisType: policy\nPolicyID: "2"\nBaseVersion: 1\nFilename: policy_2.py\n',
         yaml_file_path=str(tmp_path / "policy_2.yml"),
         python_file_contents=b"user_python",
         python_file_path=str(tmp_path / "policy_2.py"),
     )
     assert mergeable_items[1].latest_panther_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "policy",
-            "PolicyID": "2",
-            "Filename": "policy_2.py",
-        },
+        yaml_file_contents=yaml_file_contents,
         raw_yaml_file_contents=b'AnalysisType: policy\nPolicyID: "2"\nFilename: policy_2.py\n',
         python_file_contents=b"latest_python",
     )
     assert mergeable_items[1].base_panther_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "policy",
-            "PolicyID": "2",
-            "Filename": "policy_2.py",
-        },
+        yaml_file_contents=yaml_file_contents,
         raw_yaml_file_contents=b'AnalysisType: policy\nPolicyID: "2"\nFilename: policy_2.py\n',
         python_file_contents=b"base_python",
     )
@@ -224,27 +253,21 @@ def test_get_mergeable_items_no_python(
     get_spec_for_version_mock.assert_has_calls([call("1", 2)])
 
     # check item 0
+    yaml_file_contents = {
+        "AnalysisType": "datamodel",
+        "DataModelID": "1",
+    }
     assert mergeable_items[0].user_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "datamodel",
-            "DataModelID": "1",
-            "BaseVersion": 2,
-        },
+        yaml_file_contents=yaml_file_contents | {"BaseVersion": 2},
         raw_yaml_file_contents=b'AnalysisType: datamodel\nDataModelID: "1"\nBaseVersion: 2\n',
         yaml_file_path=str(tmp_path / "datamodel_1.yml"),
     )
     assert mergeable_items[0].latest_panther_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "datamodel",
-            "DataModelID": "1",
-        },
+        yaml_file_contents=yaml_file_contents,
         raw_yaml_file_contents=b'AnalysisType: datamodel\nDataModelID: "1"\n',
     )
     assert mergeable_items[0].base_panther_item == analysis_utils.AnalysisItem(
-        yaml_file_contents={
-            "AnalysisType": "datamodel",
-            "DataModelID": "1",
-        },
+        yaml_file_contents=yaml_file_contents,
         raw_yaml_file_contents=b'AnalysisType: datamodel\nDataModelID: "1"\n',
     )
 
@@ -299,18 +322,352 @@ def test_get_mergeable_items_base_version_too_high(
 
     get_latest_spec_mock.assert_has_calls([call("1")])
     logging_mock.assert_has_calls(
-        [call("User spec %s has a base version greater than the latest version %s, skipping", "1", 2)]
+        [
+            call(
+                "User spec %s has a base version greater than the latest version %s, skipping",
+                "1",
+                2,
+            )
+        ]
     )
 
-    # rule that has a base version not in cache
-    # custom rule no in cache
-    # with analysis id
+
+def test_get_mergeable_items_custom_rule(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
+        return_value=[
+            make_load_spec(tmp_path, "rule", "custom", 2, True),
+        ],
+    )
+    get_latest_spec_mock = mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
+        side_effect=[None],
+    )
+
+    mergeable_items = merge.get_mergeable_items(None)
+    assert len(mergeable_items) == 0
+
+    get_latest_spec_mock.assert_has_calls([call("custom")])
 
 
-# def test_merge_items_no_conflict(mocker: MockerFixture, yaml_mergable_item: merge.MergeableItem) -> None:
-#     mocker.patch("merge.git_helpers.merge_file", return_value=(False, b"merged_yaml"))
-#     mocker.patch("merge.editor.merge_files_in_editor", return_value=None)
-#     merge.merge_items([mergeable_items], analysis_id)
+def test_get_mergeable_items_with_analysis_id(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+    make_analysis_spec: make_analysis_spec_type,
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
+        return_value=[
+            make_load_spec(tmp_path, "rule", "1", 2, True),
+            make_load_spec(tmp_path, "rule", "target", 2, True),
+        ],
+    )
+    get_latest_spec_mock = mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
+        side_effect=[make_analysis_spec("rule", "target", 3, True), None],
+    )
+    get_spec_for_version_mock = mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_spec_for_version",
+        side_effect=[
+            make_analysis_spec("rule", "target", 2, True),
+        ],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_file_for_spec",
+        side_effect=[b"latest_python", b"base_python"],
+    )
+
+    mergeable_items = merge.get_mergeable_items("target")
+    assert len(mergeable_items) == 1
+
+    get_latest_spec_mock.assert_has_calls([call("target")])
+    get_spec_for_version_mock.assert_has_calls([call("target", 2)])
+
+    # check item 0
+    yaml_file_contents = {
+        "AnalysisType": "rule",
+        "RuleID": "target",
+        "Filename": "rule_target.py",
+    }
+    assert mergeable_items[0].user_item == analysis_utils.AnalysisItem(
+        yaml_file_contents=yaml_file_contents | {"BaseVersion": 2},
+        raw_yaml_file_contents=b'AnalysisType: rule\nRuleID: "target"\nBaseVersion: 2\nFilename: rule_target.py\n',
+        yaml_file_path=str(tmp_path / "rule_target.yml"),
+        python_file_contents=b"user_python",
+        python_file_path=str(tmp_path / "rule_target.py"),
+    )
+    assert mergeable_items[0].latest_panther_item == analysis_utils.AnalysisItem(
+        yaml_file_contents=yaml_file_contents,
+        raw_yaml_file_contents=b'AnalysisType: rule\nRuleID: "target"\nFilename: rule_target.py\n',
+        python_file_contents=b"latest_python",
+    )
+    assert mergeable_items[0].base_panther_item == analysis_utils.AnalysisItem(
+        yaml_file_contents=yaml_file_contents,
+        raw_yaml_file_contents=b'AnalysisType: rule\nRuleID: "target"\nFilename: rule_target.py\n',
+        python_file_contents=b"base_python",
+    )
+
+
+################################################################################
+### TEST merge_items
+################################################################################
+
+
+def test_merge_items_no_conflict_with_python(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[False, False, False, False],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
+        ),
+    ]
+    merge.merge_items(mergeable_items, None)
+    mock_print.assert_has_calls(
+        [
+            call("Updated 2 spec(s) with latest Panther version:"),
+            call("  * 1"),
+            call("  * 2"),
+            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+        ]
+    )
+
+
+def test_merge_items_no_conflict_no_python(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[False, False],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, False)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, None),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, None),
+            base_panther_item=load_spec_to_analysis_item(rule_1, None),
+        ),
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_2, None),
+            latest_panther_item=load_spec_to_analysis_item(rule_2, None),
+            base_panther_item=load_spec_to_analysis_item(rule_2, None),
+        ),
+    ]
+    merge.merge_items(mergeable_items, None)
+    mock_print.assert_has_calls(
+        [
+            call("Updated 2 spec(s) with latest Panther version:"),
+            call("  * 1"),
+            call("  * 2"),
+            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+        ]
+    )
+
+
+def test_merge_items_yaml_conflict(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[True, True],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, False)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, None),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, None),
+            base_panther_item=load_spec_to_analysis_item(rule_1, None),
+        ),
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_2, None),
+            latest_panther_item=load_spec_to_analysis_item(rule_2, None),
+            base_panther_item=load_spec_to_analysis_item(rule_2, None),
+        ),
+    ]
+    merge.merge_items(mergeable_items, None)
+    mock_print.assert_has_calls(
+        [
+            call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
+            call("  * 1"),
+            call("  * 2"),
+            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+        ]
+    )
+
+
+def test_merge_items_python_conflict(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[False, False, True],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
+        ),
+    ]
+    merge.merge_items(mergeable_items, None)
+    mock_print.assert_has_calls(
+        [
+            call("Updated 1 spec(s) with latest Panther version:"),
+            call("  * 1"),
+            call("1 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
+            call("  * 2"),
+            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+        ]
+    )
+    assert mock_merge_file.call_count == 3
+    assert mock_merge_file.call_args_list[0].kwargs["user_item_id"] == "1"
+    assert mock_merge_file.call_args_list[1].kwargs["user_item_id"] == "1"
+    assert mock_merge_file.call_args_list[2].kwargs["user_item_id"] == "2"
+
+
+def test_merge_items_both_conflicts(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[
+            False, # no python conflict
+            True, # yaml conflict 
+            True, # python conflict
+        ],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
+        ),
+    ]
+    merge.merge_items(mergeable_items, None)
+    mock_print.assert_has_calls(
+        [
+            call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
+            call("  * 1"),
+            call("  * 2"),
+            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+        ]
+    )
+    assert mock_merge_file.call_count == 3
+    assert mock_merge_file.call_args_list[0].kwargs["user_item_id"] == "1"
+    assert mock_merge_file.call_args_list[1].kwargs["user_item_id"] == "1"
+    assert mock_merge_file.call_args_list[2].kwargs["user_item_id"] == "2"
+
+def test_merge_items_with_analysis_id_with_conflict(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[True],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+    ]
+    merge.merge_items(mergeable_items, "target")
+    mock_print.assert_has_calls([])
+    assert mock_merge_file.call_count == 1
+
+
+def test_merge_items_with_analysis_id_no_conflict(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.command.merge.merge_file",
+        side_effect=[False, False],
+    )
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+
+    rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
+
+    mergeable_items = [
+        merge.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+    ]
+    merge.merge_items(mergeable_items, "target")
+    mock_print.assert_has_calls([])
+    assert mock_merge_file.call_count == 2
+
+
+################################################################################
+### TEST merge_file
+################################################################################
 
 
 def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
@@ -323,7 +680,6 @@ def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Pa
 
     has_conflict = merge.merge_file(
         solve_merge=False,
-        user_item_id="1",
         user=b"user_yaml",
         base=b"base_yaml",
         latest=b"base_yaml",
@@ -343,7 +699,6 @@ def test_merge_file_yaml_conflict(mocker: MockerFixture, tmp_path: pathlib.Path)
 
     has_conflict = merge.merge_file(
         solve_merge=False,
-        user_item_id="1",
         user=b"user_yaml",
         base=b"base_yaml",
         latest=b"base_yaml",
@@ -363,7 +718,6 @@ def test_merge_file_yaml_conflict_solve(mocker: MockerFixture, tmp_path: pathlib
 
     has_conflict = merge.merge_file(
         solve_merge=True,
-        user_item_id="1",
         user=b"user_yaml",
         base=b"base_yaml",
         latest=b"base_yaml",
@@ -383,7 +737,6 @@ def test_merge_file_python_no_conflict(mocker: MockerFixture, tmp_path: pathlib.
 
     has_conflict = merge.merge_file(
         solve_merge=False,
-        user_item_id="1",
         user=b"user_python",
         base=b"base_python",
         latest=b"base_python",
@@ -403,7 +756,6 @@ def test_merge_file_python_conflict(mocker: MockerFixture, tmp_path: pathlib.Pat
 
     has_conflict = merge.merge_file(
         solve_merge=False,
-        user_item_id="1",
         user=b"user_python",
         base=b"base_python",
         latest=b"base_python",
@@ -427,7 +779,6 @@ def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathl
 
     has_conflict = merge.merge_file(
         solve_merge=True,
-        user_item_id="1",
         user=b"user_python",
         base=b"base_python",
         latest=b"base_python",
