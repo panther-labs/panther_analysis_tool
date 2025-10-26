@@ -166,7 +166,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
         if has_conflict:
             merge_conflict_item_ids.append(user_item_id)
             continue
-        
+
         # consider updated if no conflict with both files
         updated_item_ids.append(user_item_id)
 
@@ -194,7 +194,6 @@ def merge_file(
         tempfile.NamedTemporaryFile(delete=False) as temp_file_base,
         tempfile.NamedTemporaryFile(delete=False) as temp_file_latest,
     ):
-        # or b"" makes typing happy but it should never be None
         temp_file_user.write(user)
         temp_file_user.flush()
         temp_file_base.write(base)

@@ -2467,13 +2467,6 @@ def merge_command(
     return merge.run(analysis_id)
 
 
-@app_command_with_config(name="rev", hidden=True)
-def rev_command() -> Tuple[int, str]:
-    # not intended to be used by users, but is helpful for development
-    # by manually inserting an updated version of a panther analysis item into the analysis cache
-    return rev.run()
-
-
 # pylint: disable=too-many-statements
 def run() -> None:
     setup_temp()

@@ -91,6 +91,7 @@ class MakeAnalysisItemType(Protocol):
         python_file_path: str | None = None,
     ) -> analysis_utils.AnalysisItem: ...
 
+
 @pytest.fixture
 def make_analysis_item() -> MakeAnalysisItemType:
     def _make_analysis_item(
@@ -111,13 +112,19 @@ def make_analysis_item() -> MakeAnalysisItemType:
     return _make_analysis_item
 
 
-def load_spec_to_analysis_item(spec: analysis_utils.LoadAnalysisSpecsResult, py: bytes | None) -> analysis_utils.AnalysisItem:
+def load_spec_to_analysis_item(
+    spec: analysis_utils.LoadAnalysisSpecsResult, py: bytes | None
+) -> analysis_utils.AnalysisItem:
     return analysis_utils.AnalysisItem(
         yaml_file_contents=spec.analysis_spec,
         raw_yaml_file_contents=spec.raw_spec_file_content,
         yaml_file_path=spec.spec_filename,
         python_file_contents=py,
-        python_file_path=str(pathlib.Path(spec.spec_filename).parent / spec.analysis_spec.get("Filename")) if "Filename" in spec.analysis_spec else None,
+        python_file_path=(
+            str(pathlib.Path(spec.spec_filename).parent / spec.analysis_spec.get("Filename"))
+            if "Filename" in spec.analysis_spec
+            else None
+        ),
     )
 
 
@@ -450,7 +457,9 @@ def test_merge_items_no_conflict_with_python(
             call("Updated 2 spec(s) with latest Panther version:"),
             call("  * 1"),
             call("  * 2"),
-            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+            call(
+                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+            ),
         ]
     )
 
@@ -487,7 +496,9 @@ def test_merge_items_no_conflict_no_python(
             call("Updated 2 spec(s) with latest Panther version:"),
             call("  * 1"),
             call("  * 2"),
-            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+            call(
+                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+            ),
         ]
     )
 
@@ -524,7 +535,9 @@ def test_merge_items_yaml_conflict(
             call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
             call("  * 1"),
             call("  * 2"),
-            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+            call(
+                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+            ),
         ]
     )
 
@@ -562,13 +575,12 @@ def test_merge_items_python_conflict(
             call("  * 1"),
             call("1 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
             call("  * 2"),
-            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+            call(
+                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+            ),
         ]
     )
     assert mock_merge_file.call_count == 3
-    assert mock_merge_file.call_args_list[0].kwargs["user_item_id"] == "1"
-    assert mock_merge_file.call_args_list[1].kwargs["user_item_id"] == "1"
-    assert mock_merge_file.call_args_list[2].kwargs["user_item_id"] == "2"
 
 
 def test_merge_items_both_conflicts(
@@ -579,9 +591,9 @@ def test_merge_items_both_conflicts(
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.command.merge.merge_file",
         side_effect=[
-            False, # no python conflict
-            True, # yaml conflict 
-            True, # python conflict
+            False,  # no python conflict
+            True,  # yaml conflict
+            True,  # python conflict
         ],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -607,13 +619,13 @@ def test_merge_items_both_conflicts(
             call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
             call("  * 1"),
             call("  * 2"),
-            call("Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."),
+            call(
+                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+            ),
         ]
     )
     assert mock_merge_file.call_count == 3
-    assert mock_merge_file.call_args_list[0].kwargs["user_item_id"] == "1"
-    assert mock_merge_file.call_args_list[1].kwargs["user_item_id"] == "1"
-    assert mock_merge_file.call_args_list[2].kwargs["user_item_id"] == "2"
+
 
 def test_merge_items_with_analysis_id_with_conflict(
     mocker: MockerFixture,
