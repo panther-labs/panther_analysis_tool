@@ -1,12 +1,12 @@
 from typing import Any, Literal
 
-from ruamel import yaml
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Footer, Label
 
+from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.gui import widgets
 
 
@@ -39,12 +39,11 @@ class YAMLConflictResolverApp(App):
         raw_base_yaml: str,
     ) -> None:
         super().__init__()
-        parser = yaml.YAML(typ="rt")
-        parser.preserve_quotes = True
+        self.parser = analysis_utils.get_yaml_loader(roundtrip=True)
 
-        base_yaml = parser.load(raw_base_yaml)
-        panther_yaml = parser.load(raw_panther_yaml)
-        customer_yaml = parser.load(raw_customer_yaml)
+        base_yaml = self.parser.load(raw_base_yaml)
+        panther_yaml = self.parser.load(raw_panther_yaml)
+        customer_yaml = self.parser.load(raw_customer_yaml)
 
         self.customer_python = customer_python
         self.customer_yaml = raw_customer_yaml
@@ -90,7 +89,7 @@ class YAMLConflictResolverApp(App):
 
     def update_final_dict(self, val: Any) -> None:
         if isinstance(val, str):
-            val = DoubleQuotedScalarString(val.strip())
+            val = val.strip()
         self.final_dict[self.diff_items[self.current_item_index].key] = val
 
     def next_item(self) -> None:
@@ -128,6 +127,8 @@ def get_diff_items(
     Each value in the dicts are compared to determine if there is a merge conflict. A value is
     considered a conflict if the base value is different from the panther value and the customer
     value is different from the base value.
+    The customer dict is edited in place as returned as the final dictionary because it has metadata
+    for the YAML formatting and comments that need to be preserved.
 
     Args:
         base_dict: The base dictionary.

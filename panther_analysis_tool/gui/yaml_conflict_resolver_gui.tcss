@@ -1,6 +1,6 @@
 #file-viewing {
     grid-size: 2 2;
-    height: 3fr;
+    height: 2fr;
 }
 
 #customer-python {
@@ -10,6 +10,11 @@
 TextArea {
     height: 1fr;
     padding: 1;
+    border: solid gray;
+}
+
+TextArea:focus {
+    border: solid blue;
 }
 
 DiffResolver {
@@ -20,6 +25,15 @@ DiffResolver {
 }
 
 DiffResolver Horizontal {
-    height: auto;
+    height: 100%;
     align: center middle;
+}
+
+DiffResolver Horizontal TextArea {
+    height: 100%;
+    margin-bottom: 2;
+}
+
+DiffResolver Label {
+    padding-bottom: 1;
 }

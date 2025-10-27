@@ -6,6 +6,9 @@ Usage:
 """
 
 import pathlib
+import sys
+
+from ruamel import yaml
 
 from panther_analysis_tool.gui import yaml_conflict_resolver_gui
 
@@ -22,3 +25,4 @@ if __name__ == "__main__":
         raw_base_yaml=base_yaml_path.read_text(),
     )
     app.run()
+    yaml.YAML(typ="rt").dump(app.final_dict, sys.stdout)
