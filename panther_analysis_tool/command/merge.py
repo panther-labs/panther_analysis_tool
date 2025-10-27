@@ -7,6 +7,7 @@ from typing import Tuple
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import get_yaml_loader, load_analysis_specs_ex
 from panther_analysis_tool.core import analysis_cache, editor, git_helpers
+from panther_analysis_tool.gui import yaml_conflict_resolver_gui
 
 
 class MergeError(Exception):
@@ -145,6 +146,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
                 user=user_item.python_file_contents or b"",
                 base=base_item.python_file_contents or b"",
                 latest=latest_item.python_file_contents or b"",
+                user_python=user_item.python_file_contents or b"",
                 output_path=str(user_item.python_file_path),
             )
             if has_conflict:
@@ -161,6 +163,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
             user=user_item.raw_yaml_file_contents or b"",
             base=base_item.raw_yaml_file_contents or b"",
             latest=latest_item.raw_yaml_file_contents or b"",
+            user_python=b"",
             output_path=str(user_item.yaml_file_path),
         )
         if has_conflict:
@@ -187,7 +190,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
 
 
 def merge_file(
-    solve_merge: bool, user: bytes, base: bytes, latest: bytes, output_path: str
+    solve_merge: bool, user: bytes, base: bytes, latest: bytes, user_python: bytes, output_path: str
 ) -> bool:
     with (
         tempfile.NamedTemporaryFile(delete=False) as temp_file_user,
@@ -207,17 +210,30 @@ def merge_file(
         if has_conflict:
             if solve_merge:
                 if pathlib.Path(output_path).suffix in [".yml", ".yaml"]:
-                    logging.warning("YAML merge not implemented yet, skipping")
-                    # TODO: implement yaml merge
-                else:
-                    editor.merge_files_in_editor(
-                        editor.MergeableFiles(
-                            users_file=temp_file_user.name,
-                            base_file=temp_file_base.name,
-                            panthers_file=temp_file_latest.name,
-                            output_file=output_path,
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_file_user_python:
+                        temp_file_user_python.write(user_python)
+                        temp_file_user_python.flush()
+
+                        yaml_conflict_resolver_gui.YAMLConflictResolverApp(
+                            customer_python=user_python.decode("utf-8"),
+                            raw_customer_yaml=user.decode("utf-8"),
+                            raw_panther_yaml=latest.decode("utf-8"),
+                            raw_base_yaml=base.decode("utf-8"),
                         )
-                    )
+                else:
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_merged_file:
+                        temp_merged_file.write(merged_yaml)
+                        temp_merged_file.flush()
+
+                        editor.merge_files_in_editor(
+                            editor.MergeableFiles(
+                                users_file=temp_file_user.name,
+                                base_file=temp_file_base.name,
+                                panthers_file=temp_file_latest.name,
+                                premerged_file=temp_merged_file.name,
+                                output_file=output_path,
+                            )
+                        )
                 return False  # merge was solved so no more conflict
             return True
         else:

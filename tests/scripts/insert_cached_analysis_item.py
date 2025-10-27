@@ -11,6 +11,7 @@ Usage:
     python ./tests/scripts/insert_cached_analysis_item.py <analysis_id>
 """
 
+import pathlib
 import subprocess
 import sys
 import tempfile
@@ -26,7 +27,6 @@ def main() -> None:
         print_usage()
         sys.exit(1)
 
-
     cache = analysis_cache.AnalysisCache()
     cache.create_tables()
 
@@ -35,16 +35,22 @@ def main() -> None:
         print(f"Analysis ID {analysis_id} not found in cache")
         sys.exit(1)
 
+    if latest_spec.spec == b"":
+        print(f"Analysis ID {analysis_id} has no spec")
+        sys.exit(1)
 
     spec_yaml = yaml.safe_load(latest_spec.spec)
-
-    new_version_id = -1
 
     with tempfile.NamedTemporaryFile(delete=False) as temp_file_yaml:
         temp_file_yaml.write(latest_spec.spec)
         temp_file_yaml.flush()
 
         subprocess.run(["vim", temp_file_yaml.name])
+
+        new_yaml_content = pathlib.Path(temp_file_yaml.name).read_bytes()
+        if new_yaml_content == b"":
+            print("Revised yaml was empty, exiting")
+            sys.exit(1)
 
         new_py_content: bytes | None = None
         if "Filename" in spec_yaml:
@@ -56,12 +62,15 @@ def main() -> None:
 
                     subprocess.run(["vim", temp_file_py.name])
 
-                    new_py_content = temp_file_py.read()
+                    new_py_content = pathlib.Path(temp_file_py.name).read_bytes()
+                    if new_py_content == b"":
+                        print("Revised python was empty, exiting")
+                        sys.exit(1)
 
         cache.insert_analysis_spec(
             analysis_cache.AnalysisSpec(
                 id=None,
-                spec=temp_file_yaml.read(),
+                spec=new_yaml_content,
                 version=latest_spec.version + 1,
                 id_field=latest_spec.id_field,
                 id_value=latest_spec.id_value,
@@ -69,9 +78,12 @@ def main() -> None:
             new_py_content,
         )
 
+        print("Inserted revised spec with version", latest_spec.version + 1)
+
 
 def print_usage() -> None:
     print("Usage: python ./tests/scripts/insert_cached_analysis_item.py <analysis_id>")
+
 
 if __name__ == "__main__":
     main()
