@@ -1,11 +1,34 @@
 import dataclasses
+import io
 from typing import Any
 
-from textual.widgets import DataTable, TextArea
+from ruamel import yaml
+from textual.app import ComposeResult
+from textual.containers import Horizontal
+from textual.widget import Widget
+from textual.widgets import DataTable, Label, TextArea
 
 from panther_analysis_tool import analysis_utils
 
 _EDITOR_THEME = "vscode_dark"
+
+yaml_parser = yaml.YAML(typ="rt")
+yaml_parser.preserve_quotes = True
+
+
+@dataclasses.dataclass
+class YamlDiffItem:
+    key: str
+    cust_val: Any
+    panther_val: Any
+    base_val: Any
+
+
+@dataclasses.dataclass
+class TableRow:
+    type: str
+    item_id: str
+    description: str
 
 
 class PythonWindow(TextArea):
@@ -34,11 +57,24 @@ class YAMLWindow(TextArea):
                 self.scroll_to(y=i - 1, animate=True, easing="in_out_cubic", duration=0.5)
 
 
-@dataclasses.dataclass
-class TableRow:
-    type: str
-    item_id: str
-    description: str
+class CustomerYAMLWindow(YAMLWindow):
+    BORDER_TITLE = "Your YAML"
+
+
+class PantherYAMLWindow(YAMLWindow):
+    BORDER_TITLE = "Panther YAML"
+
+
+class CustomerValueYAMLWindow(YAMLWindow):
+    BORDER_TITLE = "Your Value [y]"
+
+
+class PantherValueYAMLWindow(YAMLWindow):
+    BORDER_TITLE = "Panther Value [p]"
+
+
+class CustomerPythonWindow(PythonWindow):
+    BORDER_TITLE = "Your Python"
 
 
 class AnalysisItemDataTable(DataTable):
@@ -103,3 +139,26 @@ class AnalysisItemDataTable(DataTable):
         self.clear()
         for row in self.all_table_data:
             self.add_row_to_table(row)
+
+
+class DiffResolver(Widget):
+    def __init__(self, diff_item: YamlDiffItem):
+        super().__init__()
+        self.diff_item = diff_item
+
+    def fmt_panther_val(self) -> str:
+        out = io.StringIO()
+        yaml_parser.dump(self.diff_item.panther_val, out)
+        return out.getvalue()
+
+    def fmt_cust_val(self) -> str:
+        out = io.StringIO()
+        yaml_parser.dump(self.diff_item.cust_val, out)
+        return out.getvalue()
+
+    def compose(self) -> ComposeResult:
+        yield Label(f"Resolving conflict for YAML key: {self.diff_item.key}")
+        yield Horizontal(
+            PantherValueYAMLWindow(text="", id="panther-value-yaml"),
+            CustomerValueYAMLWindow(text="", id="customer-value-yaml"),
+        )

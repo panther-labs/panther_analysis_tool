@@ -1,0 +1,25 @@
+#file-viewing {
+    grid-size: 2 2;
+    height: 3fr;
+}
+
+#customer-python {
+    row-span: 2;
+}
+
+TextArea {
+    height: 1fr;
+    padding: 1;
+}
+
+DiffResolver {
+    height: 1fr;
+    background: $surface;
+    padding: 1;
+    border-top: solid white;
+}
+
+DiffResolver Horizontal {
+    height: auto;
+    align: center middle;
+}
