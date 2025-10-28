@@ -171,4 +171,4 @@ class DiffResolver(Widget):
         )
 
     def fmt_label(self) -> str:
-        return f"Resolving conflict for: {self.diff_item.key} (press \"y\" for your value or \"p\" for Panther's value)"
+        return f'Resolving conflict for: {self.diff_item.key} (press "y" for your value or "p" for Panther\'s value)'

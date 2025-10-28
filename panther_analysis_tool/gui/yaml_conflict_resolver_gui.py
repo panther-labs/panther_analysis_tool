@@ -110,7 +110,7 @@ class YAMLConflictResolverApp(App):
         panther_val = diff_resolver.fmt_panther_val()
         customer_val = diff_resolver.fmt_cust_val()
 
-        diff_resolver.query_one(widgets.PantherValueYAMLWindow).text = (panther_val)
+        diff_resolver.query_one(widgets.PantherValueYAMLWindow).text = panther_val
         diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text = customer_val
 
         self.query_one("#panther-yaml", widgets.YAMLWindow).highlight_line(new_diff_item.key)
