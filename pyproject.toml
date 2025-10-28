@@ -180,4 +180,5 @@ norecursedirs = [
     # fixtures folder contains test detections in python which pytest will load as real python modules,
     # so we need to exclude it from test collection to avoid errors
     "fixtures",
+    "scripts",
 ]
