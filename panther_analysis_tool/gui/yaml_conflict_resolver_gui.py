@@ -1,6 +1,5 @@
 from typing import Any, Literal
 
-from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
@@ -63,6 +62,7 @@ class YAMLConflictResolverApp(App):
     def on_mount(self) -> None:
         self.update_view()
         self.update_diff_item()
+        self.query_one("#customer-yaml").focus()
 
     def action_switch_view(self) -> None:
         self.view = "python" if self.view == "yaml" else "yaml"
@@ -105,12 +105,13 @@ class YAMLConflictResolverApp(App):
         diff_resolver.diff_item = new_diff_item
 
         label = diff_resolver.query_one(Label)
-        label.update(f"Resolving conflict for YAML key: {new_diff_item.key}")
+        label.update(diff_resolver.fmt_label())
 
-        diff_resolver.query_one(widgets.PantherValueYAMLWindow).text = (
-            diff_resolver.fmt_panther_val()
-        )
-        diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text = diff_resolver.fmt_cust_val()
+        panther_val = diff_resolver.fmt_panther_val()
+        customer_val = diff_resolver.fmt_cust_val()
+
+        diff_resolver.query_one(widgets.PantherValueYAMLWindow).text = (panther_val)
+        diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text = customer_val
 
         self.query_one("#panther-yaml", widgets.YAMLWindow).highlight_line(new_diff_item.key)
         self.query_one("#customer-yaml", widgets.YAMLWindow).highlight_line(new_diff_item.key)

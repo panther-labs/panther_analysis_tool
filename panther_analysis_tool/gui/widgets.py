@@ -42,19 +42,26 @@ class PythonWindow(TextArea):
 
 
 class YAMLWindow(TextArea):
+    doc_lines: list[str] = []
+
     def __init__(self, text: str, read_only: bool = True, *args: Any, **kwargs: Any) -> None:
         super().__init__(
             text, theme=_EDITOR_THEME, language="yaml", read_only=read_only, *args, **kwargs
         )
         self.show_line_numbers = True
         self.highlight_cursor_line = True
+        self.doc_lines = []
+
+    def on_mount(self) -> None:
+        for wrapped_line in self.wrapped_document.lines:
+            for line in wrapped_line:
+                self.doc_lines.append(line)
 
     def highlight_line(self, key: str) -> None:
-        lines = self.text.splitlines()
-        for i, line in enumerate(lines):
+        for i, line in enumerate(self.doc_lines):
             if line.strip().startswith(f"{key}:"):
-                self.move_cursor((i, 0))
-                self.scroll_to(y=i - 1, animate=True, easing="in_out_cubic", duration=0.5)
+                self.move_cursor((i, 0), center=True)
+                break
 
 
 class CustomerYAMLWindow(YAMLWindow):
@@ -157,8 +164,11 @@ class DiffResolver(Widget):
         return out.getvalue()
 
     def compose(self) -> ComposeResult:
-        yield Label(f"Resolving conflict for YAML key: {self.diff_item.key}")
+        yield Label(self.fmt_label())
         yield Horizontal(
-            PantherValueYAMLWindow(text="", id="panther-value-yaml"),
             CustomerValueYAMLWindow(text="", id="customer-value-yaml"),
+            PantherValueYAMLWindow(text="", id="panther-value-yaml"),
         )
+
+    def fmt_label(self) -> str:
+        return f"Resolving conflict for: {self.diff_item.key} (press \"y\" for your value or \"p\" for Panther's value)"

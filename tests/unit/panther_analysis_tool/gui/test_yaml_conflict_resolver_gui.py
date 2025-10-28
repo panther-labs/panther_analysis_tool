@@ -27,7 +27,7 @@ async def test_yaml_conflict_resolver_gui_starts() -> None:
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
     )
-    async with app.run_test() as pilot:
+    async with app.run_test():
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
         assert customer_yaml_window.text == raw_customer_yaml
         panther_yaml_window = app.query_one(widgets.PantherYAMLWindow)
