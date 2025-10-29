@@ -68,13 +68,19 @@ jobs:
         echo "=== Current Pipfile content ==="
         grep -A2 -B2 "panther-analysis-tool" Pipfile || echo "panther-analysis-tool not found"
         
-        # Update the Pipfile - try multiple patterns to match the exact format
+        # Update the Pipfile - handle both local editable and version string formats
         if grep -q 'panther-analysis-tool = {file = "..", editable = true}' Pipfile; then
+          # Local editable install format
           sed -i.bak 's/panther-analysis-tool = {file = "..", editable = true}/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
         elif grep -q 'panther-analysis-tool = { file = "..", editable = true }' Pipfile; then
+          # Local editable install format with spaces
           sed -i.bak 's/panther-analysis-tool = { file = "..", editable = true }/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
         elif grep -q 'panther-analysis-tool.*file.*editable.*true' Pipfile; then
+          # Flexible local editable format
           sed -i.bak 's/panther-analysis-tool = {[^}]*}/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
+        elif grep -q 'panther-analysis-tool = ' Pipfile; then
+          # Already a version string - update it
+          sed -i.bak 's/panther-analysis-tool = "[^"]*"/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
         else
           echo "ERROR: Could not find panther-analysis-tool entry to update"
           exit 1
