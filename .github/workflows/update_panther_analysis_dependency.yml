@@ -63,7 +63,27 @@ jobs:
       run: |
         pip install pipenv
         cd panther-analysis
-        sed -i.bak 's/panther-analysis-tool = {file = "..", editable = true}/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
+        
+        # Show current Pipfile content for debugging
+        echo "=== Current Pipfile content ==="
+        grep -A2 -B2 "panther-analysis-tool" Pipfile || echo "panther-analysis-tool not found"
+        
+        # Update the Pipfile - try multiple patterns to match the exact format
+        if grep -q 'panther-analysis-tool = {file = "..", editable = true}' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = {file = "..", editable = true}/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
+        elif grep -q 'panther-analysis-tool = { file = "..", editable = true }' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = { file = "..", editable = true }/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
+        elif grep -q 'panther-analysis-tool.*file.*editable.*true' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = {[^}]*}/panther-analysis-tool = "==${{ steps.get_version.outputs.version }}"/' Pipfile
+        else
+          echo "ERROR: Could not find panther-analysis-tool entry to update"
+          exit 1
+        fi
+        
+        # Show updated Pipfile content
+        echo "=== Updated Pipfile content ==="
+        grep -A2 -B2 "panther-analysis-tool" Pipfile
+        
         rm -f Pipfile.bak Pipfile.lock
         pipenv lock
 
