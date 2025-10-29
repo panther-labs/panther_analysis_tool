@@ -64,49 +64,14 @@ jobs:
         pip install pipenv
         cd panther-analysis
         
-        # Show current Pipfile content for debugging
-        echo "=== Current Pipfile content ==="
-        grep -A2 -B2 "panther-analysis-tool" Pipfile || echo "panther-analysis-tool not found"
-        
-        # Extract current version from Pipfile
-        CURRENT_VERSION=$(grep "panther-analysis-tool" Pipfile | sed 's/.*"[~=]*\([0-9.]*\)".*/\1/')
-        NEW_VERSION="${{ steps.get_version.outputs.version }}"
-        echo "Current version in Pipfile: $CURRENT_VERSION"
-        echo "New version to set: $NEW_VERSION"
-        
-        # Check if versions are different
-        if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
-          echo "Version is already up to date ($NEW_VERSION), but updating format to ensure consistency"
-        fi
-        
-        # Update the Pipfile - handle both local editable and version string formats
         if grep -q 'panther-analysis-tool = {file = "..", editable = true}' Pipfile; then
-          echo "Found local editable format, updating..."
           sed -i.bak 's/panther-analysis-tool = {file = "..", editable = true}/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
         elif grep -q 'panther-analysis-tool = { file = "..", editable = true }' Pipfile; then
-          echo "Found local editable format with spaces, updating..."
           sed -i.bak 's/panther-analysis-tool = { file = "..", editable = true }/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
         elif grep -q 'panther-analysis-tool.*file.*editable.*true' Pipfile; then
-          echo "Found flexible local editable format, updating..."
           sed -i.bak 's/panther-analysis-tool = {[^}]*}/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
         elif grep -q 'panther-analysis-tool = ' Pipfile; then
-          echo "Found version string format, updating..."
           sed -i.bak 's/panther-analysis-tool = "[^"]*"/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
-        else
-          echo "ERROR: Could not find panther-analysis-tool entry to update"
-          exit 1
-        fi
-        
-        # Show updated Pipfile content
-        echo "=== Updated Pipfile content ==="
-        grep -A2 -B2 "panther-analysis-tool" Pipfile
-        
-        # Verify the change was actually made
-        if ! grep -q "panther-analysis-tool = \"~=${{ steps.get_version.outputs.version }}\"" Pipfile; then
-          echo "WARNING: Pipfile may not have been updated correctly"
-          echo "Expected: panther-analysis-tool = \"~=${{ steps.get_version.outputs.version }}\""
-          echo "Actual content:"
-          cat Pipfile | grep panther-analysis-tool
         fi
         
         rm -f Pipfile.bak Pipfile.lock
