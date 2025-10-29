@@ -1,9 +1,8 @@
 name: Update Panther Analysis Dependency
 
 on:
-  push
-  # release:
-  #   types: [published]
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -39,25 +38,25 @@ jobs:
         token: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
         path: panther-analysis
 
-    # - name: Wait for PyPI availability
-    #   run: |
-    #     VERSION="${{ steps.get_version.outputs.version }}"
-    #     echo "Waiting for panther-analysis-tool~=$VERSION to be available on PyPI..."
+    - name: Wait for PyPI availability
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        echo "Waiting for panther-analysis-tool~=$VERSION to be available on PyPI..."
         
-    #     # Wait up to 10 minutes for the package to be available on PyPI
-    #     for i in {1..60}; do
-    #       if pip index versions panther-analysis-tool | grep -q "$VERSION"; then
-    #         echo "Package panther-analysis-tool~=$VERSION is available on PyPI"
-    #         break
-    #       fi
-    #       echo "Attempt $i: Package not yet available, waiting 10 seconds..."
-    #       sleep 10
+        # Wait up to 10 minutes for the package to be available on PyPI
+        for i in {1..60}; do
+          if pip index versions panther-analysis-tool | grep -q "$VERSION"; then
+            echo "Package panther-analysis-tool~=$VERSION is available on PyPI"
+            break
+          fi
+          echo "Attempt $i: Package not yet available, waiting 10 seconds..."
+          sleep 10
           
-    #       if [ $i -eq 60 ]; then
-    #         echo "Timeout: Package panther-analysis-tool~=$VERSION not available on PyPI after 10 minutes"
-    #         exit 1
-    #       fi
-    #     done
+          if [ $i -eq 60 ]; then
+            echo "Timeout: Package panther-analysis-tool~=$VERSION not available on PyPI after 10 minutes"
+            exit 1
+          fi
+        done
 
     - name: Update dependencies
       run: |
