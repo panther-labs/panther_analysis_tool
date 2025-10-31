@@ -9,6 +9,15 @@ For further details, see [Quick Start](https://docs.panther.com/quick-start) and
 
 ## Installation
 
+### Prerequisites
+
+- **Python 3.11**: Install Python using one of the following methods:
+  - The download links on the [official release page](https://www.python.org/downloads/release/python-3119/)
+  - Using [Homebrew](https://brew.sh/), by running `brew install python@3.11`
+  - Using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions
+  - Using [uv](https://docs.astral.sh/uv/) to manage Python versions: `uv python install 3.11`
+- **Pipenv**: To install [Pipenv](https://pipenv.pypa.io/en/latest/), run `pip install --user pipenv`
+
 ### From PyPi
 
 Use pip to install
@@ -17,6 +26,12 @@ from PyPi:
 
 ```shell
 pip3 install panther_analysis_tool
+```
+
+Or with `uv`:
+
+```shell
+uv add panther_analysis_tool
 ```
 
 Or without a virtual environment:
