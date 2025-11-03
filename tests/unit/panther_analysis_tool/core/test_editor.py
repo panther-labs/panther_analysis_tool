@@ -41,7 +41,7 @@ def test_merge_files_in_jetbrains_editor(
     files.panthers_file.touch()
     files.output_file.touch()
     files.premerged_file.touch()
-    
+
     editor.merge_files_in_editor(files)
     mock_run.assert_called_once_with(
         [
@@ -97,4 +97,6 @@ def test_merge_files_default_editor(tmp_path: pathlib.Path, mocker: MockerFixtur
     files.premerged_file.touch()
 
     editor.merge_files_in_editor(files)
-    mock_run.assert_called_once_with([constants.DEFAULT_EDITOR, str(tmp_path / "premerged_file.py")], check=True)
+    mock_run.assert_called_once_with(
+        [constants.DEFAULT_EDITOR, str(tmp_path / "premerged_file.py")], check=True
+    )

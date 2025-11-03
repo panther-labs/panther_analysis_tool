@@ -18,8 +18,12 @@ def _edit_file(users_file: str, base_file: str, panthers_file: str) -> None:
     with (
         tempfile.NamedTemporaryFile(delete=False, suffix="_customer_python.py") as users_file_temp,
         tempfile.NamedTemporaryFile(delete=False, suffix="_base_python.py") as base_file_temp,
-        tempfile.NamedTemporaryFile(delete=False, suffix="_panther_python.py") as panthers_file_temp,
-        tempfile.NamedTemporaryFile(delete=False, suffix="_premerged_python.py") as premerged_file_temp,
+        tempfile.NamedTemporaryFile(
+            delete=False, suffix="_panther_python.py"
+        ) as panthers_file_temp,
+        tempfile.NamedTemporaryFile(
+            delete=False, suffix="_premerged_python.py"
+        ) as premerged_file_temp,
         tempfile.NamedTemporaryFile(delete=False, suffix="_output_python.py") as output_file_temp,
     ):
         user_file_path = pathlib.Path(users_file_temp.name)
@@ -53,6 +57,7 @@ def _edit_file(users_file: str, base_file: str, panthers_file: str) -> None:
                 premerged_file=premerged_file_path,
             )
         )
+
 
 if __name__ == "__main__":
     print("EDITOR is:", os.getenv("EDITOR"))
