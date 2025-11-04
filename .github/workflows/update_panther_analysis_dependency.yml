@@ -11,25 +11,21 @@ permissions:
 jobs:
   update_dependency:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout panther-analysis-tool Repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        repository: panther-labs/panther_analysis_tool
-        token: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
+    - name: Extract version from release tag
+      id: get_version
+      run: |
+        # Remove 'v' prefix from tag if present (e.g., v1.2.0 -> 1.2.0)
+        VERSION="${{ github.event.release.tag_name }}"
+        VERSION="${VERSION#v}"
+        echo "Extracted version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Set up Python
       uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
       with:
         python-version: '3.11'
-
-    - name: Extract version from pyproject.toml
-      id: get_version
-      run: |
-        pip install toml
-        VERSION=$(python3 -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Checkout panther-analysis Repository
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -88,8 +84,8 @@ jobs:
     - name: Create Pull Request
       run: |
         cd panther-analysis
-        git config --global user.email "${{ steps.import_gpg.outputs.email }}"
-        git config --global user.name "${{ steps.import_gpg.outputs.name }}"
+        git config --global user.email "github-service-account-automation@panther.io"
+        git config --global user.name "panther-bot-automation"
         git config --global user.signingkey "${{ steps.import_gpg.outputs.keyid }}"
         git config --global commit.gpgsign true
         
