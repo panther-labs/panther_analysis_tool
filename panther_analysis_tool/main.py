@@ -125,7 +125,7 @@ from panther_analysis_tool.core.definitions import (
     TestResultContainer,
     TestResultsContainer,
 )
-from panther_analysis_tool.core.parse import Filter, get_filters
+from panther_analysis_tool.core.parse import Filter, get_filters, parse_filter
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
@@ -1868,7 +1868,8 @@ def release(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = get_filters(_filter)
+    # release should parse filter as is, and not filter out Status: deprecated, Status: experimental
+    filters, filters_inverted = parse_filter(_filter)
 
     # Forward to your logic function
     return generate_release_assets(

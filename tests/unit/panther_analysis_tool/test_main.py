@@ -653,6 +653,37 @@ class TestPantherAnalysisTool(TestCase):
         self.assertTrue(statinfo.st_size > 0)
         self.assertEqual(return_code, 0)
 
+    def test_release_includes_all_by_default(self) -> None:
+        # Note: This is a workaround for CI
+        try:
+            self.fs.create_dir("tmp/release2")
+        except OSError:
+            pass
+
+        results = runner.invoke(
+            app,
+            f"release --path {DETECTIONS_FIXTURES_PATH}/all_statuses --out tmp/release2/".split(),
+        )
+        if results.exception:
+            raise results.exception
+
+        return_code = results.exit_code
+        self.assertEqual(return_code, 0)
+        analysis_file = "tmp/release2/panther-analysis-all.zip"
+        with zipfile.ZipFile(analysis_file, 'r') as zip_file:
+            file_list = zip_file.namelist()
+            # there should be 8 files in the release: there's 4 detections, and each detection has 2 files
+            # a python and a yaml file
+            self.assertEqual(8, len(file_list))
+            self.assertIn("no_status.yml", file_list[0])
+            self.assertIn("no_status.py", file_list[1])
+            self.assertIn("status_deprecated.yml", file_list[2])
+            self.assertIn("status_deprecated.py", file_list[3])
+            self.assertIn("status_experimental.yml", file_list[4])
+            self.assertIn("status_experimental.py", file_list[5])
+            self.assertIn("status_stable.yml", file_list[6])
+            self.assertIn("status_stable.py", file_list[7])
+
     def test_feature_flags_dont_err_the_upload(self) -> None:
         backend = MockBackend()
         backend.feature_flags = mock.MagicMock(
