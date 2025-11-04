@@ -5,6 +5,7 @@ from datetime import datetime
 from unittest import mock
 from unittest.mock import patch
 
+import zipfile
 import jsonschema
 from colorama import Fore, Style
 from panther_core.data_model import _DATAMODEL_FOLDER
@@ -281,6 +282,18 @@ class TestPantherAnalysisTool(TestCase):
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
+
+    def test_status_deprecated_filtered_out(self) -> None:
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/status_deprecated".split(),
+        )
+        # by default deprecated status should have been filtered out
+        # so this should error since there was nothing to test
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 1)
+        self.assertIn("No", invalid_specs[0])
+        self.assertIn("matched filters", invalid_specs[0])
 
     def test_enabled_filter(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
