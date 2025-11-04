@@ -307,6 +307,16 @@ class TestPantherAnalysisTool(TestCase):
         self.assertIn("No", invalid_specs[0])
         self.assertIn("matched filters", invalid_specs[0])
 
+    def test_status_stable_not_filtered_out(self) -> None:
+        return_code, invalid_specs = mock_test_analysis(
+            self,
+            f"test --path {DETECTIONS_FIXTURES_PATH}/status_stable".split(),
+        )
+        # stable detections are not filtered out by default
+        # this should run and return a success
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
     def test_enabled_filter(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
