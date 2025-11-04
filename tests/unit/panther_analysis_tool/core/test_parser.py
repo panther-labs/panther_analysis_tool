@@ -49,8 +49,10 @@ class TestParser(TestCase):
             self.assertIn(Filter(key="Severity", values=["Critical"]), parsed_filters)
             self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
             self.assertIn(Filter(key="RuleID", values=["abc"]), parsed_filters_inverted)
-            # by default: experimental and deprecated should always be filtered out 
-            self.assertIn(Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted)
+            # by default: experimental and deprecated should always be filtered out
+            self.assertIn(
+                Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
+            )
 
     def test_parse_filters_status_can_be_overridden(self):
         with patch(
@@ -71,7 +73,7 @@ class TestParser(TestCase):
                     "--filter",
                     "RuleID!=abc",
                     "--filter",
-                    "Status=experimental"
+                    "Status=experimental",
                 ],
             )
 
@@ -90,6 +92,8 @@ class TestParser(TestCase):
             self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
             self.assertIn(Filter(key="RuleID", values=["abc"]), parsed_filters_inverted)
             # user explicitly added a filter on status: we should not have added Status != experimental,deprecated
-            self.assertNotIn(Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted)
+            self.assertNotIn(
+                Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
+            )
             # user's status filter:
             self.assertIn(Filter(key="Status", values=["experimental"]), parsed_filters)

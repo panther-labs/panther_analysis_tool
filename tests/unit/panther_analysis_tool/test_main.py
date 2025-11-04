@@ -1,11 +1,11 @@
 import json
 import os
 import shutil
+import zipfile
 from datetime import datetime
 from unittest import mock
 from unittest.mock import patch
 
-import zipfile
 import jsonschema
 from colorama import Fore, Style
 from panther_core.data_model import _DATAMODEL_FOLDER
@@ -555,7 +555,7 @@ class TestPantherAnalysisTool(TestCase):
             self.assertEqual(1, len(zipped_items))
             zip_name = zipped_items[0]
             zip_file_path = os.path.join("tmp/zipped", zip_name)
-            with zipfile.ZipFile(zip_file_path, 'r') as zip_file:
+            with zipfile.ZipFile(zip_file_path, "r") as zip_file:
                 file_list = zip_file.namelist()
                 # there should only be 4 files in the list: one python and one yml
                 # file for stable. and likewise for the no_status detection.
@@ -594,14 +594,15 @@ class TestPantherAnalysisTool(TestCase):
             "panther_analysis_tool.main.zip_analysis", side_effect=check_result
         ) as mock_zip_analysis_chunks:
             runner.invoke(
-                app, f"zip --path {DETECTIONS_FIXTURES_PATH}/all_statuses --filter Status!=blah --out tmp/zipped2".split()
+                app,
+                f"zip --path {DETECTIONS_FIXTURES_PATH}/all_statuses --filter Status!=blah --out tmp/zipped2".split(),
             )
             self.assertEqual(mock_zip_analysis_chunks.call_count, 1)
             zipped_items = os.listdir("/tmp/zipped2")
             self.assertEqual(1, len(zipped_items))
             zip_name = zipped_items[0]
             zip_file_path = os.path.join("tmp/zipped2", zip_name)
-            with zipfile.ZipFile(zip_file_path, 'r') as zip_file:
+            with zipfile.ZipFile(zip_file_path, "r") as zip_file:
                 file_list = zip_file.namelist()
                 # there should be 8 files in the list: there's 4 detections, and each detection has 2 files
                 # a python and a yaml file
@@ -670,7 +671,7 @@ class TestPantherAnalysisTool(TestCase):
         return_code = results.exit_code
         self.assertEqual(return_code, 0)
         analysis_file = "tmp/release2/panther-analysis-all.zip"
-        with zipfile.ZipFile(analysis_file, 'r') as zip_file:
+        with zipfile.ZipFile(analysis_file, "r") as zip_file:
             file_list = zip_file.namelist()
             # there should be 8 files in the release: there's 4 detections, and each detection has 2 files
             # a python and a yaml file
