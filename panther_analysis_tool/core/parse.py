@@ -62,6 +62,24 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
     ]
     return filters, filters_inverted
 
+def get_filters(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
+    filters, filters_inverted = parse_filter(str_filters)
+    filters, filters_inverted = add_status_filters(filters, filters_inverted)
+    return filters, filters_inverted
+
+def add_status_filters(filters: List[Filter], filters_inverted: List[Filter]) -> Tuple[List[Filter], List[Filter]]:
+    # check that no existing filter references the status field
+    # if found, return them as-is:
+    for filt in filters:
+        if filt.key == "Status":
+            return filters, filters_inverted
+    for filt in filters_inverted:
+        if filt.key == "Status":
+            return filters, filters_inverted
+    # otherwise, add an invert filter to filter out any status field
+    # with Status: deprecated or Status: experimental
+    filters_inverted.append(Filter(key="Status", values=["experimental", "deprecated"]))
+    return filters, filters_inverted
 
 def strtobool(val: str) -> int:
     val = val.lower()
