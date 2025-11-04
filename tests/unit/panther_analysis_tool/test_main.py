@@ -33,6 +33,7 @@ from panther_analysis_tool.main import app, upload_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
+STATUS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "status")
 
 print("Using fixtures path:", FIXTURES_PATH)
 
@@ -286,7 +287,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_status_deprecated_filtered_out(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
-            f"test --path {DETECTIONS_FIXTURES_PATH}/status_deprecated".split(),
+            f"test --path {STATUS_FIXTURES_PATH}/status_deprecated".split(),
         )
         # by default deprecated status should have been filtered out
         # so this should error since there was nothing to test
@@ -298,7 +299,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_status_experimental_filtered_out(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
-            f"test --path {DETECTIONS_FIXTURES_PATH}/status_experimental".split(),
+            f"test --path {STATUS_FIXTURES_PATH}/status_experimental".split(),
         )
         # by default experimental status should have been filtered out
         # so this should error since there was nothing to test
@@ -310,7 +311,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_status_stable_not_filtered_out(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
-            f"test --path {DETECTIONS_FIXTURES_PATH}/status_stable".split(),
+            f"test --path {STATUS_FIXTURES_PATH}/status_stable".split(),
         )
         # stable detections are not filtered out by default
         # this should run and return a success
@@ -548,7 +549,7 @@ class TestPantherAnalysisTool(TestCase):
             "panther_analysis_tool.main.zip_analysis", side_effect=check_result
         ) as mock_zip_analysis_chunks:
             runner.invoke(
-                app, f"zip --path {DETECTIONS_FIXTURES_PATH}/all_statuses --out tmp/zipped".split()
+                app, f"zip --path {STATUS_FIXTURES_PATH}/all_statuses --out tmp/zipped".split()
             )
             self.assertEqual(mock_zip_analysis_chunks.call_count, 1)
             zipped_items = os.listdir("/tmp/zipped")
@@ -595,7 +596,7 @@ class TestPantherAnalysisTool(TestCase):
         ) as mock_zip_analysis_chunks:
             runner.invoke(
                 app,
-                f"zip --path {DETECTIONS_FIXTURES_PATH}/all_statuses --filter Status!=blah --out tmp/zipped2".split(),
+                f"zip --path {STATUS_FIXTURES_PATH}/all_statuses --filter Status!=blah --out tmp/zipped2".split(),
             )
             self.assertEqual(mock_zip_analysis_chunks.call_count, 1)
             zipped_items = os.listdir("/tmp/zipped2")
@@ -663,7 +664,7 @@ class TestPantherAnalysisTool(TestCase):
 
         results = runner.invoke(
             app,
-            f"release --path {DETECTIONS_FIXTURES_PATH}/all_statuses --out tmp/release2/".split(),
+            f"release --path {STATUS_FIXTURES_PATH}/all_statuses --out tmp/release2/".split(),
         )
         if results.exception:
             raise results.exception
