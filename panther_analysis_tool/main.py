@@ -125,7 +125,11 @@ from panther_analysis_tool.core.definitions import (
     TestResultContainer,
     TestResultsContainer,
 )
-from panther_analysis_tool.core.parse import Filter, get_filters_with_status_filters, parse_filter
+from panther_analysis_tool.core.parse import (
+    Filter,
+    get_filters_with_status_filters,
+    parse_filter,
+)
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
