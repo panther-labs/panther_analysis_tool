@@ -1,7 +1,7 @@
 AnalysisType: rule
 Filename: status_stable.py
 DisplayName: stable rule
-Description: stable rule description
+Description: stable rule description here
 Severity: High
 RuleID: Status.Stable
 Status: stable
