@@ -12,6 +12,7 @@ from panther_analysis_tool.schemas import (
 EXPERIMENTAL_STATUS = "experimental"
 DEPRECATED_STATUS = "deprecated"
 
+
 @dataclass
 class Filter:
     key: str
@@ -65,7 +66,9 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
     return filters, filters_inverted
 
 
-def get_filters_with_status_filters(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
+def get_filters_with_status_filters(
+    str_filters: Optional[List[str]],
+) -> Tuple[List[Filter], List[Filter]]:
     filters, filters_inverted = parse_filter(str_filters)
     filters, filters_inverted = add_status_filters(filters, filters_inverted)
     return filters, filters_inverted
