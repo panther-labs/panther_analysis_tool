@@ -93,7 +93,7 @@ def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:
 
 
 def merge_file(
-    user_file_path: str, base_file_path: str, latest_file_path: str
+    user_file_path: pathlib.Path, base_file_path: pathlib.Path, latest_file_path: pathlib.Path
 ) -> Tuple[bool, bytes]:
     """
     Merge a file with git.
@@ -107,11 +107,11 @@ def merge_file(
         bool: True if there was a merge conflict, False otherwise.
         bytes: The merged file contents.
     """
-    if not pathlib.Path(user_file_path).exists():
+    if not user_file_path.exists():
         raise FileNotFoundError(f"User file {user_file_path} not found")
-    if not pathlib.Path(base_file_path).exists():
+    if not base_file_path.exists():
         raise FileNotFoundError(f"Base file {base_file_path} not found")
-    if not pathlib.Path(latest_file_path).exists():
+    if not latest_file_path.exists():
         raise FileNotFoundError(f"Latest file {latest_file_path} not found")
 
     proc = subprocess.run(  # nosec:B607 B603
@@ -125,9 +125,9 @@ def merge_file(
             "base",
             "-L",
             "panther",
-            user_file_path,
-            base_file_path,
-            latest_file_path,
+            str(user_file_path),
+            str(base_file_path),
+            str(latest_file_path),
         ],
         check=False,
         capture_output=True,

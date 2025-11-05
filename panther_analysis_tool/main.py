@@ -126,7 +126,11 @@ from panther_analysis_tool.core.definitions import (
     TestResultContainer,
     TestResultsContainer,
 )
-from panther_analysis_tool.core.parse import Filter, parse_filter_args
+from panther_analysis_tool.core.parse import (
+    Filter,
+    get_filters_with_status_filters,
+    parse_filter,
+)
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
@@ -1903,7 +1907,8 @@ def release(  # pylint: disable=too-many-arguments
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    # release should parse filter as is, and not filter out Status: deprecated, Status: experimental
+    filters, filters_inverted = parse_filter(_filter)
 
     # Forward to your logic function
     return generate_release_assets(
@@ -1965,7 +1970,7 @@ def test(  # pylint: disable=too-many-arguments
     if test_names is None:
         test_names = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -2012,7 +2017,7 @@ def debug_command(  # pylint: disable=too-many-arguments
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -2075,7 +2080,7 @@ def publish_command(  # pylint: disable=too-many-arguments
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = PublishReleaseArgs(
         github_tag=github_tag,
@@ -2141,7 +2146,7 @@ def upload(  # pylint: disable=too-many-arguments
     if valid_table_names is None:
         valid_table_names = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = UploadAnalysisArgs(
         auto_disable_base=auto_disable_base,
@@ -2240,7 +2245,7 @@ def validate_cmd(
     if ignore_files is None:
         ignore_files = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = validate.ValidateArgs(
         out=".",
@@ -2279,7 +2284,7 @@ def zip_cmd(  # pylint: disable=too-many-arguments
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = ZipAnalysisArgs(
         skip_tests=skip_tests,
@@ -2369,7 +2374,7 @@ def benchmark_command(  # pylint: disable=too-many-arguments
     if ignore_files is None:
         ignore_files = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = benchmark.BenchmarkArgs(
         filters=filters,
@@ -2403,7 +2408,7 @@ def enrich_test_data_command(  # pylint: disable=too-many-arguments
     if valid_table_names is None:
         valid_table_names = []
 
-    filters, filters_inverted = parse_filter_args(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     # Call your backend function with the parsed arguments
     args = EnrichTestDataArgs(

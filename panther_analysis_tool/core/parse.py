@@ -8,6 +8,9 @@ from panther_analysis_tool.schemas import (
     extract_keys_schema,
 )
 
+EXPERIMENTAL_STATUS = "experimental"
+DEPRECATED_STATUS = "deprecated"
+
 
 @dataclass
 class Filter:
@@ -56,6 +59,31 @@ def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], L
     filters_inverted = [
         Filter(key=key, values=values) for key, values in parsed_filters_inverted.items()
     ]
+    return filters, filters_inverted
+
+
+def get_filters_with_status_filters(
+    str_filters: Optional[List[str]],
+) -> Tuple[List[Filter], List[Filter]]:
+    filters, filters_inverted = parse_filter(str_filters)
+    filters, filters_inverted = add_status_filters(filters, filters_inverted)
+    return filters, filters_inverted
+
+
+def add_status_filters(
+    filters: List[Filter], filters_inverted: List[Filter]
+) -> Tuple[List[Filter], List[Filter]]:
+    # check that no existing filter references the status field
+    # if found, return them as-is:
+    for filt in filters:
+        if filt.key == "Status":
+            return filters, filters_inverted
+    for filt in filters_inverted:
+        if filt.key == "Status":
+            return filters, filters_inverted
+    # otherwise, add an invert filter to filter out any status field
+    # with Status: deprecated or Status: experimental
+    filters_inverted.append(Filter(key="Status", values=[EXPERIMENTAL_STATUS, DEPRECATED_STATUS]))
     return filters, filters_inverted
 
 
