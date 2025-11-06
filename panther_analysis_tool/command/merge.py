@@ -194,6 +194,7 @@ def merge_items(
         )
 
 
+# pylint: disable=too-many-locals,too-many-arguments
 def merge_file(
     solve_merge: bool,
     user: bytes,
@@ -240,8 +241,8 @@ def merge_file(
             conflicts = merge_dict.merge_dict(yaml.load(base_path), yaml.load(latest_path))
 
             if len(conflicts) == 0:
-                with open(output_path, "w") as f:
-                    yaml.dump(merge_dict.customer_dict, f)
+                with open(output_path, "w", encoding="utf-8") as file:
+                    yaml.dump(merge_dict.customer_dict, file)
                 return False  # merge was solved so no more conflict
 
             if not solve_merge:
@@ -257,15 +258,15 @@ def merge_file(
             )
             app.run()
 
-            with open(output_path, "w") as f:
-                yaml.dump(app.get_final_dict(), f)
+            with open(output_path, "w", encoding="utf-8") as file:
+                yaml.dump(app.get_final_dict(), file)
             return False  # merge was solved so no more conflict
 
         # python merge
         has_conflict, merged_contents = git_helpers.merge_file(user_path, base_path, latest_path)
         if not has_conflict:
-            with open(output_path, "wb") as f:
-                f.write(merged_contents)
+            with open(output_path, "wb", encoding="utf-8") as file:
+                file.write(merged_contents)
             return False
 
         if not solve_merge:
@@ -302,7 +303,7 @@ def make_long_lived_temp_dir(copy_dir: pathlib.Path) -> pathlib.Path:
     Copy all files contents from the copy_dir to this directory for use.
     """
     temp_dir = tempfile.mkdtemp(prefix="pat_merge_")
-    logging.debug(f"Long lived temp dir: {temp_dir}")
+    logging.debug("Long lived temp dir: %s", temp_dir)
 
     for file_path in copy_dir.iterdir():
         (pathlib.Path(temp_dir) / file_path.name).write_bytes(file_path.read_bytes())
