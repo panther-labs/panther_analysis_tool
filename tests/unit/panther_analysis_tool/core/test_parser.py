@@ -5,7 +5,6 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from panther_analysis_tool import main as pat
-from panther_analysis_tool.core import parse
 from panther_analysis_tool.core.parse import Filter
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../", "fixtures"))
@@ -14,7 +13,7 @@ runner = CliRunner()
 
 
 class TestParser(TestCase):
-    def test_parse_filters(self):
+    def test_parse_filters(self) -> None:
         with patch(
             "panther_analysis_tool.main.test_analysis", return_value=(0, [])
         ) as mock_test_analysis:
@@ -54,7 +53,7 @@ class TestParser(TestCase):
                 Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
             )
 
-    def test_parse_filters_status_can_be_overridden(self):
+    def test_parse_filters_status_can_be_overridden(self) -> None:
         with patch(
             "panther_analysis_tool.main.test_analysis", return_value=(0, [])
         ) as mock_test_analysis:

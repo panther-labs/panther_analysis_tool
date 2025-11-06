@@ -1,12 +1,13 @@
 import dataclasses
 import logging
 import pathlib
+import shutil
 import tempfile
 from typing import Tuple
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import get_yaml_loader, load_analysis_specs_ex
-from panther_analysis_tool.core import analysis_cache, editor, git_helpers
+from panther_analysis_tool.core import analysis_cache, diff, editor, git_helpers
 from panther_analysis_tool.gui import yaml_conflict_resolver_gui
 
 
@@ -138,24 +139,6 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
         base_item = mergeable_item.base_panther_item
         user_item_id = user_item.analysis_id()
 
-        # merge python
-        if user_item.python_file_contents is not None:
-            has_conflict = merge_file(
-                solve_merge=analysis_id is not None,
-                # or b"" makes typing happy but it should never be None
-                user=user_item.python_file_contents or b"",
-                base=base_item.python_file_contents or b"",
-                latest=latest_item.python_file_contents or b"",
-                user_python=user_item.python_file_contents or b"",
-                output_path=str(user_item.python_file_path),
-            )
-            if has_conflict:
-                merge_conflict_item_ids.append(user_item_id)
-                # no need to merge yaml if python has a conflict because
-                # we are just tracking what items have conflicts, not which files,
-                # and has_conflict would be False if analysis_id provided
-                continue
-
         # merge yaml
         has_conflict = merge_file(
             solve_merge=analysis_id is not None,
@@ -164,11 +147,29 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
             base=base_item.raw_yaml_file_contents or b"",
             latest=latest_item.raw_yaml_file_contents or b"",
             user_python=b"",
-            output_path=str(user_item.yaml_file_path),
+            output_path=pathlib.Path(user_item.yaml_file_path or ""),
         )
-        if has_conflict:
+        if has_conflict and analysis_id is None:
             merge_conflict_item_ids.append(user_item_id)
+            # no need to merge python if yaml has a conflict because
+            # we are just tracking what items have conflicts, not which files,
+            # and has_conflict would be False if analysis_id provided
             continue
+
+        # merge python (do this second since IDE may return before merge happens)
+        if user_item.python_file_contents is not None:
+            has_conflict = merge_file(
+                solve_merge=analysis_id is not None,
+                # or b"" makes typing happy but it should never be None
+                user=user_item.python_file_contents or b"",
+                base=base_item.python_file_contents or b"",
+                latest=latest_item.python_file_contents or b"",
+                user_python=user_item.python_file_contents or b"",
+                output_path=pathlib.Path(user_item.python_file_path or ""),
+            )
+            if has_conflict:
+                merge_conflict_item_ids.append(user_item_id)
+                continue
 
         # consider updated if no conflict with both files
         updated_item_ids.append(user_item_id)
@@ -190,53 +191,114 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
 
 
 def merge_file(
-    solve_merge: bool, user: bytes, base: bytes, latest: bytes, user_python: bytes, output_path: str
+    solve_merge: bool,
+    user: bytes,
+    base: bytes,
+    latest: bytes,
+    user_python: bytes,
+    output_path: pathlib.Path,
 ) -> bool:
-    with (
-        tempfile.NamedTemporaryFile(delete=False) as temp_file_user,
-        tempfile.NamedTemporaryFile(delete=False) as temp_file_base,
-        tempfile.NamedTemporaryFile(delete=False) as temp_file_latest,
-    ):
-        temp_file_user.write(user)
-        temp_file_user.flush()
-        temp_file_base.write(base)
-        temp_file_base.flush()
-        temp_file_latest.write(latest)
-        temp_file_latest.flush()
+    """
+    Merge a file with git and solve the merge conflict if requested.
+    YAML conflicts are solved with the yaml_conflict_resolver_gui.
+    Python conflicts are solved with an editor.
 
-        has_conflict, merged_yaml = git_helpers.merge_file(
-            temp_file_user.name, temp_file_base.name, temp_file_latest.name
-        )
-        if has_conflict:
-            if solve_merge:
-                if pathlib.Path(output_path).suffix in [".yml", ".yaml"]:
-                    with tempfile.NamedTemporaryFile(delete=False) as temp_file_user_python:
-                        temp_file_user_python.write(user_python)
-                        temp_file_user_python.flush()
+    Args:
+        solve_merge: Whether to solve the merge conflict.
+        user: The user file contents.
+        base: The base file contents.
+        latest: The latest Panther file contents.
+        user_python: The user Python file contents.
+        output_path: The path to the output file.
 
-                        yaml_conflict_resolver_gui.YAMLConflictResolverApp(
-                            customer_python=user_python.decode("utf-8"),
-                            raw_customer_yaml=user.decode("utf-8"),
-                            raw_panther_yaml=latest.decode("utf-8"),
-                            raw_base_yaml=base.decode("utf-8"),
-                        )
-                else:
-                    with tempfile.NamedTemporaryFile(delete=False) as temp_merged_file:
-                        temp_merged_file.write(merged_yaml)
-                        temp_merged_file.flush()
+    Returns:
+        True if there was a merge conflict, False otherwise or if the user soled the merge conflict.
+    """
+    ext = output_path.suffix
+    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
 
-                        editor.merge_files_in_editor(
-                            editor.MergeableFiles(
-                                users_file=temp_file_user.name,
-                                base_file=temp_file_base.name,
-                                panthers_file=temp_file_latest.name,
-                                premerged_file=temp_merged_file.name,
-                                output_file=output_path,
-                            )
-                        )
+    # this temp dir gets cleaned up automatically when it leaves the with block
+    with tempfile.TemporaryDirectory(prefix="pat_merge_") as temp_dir_str:
+        temp_dir = pathlib.Path(temp_dir_str)
+        user_path = temp_dir / f"user{ext}"
+        base_path = temp_dir / f"base{ext}"
+        latest_path = temp_dir / f"latest{ext}"
+        user_path.write_bytes(user)
+        base_path.write_bytes(base)
+        latest_path.write_bytes(latest)
+
+        if ext in [".yml", ".yaml"]:
+            user_python_path = temp_dir / "user_python.py"
+            user_python_path.write_bytes(user_python)
+
+            merge_dict = diff.Dict(yaml.load(user_path))
+            conflicts = merge_dict.merge_dict(yaml.load(base_path), yaml.load(latest_path))
+
+            if len(conflicts) == 0:
+                with open(output_path, "w") as f:
+                    yaml.dump(merge_dict.customer_dict, f)
                 return False  # merge was solved so no more conflict
-            return True
-        else:
+
+            if not solve_merge:
+                return True
+
+            app = yaml_conflict_resolver_gui.YAMLConflictResolverApp(
+                customer_python=user_python.decode("utf-8"),
+                raw_customer_yaml=user.decode("utf-8"),
+                raw_panther_yaml=latest.decode("utf-8"),
+                raw_base_yaml=base.decode("utf-8"),
+                customer_dict=merge_dict.customer_dict,
+                conflict_items=conflicts,
+            )
+            app.run()
+
+            with open(output_path, "w") as f:
+                yaml.dump(app.get_final_dict(), f)
+            return False  # merge was solved so no more conflict
+
+        # python merge
+        has_conflict, merged_contents = git_helpers.merge_file(user_path, base_path, latest_path)
+        if not has_conflict:
             with open(output_path, "wb") as f:
-                f.write(merged_yaml)
+                f.write(merged_contents)
             return False
+
+        if not solve_merge:
+            return True
+
+        # make a long-lived temp dir so that async editors can use the files in the directory.
+        # IDE editing may outlive this function call because some IDEs are not blocking, like vscode and goland.
+        # This dir will go in system temp and OS should eventually clean it up.
+        long_lived_temp_dir = make_long_lived_temp_dir(temp_dir)
+
+        merged_path = long_lived_temp_dir / f"merged{ext}"
+        merged_path.write_bytes(merged_contents)
+
+        async_edit = editor.merge_files_in_editor(
+            editor.MergeableFiles(
+                users_file=long_lived_temp_dir / user_path.name,
+                base_file=long_lived_temp_dir / base_path.name,
+                panthers_file=long_lived_temp_dir / latest_path.name,
+                premerged_file=merged_path,
+                output_file=output_path,
+            )
+        )
+        if not async_edit:
+            # editing has finished so remove the long-lived temp dir
+            shutil.rmtree(long_lived_temp_dir)
+
+        return False  # merge was solved so no more conflict
+
+
+def make_long_lived_temp_dir(copy_dir: pathlib.Path) -> pathlib.Path:
+    """
+    Creates a long-lived temporary directory that is not cleaned up at exit but by the OS.
+    Copy all files contents from the copy_dir to this directory for use.
+    """
+    temp_dir = tempfile.mkdtemp(prefix="pat_merge_")
+    logging.debug(f"Long lived temp dir: {temp_dir}")
+
+    for file_path in copy_dir.iterdir():
+        (pathlib.Path(temp_dir) / file_path.name).write_bytes(file_path.read_bytes())
+
+    return pathlib.Path(temp_dir)

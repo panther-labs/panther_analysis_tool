@@ -534,7 +534,7 @@ class TestPantherAnalysisTool(TestCase):
         from panther_analysis_tool.main import zip_analysis
 
         def check_result(*args: Any, **kwargs: Any) -> None:
-            results = zip_analysis(*args, **kwargs)
+            _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
                 statinfo = os.stat(out_filename)
@@ -560,7 +560,7 @@ class TestPantherAnalysisTool(TestCase):
         from panther_analysis_tool.main import zip_analysis
 
         def check_result(*args, **kwargs):
-            results = zip_analysis(*args, **kwargs)
+            _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
                 statinfo = os.stat(out_filename)
@@ -606,7 +606,7 @@ class TestPantherAnalysisTool(TestCase):
         from panther_analysis_tool.main import zip_analysis
 
         def check_result(*args, **kwargs):
-            results = zip_analysis(*args, **kwargs)
+            _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
                 statinfo = os.stat(out_filename)

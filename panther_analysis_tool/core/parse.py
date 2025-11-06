@@ -65,7 +65,7 @@ def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], L
 def get_filters_with_status_filters(
     str_filters: Optional[List[str]],
 ) -> Tuple[List[Filter], List[Filter]]:
-    filters, filters_inverted = parse_filter(str_filters)
+    filters, filters_inverted = parse_filter_args(str_filters)
     filters, filters_inverted = add_status_filters(filters, filters_inverted)
     return filters, filters_inverted
 

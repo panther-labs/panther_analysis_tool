@@ -31,10 +31,20 @@ class MergeableFiles:
                 raise FileNotFoundError(f"Output file {self.output_file} not found")
 
 
-def merge_files_in_editor(files: MergeableFiles) -> None:
+def merge_files_in_editor(files: MergeableFiles) -> bool:
+    """
+    Merge files in an editor. Editor is read from the EDITOR environment variable.
+
+    Args:
+        files: The MergeableFiles object.
+
+    Returns:
+        True if the editor returns before the merge is solved because it is solved asynchronously, False otherwise.
+    """
     editor = os.getenv("EDITOR", DEFAULT_EDITOR).lower()
 
     args = [editor]
+    async_edit = True
     match editor:
         # jetbrains editors, not all their products are included in this list
         case (
@@ -60,8 +70,13 @@ def merge_files_in_editor(files: MergeableFiles) -> None:
                     str(files.output_file),
                 ]
             )
+        case "vi" | "vim":
+            async_edit = False
+            files.validate(premerged_required=True)
+            args.append(str(files.premerged_file))
         case _:
             files.validate(premerged_required=True)
             args.append(str(files.premerged_file))
 
     subprocess.run(args, check=True)  # nosec:B603
+    return async_edit

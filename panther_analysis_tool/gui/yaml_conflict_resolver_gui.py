@@ -5,7 +5,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Footer, Label
 
-from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import diff
 from panther_analysis_tool.gui import widgets
 
 
@@ -36,18 +36,20 @@ class YAMLConflictResolverApp(App):
         raw_customer_yaml: str,
         raw_panther_yaml: str,
         raw_base_yaml: str,
+        customer_dict: dict,
+        conflict_items: list[diff.DictMergeConflict],
     ) -> None:
         super().__init__()
-        self.parser = analysis_utils.get_yaml_loader(roundtrip=True)
-
-        base_yaml = self.parser.load(raw_base_yaml)
-        panther_yaml = self.parser.load(raw_panther_yaml)
-        customer_yaml = self.parser.load(raw_customer_yaml)
-
         self.customer_python = customer_python
         self.customer_yaml = raw_customer_yaml
         self.panther_yaml = raw_panther_yaml
-        self.diff_items, self.final_dict = get_diff_items(base_yaml, panther_yaml, customer_yaml)
+        self.final_dict = customer_dict
+        self.diff_items = [
+            widgets.YamlDiffItem(
+                conflict.key, conflict.cust_val, conflict.latest_val, conflict.base_val
+            )
+            for conflict in conflict_items
+        ]
 
     def compose(self) -> ComposeResult:
         yield Horizontal(
@@ -118,55 +120,5 @@ class YAMLConflictResolverApp(App):
 
         self.refresh()
 
-
-def get_diff_items(
-    base_dict: dict, panther_dict: dict, customer_dict: dict
-) -> tuple[list[widgets.YamlDiffItem], dict]:
-    """
-    Get the diff items and the final dictionary. The base, panther, and customer dictionaries
-    are the 3 different yaml specs that are the 3 parts of a 3-way merge.
-    Each value in the dicts are compared to determine if there is a merge conflict. A value is
-    considered a conflict if the base value is different from the panther value and the customer
-    value is different from the base value.
-    The customer dict is edited in place as returned as the final dictionary because it has metadata
-    for the YAML formatting and comments that need to be preserved.
-
-    Args:
-        base_dict: The base dictionary.
-        panther_dict: The panther dictionary.
-        customer_dict: The customer dictionary.
-
-    Returns:
-        A tuple containing the diff items and the final dictionary, which is the customer dictionary with non-conflicting values applied.
-    """
-    diff_keys = diff_dict_keys(customer_dict, panther_dict)
-
-    for k, v in panther_dict.items():
-        if k not in customer_dict:
-            # if the key is in the panther dict but not in the customer dict, add it to the customer dict
-            # with the panther value
-            customer_dict[k] = v.strip() if isinstance(v, str) else v
-
-    diff_items: list[widgets.YamlDiffItem] = []
-    for key in diff_keys:
-        cust_val = customer_dict[key] if key in customer_dict else None
-        panther_val = panther_dict[key] if key in panther_dict else None
-        base_val = base_dict[key] if key in base_dict else None
-
-        if base_val == panther_val and base_val != cust_val:
-            customer_dict[key] = cust_val
-            continue
-        elif base_val == cust_val and base_val != panther_val:
-            customer_dict[key] = panther_val
-            continue
-        diff_items.append(widgets.YamlDiffItem(key, cust_val, panther_val, base_val))
-
-    return diff_items, customer_dict
-
-
-def diff_dict_keys(dict1: dict, dict2: dict) -> list[str]:
-    diff = []
-    for key in dict1:
-        if key in dict2 and dict1[key] != dict2[key]:
-            diff.append(key)
-    return diff
+    def get_final_dict(self) -> dict:
+        return self.final_dict

@@ -5,6 +5,8 @@ import pathlib
 import pytest
 from textual.widgets import Label
 
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import diff
 from panther_analysis_tool.gui import widgets, yaml_conflict_resolver_gui
 
 conflict_files_path = (
@@ -18,6 +20,12 @@ raw_customer_yaml = customer_yaml_path.read_text()
 raw_panther_yaml = panther_yaml_path.read_text()
 raw_base_yaml = base_yaml_path.read_text()
 
+yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+customer_dict = yaml.load(raw_customer_yaml)
+conflict_items = diff.Dict(customer_dict).merge_dict(
+    yaml.load(raw_base_yaml), yaml.load(raw_panther_yaml)
+)
+
 
 @pytest.mark.asyncio
 async def test_yaml_conflict_resolver_gui_starts() -> None:
@@ -26,6 +34,8 @@ async def test_yaml_conflict_resolver_gui_starts() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test():
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -50,6 +60,8 @@ async def test_yaml_conflict_resolver_gui_switches_views() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -78,6 +90,8 @@ async def test_yaml_conflict_resolver_gui_retains_formatting() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         await pilot.press("y")
@@ -88,7 +102,7 @@ async def test_yaml_conflict_resolver_gui_retains_formatting() -> None:
 
         assert pilot.app._exit
         out = io.StringIO()
-        app.parser.dump(app.final_dict, out)
+        yaml.dump(app.final_dict, out)
         assert out.getvalue() == raw_customer_yaml
 
 
@@ -99,6 +113,8 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -114,7 +130,8 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.panther_val == "Panther name change"
         assert diff_resolver.diff_item.cust_val == "Customer name change"
         assert (
-            diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: DisplayName"
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: DisplayName (press "y" for your value or "p" for Panther\'s value)'
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -135,7 +152,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.cust_val == "This is a totally new field the customer added"
         assert (
             diff_resolver.query_one(Label).content
-            == "Resolving conflict for YAML key: TotallyNewField"
+            == 'Resolving conflict for: TotallyNewField (press "y" for your value or "p" for Panther\'s value)'
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -154,7 +171,10 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert len(diff_resolver.diff_item.panther_val) == 3
         assert isinstance(diff_resolver.diff_item.cust_val, list)
         assert len(diff_resolver.diff_item.cust_val) == 3
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Tests"
+        assert (
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: Tests (press "y" for your value or "p" for Panther\'s value)'
+        )
 
         await pilot.press("y")
         assert "LogTypes:" in customer_lines[customer_yaml_window.cursor_location[0]]
@@ -162,7 +182,10 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.key == "LogTypes"
         assert diff_resolver.diff_item.panther_val == ["Asana.Audit", "New.Panther.LogType"]
         assert diff_resolver.diff_item.cust_val == ["New.Customer.LogType", "Asana.Audit"]
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: LogTypes"
+        assert (
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: LogTypes (press "y" for your value or "p" for Panther\'s value)'
+        )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
             == "- Asana.Audit\n- New.Panther.LogType\n"
@@ -178,7 +201,10 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.key == "Runbook"
         assert diff_resolver.diff_item.panther_val == "Panther runbook change"
         assert diff_resolver.diff_item.cust_val == "Customer runbook change and line move"
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Runbook"
+        assert (
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: Runbook (press "y" for your value or "p" for Panther\'s value)'
+        )
         logging.warning(diff_resolver.query_one(widgets.PantherValueYAMLWindow).text)
         logging.warning(diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text)
         assert (
@@ -201,6 +227,8 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -216,7 +244,8 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.panther_val == "Panther name change"
         assert diff_resolver.diff_item.cust_val == "Customer name change"
         assert (
-            diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: DisplayName"
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: DisplayName (press "y" for your value or "p" for Panther\'s value)'
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -237,7 +266,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.cust_val == "This is a totally new field the customer added"
         assert (
             diff_resolver.query_one(Label).content
-            == "Resolving conflict for YAML key: TotallyNewField"
+            == 'Resolving conflict for: TotallyNewField (press "y" for your value or "p" for Panther\'s value)'
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -256,7 +285,10 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert len(diff_resolver.diff_item.panther_val) == 3
         assert isinstance(diff_resolver.diff_item.cust_val, list)
         assert len(diff_resolver.diff_item.cust_val) == 3
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Tests"
+        assert (
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: Tests (press "y" for your value or "p" for Panther\'s value)'
+        )
 
         await pilot.press("p")
         assert "LogTypes:" in customer_lines[customer_yaml_window.cursor_location[0]]
@@ -264,7 +296,10 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.key == "LogTypes"
         assert diff_resolver.diff_item.panther_val == ["Asana.Audit", "New.Panther.LogType"]
         assert diff_resolver.diff_item.cust_val == ["New.Customer.LogType", "Asana.Audit"]
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: LogTypes"
+        assert (
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: LogTypes (press "y" for your value or "p" for Panther\'s value)'
+        )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
             == "- Asana.Audit\n- New.Panther.LogType\n"
@@ -280,7 +315,10 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.key == "Runbook"
         assert diff_resolver.diff_item.panther_val == "Panther runbook change"
         assert diff_resolver.diff_item.cust_val == "Customer runbook change and line move"
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Runbook"
+        assert (
+            diff_resolver.query_one(Label).content
+            == 'Resolving conflict for: Runbook (press "y" for your value or "p" for Panther\'s value)'
+        )
         logging.warning(diff_resolver.query_one(widgets.PantherValueYAMLWindow).text)
         logging.warning(diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text)
         assert (
@@ -303,6 +341,8 @@ async def test_yaml_conflict_resolver_gui_can_quit() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         await pilot.press("ctrl+q")
