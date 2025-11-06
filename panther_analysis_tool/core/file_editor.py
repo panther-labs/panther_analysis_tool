@@ -1,5 +1,4 @@
 import dataclasses
-import os
 import pathlib
 import subprocess  # nosec:B404
 
@@ -31,9 +30,9 @@ class MergeableFiles:
                 raise FileNotFoundError(f"Output file {self.output_file} not found")
 
 
-def merge_files_in_editor(files: MergeableFiles) -> bool:
+def merge_files_in_editor(files: MergeableFiles, editor: str | None) -> bool:
     """
-    Merge files in an editor. Editor is read from the EDITOR environment variable.
+    Merge files in an editor.
 
     Args:
         files: The MergeableFiles object.
@@ -41,7 +40,7 @@ def merge_files_in_editor(files: MergeableFiles) -> bool:
     Returns:
         True if the editor returns before the merge is solved because it is solved asynchronously, False otherwise.
     """
-    editor = os.getenv("EDITOR", DEFAULT_EDITOR).lower()
+    editor = editor.lower() if editor else DEFAULT_EDITOR.lower()
 
     args = [editor]
     async_edit = True

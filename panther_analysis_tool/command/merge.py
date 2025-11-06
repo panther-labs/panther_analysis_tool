@@ -7,7 +7,7 @@ from typing import Tuple
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import get_yaml_loader, load_analysis_specs_ex
-from panther_analysis_tool.core import analysis_cache, diff, editor, git_helpers
+from panther_analysis_tool.core import analysis_cache, diff, file_editor, git_helpers
 from panther_analysis_tool.gui import yaml_conflict_resolver_gui
 
 
@@ -22,17 +22,17 @@ class MergeableItem:
     base_panther_item: analysis_utils.AnalysisItem
 
 
-def run(analysis_id: str | None) -> Tuple[int, str]:
-    return merge_analysis(analysis_id)
+def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
+    return merge_analysis(analysis_id, editor)
 
 
-def merge_analysis(analysis_id: str | None) -> Tuple[int, str]:
+def merge_analysis(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
     mergeable_items = get_mergeable_items(analysis_id)
     if not mergeable_items:
         print("Nothing to merge.")
         return 0, ""
 
-    merge_items(mergeable_items, analysis_id)
+    merge_items(mergeable_items, analysis_id, editor)
 
     return 0, ""
 
@@ -125,7 +125,9 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
     return mergeable_items
 
 
-def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -> None:
+def merge_items(
+    mergeable_items: list[MergeableItem], analysis_id: str | None, editor: str | None
+) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
 
@@ -148,6 +150,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
             latest=latest_item.raw_yaml_file_contents or b"",
             user_python=b"",
             output_path=pathlib.Path(user_item.yaml_file_path or ""),
+            editor=editor,
         )
         if has_conflict and analysis_id is None:
             merge_conflict_item_ids.append(user_item_id)
@@ -166,6 +169,7 @@ def merge_items(mergeable_items: list[MergeableItem], analysis_id: str | None) -
                 latest=latest_item.python_file_contents or b"",
                 user_python=user_item.python_file_contents or b"",
                 output_path=pathlib.Path(user_item.python_file_path or ""),
+                editor=editor,
             )
             if has_conflict:
                 merge_conflict_item_ids.append(user_item_id)
@@ -197,6 +201,7 @@ def merge_file(
     latest: bytes,
     user_python: bytes,
     output_path: pathlib.Path,
+    editor: str | None,
 ) -> bool:
     """
     Merge a file with git and solve the merge conflict if requested.
@@ -274,14 +279,15 @@ def merge_file(
         merged_path = long_lived_temp_dir / f"merged{ext}"
         merged_path.write_bytes(merged_contents)
 
-        async_edit = editor.merge_files_in_editor(
-            editor.MergeableFiles(
+        async_edit = file_editor.merge_files_in_editor(
+            file_editor.MergeableFiles(
                 users_file=long_lived_temp_dir / user_path.name,
                 base_file=long_lived_temp_dir / base_path.name,
                 panthers_file=long_lived_temp_dir / latest_path.name,
                 premerged_file=merged_path,
                 output_file=output_path,
-            )
+            ),
+            editor=editor,
         )
         if not async_edit:
             # editing has finished so remove the long-lived temp dir

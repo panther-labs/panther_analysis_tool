@@ -493,7 +493,7 @@ def test_merge_items_no_conflict_with_python(
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
         ),
     ]
-    merge.merge_items(mergeable_items, None)
+    merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
             call("Updated 2 spec(s) with latest Panther version:"),
@@ -532,7 +532,7 @@ def test_merge_items_no_conflict_no_python(
             base_panther_item=load_spec_to_analysis_item(rule_2, None),
         ),
     ]
-    merge.merge_items(mergeable_items, None)
+    merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
             call("Updated 2 spec(s) with latest Panther version:"),
@@ -571,7 +571,7 @@ def test_merge_items_yaml_conflict(
             base_panther_item=load_spec_to_analysis_item(rule_2, None),
         ),
     ]
-    merge.merge_items(mergeable_items, None)
+    merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
             call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
@@ -610,7 +610,7 @@ def test_merge_items_python_conflict(
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
         ),
     ]
-    merge.merge_items(mergeable_items, None)
+    merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
             call("Updated 1 spec(s) with latest Panther version:"),
@@ -655,7 +655,7 @@ def test_merge_items_both_conflicts(
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
         ),
     ]
-    merge.merge_items(mergeable_items, None)
+    merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
             call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
@@ -689,7 +689,7 @@ def test_merge_items_with_analysis_id_with_conflict(
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
         ),
     ]
-    merge.merge_items(mergeable_items, "target")
+    merge.merge_items(mergeable_items, "target", None)
     mock_print.assert_has_calls([])
     assert mock_merge_file.call_count == 2
 
@@ -714,7 +714,7 @@ def test_merge_items_with_analysis_id_no_conflict(
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
         ),
     ]
-    merge.merge_items(mergeable_items, "target")
+    merge.merge_items(mergeable_items, "target", None)
     mock_print.assert_has_calls([])
     assert mock_merge_file.call_count == 2
 
@@ -739,6 +739,7 @@ def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Pa
         latest=b"base: yaml",
         user_python=b"",
         output_path=output_path,
+        editor=None,
     )
     assert not has_conflict
     assert output_path.read_text() == "user: yaml\nbase: yaml\n"
@@ -759,6 +760,7 @@ def test_merge_file_yaml_conflict(mocker: MockerFixture, tmp_path: pathlib.Path)
         latest=b"key: latest",
         user_python=b"",
         output_path=output_path,
+        editor=None,
     )
     assert has_conflict
     # output file should not have changed
@@ -784,6 +786,7 @@ def test_merge_file_yaml_conflict_solve(mocker: MockerFixture, tmp_path: pathlib
         latest=b"common: latest",
         user_python=b"",
         output_path=output_path,
+        editor=None,
     )
     assert not has_conflict
     assert output_path.read_text() == "common: user\n"
@@ -804,6 +807,7 @@ def test_merge_file_python_no_conflict(mocker: MockerFixture, tmp_path: pathlib.
         latest=b"base_python",
         user_python=b"user_python",
         output_path=output_path,
+        editor=None,
     )
     assert not has_conflict
     assert output_path.read_text() == "merged_python"
@@ -824,6 +828,7 @@ def test_merge_file_python_conflict(mocker: MockerFixture, tmp_path: pathlib.Pat
         latest=b"base_python",
         user_python=b"user_python",
         output_path=output_path,
+        editor=None,
     )
     assert has_conflict
     assert output_path.read_text() == "user_python"
@@ -837,9 +842,9 @@ def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathl
         return_value=(True, b"merged_python"),
     )
     merge_files_mock = mocker.patch(
-        "panther_analysis_tool.command.merge.editor.merge_files_in_editor", return_value=False
+        "panther_analysis_tool.command.merge.file_editor.merge_files_in_editor", return_value=False
     )
-    merge_files_mock.side_effect = lambda _: output_path.write_text("merged_python")
+    merge_files_mock.side_effect = lambda _, **kwargs: output_path.write_text("merged_python")
 
     has_conflict = merge.merge_file(
         solve_merge=True,
@@ -848,6 +853,7 @@ def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathl
         latest=b"base_python",
         user_python=b"user_python",
         output_path=output_path,
+        editor=None,
     )
     assert not has_conflict
     assert output_path.read_text() == "merged_python"

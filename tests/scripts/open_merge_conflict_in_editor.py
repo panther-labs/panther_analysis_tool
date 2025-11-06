@@ -2,6 +2,7 @@ import os
 import pathlib
 import tempfile
 
+from panther_analysis_tool import constants
 from panther_analysis_tool.core import editor, git_helpers
 
 conflict_files_path = pathlib.Path(__file__).parent.parent / "fixtures" / "python_merge_conflict"
@@ -55,7 +56,8 @@ def _edit_file(users_file: str, base_file: str, panthers_file: str) -> None:
                 panthers_file=panthers_file_path,
                 output_file=output_file_path,
                 premerged_file=premerged_file_path,
-            )
+            ),
+            editor=os.getenv("EDITOR") or constants.DEFAULT_EDITOR,
         )
 
 

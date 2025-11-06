@@ -2468,8 +2468,12 @@ def merge_command(
         Optional[str],
         typer.Argument(help="The ID of the analysis item to merge.", autocompletion=complete_id),
     ] = None,
+    editor: Annotated[
+        Optional[str],
+        typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
+    ] = None,
 ) -> Tuple[int, str]:
-    return merge.run(analysis_id)
+    return merge.run(analysis_id, editor)
 
 
 # pylint: disable=too-many-statements
