@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pathlib
 import shutil
 import zipfile
 from datetime import datetime
@@ -216,6 +217,12 @@ class TestPantherAnalysisTool(TestCase):
             self, ["test", "--path", DETECTIONS_FIXTURES_PATH]
         )
         self.assertEqual(return_code, 1)
+
+        logging.warning("__file__: %s", __file__)
+        logging.warning("DETECTIONS_FIXTURES_PATH: %s", DETECTIONS_FIXTURES_PATH)
+        logging.warning("FIXTURES_PATH: %s", FIXTURES_PATH)
+        logging.warning("os.path.abspath(DETECTIONS_FIXTURES_PATH): %s", os.path.abspath(DETECTIONS_FIXTURES_PATH))
+        logging.warning("os.path.abspath(FIXTURES_PATH): %s", os.path.abspath(FIXTURES_PATH))
 
         names = []
         for invalid_spec in invalid_specs:
