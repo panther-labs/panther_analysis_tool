@@ -265,7 +265,7 @@ def merge_file(
         # python merge
         has_conflict, merged_contents = git_helpers.merge_file(user_path, base_path, latest_path)
         if not has_conflict:
-            with open(output_path, "wb", encoding="utf-8") as file:
+            with open(output_path, "wb") as file:
                 file.write(merged_contents)
             return False
 
