@@ -221,7 +221,10 @@ class TestPantherAnalysisTool(TestCase):
         logging.warning("__file__: %s", __file__)
         logging.warning("DETECTIONS_FIXTURES_PATH: %s", DETECTIONS_FIXTURES_PATH)
         logging.warning("FIXTURES_PATH: %s", FIXTURES_PATH)
-        logging.warning("os.path.abspath(DETECTIONS_FIXTURES_PATH): %s", os.path.abspath(DETECTIONS_FIXTURES_PATH))
+        logging.warning(
+            "os.path.abspath(DETECTIONS_FIXTURES_PATH): %s",
+            os.path.abspath(DETECTIONS_FIXTURES_PATH),
+        )
         logging.warning("os.path.abspath(FIXTURES_PATH): %s", os.path.abspath(FIXTURES_PATH))
 
         names = []
