@@ -76,12 +76,10 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -128,7 +126,7 @@ from panther_analysis_tool.core.definitions import (
 from panther_analysis_tool.core.parse import (
     Filter,
     get_filters_with_status_filters,
-    parse_filter,
+    parse_filter_args,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
@@ -1907,7 +1905,7 @@ def release(  # pylint: disable=too-many-arguments
         available_destination = []
 
     # release should parse filter as is, and not filter out Status: deprecated, Status: experimental
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     # Forward to your logic function
     return generate_release_assets(
