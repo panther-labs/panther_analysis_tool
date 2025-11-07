@@ -49,3 +49,51 @@ class TestParser(TestCase):
             self.assertIn(Filter(key="Severity", values=["Critical"]), parsed_filters)
             self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
             self.assertIn(Filter(key="RuleID", values=["abc"]), parsed_filters_inverted)
+            # by default: experimental and deprecated should always be filtered out
+            self.assertIn(
+                Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
+            )
+
+    def test_parse_filters_status_can_be_overridden(self):
+        with patch(
+            "panther_analysis_tool.main.test_analysis", return_value=(0, [])
+        ) as mock_test_analysis:
+            result = runner.invoke(
+                pat.app,
+                [
+                    "test",
+                    "--path",
+                    f"{DETECTIONS_FIXTURES_PATH}/valid_analysis",
+                    "--filter",
+                    "AnalysisType=policy,global",
+                    "--filter",
+                    "Severity=Critical",
+                    "--filter",
+                    "Enabled=true",
+                    "--filter",
+                    "RuleID!=abc",
+                    "--filter",
+                    "Status=experimental",
+                ],
+            )
+
+            if result.exception:
+                raise result.exception
+
+            self.assertEqual(result.exit_code, 0)
+
+            mock_test_analysis.return_value = (0, [])
+
+            args = mock_test_analysis.call_args[0][1]
+
+            parsed_filters, parsed_filters_inverted = args.filters, args.filters_inverted
+            self.assertIn(Filter(key="AnalysisType", values=["policy", "global"]), parsed_filters)
+            self.assertIn(Filter(key="Severity", values=["Critical"]), parsed_filters)
+            self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
+            self.assertIn(Filter(key="RuleID", values=["abc"]), parsed_filters_inverted)
+            # user explicitly added a filter on status: we should not have added Status != experimental,deprecated
+            self.assertNotIn(
+                Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
+            )
+            # user's status filter:
+            self.assertIn(Filter(key="Status", values=["experimental"]), parsed_filters)
