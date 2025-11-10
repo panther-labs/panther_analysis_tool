@@ -87,6 +87,7 @@ from panther_analysis_tool.command import (
     enable,
     explore,
     fetch,
+    generate,
     init_project,
     validate,
 )
@@ -2457,6 +2458,11 @@ def enable_command(
 @app.command(name="explore", help="explore content")
 def explore_command() -> Tuple[int, str]:
     return explore.run()
+
+
+@app_command_with_config(name="generate", help="Generate analysis items from main.py")
+def generate_command() -> Tuple[int, str]:
+    return generate.run()
 
 
 # pylint: disable=too-many-statements
