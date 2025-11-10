@@ -114,7 +114,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.panther_val == "Panther name change"
         assert diff_resolver.diff_item.cust_val == "Customer name change"
         assert (
-            diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: DisplayName"
+            diff_resolver.query_one(Label).content == "Resolving conflict for: DisplayName (press \"y\" for your value or \"p\" for Panther's value)"
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -135,7 +135,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.cust_val == "This is a totally new field the customer added"
         assert (
             diff_resolver.query_one(Label).content
-            == "Resolving conflict for YAML key: TotallyNewField"
+            == "Resolving conflict for: TotallyNewField (press \"y\" for your value or \"p\" for Panther's value)"
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -154,7 +154,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert len(diff_resolver.diff_item.panther_val) == 3
         assert isinstance(diff_resolver.diff_item.cust_val, list)
         assert len(diff_resolver.diff_item.cust_val) == 3
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Tests"
+        assert diff_resolver.query_one(Label).content == "Resolving conflict for: Tests (press \"y\" for your value or \"p\" for Panther's value)"
 
         await pilot.press("y")
         assert "LogTypes:" in customer_lines[customer_yaml_window.cursor_location[0]]
@@ -162,7 +162,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.key == "LogTypes"
         assert diff_resolver.diff_item.panther_val == ["Asana.Audit", "New.Panther.LogType"]
         assert diff_resolver.diff_item.cust_val == ["New.Customer.LogType", "Asana.Audit"]
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: LogTypes"
+        assert diff_resolver.query_one(Label).content == "Resolving conflict for: LogTypes (press \"y\" for your value or \"p\" for Panther's value)"
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
             == "- Asana.Audit\n- New.Panther.LogType\n"
@@ -178,7 +178,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         assert diff_resolver.diff_item.key == "Runbook"
         assert diff_resolver.diff_item.panther_val == "Panther runbook change"
         assert diff_resolver.diff_item.cust_val == "Customer runbook change and line move"
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Runbook"
+        assert diff_resolver.query_one(Label).content == "Resolving conflict for: Runbook (press \"y\" for your value or \"p\" for Panther's value)"
         logging.warning(diff_resolver.query_one(widgets.PantherValueYAMLWindow).text)
         logging.warning(diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text)
         assert (
@@ -216,7 +216,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.panther_val == "Panther name change"
         assert diff_resolver.diff_item.cust_val == "Customer name change"
         assert (
-            diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: DisplayName"
+            diff_resolver.query_one(Label).content == "Resolving conflict for: DisplayName (press \"y\" for your value or \"p\" for Panther's value)"
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -237,7 +237,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.cust_val == "This is a totally new field the customer added"
         assert (
             diff_resolver.query_one(Label).content
-            == "Resolving conflict for YAML key: TotallyNewField"
+            == "Resolving conflict for: TotallyNewField (press \"y\" for your value or \"p\" for Panther's value)"
         )
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
@@ -256,7 +256,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert len(diff_resolver.diff_item.panther_val) == 3
         assert isinstance(diff_resolver.diff_item.cust_val, list)
         assert len(diff_resolver.diff_item.cust_val) == 3
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Tests"
+        assert diff_resolver.query_one(Label).content == "Resolving conflict for: Tests (press \"y\" for your value or \"p\" for Panther's value)"
 
         await pilot.press("p")
         assert "LogTypes:" in customer_lines[customer_yaml_window.cursor_location[0]]
@@ -264,7 +264,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.key == "LogTypes"
         assert diff_resolver.diff_item.panther_val == ["Asana.Audit", "New.Panther.LogType"]
         assert diff_resolver.diff_item.cust_val == ["New.Customer.LogType", "Asana.Audit"]
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: LogTypes"
+        assert diff_resolver.query_one(Label).content == "Resolving conflict for: LogTypes (press \"y\" for your value or \"p\" for Panther's value)"
         assert (
             diff_resolver.query_one(widgets.PantherValueYAMLWindow).text
             == "- Asana.Audit\n- New.Panther.LogType\n"
@@ -280,7 +280,7 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         assert diff_resolver.diff_item.key == "Runbook"
         assert diff_resolver.diff_item.panther_val == "Panther runbook change"
         assert diff_resolver.diff_item.cust_val == "Customer runbook change and line move"
-        assert diff_resolver.query_one(Label).content == "Resolving conflict for YAML key: Runbook"
+        assert diff_resolver.query_one(Label).content == "Resolving conflict for: Runbook (press \"y\" for your value or \"p\" for Panther's value)"
         logging.warning(diff_resolver.query_one(widgets.PantherValueYAMLWindow).text)
         logging.warning(diff_resolver.query_one(widgets.CustomerValueYAMLWindow).text)
         assert (
