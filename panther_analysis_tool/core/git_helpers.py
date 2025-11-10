@@ -1,8 +1,8 @@
 import os
 import pathlib
 import shutil
-import subprocess
-from typing import Tuple  # nosec:B404
+import subprocess  # nosec:B404
+from typing import Tuple
 
 import requests
 

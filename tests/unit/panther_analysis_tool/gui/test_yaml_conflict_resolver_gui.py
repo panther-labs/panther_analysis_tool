@@ -5,6 +5,8 @@ import pathlib
 import pytest
 from textual.widgets import Label
 
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import diff
 from panther_analysis_tool.gui import widgets, yaml_conflict_resolver_gui
 
 conflict_files_path = (
@@ -18,6 +20,12 @@ raw_customer_yaml = customer_yaml_path.read_text()
 raw_panther_yaml = panther_yaml_path.read_text()
 raw_base_yaml = base_yaml_path.read_text()
 
+yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+customer_dict = yaml.load(raw_customer_yaml)
+conflict_items = diff.Dict(customer_dict).merge_dict(
+    yaml.load(raw_base_yaml), yaml.load(raw_panther_yaml)
+)
+
 
 @pytest.mark.asyncio
 async def test_yaml_conflict_resolver_gui_starts() -> None:
@@ -26,6 +34,8 @@ async def test_yaml_conflict_resolver_gui_starts() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test():
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -50,6 +60,8 @@ async def test_yaml_conflict_resolver_gui_switches_views() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -78,6 +90,8 @@ async def test_yaml_conflict_resolver_gui_retains_formatting() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         await pilot.press("y")
@@ -88,7 +102,7 @@ async def test_yaml_conflict_resolver_gui_retains_formatting() -> None:
 
         assert pilot.app._exit
         out = io.StringIO()
-        app.parser.dump(app.final_dict, out)
+        yaml.dump(app.final_dict, out)
         assert out.getvalue() == raw_customer_yaml
 
 
@@ -99,6 +113,8 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_your_values() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -211,6 +227,8 @@ async def test_yaml_conflict_resolver_gui_can_choose_all_panther_values() -> Non
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         customer_yaml_window = app.query_one(widgets.CustomerYAMLWindow)
@@ -323,6 +341,8 @@ async def test_yaml_conflict_resolver_gui_can_quit() -> None:
         raw_customer_yaml=raw_customer_yaml,
         raw_panther_yaml=raw_panther_yaml,
         raw_base_yaml=raw_base_yaml,
+        customer_dict=customer_dict,
+        conflict_items=conflict_items,
     )
     async with app.run_test() as pilot:
         await pilot.press("ctrl+q")

@@ -803,6 +803,8 @@ class AnalysisItem:
             and self.yaml_file_path == value.yaml_file_path
             and self.python_file_path == value.python_file_path
             and self.python_file_contents == value.python_file_contents
+            # not including raw_yaml_file_contents because whitespace differences and such don't matter
+            # and yaml_file_contents is the only thing that matters for equality
         )
 
     def analysis_type(self) -> str:

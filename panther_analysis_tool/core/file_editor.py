@@ -1,5 +1,4 @@
 import dataclasses
-import os
 import pathlib
 import subprocess  # nosec:B404
 
@@ -31,10 +30,20 @@ class MergeableFiles:
                 raise FileNotFoundError(f"Output file {self.output_file} not found")
 
 
-def merge_files_in_editor(files: MergeableFiles) -> None:
-    editor = os.getenv("EDITOR", DEFAULT_EDITOR).lower()
+def merge_files_in_editor(files: MergeableFiles, editor: str | None) -> bool:
+    """
+    Merge files in an editor.
+
+    Args:
+        files: The MergeableFiles object.
+
+    Returns:
+        True if the editor returns before the merge is solved because it is solved asynchronously, False otherwise.
+    """
+    editor = editor.lower() if editor else DEFAULT_EDITOR.lower()
 
     args = [editor]
+    async_edit = True
     match editor:
         # jetbrains editors, not all their products are included in this list
         case (
@@ -60,8 +69,15 @@ def merge_files_in_editor(files: MergeableFiles) -> None:
                     str(files.output_file),
                 ]
             )
+        case "vi" | "vim":
+            async_edit = False
+            files.validate(premerged_required=True)
+            files.output_file.write_bytes(files.premerged_file.read_bytes())
+            args.append(str(files.output_file))
         case _:
             files.validate(premerged_required=True)
-            args.append(str(files.premerged_file))
+            files.output_file.write_bytes(files.premerged_file.read_bytes())
+            args.append(str(files.output_file))
 
     subprocess.run(args, check=True)  # nosec:B603
+    return async_edit

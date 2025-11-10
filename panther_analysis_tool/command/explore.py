@@ -31,7 +31,7 @@ def load_all_specs() -> list[analysis_utils.AnalysisItem]:
         )
 
         if "Filename" in yaml_content:
-            python_file_contents = cache.get_file_for_spec(spec.id or -1)
+            python_file_contents = cache.get_file_for_spec(spec.id or -1, spec.version)
             item.python_file_contents = python_file_contents
             item.python_file_path = ver.history[ver.version].py_file_path
 
