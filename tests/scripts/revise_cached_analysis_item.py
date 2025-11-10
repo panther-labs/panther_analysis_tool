@@ -1,5 +1,5 @@
 """
-Insert a new version of an analysis item into the cache at `.cache`. 
+Insert a new version of an analysis item into the cache at `.cache`.
 
 This script is used for testing purposes.
 It will allow you to edit the analysis item in an editor to make an update to it.
@@ -8,7 +8,7 @@ than the previous version.
 This is primarily useful for testing the merge command.
 
 Usage:
-    python ./tests/scripts/insert_cached_analysis_item.py <analysis_id>
+    python ./tests/scripts/revise_cached_analysis_item.py <analysis_id>
 """
 
 import pathlib
@@ -30,6 +30,10 @@ def main() -> None:
     cache = analysis_cache.AnalysisCache()
     cache.create_tables()
 
+    revise_item(cache, analysis_id)
+
+
+def revise_item(cache: analysis_cache.AnalysisCache, analysis_id: str) -> None:
     latest_spec = cache.get_latest_spec(analysis_id)
     if latest_spec is None:
         print(f"Analysis ID {analysis_id} not found in cache")
@@ -54,7 +58,7 @@ def main() -> None:
 
         new_py_content: bytes | None = None
         if "Filename" in spec_yaml:
-            spec_py = cache.get_file_for_spec(latest_spec.id or -1)
+            spec_py = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
             if spec_py is not None:
                 with tempfile.NamedTemporaryFile(delete=False) as temp_file_py:
                     temp_file_py.write(spec_py)
@@ -82,7 +86,7 @@ def main() -> None:
 
 
 def print_usage() -> None:
-    print("Usage: python ./tests/scripts/insert_cached_analysis_item.py <analysis_id>")
+    print("Usage: python ./tests/scripts/revise_cached_analysis_item.py <analysis_id>")
 
 
 if __name__ == "__main__":

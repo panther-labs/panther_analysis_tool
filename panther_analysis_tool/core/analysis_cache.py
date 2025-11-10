@@ -272,3 +272,34 @@ class AnalysisCache:
         except Exception as e:
             self.conn.rollback()
             raise e
+
+    def delete_analysis_spec(self, analysis_id: str, version: int) -> None:
+        """
+        Delete an analysis spec from the cache by its ID and version.
+
+        Args:
+            analysis_id (str): The ID of the analysis spec to delete.
+            version (int): The version of the analysis spec to delete.
+        """
+        spec = self.get_spec_for_version(analysis_id, version)
+        if spec is None:
+            raise ValueError(f"Analysis spec {analysis_id} at version {version} not found in cache")
+
+        self.cursor.execute(
+            "DELETE FROM analysis_specs WHERE id_value = ? AND version = ?", (analysis_id, version)
+        )
+
+        row = self.cursor.execute(
+            "SELECT file_id FROM file_mappings WHERE spec_id = ? AND version = ?",
+            (analysis_id, version),
+        ).fetchone()
+        if row is None:
+            return None
+
+        file_id = row[0]
+        self.cursor.execute(
+            "DELETE FROM file_mappings WHERE spec_id = ? AND version = ?", (spec.id or -1, version)
+        )
+        self.cursor.execute("DELETE FROM files WHERE id = ?", (file_id,))
+
+        self.conn.commit()

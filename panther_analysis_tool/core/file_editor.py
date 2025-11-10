@@ -72,10 +72,12 @@ def merge_files_in_editor(files: MergeableFiles, editor: str | None) -> bool:
         case "vi" | "vim":
             async_edit = False
             files.validate(premerged_required=True)
-            args.append(str(files.premerged_file))
+            files.output_file.write_bytes(files.premerged_file.read_bytes())
+            args.append(str(files.output_file))
         case _:
             files.validate(premerged_required=True)
-            args.append(str(files.premerged_file))
+            files.output_file.write_bytes(files.premerged_file.read_bytes())
+            args.append(str(files.output_file))
 
     subprocess.run(args, check=True)  # nosec:B603
     return async_edit

@@ -2436,7 +2436,7 @@ def init_command() -> Tuple[int, str]:
     return init_project.run(working_dir=".")
 
 
-@app_command_with_config(name="fetch", help="Fetch all Panther Analysis content")
+@app_command_with_config(name="fetch", help="Fetch all the latest Panther Analysis content")
 def fetch_command() -> Tuple[int, str]:
     return fetch.run()
 
@@ -2457,12 +2457,14 @@ def enable_command(
     return enable.run(analysis_id, filters)
 
 
-@app.command(name="explore", help="Explore content")
+@app.command(name="explore", help="Explore the latest Panther Analysis content")
 def explore_command() -> Tuple[int, str]:
     return explore.run()
 
 
-@app_command_with_config(name="merge", help="Merge an analysis item")
+@app_command_with_config(
+    name="merge", help="Merge all analysis items with the latest fetched Panther Analysis content"
+)
 def merge_command(
     analysis_id: Annotated[
         Optional[str],

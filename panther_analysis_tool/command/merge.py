@@ -69,8 +69,12 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
             # this happens with custom analysis items
             continue
 
+        # if the user spec does not have a BaseVersion, add one
+        if "BaseVersion" not in user_spec.analysis_spec:
+            user_spec.analysis_spec["BaseVersion"] = 1
+
         # check if the user spec's BaseVersion is less than the latest version, skip merge if it is not
-        user_spec_base_version: int = user_spec.analysis_spec.get("BaseVersion") or -1
+        user_spec_base_version: int = user_spec.analysis_spec.get("BaseVersion")
         if user_spec_base_version > latest_spec.version:
             logging.warning(
                 "User spec %s has a base version greater than the latest version %s, skipping",
@@ -85,7 +89,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
         base_spec = cache.get_spec_for_version(user_spec_id, user_spec_base_version)
         if base_spec is None:
             logging.warning(
-                "Base version %s for %s not found, skipping", user_spec_base_version, user_spec_id
+                "%s at version %s not found, skipping", user_spec_id, user_spec_base_version
             )
             continue
 
@@ -112,12 +116,16 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
                 latest_panther_item=analysis_utils.AnalysisItem(
                     yaml_file_contents=yaml.load(latest_spec.spec),
                     raw_yaml_file_contents=latest_spec.spec,
-                    python_file_contents=cache.get_file_for_spec(latest_spec.id or -1),
+                    python_file_contents=cache.get_file_for_spec(
+                        latest_spec.id or -1, latest_spec.version
+                    ),
                 ),
                 base_panther_item=analysis_utils.AnalysisItem(
                     yaml_file_contents=yaml.load(base_spec.spec),
                     raw_yaml_file_contents=base_spec.spec,
-                    python_file_contents=cache.get_file_for_spec(base_spec.id or -1),
+                    python_file_contents=cache.get_file_for_spec(
+                        base_spec.id or -1, base_spec.version
+                    ),
                 ),
             )
         )
@@ -185,13 +193,14 @@ def merge_items(
                 print(f"  * {item_id}")
         if len(merge_conflict_item_ids) > 0:
             print(
-                f"{len(merge_conflict_item_ids)} merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"
+                f"{len(merge_conflict_item_ids)} merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
             )
             for conflict in merge_conflict_item_ids:
                 print(f"  * {conflict}")
-        print(
-            "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
-        )
+        if len(updated_item_ids) > 0:
+            print(
+                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+            )
 
 
 # pylint: disable=too-many-locals,too-many-arguments

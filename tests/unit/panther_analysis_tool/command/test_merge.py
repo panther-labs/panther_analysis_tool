@@ -396,6 +396,45 @@ def test_get_mergeable_items_custom_rule(
     get_latest_spec_mock.assert_has_calls([call("custom")])
 
 
+def test_get_mergeable_items_base_version_added(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+    make_analysis_spec: make_analysis_spec_type,
+) -> None:
+    mock_load_spec = make_load_spec(tmp_path, "rule", "1", 1, True)
+    del mock_load_spec.analysis_spec["BaseVersion"]
+    mocker.patch(
+        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
+        return_value=[mock_load_spec],
+    )
+    get_latest_spec_mock = mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
+        side_effect=[make_analysis_spec("rule", "1", 2, True)],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_spec_for_version",
+        side_effect=[
+            make_analysis_spec("rule", "1", 1, True),
+        ],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_file_for_spec",
+        side_effect=[b"latest_python", b"base_python"],
+    )
+    mock_sqlite = tmp_path / ".cache" / "panther-analysis.sqlite"
+    mock_sqlite.parent.mkdir(parents=True, exist_ok=True)
+    mock_sqlite.touch()
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.PANTHER_ANALYSIS_SQLITE_FILE_PATH",
+        mock_sqlite,
+    )
+    mergeable_items = merge.get_mergeable_items(None)
+    assert len(mergeable_items) == 1
+    assert mergeable_items[0].user_item.yaml_file_contents["BaseVersion"] == 1
+    get_latest_spec_mock.assert_has_calls([call("1")])
+
+
 def test_get_mergeable_items_with_analysis_id(
     mocker: MockerFixture,
     tmp_path: pathlib.Path,
@@ -574,12 +613,11 @@ def test_merge_items_yaml_conflict(
     merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
-            call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
+            call(
+                "2 merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+            ),
             call("  * 1"),
             call("  * 2"),
-            call(
-                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
-            ),
         ]
     )
 
@@ -615,7 +653,9 @@ def test_merge_items_python_conflict(
         [
             call("Updated 1 spec(s) with latest Panther version:"),
             call("  * 1"),
-            call("1 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
+            call(
+                "1 merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+            ),
             call("  * 2"),
             call(
                 "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
@@ -658,12 +698,11 @@ def test_merge_items_both_conflicts(
     merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
-            call("2 merge conflict(s) found, run `pat merge <id>` to resolve each conflict:"),
+            call(
+                "2 merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+            ),
             call("  * 1"),
             call("  * 2"),
-            call(
-                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
-            ),
         ]
     )
     assert mock_merge_file.call_count == 3

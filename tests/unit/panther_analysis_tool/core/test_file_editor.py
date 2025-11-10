@@ -81,7 +81,7 @@ def test_merge_files_in_other_editor(
 
     async_edit = file_editor.merge_files_in_editor(files, editor_cmd)
     assert async_edit
-    mock_run.assert_called_once_with([editor_cmd, str(tmp_path / "premerged_file.py")], check=True)
+    mock_run.assert_called_once_with([editor_cmd, str(tmp_path / "output_file.py")], check=True)
 
 
 @pytest.mark.parametrize("editor_cmd", ["vim", "vi"])
@@ -107,7 +107,7 @@ def test_merge_files_in_synchronous_editor(
 
     async_edit = file_editor.merge_files_in_editor(files, editor_cmd)
     assert not async_edit
-    mock_run.assert_called_once_with([editor_cmd, str(tmp_path / "premerged_file.py")], check=True)
+    mock_run.assert_called_once_with([editor_cmd, str(tmp_path / "output_file.py")], check=True)
 
 
 def test_merge_files_default_editor(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
@@ -131,5 +131,5 @@ def test_merge_files_default_editor(tmp_path: pathlib.Path, mocker: MockerFixtur
     async_edit = file_editor.merge_files_in_editor(files, constants.DEFAULT_EDITOR)
     assert not async_edit
     mock_run.assert_called_once_with(
-        [constants.DEFAULT_EDITOR, str(tmp_path / "premerged_file.py")], check=True
+        [constants.DEFAULT_EDITOR, str(tmp_path / "output_file.py")], check=True
     )
