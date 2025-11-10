@@ -74,7 +74,9 @@ def get_analysis_items(
                 yaml_file_contents=loaded,
                 yaml_file_path=versions[_id].history[versions[_id].version].yaml_file_path,
                 python_file_path=versions[_id].history[versions[_id].version].py_file_path,
-                python_file_contents=cache.get_file_for_spec(analysis_spec.id or -1),
+                python_file_contents=cache.get_file_for_spec(
+                    analysis_spec.id or -1, analysis_spec.version
+                ),
             )
         )
 

@@ -78,10 +78,10 @@ class AnalysisCache:
         )
 
         self.cursor.execute(
-            "CREATE TABLE IF NOT EXISTS file_mappings (id INTEGER PRIMARY KEY AUTOINCREMENT, spec_id INTEGER, file_id INTEGER, FOREIGN KEY (spec_id) REFERENCES analysis_specs(id), FOREIGN KEY (file_id) REFERENCES files(id));"
+            "CREATE TABLE IF NOT EXISTS file_mappings (id INTEGER PRIMARY KEY AUTOINCREMENT, spec_id INTEGER, version INTEGER, file_id INTEGER, FOREIGN KEY (spec_id) REFERENCES analysis_specs(id), FOREIGN KEY (file_id) REFERENCES files(id));"
         )
         self.cursor.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_mappings_unique ON file_mappings (spec_id, file_id);"
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_mappings_unique ON file_mappings (spec_id, version, file_id);"
         )
 
     def list_spec_ids(self) -> list[str]:
@@ -94,18 +94,20 @@ class AnalysisCache:
         self.cursor.execute("SELECT DISTINCT id_value FROM analysis_specs")
         return [row[0] for row in self.cursor.fetchall()]
 
-    def get_file_for_spec(self, analysis_spec_id: int) -> Optional[bytes]:
+    def get_file_for_spec(self, analysis_spec_id: int, version: int) -> Optional[bytes]:
         """
         Get the file content associated with a specific analysis spec.
 
         Args:
             analysis_spec_id (int): The ID of the analysis spec.
+            version (int): The version of the analysis spec.
 
         Returns:
             Optional[bytes]: The file content as bytes if found, None otherwise.
         """
         row = self.cursor.execute(
-            "SELECT file_id FROM file_mappings WHERE spec_id = ?", (analysis_spec_id,)
+            "SELECT file_id FROM file_mappings WHERE spec_id = ? AND version = ?",
+            (analysis_spec_id, version),
         ).fetchone()
         if row is None:
             return None
@@ -226,7 +228,7 @@ class AnalysisCache:
         assert spec_id is not None  # nosec: B101
         return spec_id
 
-    def _insert_file_mapping(self, spec_id: int, file_id: int) -> None:
+    def _insert_file_mapping(self, spec_id: int, version: int, file_id: int) -> None:
         """
         Insert a mapping between a spec and a file in the cache.
 
@@ -235,8 +237,8 @@ class AnalysisCache:
             file_id (int): The ID of the associated file.
         """
         self.cursor.execute(
-            "INSERT INTO file_mappings (spec_id, file_id) VALUES (?, ?);",
-            (spec_id, file_id),
+            "INSERT INTO file_mappings (spec_id, version, file_id) VALUES (?, ?, ?);",
+            (spec_id, version, file_id),
         )
 
     def insert_analysis_spec(
@@ -262,7 +264,7 @@ class AnalysisCache:
             )
             if pyFileContents is not None:
                 file_id = self._insert_file(pyFileContents)
-                self._insert_file_mapping(spec_id, file_id)
+                self._insert_file_mapping(spec_id, analysis_spec.version, file_id)
 
             self.conn.commit()
         except sqlite3.IntegrityError as e:
