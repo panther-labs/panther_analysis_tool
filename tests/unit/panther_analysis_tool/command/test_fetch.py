@@ -364,7 +364,7 @@ def test_populate_works_with_latest_versions(
     assert latest_spec.id_field == "RuleID"
     assert latest_spec.id_value == "fake.rule.1"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
@@ -375,7 +375,7 @@ def test_populate_works_with_latest_versions(
     assert latest_spec_2.id_field == "RuleID"
     assert latest_spec_2.id_value == "fake.rule.2"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
@@ -386,7 +386,7 @@ def test_populate_works_when_user_has_old_version(
     tmp_path: pathlib.Path,
     monkeypatch: MonkeyPatch,
 ) -> None:
-    mock_get_panther_analysis_file_contents.side_effect = [_FAKE_RULE_2_V1, _FAKE_PY]
+    mock_get_panther_analysis_file_contents.side_effect = [_FAKE_RULE_2_V1, _FAKE_PY + "old"]
     set_up_cache(tmp_path, monkeypatch)
     fetch.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
@@ -398,7 +398,7 @@ def test_populate_works_when_user_has_old_version(
     assert latest_spec.id_field == "RuleID"
     assert latest_spec.id_value == "fake.rule.2"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
@@ -409,9 +409,9 @@ def test_populate_works_when_user_has_old_version(
     assert old_spec.id_field == "RuleID"
     assert old_spec.id_value == "fake.rule.2"
 
-    py_file = cache.get_file_for_spec(old_spec.id or -1)
+    py_file = cache.get_file_for_spec(old_spec.id or -1, old_spec.version)
     assert py_file is not None
-    assert py_file.decode("utf-8") == _FAKE_PY
+    assert py_file.decode("utf-8") == _FAKE_PY + "old"
 
 
 def test_populate_works_with_datamodel(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
@@ -426,7 +426,7 @@ def test_populate_works_with_datamodel(tmp_path: pathlib.Path, monkeypatch: Monk
     assert latest_spec.id_field == "DataModelID"
     assert latest_spec.id_value == "fake.datamodel.1"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
@@ -458,7 +458,7 @@ def test_populate_works_with_global_helper(
     assert latest_spec.id_field == "GlobalID"
     assert latest_spec.id_value == "fake.global_helper.1"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
@@ -490,7 +490,7 @@ def test_populate_works_with_policy(tmp_path: pathlib.Path, monkeypatch: MonkeyP
     assert latest_spec.id_field == "PolicyID"
     assert latest_spec.id_value == "fake.policy.1"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
@@ -509,7 +509,7 @@ def test_populate_works_with_scheduled_rule(
     assert latest_spec.id_field == "RuleID"
     assert latest_spec.id_value == "fake.scheduled_rule.1"
 
-    py_file = cache.get_file_for_spec(latest_spec.id or -1)
+    py_file = cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version)
     assert py_file is not None
     assert py_file.decode("utf-8") == _FAKE_PY
 
