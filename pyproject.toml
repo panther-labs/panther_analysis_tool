@@ -65,7 +65,7 @@ dependencies = [
     "toml==0.10.2",
     "tomli==2.2.1",
     "tqdm==4.67.1",
-    "typing-extensions==4.14.1",
+    "typing-extensions>=4.14.0",
     "wrapt==1.15.0",
     "yarl==1.18.3",
     "typer (>=0.16.0,<0.17.0)",
