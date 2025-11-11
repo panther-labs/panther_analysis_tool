@@ -140,14 +140,15 @@ class ExploreApp(App):
             self.notify("No analysis item selected.", severity="error")
             return
 
-        code, err_str = enable.run(self.selected_item.analysis_id(), [])
-        if code != 0:
-            self.notify(err_str, severity="error")
-        else:
+        try:
+            enable.enable(self.selected_item.analysis_id(), [])
             self.notify(
                 f"{self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()} ready to use!"
             )
-            self.refresh_bindings()
+        except Exception as err:
+            self.notify(str(err), severity="error")
+
+        self.refresh_bindings()
 
         self.view_editors = False
         self.switch_views(None)

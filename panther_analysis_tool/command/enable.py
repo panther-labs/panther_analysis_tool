@@ -1,3 +1,4 @@
+import logging
 import pathlib
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -8,9 +9,18 @@ from panther_analysis_tool.core import analysis_cache, parse, versions_file
 
 def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     try:
-        items_to_clone = get_analysis_items(analysis_id, filter_args)
-    except analysis_cache.NoCacheException as err:
+        enable(analysis_id, filter_args)
+    except FileExistsError as err:
+        logging.info(err)
+        return 0, ""
+    except (ValueError, analysis_cache.NoCacheException) as err:
         return 1, str(err)
+
+    return 0, ""
+
+
+def enable(analysis_id: Optional[str], filter_args: List[str]) -> None:
+    items_to_clone = get_analysis_items(analysis_id, filter_args)
 
     if len(items_to_clone) == 0:
         label = "analysis ID and filters"
@@ -19,14 +29,13 @@ def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
         elif analysis_id is not None and len(filter_args) == 0:
             label = "analysis ID"
 
-        return 1, f"No items matched the {label}. Nothing to clone and enable."
+        raise ValueError(f"No items matched the {label}. Nothing to clone and enable.")
 
     for item in items_to_clone:
         set_enabled_field(item.yaml_file_contents)
         set_base_version_field(item.yaml_file_contents)
 
     clone_analysis_items(items_to_clone)
-    return 0, ""
 
 
 def set_enabled_field(spec: Dict[str, Any]) -> None:
@@ -88,12 +97,18 @@ def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> N
 
     for item in items_to_clone:
         yaml_path = pathlib.Path(item.yaml_file_path or "")
+        if yaml_path.exists():
+            raise FileExistsError(f"{item.analysis_id()} at {yaml_path} already exists")
+
+        py_path = pathlib.Path(item.python_file_path or "")
+        if item.python_file_path is not None and py_path.exists():
+            raise FileExistsError(f"{item.analysis_id()} at {py_path} already exists")
+
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
         with open(yaml_path, "wb") as yaml_file:
             yaml.dump(item.yaml_file_contents, yaml_file)
 
         if item.python_file_path is not None and item.python_file_contents is not None:
-            py_path = pathlib.Path(item.python_file_path)
             py_path.parent.mkdir(parents=True, exist_ok=True)
             with open(py_path, "wb") as py_file:
                 py_file.write(item.python_file_contents)
