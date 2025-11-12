@@ -334,9 +334,7 @@ def test_set_enabled_field() -> None:
         spec = {
             "AnalysisType": analysis_type,
         }
-        enable.set_enabled_field(spec)
-        assert "Enabled" in spec
-        assert spec["Enabled"]
+        assert enable.should_set_enabled_field(spec)
 
 
 def test_set_enabled_field_for_other_types() -> None:
@@ -347,8 +345,7 @@ def test_set_enabled_field_for_other_types() -> None:
         spec = {
             "AnalysisType": analysis_type,
         }
-        enable.set_enabled_field(spec)
-        assert "Enabled" not in spec
+        assert not enable.should_set_enabled_field(spec)
 
 
 def test_get_analysis_items_no_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
@@ -519,3 +516,66 @@ def test_enable_messaging(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> N
     code, err_str = enable.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
     assert code == 1
     assert err_str == "No items matched the analysis ID and filters. Nothing to clone and enable."
+
+
+def test_append_fields_to_yaml_needs_enabled() -> None:
+    raw_yaml = b"""
+AnalysisType: rule
+Filename: fake_rule.py
+RuleID: fake.rule.1
+Enabled: false
+Description: Fake rule 1 v1
+JsonField: [
+    {
+        "key": "value",
+    }
+]
+SingleQuoteField: 'value'
+DoubleQuoteField: "value"
+NoQuoteField: value
+MultiLineField: |
+    value
+    value
+"""
+
+    expected_yaml = b"""
+AnalysisType: rule
+Filename: fake_rule.py
+RuleID: fake.rule.1
+Enabled: true
+Description: Fake rule 1 v1
+JsonField: [
+    {
+        "key": "value",
+    }
+]
+SingleQuoteField: 'value'
+DoubleQuoteField: "value"
+NoQuoteField: value
+MultiLineField: |
+    value
+    value
+BaseVersion: 1
+"""
+
+    result = enable.append_fields_to_yaml(raw_yaml, True, 1)
+    assert str(expected_yaml) == str(result)
+
+
+def test_append_fields_to_yaml_does_not_need_enabled() -> None:
+    raw_yaml = b"""
+AnalysisType: stuff
+Filename: fake_stuff.py
+StuffID: fake.stuff.1
+Description: Fake stuff 1 v1"""  # no new line
+
+    expected_yaml = b"""
+AnalysisType: stuff
+Filename: fake_stuff.py
+StuffID: fake.stuff.1
+Description: Fake stuff 1 v1
+BaseVersion: 1
+"""
+
+    result = enable.append_fields_to_yaml(raw_yaml, False, 1)
+    assert str(expected_yaml) == str(result)

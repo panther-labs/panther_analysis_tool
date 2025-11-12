@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from panther_analysis_tool import analysis_utils
@@ -32,13 +33,18 @@ def enable(analysis_id: Optional[str], filter_args: List[str]) -> None:
         raise ValueError(f"No items matched the {label}. Nothing to clone and enable.")
 
     for item in items_to_clone:
-        set_enabled_field(item.yaml_file_contents)
-        set_base_version_field(item.yaml_file_contents)
+        contents = item.raw_yaml_file_contents or b""
+
+        needs_enabled = should_set_enabled_field(item.yaml_file_contents)
+        base_version = get_base_version_value(item.yaml_file_contents)
+
+        item.raw_yaml_file_contents = append_fields_to_yaml(contents, needs_enabled, base_version)
 
     clone_analysis_items(items_to_clone)
 
 
-def set_enabled_field(spec: Dict[str, Any]) -> None:
+def should_set_enabled_field(spec: Dict[str, Any]) -> bool:
+    """Returns True if Enabled field should be set to True, None otherwise."""
     if spec["AnalysisType"] in [
         AnalysisTypes.RULE,
         AnalysisTypes.SCHEDULED_RULE,
@@ -51,12 +57,52 @@ def set_enabled_field(spec: Dict[str, Any]) -> None:
         AnalysisTypes.DERIVED,
         AnalysisTypes.SIMPLE_DETECTION,
     ]:
-        spec["Enabled"] = True
+        return True
+    return False
 
 
-def set_base_version_field(spec: Dict[str, Any]) -> None:
+def get_base_version_value(spec: Dict[str, Any]) -> int:
+    """Returns the BaseVersion value that should be set."""
     versions = versions_file.get_versions().versions
-    spec["BaseVersion"] = versions[analysis_utils.lookup_analysis_id(spec)].version
+    return versions[analysis_utils.lookup_analysis_id(spec)].version
+
+
+def append_fields_to_yaml(raw_yaml: bytes, needs_enabled: bool, base_version: int) -> bytes:
+    """
+    Appends or updates fields in raw YAML without reformatting.
+    If fields already exist, they are replaced. Otherwise, they are appended.
+    """
+    yaml_str = raw_yaml.decode("utf-8")
+
+    # Build the fields to add/update
+    fields_to_add = [("BaseVersion", str(base_version))]
+    if needs_enabled:
+        fields_to_add.append(("Enabled", "true"))
+
+    # For each field, check if it exists and replace it, or append if it doesn't
+    for field_name, field_value in fields_to_add:
+        # Pattern to match the field at the start of a line (with optional whitespace)
+        # This handles various YAML formats: "Field: value", "Field:value", "  Field: value", etc.
+        pattern = rf"^(\s*){re.escape(field_name)}\s*:\s*.*$"
+
+        # Check if field exists
+        if re.search(pattern, yaml_str, re.MULTILINE):
+            # Replace existing field (only first occurrence to avoid issues with duplicates)
+            yaml_str = re.sub(
+                pattern,
+                rf"\1{field_name}: {field_value}",
+                yaml_str,
+                count=1,
+                flags=re.MULTILINE,
+            )
+        else:
+            # Append field at the end
+            # Ensure there's a newline before appending
+            if yaml_str and not yaml_str.endswith("\n"):
+                yaml_str += "\n"
+            yaml_str += f"{field_name}: {field_value}\n"
+
+    return yaml_str.encode("utf-8")
 
 
 def get_analysis_items(
@@ -81,6 +127,7 @@ def get_analysis_items(
         all_specs.append(
             analysis_utils.AnalysisItem(
                 yaml_file_contents=loaded,
+                raw_yaml_file_contents=analysis_spec.spec,
                 yaml_file_path=versions[_id].history[versions[_id].version].yaml_file_path,
                 python_file_path=versions[_id].history[versions[_id].version].py_file_path,
                 python_file_contents=cache.get_file_for_spec(
@@ -93,8 +140,6 @@ def get_analysis_items(
 
 
 def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> None:
-    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
-
     for item in items_to_clone:
         yaml_path = pathlib.Path(item.yaml_file_path or "")
         if yaml_path.exists():
@@ -105,8 +150,13 @@ def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> N
             raise FileExistsError(f"{item.analysis_id()} at {py_path} already exists")
 
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write raw YAML contents (which already has fields appended/updated)
+        if item.raw_yaml_file_contents is None:
+            raise ValueError(f"No raw YAML contents for {item.analysis_id()}")
+
         with open(yaml_path, "wb") as yaml_file:
-            yaml.dump(item.yaml_file_contents, yaml_file)
+            yaml_file.write(item.raw_yaml_file_contents)
 
         if item.python_file_path is not None and item.python_file_contents is not None:
             py_path.parent.mkdir(parents=True, exist_ok=True)
