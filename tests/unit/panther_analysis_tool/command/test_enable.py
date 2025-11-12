@@ -5,6 +5,7 @@ from typing import Optional
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import enable
@@ -430,6 +431,36 @@ def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     assert (_dir / "scheduled_rules" / "fake_scheduled_rule_1.py").exists()
     assert (_dir / "queries" / "fake_saved_query_1.yaml").exists()
     assert (_dir / "queries" / "fake_scheduled_query_1.yaml").exists()
+
+
+def test_clone_analysis_items_already_exists(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    enable.clone_analysis_items(items)
+
+    rule_yaml = tmp_path / "rules" / "fake_rule_1.yaml"
+    rule_py = tmp_path / "rules" / "fake_rule_1.py"
+    assert rule_yaml.exists()
+    assert rule_py.exists()
+    assert rule_yaml.read_text() != "new yaml"
+    assert rule_py.read_text() != "new py"
+
+    rule_yaml.write_text("new yaml")
+    rule_py.write_text("new py")
+    assert rule_yaml.read_text() == "new yaml"
+    assert rule_py.read_text() == "new py"
+
+    # do it again and verify it did not change anything since it already existed
+    with pytest.raises(FileExistsError):
+        items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+        assert len(items) == 1
+        enable.clone_analysis_items(items)
+
+    assert rule_yaml.read_text() == "new yaml"
+    assert rule_py.read_text() == "new py"
 
 
 def test_enable_works_with_all_types(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
