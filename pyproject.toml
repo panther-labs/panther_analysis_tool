@@ -1,6 +1,6 @@
 [project]
 name = "panther_analysis_tool"
-version = "1.2.0"
+version = "1.2.1"
 description = "Panther command line interface for writing, testing, and packaging policies/rules."
 authors = [{ name = "Panther Labs Inc", email = "pypi@runpanther.io" }]
 readme = "README.md"
