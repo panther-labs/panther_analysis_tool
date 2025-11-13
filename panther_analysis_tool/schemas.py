@@ -250,7 +250,7 @@ SAVED_QUERY_SCHEMA = Schema(
     {
         "AnalysisType": Or("saved_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "PantherFlowQuery"): str,
         Optional("Description"): str,
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
