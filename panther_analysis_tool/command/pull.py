@@ -16,11 +16,11 @@ from panther_analysis_tool.core import analysis_cache, git_helpers, versions_fil
 
 
 def run() -> Tuple[int, str]:
-    fetch()
-    return 0, "Fetched"
+    pull()
+    return 0, ""
 
 
-def fetch() -> None:
+def pull() -> None:
     sqlite_file = PANTHER_ANALYSIS_SQLITE_FILE_PATH
     sqlite_file.parent.mkdir(parents=True, exist_ok=True)
     sqlite_file.touch(exist_ok=True)

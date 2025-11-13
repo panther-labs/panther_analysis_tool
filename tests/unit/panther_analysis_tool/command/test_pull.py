@@ -4,7 +4,7 @@ from unittest import mock
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
-from panther_analysis_tool.command import fetch
+from panther_analysis_tool.command import pull
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
@@ -346,7 +346,7 @@ def dump_sqlite(cache: analysis_cache.AnalysisCache) -> None:
             print(row)
 
 
-@mock.patch("panther_analysis_tool.command.fetch.git_helpers.get_panther_analysis_file_contents")
+@mock.patch("panther_analysis_tool.command.pull.git_helpers.get_panther_analysis_file_contents")
 def test_populate_works_with_latest_versions(
     mock_get_panther_analysis_file_contents: mock.MagicMock,
     tmp_path: pathlib.Path,
@@ -354,7 +354,7 @@ def test_populate_works_with_latest_versions(
 ) -> None:
     mock_get_panther_analysis_file_contents.side_effect = [_FAKE_RULE_1_V1, _FAKE_PY]
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.rule.1")
@@ -380,7 +380,7 @@ def test_populate_works_with_latest_versions(
     assert py_file.decode("utf-8") == _FAKE_PY
 
 
-@mock.patch("panther_analysis_tool.command.fetch.git_helpers.get_panther_analysis_file_contents")
+@mock.patch("panther_analysis_tool.command.pull.git_helpers.get_panther_analysis_file_contents")
 def test_populate_works_when_user_has_old_version(
     mock_get_panther_analysis_file_contents: mock.MagicMock,
     tmp_path: pathlib.Path,
@@ -388,7 +388,7 @@ def test_populate_works_when_user_has_old_version(
 ) -> None:
     mock_get_panther_analysis_file_contents.side_effect = [_FAKE_RULE_2_V1, _FAKE_PY + "old"]
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.rule.2")
@@ -416,7 +416,7 @@ def test_populate_works_when_user_has_old_version(
 
 def test_populate_works_with_datamodel(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.datamodel.1")
@@ -433,7 +433,7 @@ def test_populate_works_with_datamodel(tmp_path: pathlib.Path, monkeypatch: Monk
 
 def test_populate_works_with_lookup_table(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.lookup_table.1")
@@ -448,7 +448,7 @@ def test_populate_works_with_global_helper(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.global_helper.1")
@@ -467,7 +467,7 @@ def test_populate_works_with_correlation_rule(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.correlation_rule.1")
@@ -480,7 +480,7 @@ def test_populate_works_with_correlation_rule(
 
 def test_populate_works_with_policy(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.policy.1")
@@ -499,7 +499,7 @@ def test_populate_works_with_scheduled_rule(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.scheduled_rule.1")
@@ -516,7 +516,7 @@ def test_populate_works_with_scheduled_rule(
 
 def test_populate_works_with_saved_query(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.saved_query.1")
@@ -531,7 +531,7 @@ def test_populate_works_with_scheduled_query(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    fetch.populate_sqlite()
+    pull.populate_sqlite()
     cache = analysis_cache.AnalysisCache()
 
     latest_spec = cache.get_latest_spec("fake.scheduled_query.1")
