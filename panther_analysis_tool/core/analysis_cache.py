@@ -44,7 +44,7 @@ class AnalysisCache:
         """
         if not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists():
             raise NoCacheException(
-                "No cache found. Please run `pat fetch` to fetch the latest Panther Analysis content."
+                "No cache found. Please run `pat pull` to pull the latest Panther Analysis content."
             )
 
         self.conn = sqlite3.connect(PANTHER_ANALYSIS_SQLITE_FILE_PATH)

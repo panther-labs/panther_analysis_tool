@@ -88,9 +88,9 @@ from panther_analysis_tool.command import (
     check_connection,
     enable,
     explore,
-    fetch,
     init_project,
     merge,
+    pull,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2436,9 +2436,9 @@ def init_command() -> Tuple[int, str]:
     return init_project.run(working_dir=".")
 
 
-@app_command_with_config(name="fetch", help="Fetch all the latest Panther Analysis content")
-def fetch_command() -> Tuple[int, str]:
-    return fetch.run()
+@app_command_with_config(name="pull", help="Pull all the latest Panther Analysis content")
+def pull_command() -> Tuple[int, str]:
+    return pull.run()
 
 
 @app_command_with_config(name="enable", help="Enable an analysis item")
@@ -2463,7 +2463,7 @@ def explore_command() -> Tuple[int, str]:
 
 
 @app_command_with_config(
-    name="merge", help="Merge all analysis items with the latest fetched Panther Analysis content"
+    name="merge", help="Merge all analysis items with the latest pulled Panther Analysis content"
 )
 def merge_command(
     analysis_id: Annotated[
