@@ -1,19 +1,17 @@
 import copy
 import io
 import logging
+from typing import Any
 from unittest import TestCase, mock
 from unittest.mock import call, mock_open, patch
 
-from panther_analysis_tool.analysis_utils import (
-    AnalysisTypes,
-    LoadAnalysisSpecsResult,
-    get_yaml_loader,
-)
+from panther_analysis_tool.analysis_utils import AnalysisTypes, LoadAnalysisSpecsResult
 from panther_analysis_tool.backend.client import (
     BackendResponse,
     GenerateEnrichedEventResponse,
 )
 from panther_analysis_tool.backend.mocks import MockBackend
+from panther_analysis_tool.core import yaml
 from panther_analysis_tool.enriched_event_generator import (
     TEST_CASE_FIELD_KEY_LOG,
     TEST_CASE_FIELD_KEY_RESOURCE,
@@ -44,8 +42,8 @@ class TestEnrichedEventGenerator(TestCase):
 
         for test in test_data:
             logging.info(f"Running test: {test['name']}")
-            yaml = get_yaml_loader(roundtrip=True)
-            as_commented_map = yaml.load(test["input_yaml"])
+            yaml_loader = yaml.BlockStyleYAML()
+            as_commented_map = yaml_loader.load(test["input_yaml"])
             inline_json_test_content = as_commented_map["json"]
 
             result = EnrichedEventGenerator._convert_inline_json_dict_to_python_dict(
@@ -53,7 +51,7 @@ class TestEnrichedEventGenerator(TestCase):
             )
             as_commented_map["json"] = result
             string_io = io.StringIO()
-            yaml.dump(as_commented_map, stream=string_io)
+            yaml_loader.dump(as_commented_map, stream=string_io)
 
             self.assertEqual(
                 string_io.getvalue(),
@@ -144,12 +142,12 @@ class TestEnrichedEventGenerator(TestCase):
                 "DataModelID": "foo.bar.data_model",
                 "AnalysisType": "data_model",
             },
-            yaml_ctx=get_yaml_loader(roundtrip=True),
+            yaml_ctx=yaml.BlockStyleYAML(),
             error=None,
             raw_spec_file_content=None,
         )
 
-        input = list(analysis_items.values())
+        input: list[LoadAnalysisSpecsResult] = list(analysis_items.values())
         filtered = EnrichedEventGenerator._filter_analysis_items(input)
 
         self.assertEqual(filtered, list(get_specs_for_test().values()))
@@ -169,7 +167,7 @@ class TestEnrichedEventGenerator(TestCase):
                 enriched_test_data.append(enriched_event[TEST_CASE_FIELD_KEY_LOG])
 
         backend = MockBackend()
-        backend.generate_enriched_event_input = mock.MagicMock(
+        backend.generate_enriched_event_input = mock.MagicMock(  # type: ignore
             side_effect=[
                 BackendResponse(
                     data=GenerateEnrichedEventResponse(
@@ -186,8 +184,8 @@ class TestEnrichedEventGenerator(TestCase):
         # The `enrich_test_data` method writes to the operating system so we'll
         # mock `open` and assert on the content from the writes.
         m = mock_open()
-        with patch("builtins.open", m):
-            result = enricher.enrich_test_data(test_data.values())
+        with patch("builtins.open", m):  # type: ignore
+            enricher.enrich_test_data(list(test_data.values()))
 
         m().write.assert_has_calls(
             [

@@ -1,10 +1,8 @@
 import typing
 
-from panther_analysis_tool.analysis_utils import (
-    LoadAnalysisSpecsResult,
-    get_yaml_loader,
-)
+from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult
 from panther_analysis_tool.constants import AnalysisTypes
+from panther_analysis_tool.core import yaml
 
 
 def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
@@ -12,7 +10,7 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
         AnalysisTypes.RULE: LoadAnalysisSpecsResult(
             "filname.rule",
             "filepath.rule",
-            get_yaml_loader(roundtrip=True).load(
+            yaml.BlockStyleYAML().load(
                 """
                 RuleID: foo.bar.rule
                 AnalysisType: rule
@@ -26,14 +24,14 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
                         json: {"foo": "bar"}
                 """
             ),
-            yaml_ctx=get_yaml_loader(roundtrip=True),
+            yaml_ctx=yaml.BlockStyleYAML(),
             error=None,
             raw_spec_file_content=None,
         ),
         AnalysisTypes.SCHEDULED_RULE: LoadAnalysisSpecsResult(
             "filname.scheduled_rule",
             "filepath.scheduled_rule",
-            get_yaml_loader(roundtrip=True).load(
+            yaml.BlockStyleYAML().load(
                 """
                 RuleID: foo.bar.scheduled_rule
                 AnalysisType: scheduled_rule
@@ -47,14 +45,14 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
                         json: {"foo": "bar"}
                 """
             ),
-            yaml_ctx=get_yaml_loader(roundtrip=True),
+            yaml_ctx=yaml.BlockStyleYAML(),
             error=None,
             raw_spec_file_content=None,
         ),
         AnalysisTypes.POLICY: LoadAnalysisSpecsResult(
             "filname.policy",
             "filepath.policy",
-            get_yaml_loader(roundtrip=True).load(
+            yaml.BlockStyleYAML().load(
                 """
                 PolicyID: foo.bar.policy
                 AnalysisType: policy
@@ -68,7 +66,7 @@ def get_specs_for_test() -> typing.Dict[str, LoadAnalysisSpecsResult]:
                         json: {"foo": "bar"}
                 """
             ),
-            yaml_ctx=get_yaml_loader(roundtrip=True),
+            yaml_ctx=yaml.BlockStyleYAML(),
             error=None,
             raw_spec_file_content=None,
         ),

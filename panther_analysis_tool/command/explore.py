@@ -1,5 +1,5 @@
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.core import analysis_cache, versions_file
+from panther_analysis_tool.core import analysis_cache, versions_file, yaml
 from panther_analysis_tool.gui.explore_gui import ExploreApp
 
 
@@ -11,7 +11,7 @@ def run() -> tuple[int, str]:
 
 
 def load_all_specs() -> list[analysis_utils.AnalysisItem]:
-    yaml = analysis_utils.get_yaml_loader(False)
+    yaml_loader = yaml.BlockStyleYAML()
     cache = analysis_cache.AnalysisCache()
     versions = versions_file.get_versions().versions
 
@@ -21,7 +21,7 @@ def load_all_specs() -> list[analysis_utils.AnalysisItem]:
         if spec is None:
             continue
 
-        yaml_content = yaml.load(spec.spec)
+        yaml_content = yaml_loader.load(spec.spec)
         ver = versions[_id]
 
         item = analysis_utils.AnalysisItem(

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import AnalysisTypes
-from panther_analysis_tool.core import analysis_cache, parse, versions_file
+from panther_analysis_tool.core import analysis_cache, parse, versions_file, yaml
 
 
 def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
@@ -62,7 +62,7 @@ def set_base_version_field(spec: Dict[str, Any]) -> None:
 def get_analysis_items(
     analysis_id: Optional[str], filter_args: List[str]
 ) -> List[analysis_utils.AnalysisItem]:
-    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+    yaml_loader = yaml.BlockStyleYAML()
     cache = analysis_cache.AnalysisCache()
     versions = versions_file.get_versions().versions
     filters, filters_inverted = parse.parse_filter_args(filter_args)
@@ -73,7 +73,7 @@ def get_analysis_items(
         if analysis_spec is None:
             continue
 
-        loaded: dict[str, Any] = yaml.load(analysis_spec.spec)
+        loaded: dict[str, Any] = yaml_loader.load(analysis_spec.spec)
 
         if not analysis_utils.filter_analysis_spec(loaded, filters, filters_inverted):
             continue
@@ -93,7 +93,7 @@ def get_analysis_items(
 
 
 def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> None:
-    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+    yaml_loader = yaml.BlockStyleYAML()
 
     for item in items_to_clone:
         yaml_path = pathlib.Path(item.yaml_file_path or "")
@@ -106,7 +106,7 @@ def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> N
 
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
         with open(yaml_path, "wb") as yaml_file:
-            yaml.dump(item.yaml_file_contents, yaml_file)
+            yaml_loader.dump(item.yaml_file_contents, yaml_file)
 
         if item.python_file_path is not None and item.python_file_contents is not None:
             py_path.parent.mkdir(parents=True, exist_ok=True)

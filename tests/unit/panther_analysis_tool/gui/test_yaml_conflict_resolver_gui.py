@@ -5,8 +5,7 @@ import pathlib
 import pytest
 from textual.widgets import Label
 
-from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.core import diff
+from panther_analysis_tool.core import diff, yaml
 from panther_analysis_tool.gui import widgets, yaml_conflict_resolver_gui
 
 conflict_files_path = (
@@ -20,10 +19,10 @@ raw_customer_yaml = customer_yaml_path.read_text()
 raw_panther_yaml = panther_yaml_path.read_text()
 raw_base_yaml = base_yaml_path.read_text()
 
-yaml = analysis_utils.get_yaml_loader(roundtrip=True)
-customer_dict = yaml.load(raw_customer_yaml)
+yaml_loader = yaml.BlockStyleYAML()
+customer_dict = yaml_loader.load(raw_customer_yaml)
 conflict_items = diff.Dict(customer_dict).merge_dict(
-    yaml.load(raw_base_yaml), yaml.load(raw_panther_yaml)
+    yaml_loader.load(raw_base_yaml), yaml_loader.load(raw_panther_yaml)
 )
 
 
@@ -102,7 +101,7 @@ async def test_yaml_conflict_resolver_gui_retains_formatting() -> None:
 
         assert pilot.app._exit
         out = io.StringIO()
-        yaml.dump(app.final_dict, out)
+        yaml_loader.dump(app.final_dict, out)
         assert out.getvalue() == raw_customer_yaml
 
 

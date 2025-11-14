@@ -7,7 +7,7 @@ from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import merge
-from panther_analysis_tool.core import analysis_cache
+from panther_analysis_tool.core import analysis_cache, yaml
 
 
 def _type_to_id_field(analysis_type: str) -> str:
@@ -47,7 +47,7 @@ def make_load_spec() -> make_load_spec_type:
                 "BaseVersion": base_version,
                 **({"Filename": python_file} if has_python else {}),
             },
-            yaml_ctx=analysis_utils.get_yaml_loader(roundtrip=True),
+            yaml_ctx=yaml.BlockStyleYAML(),
             error=None,
             raw_spec_file_content=raw_spec_file_content.encode("utf-8"),
         )

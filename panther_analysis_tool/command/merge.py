@@ -6,8 +6,14 @@ import tempfile
 from typing import Tuple
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.analysis_utils import get_yaml_loader, load_analysis_specs_ex
-from panther_analysis_tool.core import analysis_cache, diff, file_editor, git_helpers
+from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
+from panther_analysis_tool.core import (
+    analysis_cache,
+    diff,
+    file_editor,
+    git_helpers,
+    yaml,
+)
 from panther_analysis_tool.gui import yaml_conflict_resolver_gui
 
 
@@ -48,7 +54,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
     Returns:
         A list of MergeableItem objects that contain the user's item, the latest Panther item, and the base Panther item.
     """
-    yaml = get_yaml_loader(True)
+    yaml_loader = yaml.BlockStyleYAML()
     cache = analysis_cache.AnalysisCache()
     mergeable_items: list[MergeableItem] = []
 
@@ -114,14 +120,14 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
                     python_file_path=py_path,
                 ),
                 latest_panther_item=analysis_utils.AnalysisItem(
-                    yaml_file_contents=yaml.load(latest_spec.spec),
+                    yaml_file_contents=yaml_loader.load(latest_spec.spec),
                     raw_yaml_file_contents=latest_spec.spec,
                     python_file_contents=cache.get_file_for_spec(
                         latest_spec.id or -1, latest_spec.version
                     ),
                 ),
                 base_panther_item=analysis_utils.AnalysisItem(
-                    yaml_file_contents=yaml.load(base_spec.spec),
+                    yaml_file_contents=yaml_loader.load(base_spec.spec),
                     raw_yaml_file_contents=base_spec.spec,
                     python_file_contents=cache.get_file_for_spec(
                         base_spec.id or -1, base_spec.version
@@ -230,7 +236,7 @@ def merge_file(
         True if there was a merge conflict, False otherwise or if the user soled the merge conflict.
     """
     ext = output_path.suffix
-    yaml = analysis_utils.get_yaml_loader(roundtrip=True)
+    yaml_loader = yaml.BlockStyleYAML()
 
     # this temp dir gets cleaned up automatically when it leaves the with block
     with tempfile.TemporaryDirectory(prefix="pat_merge_") as temp_dir_str:
@@ -246,12 +252,14 @@ def merge_file(
             user_python_path = temp_dir / "user_python.py"
             user_python_path.write_bytes(user_python)
 
-            merge_dict = diff.Dict(yaml.load(user_path))
-            conflicts = merge_dict.merge_dict(yaml.load(base_path), yaml.load(latest_path))
+            merge_dict = diff.Dict(yaml_loader.load(user_path))
+            conflicts = merge_dict.merge_dict(
+                yaml_loader.load(base_path), yaml_loader.load(latest_path)
+            )
 
             if len(conflicts) == 0:
                 with open(output_path, "w", encoding="utf-8") as file:
-                    yaml.dump(merge_dict.customer_dict, file)
+                    yaml_loader.dump(merge_dict.customer_dict, file)
                 return False  # merge was solved so no more conflict
 
             if not solve_merge:
@@ -268,7 +276,7 @@ def merge_file(
             app.run()
 
             with open(output_path, "w", encoding="utf-8") as file:
-                yaml.dump(app.get_final_dict(), file)
+                yaml_loader.dump(app.get_final_dict(), file)
             return False  # merge was solved so no more conflict
 
         # python merge
