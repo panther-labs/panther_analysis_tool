@@ -53,7 +53,7 @@ def print_ready_message() -> None:
 
     print("Next, you can start exploring and using Panther out of the box content:")
     print(
-        "    Run `pat pull` to pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content."
+        "    Run `pat pull` to pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content."  # pylint: disable=line-too-long
     )
     print("    Run `pat explore` to see the available content.")
     print(
