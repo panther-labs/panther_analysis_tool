@@ -22,7 +22,7 @@ class MergeableItem:
     base_panther_item: analysis_utils.AnalysisItem
 
 
-def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
+def run(analysis_id: str, editor: str | None) -> Tuple[int, str]:
     return merge_analysis(analysis_id, editor)
 
 
@@ -188,7 +188,7 @@ def merge_items(
 
     if analysis_id is None:
         if len(updated_item_ids) > 0:
-            print(f"Updated {len(updated_item_ids)} spec(s) with latest Panther version:")
+            print(f"Updated {len(updated_item_ids)} analysis item(s) with latest Panther version:")
             for item_id in updated_item_ids:
                 print(f"  * {item_id}")
         if len(merge_conflict_item_ids) > 0:

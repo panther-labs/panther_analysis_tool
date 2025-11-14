@@ -2436,7 +2436,7 @@ def init_command() -> Tuple[int, str]:
     return init_project.run(working_dir=".")
 
 
-@app_command_with_config(name="pull", help="Pull all the latest Panther Analysis content")
+@app_command_with_config(name="pull", help="Pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content.")
 def pull_command() -> Tuple[int, str]:
     return pull.run()
 
@@ -2463,13 +2463,13 @@ def explore_command() -> Tuple[int, str]:
 
 
 @app_command_with_config(
-    name="merge", help="Merge all analysis items with the latest pulled Panther Analysis content"
+    name="merge", help="Merge an analysis item with the latest pulled Panther Analysis content"
 )
 def merge_command(
     analysis_id: Annotated[
-        Optional[str],
+        str,
         typer.Argument(help="The ID of the analysis item to merge.", autocompletion=complete_id),
-    ] = None,
+    ],
     editor: Annotated[
         Optional[str],
         typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
