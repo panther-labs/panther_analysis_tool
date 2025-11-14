@@ -3,7 +3,6 @@ import pathlib
 from typing import Optional
 
 import pytest
-import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -15,7 +14,7 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AnalysisTypes,
 )
-from panther_analysis_tool.core import analysis_cache
+from panther_analysis_tool.core import analysis_cache, yaml
 
 _FAKE_PY = """
 def rule(event):
@@ -379,13 +378,13 @@ def test_get_analysis_items_filters_and_no_id(
     assert len(items) == 2
     assert items == [
         analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.safe_load(_FAKE_RULE_1_V1),
+            yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
             yaml_file_path="rules/fake_rule_1.yaml",
             python_file_path="rules/fake_rule_1.py",
             python_file_contents=bytes(_FAKE_PY, "utf-8"),
         ),
         analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.safe_load(_FAKE_RULE_2_V2),
+            yaml_file_contents=yaml.load(_FAKE_RULE_2_V2),
             yaml_file_path="rules/fake_rule_2.yaml",
             python_file_path="rules/fake_rule_2.py",
             python_file_contents=bytes(_FAKE_PY, "utf-8"),
@@ -401,7 +400,7 @@ def test_get_analysis_items_no_filters_and_id(
     assert len(items) == 1
     assert items == [
         analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.safe_load(_FAKE_RULE_1_V1),
+            yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
             yaml_file_path="rules/fake_rule_1.yaml",
             python_file_path="rules/fake_rule_1.py",
             python_file_contents=bytes(_FAKE_PY, "utf-8"),
@@ -494,16 +493,8 @@ def test_enable_sets_base_version_field(tmp_path: pathlib.Path, monkeypatch: Mon
     assert (rule_path / "fake_rule_1.py").exists()
     assert (rule_path / "fake_rule_2.yaml").exists()
     assert (rule_path / "fake_rule_2.py").exists()
-    assert (
-        analysis_utils.get_yaml_loader(True).load((rule_path / "fake_rule_1.yaml").read_text())[
-            "BaseVersion"
-        ]
-    ) == 1
-    assert (
-        analysis_utils.get_yaml_loader(True).load((rule_path / "fake_rule_2.yaml").read_text())[
-            "BaseVersion"
-        ]
-    ) == 2
+    assert (yaml.load((rule_path / "fake_rule_1.yaml").read_text())["BaseVersion"]) == 1
+    assert (yaml.load((rule_path / "fake_rule_2.yaml").read_text())["BaseVersion"]) == 2
 
 
 def test_enable_messaging(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:

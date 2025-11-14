@@ -13,7 +13,6 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import jsonschema
 import schema
 from jsonschema import Draft202012Validator
-from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
@@ -40,6 +39,7 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.core import yaml
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
@@ -194,7 +194,7 @@ class LoadAnalysisSpecsResult:
     spec_filename: str
     relative_path: str
     analysis_spec: Any
-    yaml_ctx: YAML
+    yaml_ctx: yaml.BlockStyleYAML
     error: Optional[Exception]
     raw_spec_file_content: Optional[bytes]
 
@@ -258,28 +258,6 @@ class LoadAnalysisSpecsResult:
             self.yaml_ctx.dump(self.analysis_spec, file)
 
 
-def get_yaml_loader(roundtrip: bool) -> YAML:
-    """Returns a YAML object with the correct settings for loading analysis specifications.
-
-    Args:
-        roundtrip: Whether or not the YAML parser should be roundtrip safe. Roundtrip safe YAML
-            parser is not compatible with many PAT functions.
-    """
-    if not roundtrip:
-        return YAML(typ="safe")
-
-    # If we need to roundtrip, we have different requirements. Most use cases will not need
-    # round-tripping. We only need a roundtrip safe YAML parser if we are going to update
-    # the YAML files.
-    yaml = YAML(typ="rt")
-    yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.preserve_quotes = True
-    yaml.default_flow_style = False
-    # allow very long lines to avoid unnecessary line changes
-    yaml.width = 4096
-    return yaml
-
-
 # pylint: disable=too-many-locals
 def load_analysis_specs_ex(
     directories: List[str], ignore_files: List[str], roundtrip_yaml: bool
@@ -305,7 +283,8 @@ def load_analysis_specs_ex(
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
-    yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
+    # Use safe mode when roundtrip is False, rt mode when roundtrip is True
+    yaml_loader = yaml.BlockStyleYAML(typ="rt" if roundtrip_yaml else "safe")
     loaded_specs: List[Any] = []
     for directory in directories:
         for dirpath, dirnames, filenames in os.walk(directory):
@@ -355,7 +334,9 @@ def load_analysis_specs_ex(
                     with open(spec_filename, "rb") as spec_file_obj:
                         try:
                             file_content = spec_file_obj.read()
-                            yaml_content: dict[str, Any] = yaml.load(io.BytesIO(file_content))
+                            yaml_content: dict[str, Any] | None = yaml_loader.load(
+                                io.BytesIO(file_content)
+                            )
 
                             if yaml_content is None or "AnalysisType" not in yaml_content:
                                 continue  # skip files that aren't analysis items
@@ -363,7 +344,7 @@ def load_analysis_specs_ex(
                                 spec_filename=spec_filename,
                                 relative_path=dirpath,
                                 analysis_spec=yaml_content,
-                                yaml_ctx=yaml,
+                                yaml_ctx=yaml_loader,
                                 error=None,
                                 raw_spec_file_content=file_content,
                             )
@@ -373,7 +354,7 @@ def load_analysis_specs_ex(
                                 spec_filename=spec_filename,
                                 relative_path=dirpath,
                                 analysis_spec=None,
-                                yaml_ctx=yaml,
+                                yaml_ctx=yaml_loader,
                                 error=err,
                                 raw_spec_file_content=None,
                             )
@@ -455,9 +436,9 @@ def test_correlation_rule(
             tests = [t for t in tests if t["Name"] in test_names]
             spec["Tests"] = tests
 
-        yaml = get_yaml_loader(roundtrip=True)
+        yaml_loader = yaml.BlockStyleYAML()
         string_io = io.StringIO()
-        yaml.dump(spec, stream=string_io)
+        yaml_loader.dump(spec, stream=string_io)
         output_str = string_io.getvalue()
         string_io.close()
         resp = backend.test_correlation_rule(
