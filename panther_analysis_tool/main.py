@@ -2436,7 +2436,10 @@ def init_command() -> Tuple[int, str]:
     return init_project.run(working_dir=".")
 
 
-@app_command_with_config(name="pull", help="Pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content.")
+@app_command_with_config(
+    name="pull",
+    help="Pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content.",
+)
 def pull_command() -> Tuple[int, str]:
     return pull.run()
 
