@@ -535,7 +535,7 @@ def test_merge_items_no_conflict_with_python(
     merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
-            call("Updated 2 spec(s) with latest Panther version:"),
+            call("Updated 2 analysis item(s) with latest Panther version:"),
             call("  * 1"),
             call("  * 2"),
             call(
@@ -574,7 +574,7 @@ def test_merge_items_no_conflict_no_python(
     merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
-            call("Updated 2 spec(s) with latest Panther version:"),
+            call("Updated 2 analysis item(s) with latest Panther version:"),
             call("  * 1"),
             call("  * 2"),
             call(
@@ -651,7 +651,7 @@ def test_merge_items_python_conflict(
     merge.merge_items(mergeable_items, None, None)
     mock_print.assert_has_calls(
         [
-            call("Updated 1 spec(s) with latest Panther version:"),
+            call("Updated 1 analysis item(s) with latest Panther version:"),
             call("  * 1"),
             call(
                 "1 merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"

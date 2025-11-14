@@ -1,8 +1,11 @@
 import pathlib
+import shutil
 from unittest import mock
+from unittest.mock import call
 
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from pytest_mock import MockerFixture
 
 from panther_analysis_tool.command import pull
 from panther_analysis_tool.constants import (
@@ -11,6 +14,7 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
 from panther_analysis_tool.core import analysis_cache
+from panther_analysis_tool.core.git_helpers import CLONED_VERSIONS_FILE_PATH
 
 _FAKE_PY = """
 def rule(event):
@@ -44,6 +48,7 @@ _FAKE_RULE_2_V2 = yaml.dump(
         "RuleID": "fake.rule.2",
         "Enabled": True,
         "Description": "Fake rule 2 v2",
+        "NewField": "fake_rule_2_v2",
     }
 )
 
@@ -51,7 +56,7 @@ _FAKE_USER_RULE_2_V1 = yaml.dump(
     {
         "AnalysisType": "rule",
         "Filename": "fake_user_rule_2.py",
-        "RuleID": "fake.rule.2",
+        "RuleID": "fake.rule.2",  # matches _FAKE_RULE_2_V2
         "Enabled": True,
         "Description": "Fake user rule 2 v1",
         "BaseVersion": 1,
@@ -321,8 +326,8 @@ def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
 
     # fake user's analysis items
     pathlib.Path("rules").mkdir(parents=True, exist_ok=True)
-    create_file_with_text(pathlib.Path("rules") / "fake_rule_2.yaml", _FAKE_USER_RULE_2_V1)
-    create_file_with_text(pathlib.Path("rules") / "fake_rule_2.py", _FAKE_PY)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.yaml", _FAKE_USER_RULE_2_V1)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.py", _FAKE_PY)
 
 
 def create_file_with_text(path: pathlib.Path, text: str) -> None:
@@ -540,3 +545,24 @@ def test_populate_works_with_scheduled_query(
     assert latest_spec.version == 1
     assert latest_spec.id_field == "QueryName"
     assert latest_spec.id_value == "fake.scheduled_query.1"
+
+
+def test_pull_and_merge_works(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    mocker.patch("panther_analysis_tool.command.pull.git_helpers.clone_panther_analysis")
+
+    set_up_cache(tmp_path, monkeypatch)
+    # move the cached versions file to its first location so we can fake move it
+    shutil.move(CACHED_VERSIONS_FILE_PATH, CLONED_VERSIONS_FILE_PATH)
+    pull.run()
+
+    mock_print.assert_has_calls(
+        [
+            call(
+                "1 merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+            ),
+            call("  * fake.rule.2"),
+        ]
+    )

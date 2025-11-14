@@ -7,6 +7,7 @@ from panther_analysis_tool.analysis_utils import (
     LoadAnalysisSpecsResult,
     load_analysis_specs_ex,
 )
+from panther_analysis_tool.command.merge import merge_analysis
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
@@ -17,6 +18,7 @@ from panther_analysis_tool.core import analysis_cache, git_helpers, versions_fil
 
 def run() -> Tuple[int, str]:
     pull()
+    merge_analysis(None, None)
     return 0, ""
 
 

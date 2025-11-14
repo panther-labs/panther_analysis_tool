@@ -53,10 +53,12 @@ def print_ready_message() -> None:
 
     print("Next, you can start exploring and using Panther out of the box content:")
     print(
-        "    Run `pat pull` to pull the latest content from the Panther Analysis. Rerun this every time you want to update your content."
+        "    Run `pat pull` to pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content."  # pylint: disable=line-too-long
     )
     print("    Run `pat explore` to see the available content.")
-    print("    Run `pat enable` to create a clone of a detection you want to use.")
+    print(
+        "    Run `pat enable <id>` to create a clone of a detection you want to use in your repo."
+    )
     print(
         "    Run `pat enable --filter LogTypes=<LOG_TYPE>` to enable all detections for a given log type you have onboarded."
     )
