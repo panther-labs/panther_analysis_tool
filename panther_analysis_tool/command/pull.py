@@ -50,11 +50,11 @@ def populate_sqlite() -> None:
     versions = versions_file.get_versions().versions
 
     user_analysis_specs: Dict[str, LoadAnalysisSpecsResult] = {}
-    for user_specs in load_analysis_specs_ex(["."], [], False):
+    for user_specs in load_analysis_specs_ex(["."], [], True):
         user_analysis_specs[user_specs.analysis_id()] = user_specs
 
     # load all analysis specs
-    for spec in load_analysis_specs_ex([str(CACHE_DIR)], [], False):
+    for spec in load_analysis_specs_ex([str(CACHE_DIR)], [], True):
         if spec.error is not None:
             continue
 

@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import pathlib
 import re
 import tempfile
 from fnmatch import fnmatch
@@ -16,14 +17,14 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
+    BackendError,
     GetRuleBodyParams,
     TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_LOCATION,
@@ -191,7 +192,7 @@ def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> No
 class LoadAnalysisSpecsResult:
     """The result of loading analysis specifications from a file."""
 
-    spec_filename: str
+    spec_filename: str  # absolute path to the analysis spec file
     relative_path: str
     analysis_spec: Any
     yaml_ctx: yaml.BlockStyleYAML
@@ -256,6 +257,19 @@ class LoadAnalysisSpecsResult:
         logging.debug("Writing analysis spec to %s", self.spec_filename)
         with open(self.spec_filename, "w", encoding="utf-8") as file:
             self.yaml_ctx.dump(self.analysis_spec, file)
+
+    def python_file_path(self) -> pathlib.Path | None:
+        """
+        Returns the path to the Python file for this analysis spec if there is a python file for this analysis item.
+        """
+        if "Filename" not in self.analysis_spec:
+            return None
+
+        path = pathlib.Path(self.spec_filename).parent / self.analysis_spec["Filename"]
+        if not path.exists():
+            return None
+
+        return path
 
 
 # pylint: disable=too-many-locals

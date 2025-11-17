@@ -31,6 +31,10 @@ Thing12:
     Thing18: 
         - Thing19
         - Thing20
+Thing13:
+  - Thing:Thing
+  - Thing:Thing
+A: do not move me
     """
 
     expected = """Thing: thing
@@ -69,6 +73,10 @@ Thing12:
   Thing18:
     - Thing19
     - Thing20
+Thing13:
+  - Thing:Thing
+  - Thing:Thing
+A: do not move me
 """
 
     loaded = yaml.BlockStyleYAML().load(input)

@@ -12,6 +12,7 @@ from panther_analysis_tool.core import (
     diff,
     file_editor,
     git_helpers,
+    migration,
     yaml,
 )
 from panther_analysis_tool.gui import yaml_conflict_resolver_gui
@@ -26,6 +27,7 @@ class MergeableItem:
     user_item: analysis_utils.AnalysisItem
     latest_panther_item: analysis_utils.AnalysisItem
     base_panther_item: analysis_utils.AnalysisItem
+    needs_migration: bool = False
 
 
 def run(analysis_id: str, editor: str | None) -> Tuple[int, str]:
@@ -59,7 +61,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
     mergeable_items: list[MergeableItem] = []
 
     # load all analysis specs
-    user_specs = list(load_analysis_specs_ex(["."], [], False))
+    user_specs = list(load_analysis_specs_ex(["."], [], True))
     if not user_specs:
         return mergeable_items
 
@@ -75,9 +77,46 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
             # this happens with custom analysis items
             continue
 
-        # if the user spec does not have a BaseVersion, add one
+        # load the python file for the user spec from the file system
+        user_py: bytes | None = None
+        py_path = user_spec.python_file_path()
+        if py_path is not None:
+            with open(py_path, "rb") as py_file:
+                user_py = py_file.read()
+
+        user_item = analysis_utils.AnalysisItem(
+            yaml_file_contents=user_spec.analysis_spec,
+            raw_yaml_file_contents=user_spec.raw_spec_file_content,
+            yaml_file_path=user_spec.spec_filename,
+            python_file_contents=user_py,
+            python_file_path=str(py_path),
+        )
+
+        latest_panther_item = analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml_loader.load(latest_spec.spec),
+            raw_yaml_file_contents=latest_spec.spec,
+            python_file_contents=cache.get_file_for_spec(
+                latest_spec.id or -1, latest_spec.version
+            ),
+        )
+
+        # if the user spec does not have a BaseVersion and the ID was found in the cache,
+        # it is an unmigrated analysis item, so we migrate it during the merge process
         if "BaseVersion" not in user_spec.analysis_spec:
-            user_spec.analysis_spec["BaseVersion"] = 1
+            mergeable_items.append(
+                MergeableItem(
+                    user_item=user_item,
+                    latest_panther_item=latest_panther_item,
+                    base_panther_item=analysis_utils.AnalysisItem(
+                        yaml_file_contents={},
+                        raw_yaml_file_contents=b"",
+                        python_file_contents=None,
+                    ),
+                    needs_migration=True,
+                )
+            )
+            continue
+            # has_conflict = migration.migrate_analysis_item(user_spec, cache)
 
         # check if the user spec's BaseVersion is less than the latest version, skip merge if it is not
         user_spec_base_version: int = user_spec.analysis_spec.get("BaseVersion")
@@ -99,17 +138,6 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
             )
             continue
 
-        # load the python file for the user spec from the file system
-        user_py: bytes | None = None
-        py_path: str | None = None
-        if user_spec.analysis_spec.get("Filename") is not None:
-            py_path = str(
-                pathlib.Path(user_spec.spec_filename).parent
-                / user_spec.analysis_spec.get("Filename")
-            )
-            with open(py_path, "rb") as py_file:
-                user_py = py_file.read()
-
         mergeable_items.append(
             MergeableItem(
                 user_item=analysis_utils.AnalysisItem(
@@ -117,7 +145,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
                     raw_yaml_file_contents=user_spec.raw_spec_file_content,
                     yaml_file_path=user_spec.spec_filename,
                     python_file_contents=user_py,
-                    python_file_path=py_path,
+                    python_file_path=str(py_path),
                 ),
                 latest_panther_item=analysis_utils.AnalysisItem(
                     yaml_file_contents=yaml_loader.load(latest_spec.spec),
@@ -154,6 +182,21 @@ def merge_items(
         latest_item = mergeable_item.latest_panther_item
         base_item = mergeable_item.base_panther_item
         user_item_id = user_item.analysis_id()
+
+        # TODO: migrate here so we can add conflicts and updates to the lists
+        # TODO: handle migration conflicts
+        if mergeable_item.needs_migration:
+            has_conflict = migration.migrate_analysis_item(user_item, cache)
+            if has_conflict:
+                merge_conflict_item_ids.append(user_item_id)
+            else:
+                updated_item_ids.append(user_item_id)
+            continue
+
+        # normalize user yaml file contents
+        if "BaseVersion" not in user_item.yaml_file_contents:
+            user_item.yaml_file_contents["BaseVersion"] = latest_item.version
+        user_item.raw_yaml_file_contents = yaml.dump(user_item.yaml_file_contents).encode("utf-8")
 
         # merge yaml
         has_conflict = merge_file(
