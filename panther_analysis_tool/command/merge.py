@@ -59,7 +59,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[MergeableItem]:
     mergeable_items: list[MergeableItem] = []
 
     # load all analysis specs
-    user_specs = list(load_analysis_specs_ex(["."], [], False))
+    user_specs = list(load_analysis_specs_ex(["."], [], True))
     if not user_specs:
         return mergeable_items
 
