@@ -209,10 +209,10 @@ def test_write_migration_results_no_conflicts(tmp_path: pathlib.Path) -> None:
         migrate.MigrationResult(
             items_with_conflicts=[],
             items_migrated=[
-                ("fake.rule.1", "rule"),
-                ("fake.rule.2", "rule"),
-                ("fake.policy.1", "policy"),
-                ("fake.policy.2", "policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
             ],
         ),
         output_path,
@@ -251,10 +251,10 @@ def test_write_migration_results_with_conflicts_only(tmp_path: pathlib.Path) -> 
     migrate.write_migration_results(
         migrate.MigrationResult(
             items_with_conflicts=[
-                ("fake.rule.1", "rule"),
-                ("fake.rule.2", "rule"),
-                ("fake.policy.1", "policy"),
-                ("fake.policy.2", "policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
             ],
             items_migrated=[],
         ),
@@ -294,16 +294,16 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
     migrate.write_migration_results(
         migrate.MigrationResult(
             items_with_conflicts=[
-                ("fake.rule.1", "rule"),
-                ("fake.rule.2", "rule"),
-                ("fake.policy.1", "policy"),
-                ("fake.policy.2", "policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
             ],
             items_migrated=[
-                ("fake.rule.1", "rule"),
-                ("fake.rule.2", "rule"),
-                ("fake.policy.1", "policy"),
-                ("fake.policy.2", "policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
             ],
         ),
         output_path,

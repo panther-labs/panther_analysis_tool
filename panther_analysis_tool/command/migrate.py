@@ -15,6 +15,23 @@ from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
 @dataclasses.dataclass
+class MigrationItem:
+    """
+    An item that was migrated or should be migrated.
+
+    Attributes:
+        analysis_id: The ID of the analysis item
+        analysis_type: The type of the analysis item
+    """
+
+    analysis_id: str
+    "The ID of the analysis item"
+
+    analysis_type: str
+    "The type of the analysis item"
+
+
+@dataclasses.dataclass
 class MigrationResult:
     """
     Result of a migration operation.
@@ -24,25 +41,25 @@ class MigrationResult:
         items_migrated: (analysis id, analysis type) of items migrated
     """
 
-    items_with_conflicts: list[Tuple[str, str]]
-    "(analysis id, analysis type) of items not migrated due to merge conflicts"
+    items_with_conflicts: list[MigrationItem]
+    "Items not migrated due to merge conflicts"
 
-    items_migrated: list[Tuple[str, str]]
-    "(analysis id, analysis type) of items migrated"
+    items_migrated: list[MigrationItem]
+    "Items migrated"
 
     def empty(self) -> bool:
         return len(self.items_with_conflicts) == 0 and len(self.items_migrated) == 0
 
-    def _by_analysis_type(self, items: list[Tuple[str, str]]) -> dict[str, list[Tuple[str, str]]]:
+    def _by_analysis_type(self, items: list[MigrationItem]) -> dict[str, list[MigrationItem]]:
         result = defaultdict(list)
         for item in items:
-            result[item[1]].append(item)
+            result[item.analysis_type].append(item)
         return dict(result)
 
-    def migrated_items_by_analysis_type(self) -> dict[str, list[Tuple[str, str]]]:
+    def migrated_items_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
         return self._by_analysis_type(self.items_migrated)
 
-    def items_with_conflicts_by_analysis_type(self) -> dict[str, list[Tuple[str, str]]]:
+    def items_with_conflicts_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
         return self._by_analysis_type(self.items_with_conflicts)
 
 
@@ -57,7 +74,7 @@ def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
     migration_result = migrate(analysis_id, editor, migration_output)
     if not migration_result.empty():
         print(
-            "Migration complete, but they may be merge conflicts to resolve. Details can be found in: migration_output.md"
+            "Migration complete, but there may be merge conflicts to resolve. Details can be found in: `migration_output.md`."
         )
         print("  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.")
         print("Run `git diff` to see any changes made.")
@@ -105,7 +122,7 @@ def write_migration_results(
             stream.write(f"### Analysis Type: {analysis_type}\n\n")
             stream.write(f"{len(conflicts)} merge conflict(s).\n\n")
             for conflict in conflicts:
-                stream.write(f"  * {conflict[0]}\n")
+                stream.write(f"  * {conflict.analysis_id}\n")
             stream.write("\n")
 
     if len(migration_result.items_migrated) > 0:
@@ -118,7 +135,7 @@ def write_migration_results(
             stream.write(f"### Analysis Type: {analysis_type}\n\n")
             stream.write(f"{len(items_migrated)} analysis item(s) migrated.\n\n")
             for item in items_migrated:
-                stream.write(f"  * {item[0]}\n")
+                stream.write(f"  * {item.analysis_id}\n")
             stream.write("\n")
 
     migration_output.write_text(stream.getvalue())
@@ -185,8 +202,8 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
 def migrate_items(
     items_to_migrate: list[merge_item.MergeableItem], solve_merge: bool, editor: str | None
 ) -> MigrationResult:
-    items_with_conflicts: list[Tuple[str, str]] = []
-    items_migrated: list[Tuple[str, str]] = []
+    items_with_conflicts: list[MigrationItem] = []
+    items_migrated: list[MigrationItem] = []
 
     for item in items_to_migrate:
         has_conflict = merge_item.merge_item(
@@ -194,9 +211,17 @@ def migrate_items(
         )
         if has_conflict:
             items_with_conflicts.append(
-                (item.user_item.analysis_id(), item.user_item.analysis_type())
+                MigrationItem(
+                    analysis_id=item.user_item.analysis_id(),
+                    analysis_type=item.user_item.analysis_type(),
+                )
             )
         else:
-            items_migrated.append((item.user_item.analysis_id(), item.user_item.analysis_type()))
+            items_migrated.append(
+                MigrationItem(
+                    analysis_id=item.user_item.analysis_id(),
+                    analysis_type=item.user_item.analysis_type(),
+                )
+            )
 
     return MigrationResult(items_with_conflicts=items_with_conflicts, items_migrated=items_migrated)
