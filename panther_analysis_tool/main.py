@@ -76,12 +76,10 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -2484,7 +2482,10 @@ def merge_command(
 
 @app_command_with_config(
     name="migrate",
-    help="Migrate all analysis items that are based off Panther Analysis content by adding a BaseVersion field and getting them up to date.",
+    help=(
+        "Migrate all analysis items that are based off Panther Analysis content "
+        "by adding a BaseVersion field and getting them up to date.",
+    ),
 )
 def migrate_command(
     analysis_id: Annotated[
