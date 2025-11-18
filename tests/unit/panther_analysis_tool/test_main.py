@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pathlib
 import shutil
 import zipfile
 from datetime import datetime
@@ -569,7 +568,7 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
+        def check_result(*args: Any, **kwargs: Any) -> None:
             _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
@@ -615,7 +614,7 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
+        def check_result(*args: Any, **kwargs: Any) -> None:
             _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))

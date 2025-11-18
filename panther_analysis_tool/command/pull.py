@@ -1,3 +1,4 @@
+import logging
 import os
 import pathlib
 import shutil
@@ -34,6 +35,7 @@ def pull() -> None:
     if release_branch == "":
         release_branch = "main"
         commit = git_helpers.panther_analysis_latest_release_commit()
+        logging.debug("Using Panther Analysis release: %s", commit)
 
     git_helpers.clone_panther_analysis(release_branch, commit)
     shutil.move(

@@ -7,7 +7,7 @@ from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import merge
-from panther_analysis_tool.core import analysis_cache, yaml
+from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
 def _type_to_id_field(analysis_type: str) -> str:
@@ -512,7 +512,7 @@ def test_merge_items_no_conflict_with_python(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[False, False, False, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -521,12 +521,12 @@ def test_merge_items_no_conflict_with_python(
     rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
         ),
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
@@ -551,7 +551,7 @@ def test_merge_items_no_conflict_no_python(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[False, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -560,12 +560,12 @@ def test_merge_items_no_conflict_no_python(
     rule_2 = make_load_spec(tmp_path, "rule", "2", 1, False)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, None),
             latest_panther_item=load_spec_to_analysis_item(rule_1, None),
             base_panther_item=load_spec_to_analysis_item(rule_1, None),
         ),
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, None),
             latest_panther_item=load_spec_to_analysis_item(rule_2, None),
             base_panther_item=load_spec_to_analysis_item(rule_2, None),
@@ -590,7 +590,7 @@ def test_merge_items_yaml_conflict(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[True, True],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -599,12 +599,12 @@ def test_merge_items_yaml_conflict(
     rule_2 = make_load_spec(tmp_path, "rule", "2", 1, False)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, None),
             latest_panther_item=load_spec_to_analysis_item(rule_1, None),
             base_panther_item=load_spec_to_analysis_item(rule_1, None),
         ),
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, None),
             latest_panther_item=load_spec_to_analysis_item(rule_2, None),
             base_panther_item=load_spec_to_analysis_item(rule_2, None),
@@ -628,7 +628,7 @@ def test_merge_items_python_conflict(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mock_merge_file = mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[False, False, True],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -637,12 +637,12 @@ def test_merge_items_python_conflict(
     rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
         ),
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
@@ -671,7 +671,7 @@ def test_merge_items_both_conflicts(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mock_merge_file = mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[
             False,  # no python conflict
             True,  # yaml conflict
@@ -684,12 +684,12 @@ def test_merge_items_both_conflicts(
     rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
         ),
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
@@ -714,7 +714,7 @@ def test_merge_items_with_analysis_id_with_conflict(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mock_merge_file = mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[True, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -722,7 +722,7 @@ def test_merge_items_with_analysis_id_with_conflict(
     rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
@@ -739,7 +739,7 @@ def test_merge_items_with_analysis_id_no_conflict(
     make_load_spec: make_load_spec_type,
 ) -> None:
     mock_merge_file = mocker.patch(
-        "panther_analysis_tool.command.merge.merge_file",
+        "panther_analysis_tool.command.merge.merge_item.merge_file",
         side_effect=[False, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
@@ -747,7 +747,7 @@ def test_merge_items_with_analysis_id_no_conflict(
     rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
 
     mergeable_items = [
-        merge.MergeableItem(
+        merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
@@ -756,144 +756,3 @@ def test_merge_items_with_analysis_id_no_conflict(
     merge.merge_items(mergeable_items, "target", None)
     mock_print.assert_has_calls([])
     assert mock_merge_file.call_count == 2
-
-
-################################################################################
-### TEST merge_file
-################################################################################
-
-
-def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
-    output_path = tmp_path / "output.yml"
-    output_path.write_text("user: yaml")
-    mocker.patch(
-        "panther_analysis_tool.command.merge.git_helpers.merge_file",
-        return_value=(False, b"merged: yaml"),
-    )
-
-    has_conflict = merge.merge_file(
-        solve_merge=False,
-        user=b"user: yaml",
-        base=b"base: yaml",
-        latest=b"base: yaml",
-        user_python=b"",
-        output_path=output_path,
-        editor=None,
-    )
-    assert not has_conflict
-    assert output_path.read_text() == "user: yaml\nbase: yaml\n"
-
-
-def test_merge_file_yaml_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
-    output_path = tmp_path / "output.yml"
-    output_path.write_text("user: yaml")
-    mocker.patch(
-        "panther_analysis_tool.command.merge.git_helpers.merge_file",
-        return_value=(True, b"merged: yaml"),
-    )
-
-    has_conflict = merge.merge_file(
-        solve_merge=False,
-        user=b"key: user",
-        base=b"key: base",
-        latest=b"key: latest",
-        user_python=b"",
-        output_path=output_path,
-        editor=None,
-    )
-    assert has_conflict
-    # output file should not have changed
-    assert output_path.read_text() == "user: yaml"
-
-
-def test_merge_file_yaml_conflict_solve(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
-    output_path = tmp_path / "output.yml"
-    output_path.write_text("common: user")
-    mocker.patch(
-        "panther_analysis_tool.command.merge.git_helpers.merge_file",
-        return_value=(True, b"merged: yaml"),
-    )
-    mocker.patch(
-        "panther_analysis_tool.command.merge.yaml_conflict_resolver_gui.YAMLConflictResolverApp",
-        return_value=mocker.Mock(get_final_dict=lambda: {"common": "user"}, run=lambda: None),
-    )
-
-    has_conflict = merge.merge_file(
-        solve_merge=True,
-        user=b"common: user",
-        base=b"common: base",
-        latest=b"common: latest",
-        user_python=b"",
-        output_path=output_path,
-        editor=None,
-    )
-    assert not has_conflict
-    assert output_path.read_text() == "common: user\n"
-
-
-def test_merge_file_python_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
-    output_path = tmp_path / "output.py"
-    output_path.write_text("user_python")
-    mocker.patch(
-        "panther_analysis_tool.command.merge.git_helpers.merge_file",
-        return_value=(False, b"merged_python"),
-    )
-
-    has_conflict = merge.merge_file(
-        solve_merge=False,
-        user=b"user_python",
-        base=b"base_python",
-        latest=b"base_python",
-        user_python=b"user_python",
-        output_path=output_path,
-        editor=None,
-    )
-    assert not has_conflict
-    assert output_path.read_text() == "merged_python"
-
-
-def test_merge_file_python_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
-    output_path = tmp_path / "output.py"
-    output_path.write_text("user_python")
-    mocker.patch(
-        "panther_analysis_tool.command.merge.git_helpers.merge_file",
-        return_value=(True, b"merged_python"),
-    )
-
-    has_conflict = merge.merge_file(
-        solve_merge=False,
-        user=b"user_python",
-        base=b"base_python",
-        latest=b"base_python",
-        user_python=b"user_python",
-        output_path=output_path,
-        editor=None,
-    )
-    assert has_conflict
-    assert output_path.read_text() == "user_python"
-
-
-def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
-    output_path = tmp_path / "output.py"
-    output_path.write_text("user_python")
-    mocker.patch(
-        "panther_analysis_tool.command.merge.git_helpers.merge_file",
-        return_value=(True, b"merged_python"),
-    )
-    merge_files_mock = mocker.patch(
-        "panther_analysis_tool.command.merge.file_editor.merge_files_in_editor", return_value=False
-    )
-    merge_files_mock.side_effect = lambda _, **kwargs: output_path.write_text("merged_python")
-
-    has_conflict = merge.merge_file(
-        solve_merge=True,
-        user=b"user_python",
-        base=b"base_python",
-        latest=b"base_python",
-        user_python=b"user_python",
-        output_path=output_path,
-        editor=None,
-    )
-    assert not has_conflict
-    assert output_path.read_text() == "merged_python"
-    assert output_path.read_text() == "merged_python"

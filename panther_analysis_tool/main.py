@@ -90,6 +90,7 @@ from panther_analysis_tool.command import (
     explore,
     init_project,
     merge,
+    migrate,
     pull,
     validate,
 )
@@ -2479,6 +2480,27 @@ def merge_command(
     ] = None,
 ) -> Tuple[int, str]:
     return merge.run(analysis_id, editor)
+
+
+@app_command_with_config(
+    name="migrate",
+    help="Migrate all analysis items that are based off Panther Analysis content "
+    + "by adding a BaseVersion field and getting them up to date.",
+)
+def migrate_command(
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="The ID of the analysis item to migrate with merge conflicts to resolve.",
+            autocompletion=complete_id,
+        ),
+    ] = None,
+    editor: Annotated[
+        Optional[str],
+        typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
+    ] = None,
+) -> Tuple[int, str]:
+    return migrate.run(analysis_id, editor)
 
 
 # pylint: disable=too-many-statements

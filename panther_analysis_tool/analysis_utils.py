@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import pathlib
 import re
 import tempfile
 from fnmatch import fnmatch
@@ -189,14 +190,24 @@ def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> No
 
 @dataclasses.dataclass
 class LoadAnalysisSpecsResult:
-    """The result of loading analysis specifications from a file."""
+    """
+    The result of loading analysis specifications from a file.
 
-    spec_filename: str
+    Attributes:
+        spec_filename (str): Absolute path to the spec file.
+        relative_path (str): Relative path to the spec file from the current working directory.
+        analysis_spec (dict): The analysis specification.
+        yaml_ctx (yaml.BlockStyleYAML): The YAML loader used to load the spec file.
+        error (Exception | None): An error that occurred while loading the spec file.
+        raw_spec_file_content (bytes | None): The raw content of the spec file.
+    """
+
+    spec_filename: str  # absolute path to the spec file
     relative_path: str
     analysis_spec: Any
     yaml_ctx: yaml.BlockStyleYAML
-    error: Optional[Exception]
-    raw_spec_file_content: Optional[bytes]
+    error: Exception | None
+    raw_spec_file_content: bytes | None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
@@ -256,6 +267,17 @@ class LoadAnalysisSpecsResult:
         logging.debug("Writing analysis spec to %s", self.spec_filename)
         with open(self.spec_filename, "w", encoding="utf-8") as file:
             self.yaml_ctx.dump(self.analysis_spec, file)
+
+    def python_file_path(self) -> pathlib.Path | None:
+        """Returns the absolute path to the Python file for this analysis spec."""
+        if "Filename" not in self.analysis_spec:
+            return None
+
+        path = pathlib.Path(self.spec_filename).parent / self.analysis_spec["Filename"]
+        if not path.exists():
+            return None
+
+        return path
 
 
 # pylint: disable=too-many-locals
