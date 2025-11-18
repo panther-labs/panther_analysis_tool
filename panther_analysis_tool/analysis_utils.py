@@ -17,14 +17,14 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
+    BackendError,
     GetRuleBodyParams,
     TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_LOCATION,
@@ -193,7 +193,7 @@ class LoadAnalysisSpecsResult:
     """
     The result of loading analysis specifications from a file.
 
-    Args:
+    Attributes:
         spec_filename (str): Absolute path to the spec file.
         relative_path (str): Relative path to the spec file from the current working directory.
         analysis_spec (dict): The analysis specification.
