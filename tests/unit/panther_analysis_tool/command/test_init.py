@@ -37,7 +37,9 @@ def test_init_project_with_no_gitignore(
     check_gitignore_content(gitignore_content)
 
 
-def test_init_project_with_gitignore(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture) -> None:
+def test_init_project_with_gitignore(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
     monkeypatch.chdir(tmp_path)
     mock_subprocess_run = mocker.patch(
         "panther_analysis_tool.command.init_project.subprocess.run",
