@@ -1,6 +1,8 @@
 import dataclasses
 from typing import Any
 
+from panther_analysis_tool.constants import AutoAcceptOption
+
 
 @dataclasses.dataclass
 class DictMergeConflict:
@@ -13,21 +15,29 @@ class DictMergeConflict:
 class Dict:
     """
     A class to merge two dictionaries with a 3-way merge.
+
+    Attributes:
+        customer_dict (dict): The customer dictionary.
+        auto_accept (AutoAcceptOption | None): The auto accept option.
+            If None (default), the user will be prompted to resolve the merge conflict.
+            If AutoAcceptOption.YOURS, the customer value will be used.
+            If AutoAcceptOption.PANTHERS, the latest value will be used.
     """
 
-    def __init__(self, customer_dict: dict):
+    def __init__(self, customer_dict: dict, auto_accept: AutoAcceptOption | None = None):
         self.customer_dict = customer_dict
+        self.auto_accept = auto_accept
 
     def merge_dict(self, base_dict: dict, latest_dict: dict) -> list[DictMergeConflict]:
         """
         Merge the latest dict into the customer dict, using the base dict for a 3-way merge.
 
         Args:
-            base_dict: The base dictionary.
-            latest_dict: The latest dictionary.
+            base_dict (dict): The base dictionary.
+            latest_dict (dict): The latest dictionary.
 
         Returns:
-            A list of DictMergeConflict objects. Each object contains the key, customer value, latest value,
+            list[DictMergeConflict]: A list of DictMergeConflict objects. Each object contains the key, customer value, latest value,
             and base value for each key that has a merge conflict.
         """
         diff_keys = diff_dict_keys(self.customer_dict, latest_dict)
@@ -50,6 +60,13 @@ class Dict:
                 continue
             elif base_val == cust_val and base_val != latest_val:
                 # latest value changed but customer did not, use latest value
+                self.customer_dict[key] = latest_val
+                continue
+
+            if self.auto_accept == AutoAcceptOption.YOURS:
+                self.customer_dict[key] = cust_val
+                continue
+            elif self.auto_accept == AutoAcceptOption.PANTHERS:
                 self.customer_dict[key] = latest_val
                 continue
 

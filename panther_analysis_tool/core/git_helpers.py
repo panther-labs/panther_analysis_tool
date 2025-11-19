@@ -6,7 +6,7 @@ from typing import Tuple
 
 import requests
 
-from panther_analysis_tool.constants import CACHE_DIR
+from panther_analysis_tool.constants import CACHE_DIR, AutoAcceptOption
 
 CLONED_REPO_PATH = CACHE_DIR / "panther-analysis"
 CLONED_VERSIONS_FILE_PATH = CLONED_REPO_PATH / ".versions.yml"
@@ -93,7 +93,10 @@ def get_panther_analysis_file_contents(commit: str, file_path: str) -> str:
 
 
 def merge_file(
-    user_file_path: pathlib.Path, base_file_path: pathlib.Path, latest_file_path: pathlib.Path
+    user_file_path: pathlib.Path,
+    base_file_path: pathlib.Path,
+    latest_file_path: pathlib.Path,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> Tuple[bool, bytes]:
     """
     Merge a file with git.
@@ -102,7 +105,10 @@ def merge_file(
         user_file_path (str): The path to the user file.
         base_file_path (str): The path to the base file.
         latest_file_path (str): The path to the latest file.
-
+        auto_accept (AutoAcceptOption | None): The auto accept option.
+            If None (default), the user will be prompted to resolve the merge conflict.
+            If AutoAcceptOption.YOURS, the user's changes will be used.
+            If AutoAcceptOption.PANTHERS, the latest changes will be used.
     Returns:
         bool: True if there was a merge conflict, False otherwise.
         bytes: The merged file contents.
@@ -114,23 +120,39 @@ def merge_file(
     if not latest_file_path.exists():
         raise FileNotFoundError(f"Latest file {latest_file_path} not found")
 
-    proc = subprocess.run(  # nosec:B607 B603
+    args = [
+        "git",
+        "merge-file",
+        "-p",
+    ]
+
+    match auto_accept:
+        case AutoAcceptOption.YOURS:
+            args.append("--ours")
+        case AutoAcceptOption.PANTHERS:
+            args.append("--theirs")
+
+    args.extend(
         [
-            "git",
-            "merge-file",
-            "-p",
             "-L",
-            "ours",
+            "yours",
             "-L",
             "base",
             "-L",
-            "panther",
+            "panthers",
             str(user_file_path),
             str(base_file_path),
             str(latest_file_path),
-        ],
+        ]
+    )
+
+    proc = subprocess.run(  # nosec:B607 B603
+        args,
         check=False,
         capture_output=True,
     )
+
+    if proc.stderr is not None and proc.stderr.decode("utf-8") != "":
+        raise RuntimeError(f"Failed to merge file: {proc.stderr.decode('utf-8')}")
 
     return proc.returncode != 0, proc.stdout

@@ -11,6 +11,7 @@ from collections import defaultdict
 from typing import Tuple
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
@@ -62,21 +63,29 @@ class MigrationResult:
     def items_with_conflicts_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
         return self._by_analysis_type(self.items_with_conflicts)
 
+    def has_conflicts(self) -> bool:
+        return len(self.items_with_conflicts) > 0
 
-def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
-    confirmation = input(
-        "Migration requires the latest Panther Analysis updates. Did you run `pat pull` before running this? (y/n): "
-    )
-    if confirmation.lower() != "y":
-        return 1, "Migration cancelled."
 
+def run(
+    analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
+) -> Tuple[int, str]:
     migration_output = pathlib.Path("migration_output.md")
-    migration_result = migrate(analysis_id, editor, migration_output)
+    migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
+
+    if analysis_id is not None:
+        # skip the completion message if the user specified an analysis id
+        return 0, ""
+
     if not migration_result.empty():
-        print(
-            "Migration complete, but there may be merge conflicts to resolve. Details can be found in: `migration_output.md`."
-        )
-        print("  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.")
+        completion_message = "Migration complete! Details can be found in: `migration_output.md`."
+        if migration_result.has_conflicts():
+            completion_message = (
+                "Migration completed for analysis items without merge conflicts. "
+                "Items with conflicts need to be resolved manually. Details can be found in: `migration_output.md`.\n"
+                "  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict."
+            )
+        print(completion_message)
         print("Run `git diff` to see any changes made.")
     else:
         print("All analysis items in your repo are already migrated! ")
@@ -89,13 +98,16 @@ def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
 
 
 def migrate(
-    analysis_id: str | None, editor: str | None, migration_output: pathlib.Path
+    analysis_id: str | None,
+    editor: str | None,
+    migration_output: pathlib.Path,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
     items_to_migrate = get_items_to_migrate(analysis_id)
     if len(items_to_migrate) == 0:
         return MigrationResult(items_with_conflicts=[], items_migrated=[])
 
-    migration_result = migrate_items(items_to_migrate, analysis_id is not None, editor)
+    migration_result = migrate_items(items_to_migrate, analysis_id is not None, editor, auto_accept)
     write_migration_results(migration_result, migration_output)
 
     return migration_result
@@ -163,11 +175,6 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
             # this happens with custom analysis items
             continue
 
-        user_spec.analysis_spec["BaseVersion"] = latest_spec.version
-        stream = io.BytesIO()
-        yaml_loader.dump(user_spec.analysis_spec, stream=stream)
-        user_spec.raw_spec_file_content = stream.getvalue()
-
         # load the python file for the user spec from the file system
         user_py: bytes | None = None
         py_path: pathlib.Path | None = None
@@ -192,6 +199,7 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
             ),
             # in the future this can be improved by using the last version fetched in the customer repo
             base_panther_item=analysis_utils.AnalysisItem({}, raw_yaml_file_contents=b"{}"),
+            latest_item_version=latest_spec.version,
         )
 
         items_to_migrate.append(migration_item)
@@ -200,14 +208,18 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
 
 
 def migrate_items(
-    items_to_migrate: list[merge_item.MergeableItem], solve_merge: bool, editor: str | None
+    items_to_migrate: list[merge_item.MergeableItem],
+    solve_merge: bool,
+    editor: str | None,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
+    yaml_loader = yaml.BlockStyleYAML()
     items_with_conflicts: list[MigrationItem] = []
     items_migrated: list[MigrationItem] = []
 
     for item in items_to_migrate:
         has_conflict = merge_item.merge_item(
-            mergeable_item=item, solve_merge=solve_merge, editor=editor
+            mergeable_item=item, solve_merge=solve_merge, editor=editor, auto_accept=auto_accept
         )
         if has_conflict:
             items_with_conflicts.append(
@@ -223,5 +235,11 @@ def migrate_items(
                     analysis_type=item.user_item.analysis_type(),
                 )
             )
+
+            # once we know there are no conflicts, we can add the BaseVersion to say migration is complete
+            yaml_file_path = pathlib.Path(item.user_item.yaml_file_path or "")
+            user_spec: dict = yaml_loader.load(yaml_file_path)
+            user_spec["BaseVersion"] = item.latest_item_version
+            yaml_loader.dump(user_spec, yaml_file_path)
 
     return MigrationResult(items_with_conflicts=items_with_conflicts, items_migrated=items_migrated)

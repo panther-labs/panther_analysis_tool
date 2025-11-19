@@ -1,3 +1,4 @@
+import enum
 import importlib.metadata
 import pathlib
 from typing import Dict, Final
@@ -96,3 +97,8 @@ PANTHER_ANALYSIS_SQLITE_FILE_PATH = CACHE_DIR / PANTHER_ANALYSIS_SQLITE_FILE
 CACHED_VERSIONS_FILE_PATH = CACHE_DIR / ".versions.yml"
 
 DEFAULT_EDITOR = "vi"
+
+
+class AutoAcceptOption(str, enum.Enum):
+    YOURS = "yours"
+    PANTHERS = "panthers"

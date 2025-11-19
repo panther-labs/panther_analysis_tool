@@ -120,6 +120,7 @@ from panther_analysis_tool.constants import (
     PACKAGE_NAME,
     VERSION_STRING,
     AnalysisTypes,
+    AutoAcceptOption,
 )
 from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.core.definitions import (
@@ -2478,8 +2479,14 @@ def merge_command(
         Optional[str],
         typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
     ] = None,
+    auto_accept: Annotated[
+        Optional[AutoAcceptOption],
+        typer.Option(
+            help="Auto accept your changes or Panther's changes for merge conflicts.",
+        ),
+    ] = None,
 ) -> Tuple[int, str]:
-    return merge.run(analysis_id, editor)
+    return merge.run(analysis_id, editor, auto_accept)
 
 
 @app_command_with_config(
@@ -2499,8 +2506,20 @@ def migrate_command(
         Optional[str],
         typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
     ] = None,
+    auto_accept: Annotated[
+        Optional[AutoAcceptOption],
+        typer.Option(
+            help="Auto accept your changes or Panther's changes for merge conflicts.",
+        ),
+    ] = None,
 ) -> Tuple[int, str]:
-    return migrate.run(analysis_id, editor)
+    if analysis_id is None:
+        pulled_latest = typer.confirm(
+            "Migration requires the latest Panther Analysis updates. Did you run `pat pull` before running this?"
+        )
+        if not pulled_latest:
+            return 1, "Migration cancelled. Run `pat pull` before running this command."
+    return migrate.run(analysis_id, editor, auto_accept)
 
 
 # pylint: disable=too-many-statements

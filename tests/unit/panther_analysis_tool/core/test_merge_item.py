@@ -5,6 +5,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
@@ -419,3 +420,52 @@ def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathl
     assert not has_conflict
     assert output_path.read_text() == "merged_python"
     assert output_path.read_text() == "merged_python"
+
+
+def test_merge_file_python_conflict_auto_accept(
+    mocker: MockerFixture, tmp_path: pathlib.Path
+) -> None:
+    output_path = tmp_path / "output.py"
+    output_path.write_text("user_python")
+    mocker.patch(
+        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
+        return_value=(False, b"merged_python"),
+    )
+
+    has_conflict = merge_item.merge_file(
+        solve_merge=False,
+        user=b"user_python",
+        base=b"base_python",
+        latest=b"base_python",
+        user_python=b"user_python",
+        output_path=output_path,
+        editor=None,
+        auto_accept=AutoAcceptOption.YOURS,
+    )
+    assert not has_conflict
+    assert output_path.read_text() == "merged_python"
+
+
+def test_merge_file_yaml_conflict_auto_accept(
+    mocker: MockerFixture, tmp_path: pathlib.Path
+) -> None:
+    output_path = tmp_path / "output.yml"
+    output_path.write_text("user: yaml")
+    mocker.patch(
+        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
+        return_value=(False, b"merged: yaml"),
+    )
+
+    has_conflict = merge_item.merge_file(
+        solve_merge=False,
+        user=b"key: user",
+        base=b"key: base",
+        latest=b"key: latest",
+        user_python=b"",
+        output_path=output_path,
+        editor=None,
+        auto_accept=AutoAcceptOption.YOURS,
+    )
+    assert not has_conflict
+    # output file should not have changed
+    assert output_path.read_text() == "key: user\n"
