@@ -21,6 +21,76 @@ def setup(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.An
     return cache
 
 
+def test_migrate_with_analysis_id(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    cache = setup(tmp_path, monkeypatch)
+    rule_1_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.1",
+        "Filename": "fake_rule_1.py",
+        "Some": "field",
+    }
+
+    mock_yaml_resolver = mocker.patch(
+        "panther_analysis_tool.command.migrate.merge_item.yaml_conflict_resolver_gui.YAMLConflictResolverApp",
+        return_value=mocker.MagicMock(get_final_dict=lambda: rule_1_spec | {"Some": "new value"}),
+    )
+    mock_merge_item = mocker.patch(
+        "panther_analysis_tool.command.migrate.merge_item.git_helpers.merge_file",
+        return_value=(True, b"def rule(event): return True # new version"),
+    )
+    mock_merge_files_in_editor = mocker.patch(
+        "panther_analysis_tool.command.migrate.merge_item.file_editor.merge_files_in_editor",
+        return_value=False,
+    )
+
+    (tmp_path / "fake_rule_1.yml").write_text(yaml.dump(rule_1_spec))
+    (tmp_path / "fake_rule_1.py").write_text("def rule(event): return True")
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(rule_1_spec | {"Some": "new value"}).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="fake.rule.1",
+        ),
+        b"def rule(event): return True # new version",
+    )
+
+    migration_output = tmp_path / "migration_output.md"
+    migration_output.touch()
+
+    result = migrate.migrate("fake.rule.1", None, migration_output, None)
+    assert not result.empty()
+    assert len(result.items_migrated) == 1
+    assert len(result.items_with_conflicts) == 0
+    assert (
+        migration_output.read_text()
+        == """# Migration Results
+
+## Analysis Items Migrated
+
+1 analysis item(s) migrated.
+
+### Analysis Type: rule
+
+1 analysis item(s) migrated.
+
+  * fake.rule.1
+
+"""
+    )
+    assert mock_yaml_resolver.call_count == 1
+    assert mock_merge_item.call_count == 1
+    assert mock_merge_files_in_editor.call_count == 1
+
+
+#######################################################################################
+### Test get_items_to_migrate
+#######################################################################################
+
+
 def test_get_items_to_migrate_has_base_version(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
@@ -98,10 +168,8 @@ def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     items = migrate.get_items_to_migrate(None)
     assert len(items) == 2
 
-    assert items[0].user_item.yaml_file_contents == rule_1_dict | {"BaseVersion": 1}
-    assert items[0].user_item.raw_yaml_file_contents == (rule_1_spec + "BaseVersion: 1\n").encode(
-        "utf-8"
-    )
+    assert items[0].user_item.yaml_file_contents == rule_1_dict
+    assert items[0].user_item.raw_yaml_file_contents == rule_1_spec.encode("utf-8")
     assert items[0].user_item.python_file_contents == b"def rule(event): return True"
     assert items[0].user_item.python_file_path == str(tmp_path / "fake_rule_1.py")
     assert items[0].latest_panther_item.yaml_file_contents == rule_1_dict
@@ -115,10 +183,8 @@ def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     assert items[0].base_panther_item.python_file_contents is None
     assert items[0].base_panther_item.python_file_path is None
 
-    assert items[1].user_item.yaml_file_contents == rule_2_dict | {"BaseVersion": 1}
-    assert items[1].user_item.raw_yaml_file_contents == (rule_2_spec + "BaseVersion: 1\n").encode(
-        "utf-8"
-    )
+    assert items[1].user_item.yaml_file_contents == rule_2_dict
+    assert items[1].user_item.raw_yaml_file_contents == rule_2_spec.encode("utf-8")
     assert items[1].user_item.python_file_contents == b"def rule(event): return True"
     assert items[1].user_item.python_file_path == str(tmp_path / "fake_rule_2.py")
     assert items[1].latest_panther_item.yaml_file_contents == rule_2_dict
@@ -133,7 +199,22 @@ def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     assert items[1].base_panther_item.python_file_path is None
 
 
-def test_migrate_items_no_conflicts(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
+#######################################################################################
+### Test migrate_items
+#######################################################################################
+
+
+def test_migrate_items_no_conflicts(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "fake_rule_1.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "fake.rule.1"})
+    )
+    (tmp_path / "fake_rule_2.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "fake.rule.2"})
+    )
+
     mock_merge_item = mocker.patch(
         "panther_analysis_tool.command.migrate.merge_item.merge_item", side_effect=[False, False]
     )
@@ -141,17 +222,21 @@ def test_migrate_items_no_conflicts(tmp_path: pathlib.Path, mocker: MockerFixtur
     items = [
         merge_item.MergeableItem(
             user_item=analysis_utils.AnalysisItem(
-                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.1"}
+                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.1"},
+                yaml_file_path=str(tmp_path / "fake_rule_1.yml"),
             ),
             latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
             base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+            latest_item_version=1,
         ),
         merge_item.MergeableItem(
             user_item=analysis_utils.AnalysisItem(
-                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.2"}
+                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.2"},
+                yaml_file_path=str(tmp_path / "fake_rule_2.yml"),
             ),
             latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
             base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+            latest_item_version=1,
         ),
     ]
 
@@ -159,9 +244,15 @@ def test_migrate_items_no_conflicts(tmp_path: pathlib.Path, mocker: MockerFixtur
     assert len(result.items_with_conflicts) == 0
     assert len(result.items_migrated) == 2
     assert mock_merge_item.call_count == 2
+    assert (
+        tmp_path / "fake_rule_1.yml"
+    ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.1\nBaseVersion: 1\n"
+    assert (
+        tmp_path / "fake_rule_2.yml"
+    ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.2\nBaseVersion: 1\n"
 
 
-def test_migrate_items_with_conflicts(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
+def test_migrate_items_with_conflicts(mocker: MockerFixture) -> None:
     mock_merge_item = mocker.patch(
         "panther_analysis_tool.command.migrate.merge_item.merge_item", side_effect=[True, True]
     )
@@ -189,7 +280,17 @@ def test_migrate_items_with_conflicts(tmp_path: pathlib.Path, mocker: MockerFixt
     assert mock_merge_item.call_count == 2
 
 
-def test_migrate_items_with_conflicts_accept_yours(mocker: MockerFixture) -> None:
+def test_migrate_items_with_conflicts_accept_yours(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "fake_rule_1.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "fake.rule.1"})
+    )
+    (tmp_path / "fake_rule_2.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "fake.rule.2"})
+    )
+
     mock_merge_item = mocker.patch(
         "panther_analysis_tool.command.migrate.merge_item.merge_item", side_effect=[False, False]
     )
@@ -197,17 +298,21 @@ def test_migrate_items_with_conflicts_accept_yours(mocker: MockerFixture) -> Non
     items = [
         merge_item.MergeableItem(
             user_item=analysis_utils.AnalysisItem(
-                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.1"}
+                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.1"},
+                yaml_file_path=str(tmp_path / "fake_rule_1.yml"),
             ),
             latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
             base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+            latest_item_version=1,
         ),
         merge_item.MergeableItem(
             user_item=analysis_utils.AnalysisItem(
-                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.2"}
+                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.2"},
+                yaml_file_path=str(tmp_path / "fake_rule_2.yml"),
             ),
             latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
             base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+            latest_item_version=1,
         ),
     ]
 
@@ -215,6 +320,17 @@ def test_migrate_items_with_conflicts_accept_yours(mocker: MockerFixture) -> Non
     assert len(result.items_with_conflicts) == 0
     assert len(result.items_migrated) == 2
     assert mock_merge_item.call_count == 2
+    assert (
+        tmp_path / "fake_rule_1.yml"
+    ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.1\nBaseVersion: 1\n"
+    assert (
+        tmp_path / "fake_rule_2.yml"
+    ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.2\nBaseVersion: 1\n"
+
+
+#######################################################################################
+### Test write_migration_results
+#######################################################################################
 
 
 def test_write_migration_results_empty(tmp_path: pathlib.Path) -> None:

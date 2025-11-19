@@ -175,11 +175,6 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
             # this happens with custom analysis items
             continue
 
-        user_spec.analysis_spec["BaseVersion"] = latest_spec.version
-        stream = io.BytesIO()
-        yaml_loader.dump(user_spec.analysis_spec, stream=stream)
-        user_spec.raw_spec_file_content = stream.getvalue()
-
         # load the python file for the user spec from the file system
         user_py: bytes | None = None
         py_path: pathlib.Path | None = None
@@ -204,6 +199,7 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
             ),
             # in the future this can be improved by using the last version fetched in the customer repo
             base_panther_item=analysis_utils.AnalysisItem({}, raw_yaml_file_contents=b"{}"),
+            latest_item_version=latest_spec.version,
         )
 
         items_to_migrate.append(migration_item)
@@ -217,6 +213,7 @@ def migrate_items(
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
+    yaml_loader = yaml.BlockStyleYAML()
     items_with_conflicts: list[MigrationItem] = []
     items_migrated: list[MigrationItem] = []
 
@@ -238,5 +235,11 @@ def migrate_items(
                     analysis_type=item.user_item.analysis_type(),
                 )
             )
+
+            # once we know there are no conflicts, we can add the BaseVersion to say migration is complete
+            yaml_file_path = pathlib.Path(item.user_item.yaml_file_path or "")
+            user_spec: dict = yaml_loader.load(yaml_file_path)
+            user_spec["BaseVersion"] = item.latest_item_version
+            yaml_loader.dump(user_spec, yaml_file_path)
 
     return MigrationResult(items_with_conflicts=items_with_conflicts, items_migrated=items_migrated)
