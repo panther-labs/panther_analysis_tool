@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -55,7 +56,7 @@ def enable_rerere() -> None:
         ["git", "config", "rerere.enabled", "true"], check=True, capture_output=True
     )
     if proc.stderr is not None and proc.stderr.decode("utf-8") != "":
-        raise RuntimeError(f"Failed to enable git rerere: {proc.stderr.decode('utf-8')}")
+        logging.error("Failed to enable git rerere: %s", proc.stderr.decode("utf-8"))
 
 
 def print_ready_message() -> None:
