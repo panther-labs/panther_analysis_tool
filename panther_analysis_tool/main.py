@@ -76,10 +76,12 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
+)
+from panther_analysis_tool.backend.client import Client as BackendClient
+from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
@@ -2510,7 +2512,16 @@ def migrate_command(
             help="Auto accept your changes or Panther's changes for merge conflicts.",
         ),
     ] = None,
+    pulled_latest: Annotated[
+        bool,
+        typer.Option(
+            help="Whether the latest Panther Analysis content has been pulled before running this command.",
+            prompt="Migration requires the latest Panther Analysis updates. Did you run `pat pull` before running this?",
+        ),
+    ] = False,
 ) -> Tuple[int, str]:
+    if not pulled_latest:
+        return 1, "Migration cancelled. Run `pat pull` before running this command."
     return migrate.run(analysis_id, editor, auto_accept)
 
 

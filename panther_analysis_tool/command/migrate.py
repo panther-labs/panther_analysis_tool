@@ -63,23 +63,24 @@ class MigrationResult:
     def items_with_conflicts_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
         return self._by_analysis_type(self.items_with_conflicts)
 
+    def has_conflicts(self) -> bool:
+        return len(self.items_with_conflicts) > 0
+
 
 def run(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
 ) -> Tuple[int, str]:
-    confirmation = input(
-        "Migration requires the latest Panther Analysis updates. Did you run `pat pull` before running this? (y/n): "
-    )
-    if confirmation.lower() != "y":
-        return 1, "Migration cancelled."
-
     migration_output = pathlib.Path("migration_output.md")
-    migration_result = migrate(analysis_id, editor, migration_output)
+    migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
     if not migration_result.empty():
-        print(
-            "Migration complete, but there may be merge conflicts to resolve. Details can be found in: `migration_output.md`."
-        )
-        print("  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.")
+        completion_message = "Migration complete! Details can be found in: `migration_output.md`."
+        if migration_result.has_conflicts():
+            completion_message = (
+                "Migration completed for analysis items without merge conflicts. "
+                "Items with conflicts need to be resolved manually. Details can be found in: `migration_output.md`.\n"
+                "  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict."
+            )
+        print(completion_message)
         print("Run `git diff` to see any changes made.")
     else:
         print("All analysis items in your repo are already migrated! ")

@@ -124,22 +124,22 @@ def merge_file(
         "git",
         "merge-file",
         "-p",
-        "-L",
-        "yours",
-        "-L",
-        "base",
-        "-L",
-        "panthers",
     ]
 
     match auto_accept:
         case AutoAcceptOption.YOURS:
-            args.append("-X ours")
+            args.append("--ours")
         case AutoAcceptOption.PANTHERS:
-            args.append("-X theirs")
+            args.append("--theirs")
 
     args.extend(
         [
+            "-L",
+            "yours",
+            "-L",
+            "base",
+            "-L",
+            "panthers",
             str(user_file_path),
             str(base_file_path),
             str(latest_file_path),
@@ -151,5 +151,8 @@ def merge_file(
         check=False,
         capture_output=True,
     )
+
+    if proc.stderr is not None and proc.stderr.decode("utf-8") != "":
+        raise RuntimeError(f"Failed to merge file: {proc.stderr.decode('utf-8')}")
 
     return proc.returncode != 0, proc.stdout

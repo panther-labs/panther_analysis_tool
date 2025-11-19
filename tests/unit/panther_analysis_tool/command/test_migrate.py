@@ -5,7 +5,10 @@ from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import migrate
-from panther_analysis_tool.constants import PANTHER_ANALYSIS_SQLITE_FILE_PATH
+from panther_analysis_tool.constants import (
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+    AutoAcceptOption,
+)
 from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
@@ -183,6 +186,34 @@ def test_migrate_items_with_conflicts(tmp_path: pathlib.Path, mocker: MockerFixt
     result = migrate.migrate_items(items, False, None)
     assert len(result.items_with_conflicts) == 2
     assert len(result.items_migrated) == 0
+    assert mock_merge_item.call_count == 2
+
+
+def test_migrate_items_with_conflicts_accept_yours(mocker: MockerFixture) -> None:
+    mock_merge_item = mocker.patch(
+        "panther_analysis_tool.command.migrate.merge_item.merge_item", side_effect=[False, False]
+    )
+
+    items = [
+        merge_item.MergeableItem(
+            user_item=analysis_utils.AnalysisItem(
+                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.1"}
+            ),
+            latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+            base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        ),
+        merge_item.MergeableItem(
+            user_item=analysis_utils.AnalysisItem(
+                yaml_file_contents={"AnalysisType": "rule", "RuleID": "fake.rule.2"}
+            ),
+            latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+            base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        ),
+    ]
+
+    result = migrate.migrate_items(items, False, None, AutoAcceptOption.YOURS)
+    assert len(result.items_with_conflicts) == 0
+    assert len(result.items_migrated) == 2
     assert mock_merge_item.call_count == 2
 
 
