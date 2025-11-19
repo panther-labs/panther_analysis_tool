@@ -11,6 +11,7 @@ from collections import defaultdict
 from typing import Tuple
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
@@ -63,7 +64,9 @@ class MigrationResult:
         return self._by_analysis_type(self.items_with_conflicts)
 
 
-def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
+def run(
+    analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
+) -> Tuple[int, str]:
     confirmation = input(
         "Migration requires the latest Panther Analysis updates. Did you run `pat pull` before running this? (y/n): "
     )
@@ -89,13 +92,16 @@ def run(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
 
 
 def migrate(
-    analysis_id: str | None, editor: str | None, migration_output: pathlib.Path
+    analysis_id: str | None,
+    editor: str | None,
+    migration_output: pathlib.Path,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
     items_to_migrate = get_items_to_migrate(analysis_id)
     if len(items_to_migrate) == 0:
         return MigrationResult(items_with_conflicts=[], items_migrated=[])
 
-    migration_result = migrate_items(items_to_migrate, analysis_id is not None, editor)
+    migration_result = migrate_items(items_to_migrate, analysis_id is not None, editor, auto_accept)
     write_migration_results(migration_result, migration_output)
 
     return migration_result
@@ -200,14 +206,17 @@ def get_items_to_migrate(analysis_id: str | None) -> list[merge_item.MergeableIt
 
 
 def migrate_items(
-    items_to_migrate: list[merge_item.MergeableItem], solve_merge: bool, editor: str | None
+    items_to_migrate: list[merge_item.MergeableItem],
+    solve_merge: bool,
+    editor: str | None,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
     items_with_conflicts: list[MigrationItem] = []
     items_migrated: list[MigrationItem] = []
 
     for item in items_to_migrate:
         has_conflict = merge_item.merge_item(
-            mergeable_item=item, solve_merge=solve_merge, editor=editor
+            mergeable_item=item, solve_merge=solve_merge, editor=editor, auto_accept=auto_accept
         )
         if has_conflict:
             items_with_conflicts.append(

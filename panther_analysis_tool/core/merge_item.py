@@ -5,6 +5,7 @@ import shutil
 import tempfile
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import diff, file_editor, git_helpers, yaml
 from panther_analysis_tool.gui import yaml_conflict_resolver_gui
 
@@ -20,7 +21,12 @@ class MergeableItem:
     base_panther_item: analysis_utils.AnalysisItem
 
 
-def merge_item(mergeable_item: MergeableItem, solve_merge: bool, editor: str | None) -> bool:
+def merge_item(
+    mergeable_item: MergeableItem,
+    solve_merge: bool,
+    editor: str | None,
+    auto_accept: AutoAcceptOption | None = None,
+) -> bool:
     user_item = mergeable_item.user_item
     latest_item = mergeable_item.latest_panther_item
     base_item = mergeable_item.base_panther_item
@@ -35,6 +41,7 @@ def merge_item(mergeable_item: MergeableItem, solve_merge: bool, editor: str | N
         user_python=b"",
         output_path=pathlib.Path(user_item.yaml_file_path or ""),
         editor=editor,
+        auto_accept=auto_accept,
     )
     if has_conflict and not solve_merge:
         # no need to merge python if yaml has a conflict because
@@ -53,6 +60,7 @@ def merge_item(mergeable_item: MergeableItem, solve_merge: bool, editor: str | N
             user_python=user_item.python_file_contents or b"",
             output_path=pathlib.Path(user_item.python_file_path or ""),
             editor=editor,
+            auto_accept=auto_accept,
         )
         return has_conflict
 
@@ -68,6 +76,7 @@ def merge_file(
     user_python: bytes,
     output_path: pathlib.Path,
     editor: str | None,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> bool:
     """
     Merge a file with git and solve the merge conflict if requested.
@@ -102,7 +111,7 @@ def merge_file(
             user_python_path = temp_dir / "user_python.py"
             user_python_path.write_bytes(user_python)
 
-            merge_dict = diff.Dict(yaml_loader.load(user_path))
+            merge_dict = diff.Dict(yaml_loader.load(user_path), auto_accept=auto_accept)
             conflicts = merge_dict.merge_dict(
                 yaml_loader.load(base_path), yaml_loader.load(latest_path)
             )
@@ -130,7 +139,12 @@ def merge_file(
             return False  # merge was solved so no more conflict
 
         # python merge
-        has_conflict, merged_contents = git_helpers.merge_file(user_path, base_path, latest_path)
+        has_conflict, merged_contents = git_helpers.merge_file(
+            user_file_path=user_path,
+            base_file_path=base_path,
+            latest_file_path=latest_path,
+            auto_accept=auto_accept,
+        )
         if not has_conflict:
             with open(output_path, "wb") as file:
                 file.write(merged_contents)

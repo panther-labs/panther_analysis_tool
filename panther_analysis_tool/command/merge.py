@@ -4,20 +4,25 @@ from typing import Tuple
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
+from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import analysis_cache, merge_item, yaml
 
 
-def run(analysis_id: str, editor: str | None) -> Tuple[int, str]:
-    return merge_analysis(analysis_id, editor)
+def run(
+    analysis_id: str, editor: str | None, auto_accept: AutoAcceptOption | None
+) -> Tuple[int, str]:
+    return merge_analysis(analysis_id, editor, auto_accept)
 
 
-def merge_analysis(analysis_id: str | None, editor: str | None) -> Tuple[int, str]:
+def merge_analysis(
+    analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None = None
+) -> Tuple[int, str]:
     mergeable_items = get_mergeable_items(analysis_id)
     if not mergeable_items:
         print("Nothing to merge.")
         return 0, ""
 
-    merge_items(mergeable_items, analysis_id, editor)
+    merge_items(mergeable_items, analysis_id, editor, auto_accept)
 
     return 0, ""
 
@@ -115,7 +120,10 @@ def get_mergeable_items(analysis_id: str | None) -> list[merge_item.MergeableIte
 
 
 def merge_items(
-    mergeable_items: list[merge_item.MergeableItem], analysis_id: str | None, editor: str | None
+    mergeable_items: list[merge_item.MergeableItem],
+    analysis_id: str | None,
+    editor: str | None,
+    auto_accept: AutoAcceptOption | None = None,
 ) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
@@ -125,7 +133,9 @@ def merge_items(
             # user specified an analysis id, only merge that one
             continue
 
-        has_conflict = merge_item.merge_item(mergeable_item, analysis_id is not None, editor)
+        has_conflict = merge_item.merge_item(
+            mergeable_item, analysis_id is not None, editor, auto_accept
+        )
         if has_conflict:
             merge_conflict_item_ids.append(mergeable_item.user_item.analysis_id())
             continue

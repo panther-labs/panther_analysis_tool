@@ -5,7 +5,9 @@ from unittest import mock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from pytest_mock import MockerFixture
 
+from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import git_helpers
 
 
@@ -75,3 +77,127 @@ def test_get_panther_analysis_file_contents() -> None:
             "rules/atlassian_rules/user_logged_in_as_user.yml",
         )
         assert result == "stuff"
+
+
+def test_merge_file(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "user.yml").write_text("user")
+    (tmp_path / "base.yml").write_text("base")
+    (tmp_path / "latest.yml").write_text("latest")
+
+    run_mock = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[], stdout=b"merged"),
+    )
+
+    has_conflict, merged_contents = git_helpers.merge_file(
+        user_file_path=tmp_path / "user.yml",
+        base_file_path=tmp_path / "base.yml",
+        latest_file_path=tmp_path / "latest.yml",
+    )
+    assert not has_conflict
+    assert merged_contents == b"merged"
+    run_mock.assert_called_once_with(
+        [
+            "git",
+            "merge-file",
+            "-p",
+            "-L",
+            "yours",
+            "-L",
+            "base",
+            "-L",
+            "panthers",
+            str(tmp_path / "user.yml"),
+            str(tmp_path / "base.yml"),
+            str(tmp_path / "latest.yml"),
+        ],
+        check=False,
+        capture_output=True,
+    )
+
+
+def test_merge_file_accept_yours(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "user.yml").write_text("user")
+    (tmp_path / "base.yml").write_text("base")
+    (tmp_path / "latest.yml").write_text("latest")
+
+    run_mock = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[], stdout=b"merged"),
+    )
+
+    has_conflict, merged_contents = git_helpers.merge_file(
+        user_file_path=tmp_path / "user.yml",
+        base_file_path=tmp_path / "base.yml",
+        latest_file_path=tmp_path / "latest.yml",
+        auto_accept=AutoAcceptOption.YOURS,
+    )
+    assert not has_conflict
+    assert merged_contents == b"merged"
+    run_mock.assert_called_once_with(
+        [
+            "git",
+            "merge-file",
+            "-p",
+            "-L",
+            "yours",
+            "-L",
+            "base",
+            "-L",
+            "panthers",
+            "-X ours",
+            str(tmp_path / "user.yml"),
+            str(tmp_path / "base.yml"),
+            str(tmp_path / "latest.yml"),
+        ],
+        check=False,
+        capture_output=True,
+    )
+
+
+def test_merge_file_accept_panthers(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "user.yml").write_text("user")
+    (tmp_path / "base.yml").write_text("base")
+    (tmp_path / "latest.yml").write_text("latest")
+
+    run_mock = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[], stdout=b"merged"),
+    )
+
+    has_conflict, merged_contents = git_helpers.merge_file(
+        user_file_path=tmp_path / "user.yml",
+        base_file_path=tmp_path / "base.yml",
+        latest_file_path=tmp_path / "latest.yml",
+        auto_accept=AutoAcceptOption.PANTHERS,
+    )
+    assert not has_conflict
+    assert merged_contents == b"merged"
+    run_mock.assert_called_once_with(
+        [
+            "git",
+            "merge-file",
+            "-p",
+            "-L",
+            "yours",
+            "-L",
+            "base",
+            "-L",
+            "panthers",
+            "-X theirs",
+            str(tmp_path / "user.yml"),
+            str(tmp_path / "base.yml"),
+            str(tmp_path / "latest.yml"),
+        ],
+        check=False,
+        capture_output=True,
+    )
