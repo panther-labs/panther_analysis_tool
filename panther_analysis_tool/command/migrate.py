@@ -73,9 +73,7 @@ def run(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
 ) -> Tuple[int, str]:
     migration_output = pathlib.Path("migration_output.md")
-    print()
     migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
-    print()
 
     if analysis_id is not None:
         # skip the completion message if the user specified an analysis id
@@ -113,12 +111,20 @@ def migrate(
     cache = analysis_cache.AnalysisCache()
 
     specs = list(analysis_utils.load_analysis_specs_ex(["."], [], True))
-    for user_spec in track(specs, description="Migration progress:"):
+    if analysis_id is None:
+        print()  # add a blank line to make it looks nicer
+
+    for user_spec in track(
+        specs, description="Migration progress:", disable=analysis_id is not None
+    ):
         item = get_migration_item(user_spec, analysis_id, cache)
         if item is None:
             continue
 
         migrate_item(item, analysis_id is not None, editor, result, auto_accept)
+
+    if analysis_id is None:
+        print()  # add a blank line to make it looks nicer
 
     write_migration_results(result, migration_output)
     return result

@@ -18,7 +18,7 @@ def merge_analysis(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None = None
 ) -> Tuple[int, str]:
     mergeable_items = get_mergeable_items(analysis_id)
-    if not mergeable_items:
+    if not mergeable_items and analysis_id is None:
         print("Nothing to merge.")
         return 0, ""
 
