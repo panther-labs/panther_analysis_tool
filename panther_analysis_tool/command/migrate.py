@@ -72,6 +72,11 @@ def run(
 ) -> Tuple[int, str]:
     migration_output = pathlib.Path("migration_output.md")
     migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
+
+    if analysis_id is not None:
+        # skip the completion message if the user specified an analysis id
+        return 0, ""
+
     if not migration_result.empty():
         completion_message = "Migration complete! Details can be found in: `migration_output.md`."
         if migration_result.has_conflicts():
