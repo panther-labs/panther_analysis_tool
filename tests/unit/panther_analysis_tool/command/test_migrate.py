@@ -94,7 +94,7 @@ def test_migrate_with_analysis_id(
 def test_get_items_to_migrate_has_base_version(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
-    setup(tmp_path, monkeypatch)
+    cache = setup(tmp_path, monkeypatch)
     (tmp_path / "fake_rule_1.yml").write_text(
         yaml.dump(
             {
@@ -105,14 +105,16 @@ def test_get_items_to_migrate_has_base_version(
         )
     )
 
-    items = migrate.get_items_to_migrate(None)
-    assert len(items) == 0
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+    item = migrate.get_migration_item(specs[0], None, cache)
+    assert item is None
 
 
 def test_get_items_to_migrate_no_latest_spec(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
-    setup(tmp_path, monkeypatch)
+    cache = setup(tmp_path, monkeypatch)
     (tmp_path / "fake_rule_1.yml").write_text(
         yaml.dump(
             {
@@ -122,8 +124,10 @@ def test_get_items_to_migrate_no_latest_spec(
         )
     )
 
-    items = migrate.get_items_to_migrate(None)
-    assert len(items) == 0
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+    item = migrate.get_migration_item(specs[0], None, cache)
+    assert item is None
 
 
 def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
@@ -165,8 +169,13 @@ def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
         b"def rule(event): return True # new version",
     )
 
-    items = migrate.get_items_to_migrate(None)
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 2
+
+    items = [migrate.get_migration_item(spec, None, cache) for spec in specs]
     assert len(items) == 2
+    assert items[0] is not None
+    assert items[1] is not None
 
     assert items[0].user_item.yaml_file_contents == rule_1_dict
     assert items[0].user_item.raw_yaml_file_contents == rule_1_spec.encode("utf-8")
@@ -240,7 +249,9 @@ def test_migrate_items_no_conflicts(
         ),
     ]
 
-    result = migrate.migrate_items(items, False, None)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    for item in items:
+        migrate.migrate_item(item, False, None, result)
     assert len(result.items_with_conflicts) == 0
     assert len(result.items_migrated) == 2
     assert mock_merge_item.call_count == 2
@@ -274,7 +285,9 @@ def test_migrate_items_with_conflicts(mocker: MockerFixture) -> None:
         ),
     ]
 
-    result = migrate.migrate_items(items, False, None)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    for item in items:
+        migrate.migrate_item(item, False, None, result)
     assert len(result.items_with_conflicts) == 2
     assert len(result.items_migrated) == 0
     assert mock_merge_item.call_count == 2
@@ -316,7 +329,9 @@ def test_migrate_items_with_conflicts_accept_yours(
         ),
     ]
 
-    result = migrate.migrate_items(items, False, None, AutoAcceptOption.YOURS)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    for item in items:
+        migrate.migrate_item(item, False, None, result, AutoAcceptOption.YOURS)
     assert len(result.items_with_conflicts) == 0
     assert len(result.items_migrated) == 2
     assert mock_merge_item.call_count == 2
