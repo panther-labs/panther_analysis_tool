@@ -1,10 +1,12 @@
 import os
+import subprocess
 from pathlib import Path
 from typing import Tuple
 
 
 def run(working_dir: str) -> Tuple[int, str]:
     setup_git_ignore(Path(working_dir))
+    enable_rerere()
     print_ready_message()
     return 0, ""
 
@@ -48,22 +50,30 @@ def setup_git_ignore(working_dir: Path) -> None:
                     gitignore_file.write(f"{value}\n\n")
 
 
+def enable_rerere() -> None:
+    proc = subprocess.run(
+        ["git", "config", "rerere.enabled", "true"], check=True, capture_output=True
+    )
+    if proc.stderr is not None and proc.stderr.decode("utf-8") != "":
+        raise RuntimeError(f"Failed to enable git rerere: {proc.stderr.decode('utf-8')}")
+
+
 def print_ready_message() -> None:
     print("Project is ready to use!\n")
 
     print("Next, you can start exploring and using Panther out of the box content:")
     print(
-        "    Run `pat pull` to pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content."  # pylint: disable=line-too-long
+        "  * Run `pat pull` to pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content."  # pylint: disable=line-too-long
     )
-    print("    Run `pat explore` to see the available content.")
+    print("  * Run `pat explore` to see the available content.")
     print(
-        "    Run `pat enable <id>` to create a clone of a detection you want to use in your repo."
-    )
-    print(
-        "    Run `pat enable --filter LogTypes=<LOG_TYPE>` to enable all detections for a given log type you have onboarded."
+        "  * Run `pat enable <id>` to create a clone of a detection you want to use in your repo."
     )
     print(
-        "    Run `pat test` to test your content and then run `pat upload` to upload your content to Panther."
+        "  * Run `pat enable --filter LogTypes=<LOG_TYPE>` to enable all detections for a given log type you have onboarded."
+    )
+    print(
+        "  * Run `pat test` to test your content and then run `pat upload` to upload your content to Panther."
     )
 
     print(
