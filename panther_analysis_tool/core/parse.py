@@ -1,3 +1,4 @@
+import ast
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -95,3 +96,43 @@ def strtobool(val: str) -> int:
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+def collect_top_level_imports(py: bytes) -> set[str]:
+    """
+    Collects all imports from a Python file by parsing the file is an AST
+    and extracting the top level imports.
+
+    Example:
+    ```python
+        from top import foo
+        import bar
+        import baz.qux
+        from baz.qux import quux
+        from scoob.qux import quux as quuux
+    ```
+
+    Outputs:
+    ```python
+        {"top", "bar", "baz", "scoob"}
+    ```
+
+    Args:
+        py: The Python file to parse.
+
+    Returns:
+        A set of top level imports.
+    """
+    try:
+        tree = ast.parse(py.decode("utf-8"))
+    except (UnicodeDecodeError, SyntaxError):
+        return set()
+
+    imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.add(node.module.split(".")[0])
+
+    return imports

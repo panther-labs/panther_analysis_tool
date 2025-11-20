@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import pathlib
 from typing import Any, Dict, List, Optional, Tuple
@@ -92,23 +93,143 @@ def get_analysis_items(
     return all_specs
 
 
+@dataclasses.dataclass
+class LoadedDataModelSpec:
+    spec_item: analysis_cache.AnalysisSpec
+    spec: dict[str, Any]
+    log_types: list[str]
+
+
 def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> None:
+    cache = analysis_cache.AnalysisCache()
+    versions = versions_file.get_versions().versions
     yaml_loader = yaml.BlockStyleYAML()
+    global_helpers: dict[str, analysis_cache.AnalysisSpec] = {}  # filename -> spec
+    data_models: list[LoadedDataModelSpec] = []
+
+    for spec_id in cache.list_spec_ids():
+        spec = cache.get_latest_spec(spec_id)
+        if spec is None:
+            continue
+
+        loaded = yaml_loader.load(spec.spec)
+
+        if loaded["AnalysisType"] == AnalysisTypes.GLOBAL:
+            if "Filename" not in loaded:
+                continue
+            global_helpers[loaded["Filename"].split(".")[0]] = spec
+        elif loaded["AnalysisType"] == AnalysisTypes.DATA_MODEL:
+            data_models.append(
+                LoadedDataModelSpec(
+                    spec_item=spec,
+                    spec=loaded,
+                    log_types=loaded["LogTypes"] if "LogTypes" in loaded else [],
+                )
+            )
 
     for item in items_to_clone:
-        yaml_path = pathlib.Path(item.yaml_file_path or "")
-        if yaml_path.exists():
-            raise FileExistsError(f"{item.analysis_id()} at {yaml_path} already exists")
+        clone_analysis_item(item)
 
-        py_path = pathlib.Path(item.python_file_path or "")
-        if item.python_file_path is not None and py_path.exists():
-            raise FileExistsError(f"{item.analysis_id()} at {py_path} already exists")
+    clone_deps(items_to_clone, global_helpers, data_models, cache, versions)
 
-        yaml_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(yaml_path, "wb") as yaml_file:
-            yaml_loader.dump(item.yaml_file_contents, yaml_file)
 
-        if item.python_file_path is not None and item.python_file_contents is not None:
-            py_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(py_path, "wb") as py_file:
-                py_file.write(item.python_file_contents)
+def clone_analysis_item(item: analysis_utils.AnalysisItem) -> None:
+    """
+    Clones the analysis item.
+
+    Args:
+        item: The analysis item to clone.
+
+    Raises:
+        FileExistsError: If the analysis item already exists.
+    """
+    yaml_loader = yaml.BlockStyleYAML()
+
+    yaml_path = pathlib.Path(item.yaml_file_path or "")
+    if yaml_path.exists():
+        raise FileExistsError(f"{item.analysis_id()} at {yaml_path} already exists")
+
+    py_path = pathlib.Path(item.python_file_path or "")
+    if item.python_file_path is not None and py_path.exists():
+        raise FileExistsError(f"{item.analysis_id()} at {py_path} already exists")
+
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(yaml_path, "wb") as yaml_file:
+        yaml_loader.dump(item.yaml_file_contents, yaml_file)
+
+    if item.python_file_path is not None and item.python_file_contents is not None:
+        py_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(py_path, "wb") as py_file:
+            py_file.write(item.python_file_contents)
+
+
+def clone_deps(
+    items_to_clone: list[analysis_utils.AnalysisItem],
+    global_helpers: dict[str, analysis_cache.AnalysisSpec],
+    data_models: list[LoadedDataModelSpec],
+    cache: analysis_cache.AnalysisCache,
+    versions: dict[str, versions_file.AnalysisVersionItem],
+) -> None:
+    """
+    Clones the dependencies of the analysis item.
+
+    Args:
+        item: The analysis item to clone the dependencies for.
+        global_helpers: A dictionary of global helpers to clone (filename -> spec).
+        data_models: A list of data models to clone.
+        cache: The cache to use to get the analysis item.
+        versions: The versions to use to get the analysis item.
+    """
+    all_log_types: set[str] = set()
+    all_top_level_imports: set[str] = set()
+
+    for item in items_to_clone:
+        imports = parse.collect_top_level_imports(item.python_file_contents or b"")
+        for import_ in imports:
+            all_top_level_imports.add(import_)
+        for log_type in (
+            item.yaml_file_contents["LogTypes"] if "LogTypes" in item.yaml_file_contents else []
+        ):
+            all_log_types.add(log_type)
+
+    for import_ in all_top_level_imports:
+        if import_ in global_helpers:
+            try:
+                item = cached_analysis_spec_to_analysis_item(
+                    global_helpers[import_], cache, versions
+                )
+                clone_analysis_item(item)
+            except FileExistsError:
+                pass
+
+    # just LogTypes in data models, no ResourceTypes support
+    for log_type in all_log_types:
+        for data_model in data_models:
+            if log_type in data_model.log_types:
+                item = cached_analysis_spec_to_analysis_item(data_model.spec_item, cache, versions)
+                set_enabled_field(item.yaml_file_contents)
+                try:
+                    clone_analysis_item(item)
+                except FileExistsError:
+                    pass
+                break
+
+
+def cached_analysis_spec_to_analysis_item(
+    spec: analysis_cache.AnalysisSpec,
+    cache: analysis_cache.AnalysisCache,
+    versions: dict[str, versions_file.AnalysisVersionItem],
+) -> analysis_utils.AnalysisItem:
+    yaml_loader = yaml.BlockStyleYAML()
+    loaded = yaml_loader.load(spec.spec)
+
+    version_item = versions[spec.id_value]
+    version_history_item = version_item.history[version_item.version]
+
+    return analysis_utils.AnalysisItem(
+        yaml_file_contents=loaded,
+        yaml_file_path=version_history_item.yaml_file_path,
+        raw_yaml_file_contents=spec.spec,
+        python_file_path=version_history_item.py_file_path,
+        python_file_contents=cache.get_file_for_spec(spec.id or -1, spec.version),
+    )
