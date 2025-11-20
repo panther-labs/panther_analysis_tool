@@ -516,9 +516,15 @@ def test_merge_items_no_conflict_with_python(
         side_effect=[False, False, False, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    (tmp_path / "rule_1.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "1", "BaseVersion": 1})
+    )
+    (tmp_path / "rule_2.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "2", "BaseVersion": 1})
+    )
 
-    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
-    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 2, True)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 3, True)
 
     mergeable_items = [
         merge_item.MergeableItem(
@@ -555,20 +561,28 @@ def test_merge_items_no_conflict_no_python(
         side_effect=[False, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    (tmp_path / "rule_1.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "1", "BaseVersion": 1})
+    )
+    (tmp_path / "rule_2.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "2", "BaseVersion": 1})
+    )
 
-    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
-    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, False)
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 2, False)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 3, False)
 
     mergeable_items = [
         merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, None),
             latest_panther_item=load_spec_to_analysis_item(rule_1, None),
             base_panther_item=load_spec_to_analysis_item(rule_1, None),
+            latest_item_version=2,
         ),
         merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, None),
             latest_panther_item=load_spec_to_analysis_item(rule_2, None),
             base_panther_item=load_spec_to_analysis_item(rule_2, None),
+            latest_item_version=3,
         ),
     ]
     merge.merge_items(mergeable_items, None, None)
@@ -581,6 +595,12 @@ def test_merge_items_no_conflict_no_python(
                 "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
             ),
         ]
+    )
+    assert (tmp_path / "rule_1.yml").read_text() == yaml.dump(
+        {"AnalysisType": "rule", "RuleID": "1", "BaseVersion": 2}
+    )
+    assert (tmp_path / "rule_2.yml").read_text() == yaml.dump(
+        {"AnalysisType": "rule", "RuleID": "2", "BaseVersion": 3}
     )
 
 
@@ -632,20 +652,28 @@ def test_merge_items_python_conflict(
         side_effect=[False, False, True],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    (tmp_path / "rule_1.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "1", "BaseVersion": 1})
+    )
+    (tmp_path / "rule_2.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "2", "BaseVersion": 1})
+    )
 
-    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
-    rule_2 = make_load_spec(tmp_path, "rule", "2", 1, True)
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 2, True)
+    rule_2 = make_load_spec(tmp_path, "rule", "2", 3, True)
 
     mergeable_items = [
         merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+            latest_item_version=2,
         ),
         merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_2, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_2, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_2, b"base_python"),
+            latest_item_version=3,
         ),
     ]
     merge.merge_items(mergeable_items, None, None)
@@ -663,6 +691,12 @@ def test_merge_items_python_conflict(
         ]
     )
     assert mock_merge_file.call_count == 3
+    assert (tmp_path / "rule_1.yml").read_text() == yaml.dump(
+        {"AnalysisType": "rule", "RuleID": "1", "BaseVersion": 2}
+    )
+    assert (tmp_path / "rule_2.yml").read_text() == yaml.dump(
+        {"AnalysisType": "rule", "RuleID": "2", "BaseVersion": 1}
+    )
 
 
 def test_merge_items_both_conflicts(
@@ -718,19 +752,26 @@ def test_merge_items_with_analysis_id_with_conflict(
         side_effect=[True, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    (tmp_path / "rule_target.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "target", "BaseVersion": 1})
+    )
 
-    rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
+    rule_1 = make_load_spec(tmp_path, "rule", "target", 2, True)
 
     mergeable_items = [
         merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+            latest_item_version=2,
         ),
     ]
     merge.merge_items(mergeable_items, "target", None)
     mock_print.assert_has_calls([])
     assert mock_merge_file.call_count == 2
+    assert (tmp_path / "rule_target.yml").read_text() == yaml.dump(
+        {"AnalysisType": "rule", "RuleID": "target", "BaseVersion": 2}
+    )
 
 
 def test_merge_items_with_analysis_id_no_conflict(
@@ -743,16 +784,23 @@ def test_merge_items_with_analysis_id_no_conflict(
         side_effect=[False, False],
     )
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    (tmp_path / "rule_target.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "target", "BaseVersion": 1})
+    )
 
-    rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
+    rule_1 = make_load_spec(tmp_path, "rule", "target", 2, True)
 
     mergeable_items = [
         merge_item.MergeableItem(
             user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
             latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
             base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+            latest_item_version=2,
         ),
     ]
     merge.merge_items(mergeable_items, "target", None)
     mock_print.assert_has_calls([])
     assert mock_merge_file.call_count == 2
+    assert (tmp_path / "rule_target.yml").read_text() == yaml.dump(
+        {"AnalysisType": "rule", "RuleID": "target", "BaseVersion": 2}
+    )

@@ -19,7 +19,7 @@ class MergeableItem:
     user_item: analysis_utils.AnalysisItem
     latest_panther_item: analysis_utils.AnalysisItem
     base_panther_item: analysis_utils.AnalysisItem
-    latest_item_version: int = -1  # used for migrations
+    latest_item_version: int = -1
 
 
 def merge_item(
