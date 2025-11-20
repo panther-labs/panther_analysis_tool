@@ -107,9 +107,11 @@ import baz.qux
 import goo.foo as goofoo
 from baz.qux import quux
 from scoob.qux import quux as quuux
+from alpha import beta, gamma
+from alpha.beta import delta, epsilon
     """
     imports = parse.collect_top_level_imports(py.encode("utf-8"))
-    assert imports == {"top", "bar", "baz", "scoob", "goo"}
+    assert imports == {"top", "bar", "baz", "scoob", "goo", "alpha"}
 
 
 def test_collect_top_level_imports_empty() -> None:
