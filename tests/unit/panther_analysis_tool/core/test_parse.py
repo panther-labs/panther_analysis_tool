@@ -5,6 +5,7 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from panther_analysis_tool import main as pat
+from panther_analysis_tool.core import parse
 from panther_analysis_tool.core.parse import Filter
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../", "fixtures"))
@@ -96,3 +97,23 @@ class TestParser(TestCase):
             )
             # user's status filter:
             self.assertIn(Filter(key="Status", values=["experimental"]), parsed_filters)
+
+
+def test_collect_top_level_imports() -> None:
+    py = """
+from top import foo
+import bar
+import baz.qux
+import goo.foo as goofoo
+from baz.qux import quux
+from scoob.qux import quux as quuux
+    """
+    imports = parse.collect_top_level_imports(py.encode("utf-8"))
+    assert imports == {"top", "bar", "baz", "scoob", "goo"}
+
+
+def test_collect_top_level_imports_empty() -> None:
+    py = """
+    """
+    imports = parse.collect_top_level_imports(py.encode("utf-8"))
+    assert imports == set()

@@ -14,7 +14,7 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AnalysisTypes,
 )
-from panther_analysis_tool.core import analysis_cache, yaml
+from panther_analysis_tool.core import analysis_cache, versions_file, yaml
 
 _FAKE_PY = """
 def rule(event):
@@ -68,6 +68,18 @@ _FAKE_DATAMODEL_1_V1 = yaml.dump(
         "DataModelID": "fake.datamodel.1",
         "Description": "Fake datamodel 1 v1",
         "Enabled": False,
+        "LogTypes": ["fake.datamodel.1.log.type"],
+    }
+)
+
+_FAKE_DATAMODEL_2_V1 = yaml.dump(
+    {
+        "AnalysisType": "datamodel",
+        "Filename": "fake_datamodel_2.py",
+        "DataModelID": "fake.datamodel.2",
+        "Description": "Fake datamodel 2 v1",
+        "Enabled": False,
+        "LogTypes": ["fake.datamodel.2.log.type"],
     }
 )
 
@@ -87,6 +99,16 @@ _FAKE_GLOBAL_HELPER_1_V1 = yaml.dump(
         "Enabled": False,
         "Description": "Fake global helper 1 v1",
         "Filename": "fake_global_helper_1.py",
+    }
+)
+
+_FAKE_GLOBAL_HELPER_2_V1 = yaml.dump(
+    {
+        "AnalysisType": "global",
+        "GlobalID": "fake.global_helper.2",
+        "Enabled": False,
+        "Description": "Fake global helper 2 v1",
+        "Filename": "fake_global_helper_2.py",
     }
 )
 
@@ -126,6 +148,25 @@ _FAKE_SCHEDULED_QUERY_1_V1 = yaml.dump(
         "Description": "Fake scheduled query 1 v1",
     }
 )
+
+_FAKE_RULE_WITH_DEPS = yaml.dump(
+    {
+        "AnalysisType": "rule",
+        "Filename": "fake_rule_with_deps.py",
+        "RuleID": "fake.rule.with.deps",
+        "Enabled": False,
+        "Description": "Fake rule with deps",
+        "LogTypes": ["fake.datamodel.1.log.type", "fake.datamodel.2.log.type"],
+    }
+)
+
+_FAKE_PY_WITH_HELPERS = """
+from fake_global_helper_1 import test_helper
+import fake_global_helper_2
+
+def rule(event):
+    return True
+"""
 
 _FAKE_VERSIONS_FILE = yaml.dump(
     {
@@ -188,6 +229,19 @@ _FAKE_VERSIONS_FILE = yaml.dump(
                     },
                 },
             },
+            "fake.datamodel.2": {
+                "version": 1,
+                "type": "datamodel",
+                "sha256": "fake_sha256_datamodel_2",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_datamodel_2",
+                        "yaml_file_path": "data_models/fake_datamodel_2.yaml",
+                        "py_file_path": "data_models/fake_datamodel_2.py",
+                    },
+                },
+            },
             "fake.lookup_table.1": {
                 "version": 1,
                 "type": "lookup_table",
@@ -210,6 +264,19 @@ _FAKE_VERSIONS_FILE = yaml.dump(
                         "commit_hash": "fake_commit_hash_global_helper_1",
                         "yaml_file_path": "global_helpers/fake_global_helper_1.yaml",
                         "py_file_path": "global_helpers/fake_global_helper_1.py",
+                    },
+                },
+            },
+            "fake.global_helper.2": {
+                "version": 1,
+                "type": "global",
+                "sha256": "fake_sha256_global_helper_2",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_global_helper_2",
+                        "yaml_file_path": "global_helpers/fake_global_helper_2.yaml",
+                        "py_file_path": "global_helpers/fake_global_helper_2.py",
                     },
                 },
             },
@@ -262,6 +329,19 @@ _FAKE_VERSIONS_FILE = yaml.dump(
                     },
                 },
             },
+            "fake.rule.with.deps": {
+                "version": 1,
+                "type": "rule",
+                "sha256": "fake_sha256_rule_with_deps",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_rule_with_deps",
+                        "yaml_file_path": "rules/fake_rule_with_deps.yaml",
+                        "py_file_path": "rules/fake_rule_with_deps.py",
+                    },
+                },
+            },
         },
     }
 )
@@ -283,18 +363,21 @@ def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_c
     insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
     insert_spec(cache, _FAKE_RULE_2_V1, 1, "RuleID", "fake.rule.2", _FAKE_PY)
     insert_spec(cache, _FAKE_RULE_2_V2, 2, "RuleID", "fake.rule.2", _FAKE_PY)
+    insert_spec(
+        cache, _FAKE_RULE_WITH_DEPS, 1, "RuleID", "fake.rule.with.deps", _FAKE_PY_WITH_HELPERS
+    )
     insert_spec(cache, _FAKE_POLICY_1_V1, 1, "PolicyID", "fake.policy.1", _FAKE_PY)
     insert_spec(cache, _FAKE_DATAMODEL_1_V1, 1, "DataModelID", "fake.datamodel.1", _FAKE_PY)
+    insert_spec(cache, _FAKE_DATAMODEL_2_V1, 1, "DataModelID", "fake.datamodel.2", _FAKE_PY)
     insert_spec(cache, _FAKE_LOOKUP_TABLE_1_V1, 1, "LookupName", "fake.lookup_table.1", _FAKE_PY)
     insert_spec(cache, _FAKE_GLOBAL_HELPER_1_V1, 1, "GlobalID", "fake.global_helper.1", _FAKE_PY)
+    insert_spec(cache, _FAKE_GLOBAL_HELPER_2_V1, 1, "GlobalID", "fake.global_helper.2", _FAKE_PY)
     insert_spec(
         cache, _FAKE_CORRELATION_RULE_1_V1, 1, "RuleID", "fake.correlation_rule.1", _FAKE_PY
     )
     insert_spec(cache, _FAKE_SCHEDULED_RULE_1_V1, 1, "RuleID", "fake.scheduled_rule.1", _FAKE_PY)
-    insert_spec(cache, _FAKE_SAVED_QUERY_1_V1, 1, "QueryName", "fake.saved_query.1", _FAKE_PY)
-    insert_spec(
-        cache, _FAKE_SCHEDULED_QUERY_1_V1, 1, "QueryName", "fake.scheduled_query.1", _FAKE_PY
-    )
+    insert_spec(cache, _FAKE_SAVED_QUERY_1_V1, 1, "QueryName", "fake.saved_query.1")
+    insert_spec(cache, _FAKE_SCHEDULED_QUERY_1_V1, 1, "QueryName", "fake.scheduled_query.1")
 
     return cache
 
@@ -367,7 +450,7 @@ def test_get_analysis_items_no_filters_and_no_id(
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
     items = enable.get_analysis_items(analysis_id=None, filter_args=[])
-    assert len(items) == 10
+    assert len(items) == 13
 
 
 def test_get_analysis_items_filters_and_no_id(
@@ -375,7 +458,7 @@ def test_get_analysis_items_filters_and_no_id(
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
     items = enable.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
-    assert len(items) == 2
+    assert len(items) == 3
     assert items == [
         analysis_utils.AnalysisItem(
             yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
@@ -388,6 +471,12 @@ def test_get_analysis_items_filters_and_no_id(
             yaml_file_path="rules/fake_rule_2.yaml",
             python_file_path="rules/fake_rule_2.py",
             python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        ),
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_RULE_WITH_DEPS),
+            yaml_file_path="rules/fake_rule_with_deps.yaml",
+            python_file_path="rules/fake_rule_with_deps.py",
+            python_file_contents=bytes(_FAKE_PY_WITH_HELPERS, "utf-8"),
         ),
     ]
 
@@ -411,7 +500,7 @@ def test_get_analysis_items_no_filters_and_id(
 def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
     items = enable.get_analysis_items(analysis_id=None, filter_args=[])
-    assert len(items) == 10
+    assert len(items) == 13
     enable.clone_analysis_items(items)
     _dir = tmp_path
     assert (_dir / "rules" / "fake_rule_1.yaml").exists()
@@ -510,3 +599,72 @@ def test_enable_messaging(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> N
     code, err_str = enable.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
     assert code == 1
     assert err_str == "No items matched the analysis ID and filters. Nothing to clone and enable."
+
+
+def test_cached_analysis_spec_to_analysis_item_with_python(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    cache = set_up_cache(tmp_path, monkeypatch)
+    spec = cache.get_latest_spec("fake.rule.1")
+    assert spec is not None
+
+    versions = versions_file.get_versions().versions
+    item = enable.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    assert item.python_file_contents == bytes(_FAKE_PY, "utf-8")
+    assert item.python_file_path == "rules/fake_rule_1.py"
+    assert item.yaml_file_contents == yaml.load(_FAKE_RULE_1_V1)
+    assert item.yaml_file_path == "rules/fake_rule_1.yaml"
+    assert item.raw_yaml_file_contents == spec.spec
+
+
+def test_cached_analysis_spec_to_analysis_item_without_python(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    cache = set_up_cache(tmp_path, monkeypatch)
+    spec = cache.get_latest_spec("fake.saved_query.1")
+    assert spec is not None
+
+    versions = versions_file.get_versions().versions
+    item = enable.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    assert item.yaml_file_contents == yaml.load(_FAKE_SAVED_QUERY_1_V1)
+    assert item.yaml_file_path == "queries/fake_saved_query_1.yaml"
+    assert item.raw_yaml_file_contents == spec.spec
+    assert item.python_file_contents is None
+    assert item.python_file_path is None
+
+
+def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    enable.clone_analysis_items(items)
+
+    assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
+    assert (tmp_path / "rules" / "fake_rule_1.py").exists()
+    assert not (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
+    assert not (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
+    assert not (tmp_path / "data_models" / "fake_datamodel_1.yaml").exists()
+    assert not (tmp_path / "data_models" / "fake_datamodel_1.py").exists()
+    assert not (tmp_path / "global_helpers" / "fake_global_helper_2.yaml").exists()
+    assert not (tmp_path / "global_helpers" / "fake_global_helper_2.py").exists()
+    assert not (tmp_path / "data_models" / "fake_datamodel_2.yaml").exists()
+    assert not (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
+
+
+def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = enable.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
+    assert len(items) == 1
+    enable.clone_analysis_items(items)
+
+    assert (tmp_path / "rules" / "fake_rule_with_deps.yaml").exists()
+    assert (tmp_path / "rules" / "fake_rule_with_deps.py").exists()
+    assert (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
+    assert (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
+    assert (tmp_path / "data_models" / "fake_datamodel_1.yaml").exists()
+    assert (tmp_path / "data_models" / "fake_datamodel_1.py").exists()
+    assert (tmp_path / "global_helpers" / "fake_global_helper_2.yaml").exists()
+    assert (tmp_path / "global_helpers" / "fake_global_helper_2.py").exists()
+    assert (tmp_path / "data_models" / "fake_datamodel_2.yaml").exists()
+    assert (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
+    assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
