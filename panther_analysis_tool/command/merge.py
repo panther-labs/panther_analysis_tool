@@ -113,6 +113,7 @@ def get_mergeable_items(analysis_id: str | None) -> list[merge_item.MergeableIte
                         base_spec.id or -1, base_spec.version
                     ),
                 ),
+                latest_item_version=latest_spec.version,
             )
         )
 
@@ -127,6 +128,7 @@ def merge_items(
 ) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
+    yaml_loader = yaml.BlockStyleYAML()
 
     for mergeable_item in mergeable_items:
         if analysis_id is not None and analysis_id != mergeable_item.user_item.analysis_id():
@@ -139,6 +141,12 @@ def merge_items(
         if has_conflict:
             merge_conflict_item_ids.append(mergeable_item.user_item.analysis_id())
             continue
+
+        # once we know there are no conflicts, we can update the BaseVersion to say merging is complete
+        yaml_file_path = pathlib.Path(mergeable_item.user_item.yaml_file_path or "")
+        user_spec: dict = yaml_loader.load(yaml_file_path)
+        user_spec["BaseVersion"] = mergeable_item.latest_item_version
+        yaml_loader.dump(user_spec, yaml_file_path)
 
         # consider updated if no conflict with both files
         updated_item_ids.append(mergeable_item.user_item.analysis_id())

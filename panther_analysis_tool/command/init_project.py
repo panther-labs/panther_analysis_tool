@@ -1,6 +1,6 @@
 import logging
 import os
-import subprocess
+import subprocess  # nosec:B404
 from pathlib import Path
 from typing import Tuple
 
@@ -52,7 +52,7 @@ def setup_git_ignore(working_dir: Path) -> None:
 
 
 def enable_rerere() -> None:
-    proc = subprocess.run(
+    proc = subprocess.run(  # nosec:B603 B607
         ["git", "config", "rerere.enabled", "true"], check=True, capture_output=True
     )
     if proc.stderr is not None and proc.stderr.decode("utf-8") != "":
