@@ -169,9 +169,13 @@ def get_git_protocol() -> str:
     Defaults to "https", which will work fine for fetching.
     """
     protocol = "https"
-    url = subprocess.check_output(
-        ["git", "remote", "get-url", "origin"], text=True
-    ).strip()  # nosec:B607 B603
+    try:
+        url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"], text=True
+        ).strip()  # nosec:B607 B603
+    except subprocess.CalledProcessError as err:
+        raise RuntimeError(err)
+
     if url.startswith("git@") or url.startswith("ssh://"):
         protocol = "ssh"
     elif url.startswith("https://"):
@@ -184,9 +188,12 @@ def get_primary_origin_branch() -> str:
     Get the primary origin branch of the repository. Most likely "main" and defaults to "main".
     """
     default_branch = "main"
-    ref_output = subprocess.check_output(
-        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
-    )  # nosec:B607 B603
+    try:
+        ref_output = subprocess.check_output(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
+        )  # nosec:B607 B603
+    except subprocess.CalledProcessError as err:
+        raise RuntimeError(err)
 
     ref = ref_output.strip()  # likely is "refs/remotes/origin/main"
     if ref == "":

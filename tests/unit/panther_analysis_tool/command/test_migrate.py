@@ -9,7 +9,7 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AutoAcceptOption,
 )
-from panther_analysis_tool.core import analysis_cache, merge_item, yaml
+from panther_analysis_tool.core import analysis_cache, merge_item, versions_file, yaml
 
 
 def setup(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.AnalysisCache:
@@ -43,6 +43,10 @@ def test_migrate_with_analysis_id(
     mock_merge_files_in_editor = mocker.patch(
         "panther_analysis_tool.command.migrate.merge_item.file_editor.merge_files_in_editor",
         return_value=False,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
     )
 
     (tmp_path / "fake_rule_1.yml").write_text(yaml.dump(rule_1_spec))
@@ -206,6 +210,88 @@ def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     assert items[1].base_panther_item.yaml_file_contents == {}
     assert items[1].base_panther_item.python_file_contents is None
     assert items[1].base_panther_item.python_file_path is None
+
+
+def test_get_item_to_migrate_with_remote_base(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    cache = setup(tmp_path, monkeypatch)
+
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        side_effect=[b"fake: yaml", b"from fake import python"],
+    )
+
+    py = "def rule(event): return True"
+    rule_1_dict = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.1",
+        "Filename": "fake_rule_1.py",
+    }
+    rule_1_spec = yaml.dump(rule_1_dict)
+    (tmp_path / "fake_rule_1.yml").write_text(rule_1_spec)
+    (tmp_path / "fake_rule_1.py").write_text(py)
+    (tmp_path / versions_file.CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {
+                    "fake.rule.1": {
+                        "version": 1,
+                        "type": "rule",
+                        "sha256": "fake.sha256",
+                        "history": {
+                            "1": {
+                                "version": 1,
+                                "commit_hash": "fake.commit.1",
+                                "yaml_file_path": "fake_rule_1.yml",
+                                "py_file_path": "fake_rule_1.py",
+                            },
+                        },
+                    },
+                },
+            }
+        )
+    )
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=rule_1_spec.encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="fake.rule.1",
+        ),
+        b"def rule(event): return True",
+    )
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    item = migrate.get_migration_item(
+        user_spec=specs[0],
+        analysis_id=None,
+        cache=cache,
+        ancestor_commit="fake.commit.1",
+    )
+
+    assert item is not None
+
+    assert item.user_item.yaml_file_contents == rule_1_dict
+    assert item.user_item.raw_yaml_file_contents == rule_1_spec.encode("utf-8")
+    assert item.user_item.yaml_file_path == str(tmp_path / "fake_rule_1.yml")
+    assert item.user_item.python_file_contents == b"def rule(event): return True"
+    assert item.user_item.python_file_path == str(tmp_path / "fake_rule_1.py")
+
+    assert item.base_panther_item.yaml_file_contents == {"fake": "yaml"}
+    assert item.base_panther_item.raw_yaml_file_contents == b"fake: yaml"
+    assert item.base_panther_item.yaml_file_path is None
+    assert item.base_panther_item.python_file_contents == b"from fake import python"
+    assert item.base_panther_item.python_file_path is None
+
+    assert item.latest_panther_item.yaml_file_contents == rule_1_dict
+    assert item.latest_panther_item.raw_yaml_file_contents == rule_1_spec.encode("utf-8")
+    assert item.latest_panther_item.yaml_file_path is None
+    assert item.latest_panther_item.python_file_contents == py.encode("utf-8")
+    assert item.latest_panther_item.python_file_path is None
 
 
 #######################################################################################

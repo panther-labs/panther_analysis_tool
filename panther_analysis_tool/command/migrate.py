@@ -296,12 +296,10 @@ def get_base_item(user_spec_id: str, ancestor_commit: str | None) -> analysis_ut
     )
     base_item.yaml_file_contents = yaml_loader.load(base_yaml)
     base_item.raw_yaml_file_contents = base_yaml
-    base_item.yaml_file_path = version_history_item.yaml_file_path
 
     if version_history_item.py_file_path is not None:
         base_item.python_file_contents = git_helpers.get_file_at_commit(
             ancestor_commit, pathlib.Path(version_history_item.py_file_path)
         )
-        base_item.python_file_path = version_history_item.py_file_path
 
     return base_item
