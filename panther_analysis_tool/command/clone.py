@@ -10,7 +10,7 @@ from panther_analysis_tool.core import analysis_cache, parse, versions_file, yam
 
 def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     try:
-        enable(analysis_id, filter_args)
+        clone(analysis_id, filter_args)
     except FileExistsError as err:
         logging.info(err)
         return 0, ""
@@ -20,7 +20,7 @@ def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     return 0, ""
 
 
-def enable(analysis_id: Optional[str], filter_args: List[str]) -> None:
+def clone(analysis_id: Optional[str], filter_args: List[str]) -> None:
     items_to_clone = get_analysis_items(analysis_id, filter_args)
 
     if len(items_to_clone) == 0:
@@ -30,7 +30,7 @@ def enable(analysis_id: Optional[str], filter_args: List[str]) -> None:
         elif analysis_id is not None and len(filter_args) == 0:
             label = "analysis ID"
 
-        raise ValueError(f"No items matched the {label}. Nothing to clone and enable.")
+        raise ValueError(f"No items matched the {label}. Nothing to clone.")
 
     for item in items_to_clone:
         set_enabled_field(item.yaml_file_contents)
