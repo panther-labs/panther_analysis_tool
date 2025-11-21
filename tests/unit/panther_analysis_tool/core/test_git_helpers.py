@@ -201,3 +201,147 @@ def test_merge_file_accept_panthers(
         check=False,
         capture_output=True,
     )
+
+
+def test_get_git_protocol(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="https://github.com/panther-labs/panther-analysis.git",
+    )
+    assert git_helpers.get_git_protocol() == "https"
+    mock_check_output.assert_called_once_with(["git", "remote", "get-url", "origin"], text=True)
+
+
+def test_get_git_protocol_ssh(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="git@github.com:panther-labs/panther-analysis.git",
+    )
+    assert git_helpers.get_git_protocol() == "ssh"
+    mock_check_output.assert_called_once_with(["git", "remote", "get-url", "origin"], text=True)
+
+
+def test_get_primary_origin_branch(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="refs/remotes/origin/main",
+    )
+    assert git_helpers.get_primary_origin_branch() == "main"
+    mock_check_output.assert_called_once_with(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
+    )
+
+
+def test_get_primary_origin_branch_default(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="",
+    )
+    assert git_helpers.get_primary_origin_branch() == "main"
+    mock_check_output.assert_called_once_with(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
+    )
+
+
+def test_ensure_upstream_set_ssh(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    git_helpers.ensure_upstream_set("ssh")
+    mock_check_output.assert_called_once_with(
+        ["git", "remote", "add", "upstream", "git@github.com:panther-labs/panther-analysis.git"],
+        check=False,
+        capture_output=True,
+    )
+
+
+def test_ensure_upstream_set_https(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    git_helpers.ensure_upstream_set("https")
+    mock_check_output.assert_called_once_with(
+        [
+            "git",
+            "remote",
+            "add",
+            "upstream",
+            "https://github.com/panther-labs/panther-analysis.git",
+        ],
+        check=False,
+        capture_output=True,
+    )
+
+
+def test_panther_analysis_remote_upstream_branch(mocker: MockerFixture) -> None:
+    assert git_helpers.panther_analysis_remote_upstream_branch() == "upstream/main"
+
+
+def test_fetch_remotes(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="""
+origin https://github.com/panther-labs/panther-analysis.git (fetch)
+origin https://github.com/panther-labs/panther-analysis.git (push)
+upstream https://github.com/panther-labs/panther-analysis.git (fetch)
+upstream https://github.com/panther-labs/panther-analysis.git (push)
+""",
+    )
+    mock_run = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    git_helpers.fetch_remotes("main")
+    mock_check_output.assert_called_once_with(["git", "remote", "-v"], text=True)
+    mock_run.assert_any_call(["git", "fetch", "origin", "main"], check=False, capture_output=True)
+    mock_run.assert_any_call(["git", "fetch", "upstream", "main"], check=False, capture_output=True)
+
+
+def test_get_forked_panther_analysis_common_ancestor(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+    )
+    mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(
+            returncode=0, args=[], stdout="f40e2829304b30eacdb51f6d9023c89fa8f19b58"
+        ),
+    )
+    assert (
+        git_helpers.get_forked_panther_analysis_common_ancestor()
+        == "f40e2829304b30eacdb51f6d9023c89fa8f19b58"
+    )
+
+
+def test_get_file_at_commit(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[], stdout="stuff"),
+    )
+    commit = "f40e2829304b30eacdb51f6d9023c89fa8f19b58"
+    file_path = pathlib.Path("rules/atlassian_rules/user_logged_in_as_user.yml")
+    assert git_helpers.get_file_at_commit(commit, file_path) == b"stuff"
+    mock_check_output.assert_called_once_with(
+        ["git", "show", f"{commit}:{file_path}"],
+        text=True,
+        check=False,
+        capture_output=True,
+    )
+
+
+def test_get_file_at_commit_none(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=1, args=[], stderr="error"),
+    )
+    commit = "f40e2829304b30eacdb51f6d9023c89fa8f19b58"
+    file_path = pathlib.Path("rules/atlassian_rules/user_logged_in_as_user.yml")
+    assert git_helpers.get_file_at_commit(commit, file_path) is None
+    mock_check_output.assert_called_once_with(
+        ["git", "show", f"{commit}:{file_path}"],
+        text=True,
+        check=False,
+        capture_output=True,
+    )

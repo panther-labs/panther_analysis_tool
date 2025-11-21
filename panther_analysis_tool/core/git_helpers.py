@@ -1,3 +1,4 @@
+import logging
 import os
 import pathlib
 import shutil
@@ -10,6 +11,10 @@ from panther_analysis_tool.constants import CACHE_DIR, AutoAcceptOption
 
 CLONED_REPO_PATH = CACHE_DIR / "panther-analysis"
 CLONED_VERSIONS_FILE_PATH = CLONED_REPO_PATH / ".versions.yml"
+PANTHER_ANALYSIS_SSH_URL = "git@github.com:panther-labs/panther-analysis.git"
+PANTHER_ANALYSIS_HTTPS_URL = "https://github.com/panther-labs/panther-analysis.git"
+REMOTE_UPSTREAM_NAME = "upstream"
+PANTHER_ANALYSIS_MAIN_BRANCH = "main"
 
 
 def panther_analysis_release_url(tag: str = "latest") -> str:
@@ -156,3 +161,159 @@ def merge_file(
         raise RuntimeError(f"Failed to merge file: {proc.stderr.decode('utf-8')}")
 
     return proc.returncode != 0, proc.stdout
+
+
+def get_git_protocol() -> str:
+    """
+    Get the git protocol of the repository. Either "ssh" or "https".
+    Defaults to "https", which will work fine for fetching.
+    """
+    protocol = "https"
+    try:
+        url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"], text=True
+        ).strip()  # nosec:B607 B603
+    except subprocess.CalledProcessError as err:
+        raise RuntimeError(err)
+
+    if url.startswith("git@") or url.startswith("ssh://"):
+        protocol = "ssh"
+    elif url.startswith("https://"):
+        protocol = "https"
+    return protocol
+
+
+def get_primary_origin_branch() -> str:
+    """
+    Get the primary origin branch of the repository. Most likely "main" and defaults to "main".
+    """
+    default_branch = "main"
+    try:
+        ref_output = subprocess.check_output(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
+        )  # nosec:B607 B603
+    except subprocess.CalledProcessError as err:
+        raise RuntimeError(err)
+
+    ref = ref_output.strip()  # likely is "refs/remotes/origin/main"
+    if ref == "":
+        return default_branch
+
+    spl = ref.split("/")
+    if len(spl) == 0:
+        return default_branch
+
+    return spl[-1]
+
+
+def ensure_upstream_set(git_protocol: str) -> None:
+    """
+    Ensure the upstream is set for the repository.
+    """
+    url = PANTHER_ANALYSIS_SSH_URL if git_protocol == "ssh" else PANTHER_ANALYSIS_HTTPS_URL
+
+    # this returns non-zero code if the remote already exists, which is fine
+    proc = subprocess.run(
+        ["git", "remote", "add", REMOTE_UPSTREAM_NAME, url],
+        check=False,
+        capture_output=True,
+    )  # nosec:B607 B603
+    if proc.returncode == 0:
+        logging.debug(f"Added {REMOTE_UPSTREAM_NAME} remote: {url}")
+
+
+def panther_analysis_remote_upstream_branch() -> str:
+    return f"{REMOTE_UPSTREAM_NAME}/{PANTHER_ANALYSIS_MAIN_BRANCH}"
+
+
+def fetch_remotes(primary_origin_branch: str) -> None:
+    """
+    Fetch the latest from the local repo's origin and Panther Analysis' main.
+    """
+    remote_output = subprocess.check_output(["git", "remote", "-v"], text=True)  # nosec:B607 B603
+    for line in remote_output.strip().split("\n"):
+        if line.strip() == "":
+            continue
+
+        name, _, operation = line.strip().split()
+        if operation == "(fetch)":
+            if name == "origin":
+                logging.debug(f"Fetching origin {primary_origin_branch}")
+                subprocess.run(
+                    ["git", "fetch", "origin", primary_origin_branch],
+                    check=False,
+                    capture_output=True,
+                )  # nosec:B607 B603
+
+                # if primary branch is develop, it is likely it copied it from PA but the user still uses a main branch
+                if primary_origin_branch == "develop":
+                    logging.debug("Fetching origin main")
+                    # attempt to fetch origin main too just in case
+                    subprocess.run(
+                        ["git", "fetch", "origin", "main"], check=False, capture_output=True
+                    )  # nosec:B607 B603
+            elif name == REMOTE_UPSTREAM_NAME:
+                logging.debug(f"Fetching {REMOTE_UPSTREAM_NAME} {PANTHER_ANALYSIS_MAIN_BRANCH}")
+                subprocess.run(
+                    ["git", "fetch", REMOTE_UPSTREAM_NAME, PANTHER_ANALYSIS_MAIN_BRANCH],
+                    check=False,
+                    capture_output=True,
+                )  # nosec:B607 B603
+
+
+def get_forked_panther_analysis_common_ancestor() -> str:
+    """
+    Get the merge base between the panther remote and the current branch, which is the common ancestor of the two branches.
+
+    Returns:
+        The merge base commit hash
+    """
+    ensure_upstream_set(get_git_protocol())
+    fetch_remotes(get_primary_origin_branch())
+    remote_branch = panther_analysis_remote_upstream_branch()
+    ref = "HEAD"
+
+    merge_base_output = subprocess.run(  # nosec:B607 B603
+        ["git", "merge-base", remote_branch, ref], capture_output=True, text=True
+    )
+    if merge_base_output.returncode != 0:
+        if merge_base_output.stderr == "":
+            raise RuntimeError("Failed to find common ancestor")
+        else:
+            raise RuntimeError(f"Failed to get merge base: {merge_base_output.stderr}")
+    output = merge_base_output.stdout.strip()
+    if output == "":
+        raise RuntimeError(f"No merge base found for 'git merge-base {remote_branch} {ref}'")
+
+    logging.debug(f"Merge base found: {output}")
+    return output
+
+
+def get_file_at_commit(commit: str, file_path: pathlib.Path) -> bytes | None:
+    """
+    Get the contents of a file at a specific commit.
+
+    Args:
+        commit: The commit hash to get the file from.
+        file_path: The path to the file.
+
+    Returns:
+        The contents of the file.
+        None if the file does not exist.
+    """
+    args = [
+        "git",
+        "show",
+        f"{commit}:{file_path}",
+    ]
+
+    proc = subprocess.run(
+        args,
+        text=True,
+        check=False,
+        capture_output=True,
+    )  # nosec:B607 B603
+    if proc.returncode != 0:
+        logging.debug(proc.stderr)
+        return None
+    return proc.stdout.encode("utf-8")
