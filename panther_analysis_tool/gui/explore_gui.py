@@ -1,3 +1,4 @@
+import threading
 from collections import defaultdict
 from typing import Any
 
@@ -144,16 +145,31 @@ class ExploreApp(App):
             f"Cloning {self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()}..."
         )
 
+        # Run the clone operation in a background thread so the notification can display immediately
+        threading.Thread(
+            target=self._perform_clone_in_thread,
+            args=(self.selected_item.analysis_id(), self.selected_item.pretty_analysis_type()),
+            daemon=True,
+        ).start()
+
+    def _perform_clone_in_thread(self, item_id: str, item_type: str) -> None:
+        """Perform the actual clone operation in a background thread."""
         try:
-            clone.clone(self.selected_item.analysis_id(), [])
-            self.notify(
-                f"{self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()} ready to use!"
+            clone.clone(item_id, [])
+            # Use call_from_thread to safely update UI from the worker thread
+            self.call_from_thread(
+                self.notify,
+                f"{item_type} {item_id} ready to use!",
             )
+            self.call_from_thread(self._on_clone_complete)
         except Exception as err:
-            self.notify(str(err), severity="error")
+            # Use call_from_thread to safely update UI from the worker thread
+            self.call_from_thread(self.notify, str(err), severity="error")
+            self.call_from_thread(self._on_clone_complete)
 
+    def _on_clone_complete(self) -> None:
+        """Handle cleanup after clone operation completes."""
         self.refresh_bindings()
-
         self.view_editors = False
         self.switch_views(None)
 
