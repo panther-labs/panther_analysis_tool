@@ -7,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.command import enable
+from panther_analysis_tool.command import clone
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
@@ -416,7 +416,7 @@ def test_set_enabled_field() -> None:
         spec = {
             "AnalysisType": analysis_type,
         }
-        enable.set_enabled_field(spec)
+        clone.set_enabled_field(spec)
         assert "Enabled" in spec
         assert spec["Enabled"]
 
@@ -429,19 +429,19 @@ def test_set_enabled_field_for_other_types() -> None:
         spec = {
             "AnalysisType": analysis_type,
         }
-        enable.set_enabled_field(spec)
+        clone.set_enabled_field(spec)
         assert "Enabled" not in spec
 
 
 def test_get_analysis_items_no_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(analysis_cache.NoCacheException):
-        enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+        clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
 
 
 def test_get_analysis_items_bad_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id="bad_id", filter_args=[])
+    items = clone.get_analysis_items(analysis_id="bad_id", filter_args=[])
     assert items == []
 
 
@@ -449,7 +449,7 @@ def test_get_analysis_items_no_filters_and_no_id(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id=None, filter_args=[])
+    items = clone.get_analysis_items(analysis_id=None, filter_args=[])
     assert len(items) == 13
 
 
@@ -457,7 +457,7 @@ def test_get_analysis_items_filters_and_no_id(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
+    items = clone.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert len(items) == 3
     assert items == [
         analysis_utils.AnalysisItem(
@@ -485,7 +485,7 @@ def test_get_analysis_items_no_filters_and_id(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
     assert items == [
         analysis_utils.AnalysisItem(
@@ -499,9 +499,9 @@ def test_get_analysis_items_no_filters_and_id(
 
 def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id=None, filter_args=[])
+    items = clone.get_analysis_items(analysis_id=None, filter_args=[])
     assert len(items) == 13
-    enable.clone_analysis_items(items)
+    clone.clone_analysis_items(items)
     _dir = tmp_path
     assert (_dir / "rules" / "fake_rule_1.yaml").exists()
     assert (_dir / "rules" / "fake_rule_1.py").exists()
@@ -525,9 +525,9 @@ def test_clone_analysis_items_already_exists(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
-    enable.clone_analysis_items(items)
+    clone.clone_analysis_items(items)
 
     rule_yaml = tmp_path / "rules" / "fake_rule_1.yaml"
     rule_py = tmp_path / "rules" / "fake_rule_1.py"
@@ -543,9 +543,9 @@ def test_clone_analysis_items_already_exists(
 
     # do it again and verify it did not change anything since it already existed
     with pytest.raises(FileExistsError):
-        items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+        items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
         assert len(items) == 1
-        enable.clone_analysis_items(items)
+        clone.clone_analysis_items(items)
 
     assert rule_yaml.read_text() == "new yaml"
     assert rule_py.read_text() == "new py"
@@ -566,14 +566,14 @@ def test_enable_works_with_all_types(tmp_path: pathlib.Path, monkeypatch: Monkey
         "fake.saved_query.1",
         "fake.scheduled_query.1",
     ]:
-        code, err_str = enable.run(analysis_id=_id, filter_args=[])
+        code, err_str = clone.run(analysis_id=_id, filter_args=[])
         assert code == 0
         assert err_str == ""
 
 
 def test_enable_sets_base_version_field(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    code, err_str = enable.run(analysis_id=None, filter_args=["AnalysisType=rule"])
+    code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert code == 0
     assert err_str == ""
 
@@ -588,17 +588,17 @@ def test_enable_sets_base_version_field(tmp_path: pathlib.Path, monkeypatch: Mon
 
 def test_enable_messaging(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    code, err_str = enable.run(analysis_id="bad", filter_args=[])
+    code, err_str = clone.run(analysis_id="bad", filter_args=[])
     assert code == 1
-    assert err_str == "No items matched the analysis ID. Nothing to clone and enable."
+    assert err_str == "No items matched the analysis ID. Nothing to clone."
 
-    code, err_str = enable.run(analysis_id=None, filter_args=["AnalysisType=bad"])
+    code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=bad"])
     assert code == 1
-    assert err_str == "No items matched the filters. Nothing to clone and enable."
+    assert err_str == "No items matched the filters. Nothing to clone."
 
-    code, err_str = enable.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
+    code, err_str = clone.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
     assert code == 1
-    assert err_str == "No items matched the analysis ID and filters. Nothing to clone and enable."
+    assert err_str == "No items matched the analysis ID and filters. Nothing to clone."
 
 
 def test_cached_analysis_spec_to_analysis_item_with_python(
@@ -609,7 +609,7 @@ def test_cached_analysis_spec_to_analysis_item_with_python(
     assert spec is not None
 
     versions = versions_file.get_versions().versions
-    item = enable.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    item = clone.cached_analysis_spec_to_analysis_item(spec, cache, versions)
     assert item.python_file_contents == bytes(_FAKE_PY, "utf-8")
     assert item.python_file_path == "rules/fake_rule_1.py"
     assert item.yaml_file_contents == yaml.load(_FAKE_RULE_1_V1)
@@ -625,7 +625,7 @@ def test_cached_analysis_spec_to_analysis_item_without_python(
     assert spec is not None
 
     versions = versions_file.get_versions().versions
-    item = enable.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    item = clone.cached_analysis_spec_to_analysis_item(spec, cache, versions)
     assert item.yaml_file_contents == yaml.load(_FAKE_SAVED_QUERY_1_V1)
     assert item.yaml_file_path == "queries/fake_saved_query_1.yaml"
     assert item.raw_yaml_file_contents == spec.spec
@@ -635,9 +635,9 @@ def test_cached_analysis_spec_to_analysis_item_without_python(
 
 def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
-    enable.clone_analysis_items(items)
+    clone.clone_analysis_items(items)
 
     assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
     assert (tmp_path / "rules" / "fake_rule_1.py").exists()
@@ -653,9 +653,9 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
 
 def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = enable.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
+    items = clone.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
     assert len(items) == 1
-    enable.clone_analysis_items(items)
+    clone.clone_analysis_items(items)
 
     assert (tmp_path / "rules" / "fake_rule_with_deps.yaml").exists()
     assert (tmp_path / "rules" / "fake_rule_with_deps.py").exists()

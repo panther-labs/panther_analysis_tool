@@ -7,7 +7,7 @@ from textual.containers import Horizontal
 from textual.widgets import DataTable, Footer, Input, Tree
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.command import enable
+from panther_analysis_tool.command import clone
 from panther_analysis_tool.gui import widgets
 
 
@@ -22,8 +22,8 @@ class ExploreApp(App):
             "escape", "close_editors", "Back to analysis item explorer", show=True, priority=True
         ),
         Binding(
-            "ctrl+e",
-            "enable_analysis_item",
+            "ctrl+v",  # ctrl+c displays a warning prompt about quitting
+            "clone_analysis_item",
             "Clone and enable selected analysis item",
             show=True,
             priority=True,
@@ -134,14 +134,14 @@ class ExploreApp(App):
         self.switch_views(None)
         self.refresh_bindings()
 
-    def action_enable_analysis_item(self) -> None:
+    def action_clone_analysis_item(self) -> None:
         """Clone and enable the selected analysis item."""
         if self.selected_item is None:
             self.notify("No analysis item selected.", severity="error")
             return
 
         try:
-            enable.enable(self.selected_item.analysis_id(), [])
+            clone.clone(self.selected_item.analysis_id(), [])
             self.notify(
                 f"{self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()} ready to use!"
             )

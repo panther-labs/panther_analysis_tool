@@ -86,7 +86,7 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
-    enable,
+    clone,
     explore,
     init_project,
     merge,
@@ -2446,8 +2446,11 @@ def pull_command() -> Tuple[int, str]:
     return pull.run()
 
 
-@app_command_with_config(name="enable", help="Enable an analysis item")
-def enable_command(
+@app_command_with_config(
+    name="clone",
+    help="Clone and enable an analysis item from Panther Analysis into your local repository.",
+)
+def clone_command(
     filters: FilterType = None,
     analysis_id: Annotated[
         Optional[str],
@@ -2459,7 +2462,7 @@ def enable_command(
 ) -> Tuple[int, str]:
     if filters is None:
         filters = []
-    return enable.run(analysis_id, filters)
+    return clone.run(analysis_id, filters)
 
 
 @app.command(name="explore", help="Explore the latest Panther Analysis content")
