@@ -93,8 +93,8 @@ class ExploreApp(App):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Check if an action should be enabled based on current state."""
-        if action == "close_editors" or action == "enable_analysis_item":
-            # Only show the "Back to explorer" and "Enable" binding when viewing editors
+        if action == "close_editors" or action == "clone_analysis_item":
+            # Only show the "Back to explorer" and "Clone" binding when viewing editors
             return self.view_editors
         return True
 
@@ -139,6 +139,10 @@ class ExploreApp(App):
         if self.selected_item is None:
             self.notify("No analysis item selected.", severity="error")
             return
+
+        self.notify(
+            f"Cloning {self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()}..."
+        )
 
         try:
             clone.clone(self.selected_item.analysis_id(), [])
