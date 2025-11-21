@@ -161,10 +161,11 @@ class ExploreApp(App):
                 self.notify,
                 f"{item_type} {item_id} ready to use!",
             )
-            self.call_from_thread(self._on_clone_complete)
         except Exception as err:
             # Use call_from_thread to safely update UI from the worker thread
             self.call_from_thread(self.notify, str(err), severity="error")
+            self.call_from_thread(self._on_clone_complete)
+        finally:
             self.call_from_thread(self._on_clone_complete)
 
     def _on_clone_complete(self) -> None:
