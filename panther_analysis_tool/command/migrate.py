@@ -125,21 +125,25 @@ def migrate(
     except RuntimeError as err:
         logging.debug("Failed to get forked panther analysis common ancestor: %s", err)
 
-    specs = list(analysis_utils.load_analysis_specs_ex(["."], [], True))
-    if analysis_id is None:
-        print()  # add a blank line to make it looks nicer
+    # load all user analysis specs
+    specs: list[analysis_utils.LoadAnalysisSpecsResult] = []
+    for spec in track(
+        analysis_utils.load_analysis_specs_ex(["."], [], True),
+        description="Loading user analysis items:",
+        disable=analysis_id is not None,
+        transient=True,
+    ):
+        specs.append(spec)
 
+    # migrate each user analysis spec
     for user_spec in track(
-        specs, description="Migration progress:", disable=analysis_id is not None
+        specs, description="Migration progress:", disable=analysis_id is not None, transient=True
     ):
         item = get_migration_item(user_spec, analysis_id, cache, ancestor_commit)
         if item is None:
             continue
 
         migrate_item(item, analysis_id is not None, editor, result, auto_accept)
-
-    if analysis_id is None:
-        print()  # add a blank line to make it looks nicer
 
     write_migration_results(result, migration_output)
     return result

@@ -348,7 +348,7 @@ def load_analysis_specs_ex(
                 # Dont load files that are explictly ignored
                 relative_name = os.path.normpath(os.path.join(dirpath, filename))
                 if relative_name in ignored_normalized:
-                    logging.info("ignoring file %s", relative_name)
+                    logging.debug("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
                 # setup yaml object
