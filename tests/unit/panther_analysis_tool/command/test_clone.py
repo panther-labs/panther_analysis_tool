@@ -112,6 +112,16 @@ _FAKE_GLOBAL_HELPER_2_V1 = yaml.dump(
     }
 )
 
+_FAKE_GLOBAL_HELPER_3_V1 = yaml.dump(
+    {
+        "AnalysisType": "global",
+        "GlobalID": "fake.global_helper.3",
+        "Enabled": False,
+        "Description": "Fake global helper 3 v1",
+        "Filename": "fake_global_helper_3.py",
+    }
+)
+
 _FAKE_CORRELATION_RULE_1_V1 = yaml.dump(
     {
         "AnalysisType": "correlation_rule",
@@ -165,6 +175,24 @@ from fake_global_helper_1 import test_helper
 import fake_global_helper_2
 
 def rule(event):
+    return True
+"""
+
+_FAKE_PY_GLOBAL_HELPER_1_V1 = """
+from fake_global_helper_2 import something
+
+def test_helper():
+    return True
+"""
+
+_FAKE_PY_GLOBAL_HELPER_2_V1 = """
+from fake_global_helper_3 import test_helper
+
+something = "in the water"
+"""
+
+_FAKE_PY_GLOBAL_HELPER_3_V1 = """
+def test_helper():
     return True
 """
 
@@ -280,6 +308,19 @@ _FAKE_VERSIONS_FILE = yaml.dump(
                     },
                 },
             },
+            "fake.global_helper.3": {
+                "version": 1,
+                "type": "global",
+                "sha256": "fake_sha256_global_helper_3",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_global_helper_3",
+                        "yaml_file_path": "global_helpers/fake_global_helper_3.yaml",
+                        "py_file_path": "global_helpers/fake_global_helper_3.py",
+                    },
+                },
+            },
             "fake.correlation_rule.1": {
                 "version": 1,
                 "type": "correlation_rule",
@@ -370,8 +411,30 @@ def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_c
     insert_spec(cache, _FAKE_DATAMODEL_1_V1, 1, "DataModelID", "fake.datamodel.1", _FAKE_PY)
     insert_spec(cache, _FAKE_DATAMODEL_2_V1, 1, "DataModelID", "fake.datamodel.2", _FAKE_PY)
     insert_spec(cache, _FAKE_LOOKUP_TABLE_1_V1, 1, "LookupName", "fake.lookup_table.1", _FAKE_PY)
-    insert_spec(cache, _FAKE_GLOBAL_HELPER_1_V1, 1, "GlobalID", "fake.global_helper.1", _FAKE_PY)
-    insert_spec(cache, _FAKE_GLOBAL_HELPER_2_V1, 1, "GlobalID", "fake.global_helper.2", _FAKE_PY)
+    insert_spec(
+        cache,
+        _FAKE_GLOBAL_HELPER_1_V1,
+        1,
+        "GlobalID",
+        "fake.global_helper.1",
+        _FAKE_PY_GLOBAL_HELPER_1_V1,
+    )
+    insert_spec(
+        cache,
+        _FAKE_GLOBAL_HELPER_2_V1,
+        1,
+        "GlobalID",
+        "fake.global_helper.2",
+        _FAKE_PY_GLOBAL_HELPER_2_V1,
+    )
+    insert_spec(
+        cache,
+        _FAKE_GLOBAL_HELPER_3_V1,
+        1,
+        "GlobalID",
+        "fake.global_helper.3",
+        _FAKE_PY_GLOBAL_HELPER_3_V1,
+    )
     insert_spec(
         cache, _FAKE_CORRELATION_RULE_1_V1, 1, "RuleID", "fake.correlation_rule.1", _FAKE_PY
     )
@@ -450,7 +513,7 @@ def test_get_analysis_items_no_filters_and_no_id(
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
     items = clone.get_analysis_items(analysis_id=None, filter_args=[])
-    assert len(items) == 13
+    assert len(items) == 14
 
 
 def test_get_analysis_items_filters_and_no_id(
@@ -500,7 +563,7 @@ def test_get_analysis_items_no_filters_and_id(
 def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
     items = clone.get_analysis_items(analysis_id=None, filter_args=[])
-    assert len(items) == 13
+    assert len(items) == 14
     clone.clone_analysis_items(items)
     _dir = tmp_path
     assert (_dir / "rules" / "fake_rule_1.yaml").exists()
@@ -542,10 +605,9 @@ def test_clone_analysis_items_already_exists(
     assert rule_py.read_text() == "new py"
 
     # do it again and verify it did not change anything since it already existed
-    with pytest.raises(FileExistsError):
-        items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
-        assert len(items) == 1
-        clone.clone_analysis_items(items)
+    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    clone.clone_analysis_items(items)
 
     assert rule_yaml.read_text() == "new yaml"
     assert rule_py.read_text() == "new py"
@@ -659,12 +721,17 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
 
     assert (tmp_path / "rules" / "fake_rule_with_deps.yaml").exists()
     assert (tmp_path / "rules" / "fake_rule_with_deps.py").exists()
+
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
-    assert (tmp_path / "data_models" / "fake_datamodel_1.yaml").exists()
-    assert (tmp_path / "data_models" / "fake_datamodel_1.py").exists()
     assert (tmp_path / "global_helpers" / "fake_global_helper_2.yaml").exists()
     assert (tmp_path / "global_helpers" / "fake_global_helper_2.py").exists()
+    assert (tmp_path / "global_helpers" / "fake_global_helper_3.yaml").exists()
+    assert (tmp_path / "global_helpers" / "fake_global_helper_3.py").exists()
+
+    assert (tmp_path / "data_models" / "fake_datamodel_1.yaml").exists()
+    assert (tmp_path / "data_models" / "fake_datamodel_1.py").exists()
     assert (tmp_path / "data_models" / "fake_datamodel_2.yaml").exists()
     assert (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
+
     assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
