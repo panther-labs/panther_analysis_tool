@@ -67,9 +67,7 @@ def print_ready_message() -> None:
         "  * Run `pat pull` to pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content."  # pylint: disable=line-too-long
     )
     print("  * Run `pat explore` to see the available content.")
-    print(
-        "  * Run `pat clone <id>` to create a clone of a detection you want to use in your repo."
-    )
+    print("  * Run `pat clone <id>` to create a clone of a detection you want to use in your repo.")
     print(
         "  * Run `pat clone --filter LogTypes=<LOG_TYPE>` to create clones of all detections for a given log type you have onboarded."
     )
