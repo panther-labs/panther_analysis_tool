@@ -210,7 +210,7 @@ def ensure_upstream_set(git_protocol: str) -> None:
         ["git", "remote", "add", REMOTE_UPSTREAM_NAME, url],
         check=False,
         capture_output=True,
-    )
+    )  # nosec:B607 B603
     if proc.returncode == 0:
         logging.debug(f"Added {REMOTE_UPSTREAM_NAME} remote: {url}")
 
@@ -236,7 +236,7 @@ def fetch_remotes(primary_origin_branch: str) -> None:
                     ["git", "fetch", "origin", primary_origin_branch],
                     check=False,
                     capture_output=True,
-                )
+                )  # nosec:B607 B603
 
                 # if primary branch is develop, it is likely it copied it from PA but the user still uses a main branch
                 if primary_origin_branch == "develop":
@@ -244,14 +244,14 @@ def fetch_remotes(primary_origin_branch: str) -> None:
                     # attempt to fetch origin main too just in case
                     subprocess.run(
                         ["git", "fetch", "origin", "main"], check=False, capture_output=True
-                    )
+                    )  # nosec:B607 B603
             elif name == REMOTE_UPSTREAM_NAME:
                 logging.debug(f"Fetching {REMOTE_UPSTREAM_NAME} {PANTHER_ANALYSIS_MAIN_BRANCH}")
                 subprocess.run(
                     ["git", "fetch", REMOTE_UPSTREAM_NAME, PANTHER_ANALYSIS_MAIN_BRANCH],
                     check=False,
                     capture_output=True,
-                )
+                )  # nosec:B607 B603
 
 
 def get_forked_panther_analysis_common_ancestor() -> str:

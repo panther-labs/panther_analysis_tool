@@ -122,9 +122,8 @@ def migrate(
     ancestor_commit: str | None = None
     try:
         ancestor_commit = git_helpers.get_forked_panther_analysis_common_ancestor()
-    except Exception as err:
-        logging.debug(f"Failed to get forked panther analysis common ancestor: {err}")
-        pass
+    except RuntimeError as err:
+        logging.debug("Failed to get forked panther analysis common ancestor: %s", err)
 
     specs = list(analysis_utils.load_analysis_specs_ex(["."], [], True))
     if analysis_id is None:
