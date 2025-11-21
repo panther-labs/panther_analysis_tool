@@ -2,6 +2,8 @@ import logging
 import pathlib
 from typing import Tuple
 
+from rich.progress import track
+
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
 from panther_analysis_tool.constants import AutoAcceptOption
@@ -17,9 +19,20 @@ def run(
 def merge_analysis(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None = None
 ) -> Tuple[int, str]:
-    mergeable_items = get_mergeable_items(analysis_id)
+    # load all user analysis specs
+    user_specs = list(load_analysis_specs_ex(["."], [], True))
+
+    mergeable_items = get_mergeable_items(analysis_id, user_specs)
     if not mergeable_items and analysis_id is None:
         print("Nothing to merge.")
+        return 0, ""
+
+    if not mergeable_items and analysis_id is not None:
+        spec_ids = [spec.analysis_id() for spec in user_specs]
+        if analysis_id not in spec_ids:
+            print(f"Analysis ID '{analysis_id}' not found in user analysis items.")
+            return 0, ""
+        print(f"Analysis ID '{analysis_id}' does not need merging.")
         return 0, ""
 
     merge_items(mergeable_items, analysis_id, editor, auto_accept)
@@ -27,7 +40,10 @@ def merge_analysis(
     return 0, ""
 
 
-def get_mergeable_items(analysis_id: str | None) -> list[merge_item.MergeableItem]:
+def get_mergeable_items(
+    analysis_id: str | None,
+    user_specs: list[analysis_utils.LoadAnalysisSpecsResult],
+) -> list[merge_item.MergeableItem]:
     """
     Get all mergeable items. An analysis item is mergeable if it has a BaseVersion and the BaseVersion is less than the latest version
     in the analysis cache. If an analysis_id is provided, only the item that matches the analysis_id is returned.
@@ -42,8 +58,6 @@ def get_mergeable_items(analysis_id: str | None) -> list[merge_item.MergeableIte
     cache = analysis_cache.AnalysisCache()
     mergeable_items: list[merge_item.MergeableItem] = []
 
-    # load all analysis specs
-    user_specs = list(load_analysis_specs_ex(["."], [], True))
     if not user_specs:
         return mergeable_items
 
@@ -125,12 +139,18 @@ def merge_items(
     analysis_id: str | None,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
+    show_progress_bar: bool = False,
 ) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
     yaml_loader = yaml.BlockStyleYAML()
 
-    for mergeable_item in mergeable_items:
+    for mergeable_item in track(
+        mergeable_items,
+        description="Merging analysis items:",
+        disable=not show_progress_bar,
+        transient=True,
+    ):
         if analysis_id is not None and analysis_id != mergeable_item.user_item.analysis_id():
             # user specified an analysis id, only merge that one
             continue

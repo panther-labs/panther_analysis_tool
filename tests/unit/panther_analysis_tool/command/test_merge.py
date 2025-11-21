@@ -139,13 +139,10 @@ def test_get_mergeable_items_no_analysis_id(
     make_load_spec: make_load_spec_type,
     make_analysis_spec: make_analysis_spec_type,
 ) -> None:
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[
-            make_load_spec(tmp_path, "rule", "1", 2, True),  # rule updating from version 2 -> 3
-            make_load_spec(tmp_path, "policy", "2", 1, True),  # policy updating from version 1 -> 3
-        ],
-    )
+    specs = [
+        make_load_spec(tmp_path, "rule", "1", 2, True),  # rule updating from version 2 -> 3
+        make_load_spec(tmp_path, "policy", "2", 1, True),  # policy updating from version 1 -> 3
+    ]
 
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
@@ -173,7 +170,7 @@ def test_get_mergeable_items_no_analysis_id(
         mock_sqlite,
     )
 
-    mergeable_items = merge.get_mergeable_items(None)
+    mergeable_items = merge.get_mergeable_items(None, specs)
     assert len(mergeable_items) == 2
 
     get_latest_spec_mock.assert_has_calls([call("1"), call("2")])
@@ -234,14 +231,11 @@ def test_get_mergeable_items_no_python(
     make_load_spec: make_load_spec_type,
     make_analysis_spec: make_analysis_spec_type,
 ) -> None:
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[
-            make_load_spec(
-                tmp_path, "datamodel", "1", 2, False
-            ),  # data model that needs updating and has no python
-        ],
-    )
+    specs = [
+        make_load_spec(
+            tmp_path, "datamodel", "1", 2, False
+        ),  # data model that needs updating and has no python
+    ]
 
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
@@ -267,7 +261,7 @@ def test_get_mergeable_items_no_python(
         mock_sqlite,
     )
 
-    mergeable_items = merge.get_mergeable_items(None)
+    mergeable_items = merge.get_mergeable_items(None, specs)
     assert len(mergeable_items) == 1
 
     get_latest_spec_mock.assert_has_calls([call("1")])
@@ -299,12 +293,9 @@ def test_get_mergeable_items_no_update_needed(
     make_load_spec: make_load_spec_type,
     make_analysis_spec: make_analysis_spec_type,
 ) -> None:
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[
-            make_load_spec(tmp_path, "rule", "1", 2, True),  # rule that does not need updating
-        ],
-    )
+    specs = [
+        make_load_spec(tmp_path, "rule", "1", 2, True),  # rule that does not need updating
+    ]
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
         side_effect=[
@@ -319,7 +310,7 @@ def test_get_mergeable_items_no_update_needed(
         mock_sqlite,
     )
 
-    mergeable_items = merge.get_mergeable_items(None)
+    mergeable_items = merge.get_mergeable_items(None, specs)
     assert len(mergeable_items) == 0
 
     get_latest_spec_mock.assert_has_calls([call("1")])
@@ -331,12 +322,9 @@ def test_get_mergeable_items_base_version_too_high(
     make_load_spec: make_load_spec_type,
     make_analysis_spec: make_analysis_spec_type,
 ) -> None:
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[
-            make_load_spec(tmp_path, "rule", "1", 3, True),  # rule that has a base version too high
-        ],
-    )
+    specs = [
+        make_load_spec(tmp_path, "rule", "1", 3, True),  # rule that has a base version too high
+    ]
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
         side_effect=[
@@ -352,7 +340,7 @@ def test_get_mergeable_items_base_version_too_high(
         mock_sqlite,
     )
 
-    mergeable_items = merge.get_mergeable_items(None)
+    mergeable_items = merge.get_mergeable_items(None, specs)
     assert len(mergeable_items) == 0
 
     get_latest_spec_mock.assert_has_calls([call("1")])
@@ -372,12 +360,9 @@ def test_get_mergeable_items_custom_rule(
     tmp_path: pathlib.Path,
     make_load_spec: make_load_spec_type,
 ) -> None:
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[
-            make_load_spec(tmp_path, "rule", "custom", 2, True),
-        ],
-    )
+    specs = [
+        make_load_spec(tmp_path, "rule", "custom", 2, True),
+    ]
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
         side_effect=[None],
@@ -390,7 +375,7 @@ def test_get_mergeable_items_custom_rule(
         mock_sqlite,
     )
 
-    mergeable_items = merge.get_mergeable_items(None)
+    mergeable_items = merge.get_mergeable_items(None, specs)
     assert len(mergeable_items) == 0
 
     get_latest_spec_mock.assert_has_calls([call("custom")])
@@ -404,10 +389,7 @@ def test_get_mergeable_items_base_version_added(
 ) -> None:
     mock_load_spec = make_load_spec(tmp_path, "rule", "1", 1, True)
     del mock_load_spec.analysis_spec["BaseVersion"]
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[mock_load_spec],
-    )
+
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
         side_effect=[make_analysis_spec("rule", "1", 2, True)],
@@ -429,7 +411,7 @@ def test_get_mergeable_items_base_version_added(
         "panther_analysis_tool.core.analysis_cache.PANTHER_ANALYSIS_SQLITE_FILE_PATH",
         mock_sqlite,
     )
-    mergeable_items = merge.get_mergeable_items(None)
+    mergeable_items = merge.get_mergeable_items(None, [mock_load_spec])
     assert len(mergeable_items) == 1
     assert mergeable_items[0].user_item.yaml_file_contents["BaseVersion"] == 1
     get_latest_spec_mock.assert_has_calls([call("1")])
@@ -441,13 +423,10 @@ def test_get_mergeable_items_with_analysis_id(
     make_load_spec: make_load_spec_type,
     make_analysis_spec: make_analysis_spec_type,
 ) -> None:
-    mocker.patch(
-        "panther_analysis_tool.command.merge.load_analysis_specs_ex",
-        return_value=[
-            make_load_spec(tmp_path, "rule", "1", 2, True),
-            make_load_spec(tmp_path, "rule", "target", 2, True),
-        ],
-    )
+    specs = [
+        make_load_spec(tmp_path, "rule", "1", 2, True),
+        make_load_spec(tmp_path, "rule", "target", 2, True),
+    ]
     get_latest_spec_mock = mocker.patch(
         "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
         side_effect=[make_analysis_spec("rule", "target", 3, True), None],
@@ -470,7 +449,7 @@ def test_get_mergeable_items_with_analysis_id(
         mock_sqlite,
     )
 
-    mergeable_items = merge.get_mergeable_items("target")
+    mergeable_items = merge.get_mergeable_items("target", specs)
     assert len(mergeable_items) == 1
 
     get_latest_spec_mock.assert_has_calls([call("target")])
