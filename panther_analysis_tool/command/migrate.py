@@ -6,6 +6,7 @@ manage their analysis items without a fork, taking over the merge process.
 
 import dataclasses
 import io
+import logging
 import pathlib
 from collections import defaultdict
 from typing import Tuple
@@ -14,7 +15,13 @@ from rich.progress import track  # from tqdm
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import AutoAcceptOption
-from panther_analysis_tool.core import analysis_cache, merge_item, yaml
+from panther_analysis_tool.core import (
+    analysis_cache,
+    git_helpers,
+    merge_item,
+    versions_file,
+    yaml,
+)
 
 
 @dataclasses.dataclass
@@ -87,15 +94,17 @@ def run(
                 "Items with conflicts need to be resolved manually. \n"
                 "  * Details can be found in: `migration_output.md`.\n"
                 "  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n"
-                "  * Run `pat migrate --auto-accept=<auto-accept>` to automatically accept your changes or Panther's changes for merge conflicts."  # pylint: disable=line-too-long
+                "  * Run `pat migrate --auto-accept=<panthers|yours>` to automatically accept your changes or Panther's changes for merge conflicts."  # pylint: disable=line-too-long
             )
         print(completion_message)
+        print()
         print("Run `git diff` to see any changes made.")
     else:
         print("All analysis items in your repo are already migrated! ")
         print("  * Run `pat pull` to pull in the latest Panther Analysis items.")
         print("  * Run `pat explore` to explore available analysis items.")
         print("  * Run `pat enable` to clone and enable analysis items you want to use.")
+        print()
         print("Run `pat --help` for more information.")
 
     return 0, ""
@@ -110,6 +119,13 @@ def migrate(
     result = MigrationResult(items_with_conflicts=[], items_migrated=[])
     cache = analysis_cache.AnalysisCache()
 
+    ancestor_commit: str | None = None
+    try:
+        ancestor_commit = git_helpers.get_forked_panther_analysis_common_ancestor()
+    except Exception as err:
+        logging.debug(f"Failed to get forked panther analysis common ancestor: {err}")
+        pass
+
     specs = list(analysis_utils.load_analysis_specs_ex(["."], [], True))
     if analysis_id is None:
         print()  # add a blank line to make it looks nicer
@@ -117,7 +133,7 @@ def migrate(
     for user_spec in track(
         specs, description="Migration progress:", disable=analysis_id is not None
     ):
-        item = get_migration_item(user_spec, analysis_id, cache)
+        item = get_migration_item(user_spec, analysis_id, cache, ancestor_commit)
         if item is None:
             continue
 
@@ -174,6 +190,7 @@ def get_migration_item(
     user_spec: analysis_utils.LoadAnalysisSpecsResult,
     analysis_id: str | None,
     cache: analysis_cache.AnalysisCache,
+    ancestor_commit: str | None = None,
 ) -> merge_item.MergeableItem | None:
     yaml_loader = yaml.BlockStyleYAML()
 
@@ -185,6 +202,8 @@ def get_migration_item(
 
     # if the user spec does not have a BaseVersion, it needs to be migrated
     if "BaseVersion" in user_spec.analysis_spec:
+        if analysis_id is not None:
+            print(f"{user_spec_id} already migrated.")
         return None
 
     # load the latest analysis item from the cache using the user spec's ID
@@ -200,6 +219,8 @@ def get_migration_item(
         py_path = user_spec.python_file_path()
         user_py = py_path.read_bytes() if py_path is not None else None
 
+    base_item = get_base_item(user_spec_id, ancestor_commit)
+
     return merge_item.MergeableItem(
         user_item=analysis_utils.AnalysisItem(
             yaml_file_contents=user_spec.analysis_spec,
@@ -213,8 +234,7 @@ def get_migration_item(
             raw_yaml_file_contents=latest_spec.spec,
             python_file_contents=cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version),
         ),
-        # in the future this can be improved by using the last version fetched in the customer repo
-        base_panther_item=analysis_utils.AnalysisItem({}, raw_yaml_file_contents=b"{}"),
+        base_panther_item=base_item,
         latest_item_version=latest_spec.version,
     )
 
@@ -251,3 +271,38 @@ def migrate_item(
         user_spec: dict = yaml_loader.load(yaml_file_path)
         user_spec["BaseVersion"] = item.latest_item_version
         yaml_loader.dump(user_spec, yaml_file_path)
+
+
+def get_base_item(user_spec_id: str, ancestor_commit: str | None) -> analysis_utils.AnalysisItem:
+    """
+    Get the base item for a user spec from Panther Analysis using the ancestor commit.
+    If the ancestor commit is not provided, the base item will be an empty analysis item.
+
+    Args:
+        user_spec_id: The ID of the user spec (the analysis ID)
+        ancestor_commit: The commit hash of the ancestor commit
+    Returns:
+        The base item for the user spec
+    """
+    base_item = analysis_utils.AnalysisItem({}, raw_yaml_file_contents=b"{}")
+    if ancestor_commit is None or ancestor_commit == "":
+        return base_item
+
+    yaml_loader = yaml.BlockStyleYAML()
+    version_history_item = versions_file.get_versions().get_current_version_history_item(
+        user_spec_id
+    )
+    base_yaml = git_helpers.get_file_at_commit(
+        ancestor_commit, pathlib.Path(version_history_item.yaml_file_path)
+    )
+    base_item.yaml_file_contents = yaml_loader.load(base_yaml)
+    base_item.raw_yaml_file_contents = base_yaml
+    base_item.yaml_file_path = version_history_item.yaml_file_path
+
+    if version_history_item.py_file_path is not None:
+        base_item.python_file_contents = git_helpers.get_file_at_commit(
+            ancestor_commit, pathlib.Path(version_history_item.py_file_path)
+        )
+        base_item.python_file_path = version_history_item.py_file_path
+
+    return base_item
