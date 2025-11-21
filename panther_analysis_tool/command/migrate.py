@@ -103,7 +103,7 @@ def run(
         print("All analysis items in your repo are already migrated! ")
         print("  * Run `pat pull` to pull in the latest Panther Analysis items.")
         print("  * Run `pat explore` to explore available analysis items.")
-        print("  * Run `pat enable` to clone and enable analysis items you want to use.")
+        print("  * Run `pat clone` to clone and enable analysis items you want to use.")
         print()
         print("Run `pat --help` for more information.")
 
