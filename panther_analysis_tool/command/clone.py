@@ -184,6 +184,7 @@ def clone_deps(
     all_top_level_imports: set[str] = set()
     checked_global_helpers: set[str] = set()  # global helpers whose imports have been checked
 
+    # collect all imports from the items we are cloning
     for item in items_to_clone:
         imports = parse.collect_top_level_imports(item.python_file_contents or b"")
         all_top_level_imports.update(imports)
@@ -191,6 +192,17 @@ def clone_deps(
             item.yaml_file_contents["LogTypes"] if "LogTypes" in item.yaml_file_contents else []
         )
 
+    # collect all imports from the data models we are cloning
+    for log_type in all_log_types:
+        for data_model in data_models:
+            if log_type in data_model.log_types:
+                py = cache.get_file_for_spec(
+                    data_model.spec_item.id or -1, data_model.spec_item.version
+                )
+                if py is not None:
+                    all_top_level_imports.update(parse.collect_top_level_imports(py))
+
+    # check all global helper imports
     check_global_helper_imports(
         all_top_level_imports, checked_global_helpers, global_helpers, cache
     )
