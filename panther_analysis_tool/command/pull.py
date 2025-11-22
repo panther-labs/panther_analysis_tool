@@ -68,10 +68,8 @@ def pull(show_progress_bar: bool = False, auto_accept: AutoAcceptOption | None =
 
     # merge analysis items
     mergeable_items = merge.get_mergeable_items(None, list(user_analysis_specs.values()))
-    if len(mergeable_items) == 0:
-        return
-
-    merge.merge_items(mergeable_items, None, None, auto_accept, show_progress_bar)
+    if len(mergeable_items) > 0:
+        merge.merge_items(mergeable_items, None, None, auto_accept, show_progress_bar)
 
     git_helpers.delete_cloned_panther_analysis()
 
