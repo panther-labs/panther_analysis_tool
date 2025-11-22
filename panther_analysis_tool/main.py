@@ -88,6 +88,7 @@ from panther_analysis_tool.command import (
     check_connection,
     clone,
     explore,
+    fmt,
     init_project,
     merge,
     migrate,
@@ -2523,6 +2524,14 @@ def migrate_command(
         if not pulled_latest:
             return 1, "Migration cancelled. Run `pat pull` before running this command."
     return migrate.run(analysis_id, editor, auto_accept)
+
+
+@app_command_with_config(
+    name="fmt",
+    help="Format and standardize the code in the current directory to help with making less changes in other commands.",
+)
+def fmt_command() -> tuple[int, str]:
+    return fmt.run()
 
 
 # pylint: disable=too-many-statements
