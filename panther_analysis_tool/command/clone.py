@@ -11,9 +11,6 @@ from panther_analysis_tool.core import analysis_cache, parse, versions_file, yam
 def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     try:
         clone(analysis_id, filter_args)
-    except FileExistsError as err:
-        logging.info(err)
-        return 0, ""
     except (ValueError, analysis_cache.NoCacheException) as err:
         return 1, str(err)
 
@@ -128,7 +125,10 @@ def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> N
             )
 
     for item in items_to_clone:
-        clone_analysis_item(item)
+        try:
+            clone_analysis_item(item)
+        except FileExistsError:
+            logging.info(f"{item.analysis_id()} already exists, skipping")
 
     clone_deps(items_to_clone, global_helpers, data_models, cache, versions)
 
@@ -182,15 +182,30 @@ def clone_deps(
     """
     all_log_types: set[str] = set()
     all_top_level_imports: set[str] = set()
+    checked_global_helpers: set[str] = set()  # global helpers whose imports have been checked
 
+    # collect all imports from the items we are cloning
     for item in items_to_clone:
         imports = parse.collect_top_level_imports(item.python_file_contents or b"")
-        for import_ in imports:
-            all_top_level_imports.add(import_)
-        for log_type in (
+        all_top_level_imports.update(imports)
+        all_log_types.update(
             item.yaml_file_contents["LogTypes"] if "LogTypes" in item.yaml_file_contents else []
-        ):
-            all_log_types.add(log_type)
+        )
+
+    # collect all imports from the data models we are cloning
+    for log_type in all_log_types:
+        for data_model in data_models:
+            if log_type in data_model.log_types:
+                py = cache.get_file_for_spec(
+                    data_model.spec_item.id or -1, data_model.spec_item.version
+                )
+                if py is not None:
+                    all_top_level_imports.update(parse.collect_top_level_imports(py))
+
+    # check all global helper imports
+    check_global_helper_imports(
+        all_top_level_imports, checked_global_helpers, global_helpers, cache
+    )
 
     for import_ in all_top_level_imports:
         if import_ in global_helpers:
@@ -213,6 +228,60 @@ def clone_deps(
                 except FileExistsError:
                     pass
                 break
+
+
+def check_global_helper_imports(
+    all_top_level_imports: set[str],
+    checked_global_helpers: set[str],
+    global_helpers: dict[str, analysis_cache.AnalysisSpec],
+    cache: analysis_cache.AnalysisCache,
+) -> None:
+    """
+    Discovers transitive global helper dependencies by checking imports recursively.
+
+    This function processes imports in needs_check and identifies which ones are global helpers.
+    For each global helper found, it checks that helper's imports to discover additional
+    transitive dependencies. All discovered global helper dependencies are added to needs_check.
+
+    Args:
+        all_top_level_imports: Set of import names to check. Modified in place to include all
+            transitive global helper dependencies discovered during processing.
+        checked_global_helpers: Set tracking which global helpers have already been
+            processed. Modified in place to prevent duplicate processing.
+        global_helpers: Dictionary mapping global helper filenames (without .py extension)
+            to their AnalysisSpec objects.
+        cache: AnalysisCache instance used to retrieve Python file contents for helpers.
+    """
+    # Use a queue-based approach to avoid recursion issues
+    to_process = list(all_top_level_imports)
+
+    while to_process:
+        import_name = to_process.pop(0)
+
+        # Skip if already checked or not a global helper
+        if import_name in checked_global_helpers:
+            continue
+        if import_name not in global_helpers:
+            continue
+
+        # Get the helper's Python file
+        helper = global_helpers[import_name]
+        helper_py = cache.get_file_for_spec(helper.id or -1, helper.version)
+        if helper_py is None:
+            continue
+
+        # Find imports in this helper
+        helper_imports = parse.collect_top_level_imports(helper_py)
+
+        # Mark this helper as checked
+        checked_global_helpers.add(import_name)
+
+        # Add any new global helper dependencies to the queue
+        for helper_import in helper_imports:
+            if helper_import in global_helpers and helper_import not in checked_global_helpers:
+                all_top_level_imports.add(helper_import)
+                if helper_import not in to_process:
+                    to_process.append(helper_import)
 
 
 def cached_analysis_spec_to_analysis_item(
