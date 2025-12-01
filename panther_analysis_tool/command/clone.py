@@ -128,7 +128,7 @@ def clone_analysis_items(items_to_clone: List[analysis_utils.AnalysisItem]) -> N
         try:
             clone_analysis_item(item)
         except FileExistsError:
-            logging.info(f"{item.analysis_id()} already exists, skipping")
+            logging.info("%s already exists, skipping", item.analysis_id())
 
     clone_deps(items_to_clone, global_helpers, data_models, cache, versions)
 
@@ -196,11 +196,13 @@ def clone_deps(
     for log_type in all_log_types:
         for data_model in data_models:
             if log_type in data_model.log_types:
-                py = cache.get_file_for_spec(
+                python_file_content = cache.get_file_for_spec(
                     data_model.spec_item.id or -1, data_model.spec_item.version
                 )
-                if py is not None:
-                    all_top_level_imports.update(parse.collect_top_level_imports(py))
+                if python_file_content is not None:
+                    all_top_level_imports.update(
+                        parse.collect_top_level_imports(python_file_content)
+                    )
 
     # check all global helper imports
     check_global_helper_imports(

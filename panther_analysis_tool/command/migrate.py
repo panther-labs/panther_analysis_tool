@@ -14,7 +14,7 @@ from typing import Tuple
 from rich.progress import track  # from tqdm
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.constants import AutoAcceptOption
+from panther_analysis_tool.constants import AnalysisTypes, AutoAcceptOption
 from panther_analysis_tool.core import (
     analysis_cache,
     git_helpers,
@@ -199,6 +199,10 @@ def get_migration_item(
 
     if analysis_id is not None and analysis_id != user_spec.analysis_id():
         # user specified an analysis id, only migrate that one
+        return None
+
+    if user_spec.analysis_type() == AnalysisTypes.PACK:
+        # ignoring packs from migration
         return None
 
     user_spec_id = user_spec.analysis_id()
