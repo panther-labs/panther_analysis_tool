@@ -91,11 +91,11 @@ def test_migrate_with_analysis_id(
 
 
 #######################################################################################
-### Test get_items_to_migrate
+### Test get_migration_item
 #######################################################################################
 
 
-def test_get_items_to_migrate_has_base_version(
+def test_get_migration_item_has_base_version(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     cache = setup(tmp_path, monkeypatch)
@@ -115,7 +115,7 @@ def test_get_items_to_migrate_has_base_version(
     assert item is None
 
 
-def test_get_items_to_migrate_no_latest_spec(
+def test_get_migration_item_no_latest_spec(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     cache = setup(tmp_path, monkeypatch)
@@ -134,7 +134,7 @@ def test_get_items_to_migrate_no_latest_spec(
     assert item is None
 
 
-def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_get_migration_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     cache = setup(tmp_path, monkeypatch)
     rule_1_dict = {
         "AnalysisType": "rule",
@@ -212,7 +212,7 @@ def test_get_items_to_migrate(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     assert items[1].base_panther_item.python_file_path is None
 
 
-def test_get_item_to_migrate_with_remote_base(
+def test_get_migration_item_with_remote_base(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     cache = setup(tmp_path, monkeypatch)
@@ -292,6 +292,25 @@ def test_get_item_to_migrate_with_remote_base(
     assert item.latest_panther_item.yaml_file_path is None
     assert item.latest_panther_item.python_file_contents == py.encode("utf-8")
     assert item.latest_panther_item.python_file_path is None
+
+
+def test_get_migration_item_pack(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    cache = setup(tmp_path, monkeypatch)
+    rule_1_dict = {
+        "AnalysisType": "pack",
+        "PackID": "fake.pack.1",
+        "PackDefinition": {
+            "IDs": ["fake.rule.1"],
+        },
+    }
+    rule_1_spec = yaml.dump(rule_1_dict)
+    (tmp_path / "fake_pack_1.yml").write_text(rule_1_spec)
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    item = migrate.get_migration_item(specs[0], None, cache)
+    assert item is None
 
 
 #######################################################################################
