@@ -61,6 +61,27 @@ def test_migrate_with_analysis_id(
         ),
         b"def rule(event): return True # new version",
     )
+    (tmp_path / versions_file.CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {
+                    "fake.rule.1": {
+                        "version": 1,
+                        "type": "rule",
+                        "sha256": "fake.sha256",
+                        "history": {
+                            "1": {
+                                "version": 1,
+                                "commit_hash": "fake.commit.1",
+                                "yaml_file_path": "fake_rule_1.yml",
+                                "py_file_path": "fake_rule_1.py",
+                            },
+                        },
+                    },
+                },
+            }
+        )
+    )
 
     migration_output = tmp_path / "migration_output.md"
     migration_output.touch()

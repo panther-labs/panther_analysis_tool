@@ -11,12 +11,13 @@ import pathlib
 from collections import defaultdict
 from typing import Tuple
 
-from rich.progress import track  # from tqdm
+from rich.progress import BarColumn, Progress, TextColumn, track  # from tqdm
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import AnalysisTypes, AutoAcceptOption
 from panther_analysis_tool.core import (
     analysis_cache,
+    clone_item,
     git_helpers,
     merge_item,
     versions_file,
@@ -32,6 +33,7 @@ class MigrationItem:
     Attributes:
         analysis_id: The ID of the analysis item
         analysis_type: The type of the analysis item
+        merged_item: The merged item that was migrated
     """
 
     analysis_id: str
@@ -39,6 +41,9 @@ class MigrationItem:
 
     analysis_type: str
     "The type of the analysis item"
+
+    merged_item: analysis_utils.AnalysisItem | None = None
+    "The merged item that was migrated, or None if there was a merge conflict"
 
 
 @dataclasses.dataclass
@@ -145,7 +150,29 @@ def migrate(
 
         migrate_item(item, analysis_id is not None, editor, result, auto_accept)
 
-    write_migration_results(result, migration_output)
+    # we need to check if the new migrated python includes any
+    # new global helper imports and clone those so the new python works
+    with Progress(
+        TextColumn("Cloning dependencies:"),
+        BarColumn(),
+        transient=True,
+        disable=analysis_id is not None,
+    ) as progress:
+        task = progress.add_task("cloning_dependencies", total=None)
+        items = [item.merged_item for item in result.items_migrated if item.merged_item is not None]
+        clone_item.clone_deps(items)
+        progress.update(task, completed=True)
+
+    with Progress(
+        TextColumn("Writing migration results:"),
+        BarColumn(),
+        transient=True,
+        disable=analysis_id is not None,
+    ) as progress:
+        task = progress.add_task("writing_migration_results", total=None)
+        write_migration_results(result, migration_output)
+        progress.update(task, completed=True)
+
     return result
 
 
@@ -270,6 +297,7 @@ def migrate_item(
             MigrationItem(
                 analysis_id=item.user_item.analysis_id(),
                 analysis_type=item.user_item.analysis_type(),
+                merged_item=item.merged_item,
             )
         )
 
@@ -302,8 +330,9 @@ def get_base_item(user_spec_id: str, ancestor_commit: str | None) -> analysis_ut
     base_yaml = git_helpers.get_file_at_commit(
         ancestor_commit, pathlib.Path(version_history_item.yaml_file_path)
     )
-    base_item.yaml_file_contents = yaml_loader.load(base_yaml)
-    base_item.raw_yaml_file_contents = base_yaml
+    if base_yaml is not None:
+        base_item.yaml_file_contents = yaml_loader.load(base_yaml)
+        base_item.raw_yaml_file_contents = base_yaml
 
     if version_history_item.py_file_path is not None:
         base_item.python_file_contents = git_helpers.get_file_at_commit(
