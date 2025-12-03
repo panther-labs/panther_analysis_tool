@@ -119,6 +119,13 @@ def populate_sqlite(
         return
 
     id_value = spec.analysis_id()
+
+    if id_value not in versions:
+        logging.debug(
+            "Analysis item %s not found in versions file, not loading it into cache", id_value
+        )
+        return
+
     if id_value in user_analysis_specs:
         check_if_old_version_is_needed(cache, user_analysis_specs[id_value], versions[id_value])
 
