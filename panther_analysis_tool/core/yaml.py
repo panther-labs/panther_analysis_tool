@@ -16,6 +16,13 @@ class BlockStyleYAML(yaml.YAML):
 
     def load(self, stream: Path | Any) -> Any:
         """Load YAML and automatically convert flow-style to block-style."""
+        if isinstance(stream, bytes):
+            stream = io.BytesIO(stream)
+        elif isinstance(stream, str):
+            stream = io.StringIO(stream)
+        if stream is None:
+            return None
+
         data = super().load(stream)
         if data is not None:
             self._convert_to_block_style(data)

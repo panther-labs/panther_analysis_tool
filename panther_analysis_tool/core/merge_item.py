@@ -19,6 +19,7 @@ class MergeableItem:
     user_item: analysis_utils.AnalysisItem
     latest_panther_item: analysis_utils.AnalysisItem
     base_panther_item: analysis_utils.AnalysisItem
+    merged_item: analysis_utils.AnalysisItem | None = None
     latest_item_version: int = -1
 
 
@@ -63,7 +64,24 @@ def merge_item(
             editor=editor,
             auto_accept=auto_accept,
         )
-        return has_conflict
+        if has_conflict:
+            return True
+
+    # if it does not have a conflict, the user item has been updated
+    # with the merged contents
+    yaml_loader = yaml.BlockStyleYAML()
+    raw_yaml_contents = pathlib.Path(user_item.yaml_file_path or "").read_bytes()
+    mergeable_item.merged_item = analysis_utils.AnalysisItem(
+        yaml_file_contents=yaml_loader.load(raw_yaml_contents),
+        raw_yaml_file_contents=raw_yaml_contents,
+        yaml_file_path=user_item.yaml_file_path,
+        python_file_contents=(
+            pathlib.Path(user_item.python_file_path).read_bytes()
+            if user_item.python_file_path
+            else None
+        ),
+        python_file_path=user_item.python_file_path,
+    )
 
     return False
 

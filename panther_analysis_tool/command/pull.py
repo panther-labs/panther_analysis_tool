@@ -18,7 +18,12 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AutoAcceptOption,
 )
-from panther_analysis_tool.core import analysis_cache, git_helpers, versions_file
+from panther_analysis_tool.core import (
+    analysis_cache,
+    clone_item,
+    git_helpers,
+    versions_file,
+)
 
 
 def run() -> Tuple[int, str]:
@@ -72,6 +77,19 @@ def pull(show_progress_bar: bool = False, auto_accept: AutoAcceptOption | None =
         merge.merge_items(mergeable_items, None, None, auto_accept, show_progress_bar)
 
     git_helpers.delete_cloned_panther_analysis()
+
+    # we need to check if the new merged python includes any
+    # new global helper imports and clone those so the new python works
+    with Progress(
+        TextColumn("Cloning dependencies:"),
+        BarColumn(),
+        transient=True,
+        disable=not show_progress_bar,
+    ) as progress:
+        task = progress.add_task("cloning_dependencies", total=None)
+        items = [item.merged_item for item in mergeable_items if item.merged_item is not None]
+        clone_item.clone_deps(items)
+        progress.update(task, completed=True)
 
 
 def clone_panther_analysis() -> None:

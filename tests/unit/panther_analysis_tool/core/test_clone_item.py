@@ -2,19 +2,16 @@ import os
 import pathlib
 from typing import Optional
 
-import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.command import clone
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AnalysisTypes,
 )
-from panther_analysis_tool.core import analysis_cache, yaml
+from panther_analysis_tool.core import analysis_cache, clone_item, versions_file, yaml
 
 _FAKE_PY = """
 def rule(event):
@@ -507,181 +504,81 @@ def insert_spec(
     )
 
 
-def test_get_analysis_items_no_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    with pytest.raises(analysis_cache.NoCacheException):
-        clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
-
-
-def test_get_analysis_items_bad_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="bad_id", filter_args=[])
-    assert items == []
-
-
-def test_get_analysis_items_no_filters_and_no_id(
-    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
-) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id=None, filter_args=[])
-    assert len(items) == 15
-
-
-def test_get_analysis_items_filters_and_no_id(
-    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
-) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
-    assert len(items) == 3
-    assert items == [
-        analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
-            yaml_file_path="rules/fake_rule_1.yaml",
-            python_file_path="rules/fake_rule_1.py",
-            python_file_contents=bytes(_FAKE_PY, "utf-8"),
-        ),
-        analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.load(_FAKE_RULE_2_V2),
-            yaml_file_path="rules/fake_rule_2.yaml",
-            python_file_path="rules/fake_rule_2.py",
-            python_file_contents=bytes(_FAKE_PY, "utf-8"),
-        ),
-        analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.load(_FAKE_RULE_WITH_DEPS),
-            yaml_file_path="rules/fake_rule_with_deps.yaml",
-            python_file_path="rules/fake_rule_with_deps.py",
-            python_file_contents=bytes(_FAKE_PY_WITH_HELPERS, "utf-8"),
-        ),
-    ]
-
-
-def test_get_analysis_items_no_filters_and_id(
-    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
-) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
-    assert len(items) == 1
-    assert items == [
-        analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
-            yaml_file_path="rules/fake_rule_1.yaml",
-            python_file_path="rules/fake_rule_1.py",
-            python_file_contents=bytes(_FAKE_PY, "utf-8"),
-        ),
-    ]
-
-
-def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id=None, filter_args=[])
-    assert len(items) == 15
-    clone.clone_analysis_items(items)
-    _dir = tmp_path
-    assert (_dir / "rules" / "fake_rule_1.yaml").exists()
-    assert (_dir / "rules" / "fake_rule_1.py").exists()
-    assert (_dir / "rules" / "fake_rule_2.yaml").exists()
-    assert (_dir / "rules" / "fake_rule_2.py").exists()
-    assert (_dir / "policies" / "fake_policy_1.yaml").exists()
-    assert (_dir / "policies" / "fake_policy_1.py").exists()
-    assert (_dir / "data_models" / "fake_datamodel_1.yaml").exists()
-    assert (_dir / "data_models" / "fake_datamodel_1.py").exists()
-    assert (_dir / "lookup_tables" / "fake_lookup_table_1.yaml").exists()
-    assert (_dir / "global_helpers" / "fake_global_helper_1.yaml").exists()
-    assert (_dir / "global_helpers" / "fake_global_helper_1.py").exists()
-    assert (_dir / "correlation_rules" / "fake_correlation_rule_1.yaml").exists()
-    assert (_dir / "scheduled_rules" / "fake_scheduled_rule_1.yaml").exists()
-    assert (_dir / "scheduled_rules" / "fake_scheduled_rule_1.py").exists()
-    assert (_dir / "queries" / "fake_saved_query_1.yaml").exists()
-    assert (_dir / "queries" / "fake_scheduled_query_1.yaml").exists()
-
-
-def test_clone_analysis_items_already_exists(
-    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
-) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
-    assert len(items) == 1
-    clone.clone_analysis_items(items)
-
-    rule_yaml = tmp_path / "rules" / "fake_rule_1.yaml"
-    rule_py = tmp_path / "rules" / "fake_rule_1.py"
-    assert rule_yaml.exists()
-    assert rule_py.exists()
-    assert rule_yaml.read_text() != "new yaml"
-    assert rule_py.read_text() != "new py"
-
-    rule_yaml.write_text("new yaml")
-    rule_py.write_text("new py")
-    assert rule_yaml.read_text() == "new yaml"
-    assert rule_py.read_text() == "new py"
-
-    # do it again and verify it did not change anything since it already existed
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
-    assert len(items) == 1
-    clone.clone_analysis_items(items)
-
-    assert rule_yaml.read_text() == "new yaml"
-    assert rule_py.read_text() == "new py"
-
-
-def test_enable_works_with_all_types(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-
-    for _id in [
-        "fake.rule.1",
-        "fake.rule.2",
-        "fake.policy.1",
-        "fake.datamodel.1",
-        "fake.lookup_table.1",
-        "fake.global_helper.1",
-        "fake.correlation_rule.1",
-        "fake.scheduled_rule.1",
-        "fake.saved_query.1",
-        "fake.scheduled_query.1",
+def test_set_enabled_field() -> None:
+    for analysis_type in [
+        AnalysisTypes.RULE,
+        AnalysisTypes.SCHEDULED_RULE,
+        AnalysisTypes.CORRELATION_RULE,
+        AnalysisTypes.POLICY,
+        AnalysisTypes.DATA_MODEL,
+        AnalysisTypes.LOOKUP_TABLE,
+        AnalysisTypes.SAVED_QUERY,
+        AnalysisTypes.SCHEDULED_QUERY,
     ]:
-        code, err_str = clone.run(analysis_id=_id, filter_args=[])
-        assert code == 0
-        assert err_str == ""
+        spec = {
+            "AnalysisType": analysis_type,
+        }
+        clone_item.set_enabled_field(spec)
+        assert "Enabled" in spec
+        assert spec["Enabled"]
 
 
-def test_enable_sets_base_version_field(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=rule"])
-    assert code == 0
-    assert err_str == ""
-
-    rule_path = tmp_path / "rules"
-    assert (rule_path / "fake_rule_1.yaml").exists()
-    assert (rule_path / "fake_rule_1.py").exists()
-    assert (rule_path / "fake_rule_2.yaml").exists()
-    assert (rule_path / "fake_rule_2.py").exists()
-    assert (yaml.load((rule_path / "fake_rule_1.yaml").read_text())["BaseVersion"]) == 1
-    assert (yaml.load((rule_path / "fake_rule_2.yaml").read_text())["BaseVersion"]) == 2
+def test_set_enabled_field_for_other_types() -> None:
+    for analysis_type in [
+        AnalysisTypes.PACK,
+        AnalysisTypes.GLOBAL,
+    ]:
+        spec = {
+            "AnalysisType": analysis_type,
+        }
+        clone_item.set_enabled_field(spec)
+        assert "Enabled" not in spec
 
 
-def test_enable_messaging(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    set_up_cache(tmp_path, monkeypatch)
-    code, err_str = clone.run(analysis_id="bad", filter_args=[])
-    assert code == 1
-    assert err_str == "No items matched the analysis ID. Nothing to clone."
+def test_cached_analysis_spec_to_analysis_item_with_python(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    cache = set_up_cache(tmp_path, monkeypatch)
+    spec = cache.get_latest_spec("fake.rule.1")
+    assert spec is not None
 
-    code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=bad"])
-    assert code == 1
-    assert err_str == "No items matched the filters. Nothing to clone."
+    versions = versions_file.get_versions().versions
+    item = clone_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    assert item.python_file_contents == bytes(_FAKE_PY, "utf-8")
+    assert item.python_file_path == "rules/fake_rule_1.py"
+    assert item.yaml_file_contents == yaml.load(_FAKE_RULE_1_V1)
+    assert item.yaml_file_path == "rules/fake_rule_1.yaml"
+    assert item.raw_yaml_file_contents == spec.spec
 
-    code, err_str = clone.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
-    assert code == 1
-    assert err_str == "No items matched the analysis ID and filters. Nothing to clone."
+
+def test_cached_analysis_spec_to_analysis_item_without_python(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    cache = set_up_cache(tmp_path, monkeypatch)
+    spec = cache.get_latest_spec("fake.saved_query.1")
+    assert spec is not None
+
+    versions = versions_file.get_versions().versions
+    item = clone_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    assert item.yaml_file_contents == yaml.load(_FAKE_SAVED_QUERY_1_V1)
+    assert item.yaml_file_path == "queries/fake_saved_query_1.yaml"
+    assert item.raw_yaml_file_contents == spec.spec
+    assert item.python_file_contents is None
+    assert item.python_file_path is None
 
 
 def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
-    assert len(items) == 1
-    clone.clone_analysis_items(items)
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
+            yaml_file_path="rules/fake_rule_1.yaml",
+            python_file_path="rules/fake_rule_1.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        )
+    ]
+    clone_item.clone_deps(items)
 
-    assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
-    assert (tmp_path / "rules" / "fake_rule_1.py").exists()
     assert not (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert not (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
     assert not (tmp_path / "data_models" / "fake_datamodel_1.yaml").exists()
@@ -694,12 +591,15 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
 
 def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
-    assert len(items) == 1
-    clone.clone_analysis_items(items)
-
-    assert (tmp_path / "rules" / "fake_rule_with_deps.yaml").exists()
-    assert (tmp_path / "rules" / "fake_rule_with_deps.py").exists()
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_RULE_WITH_DEPS),
+            yaml_file_path="rules/fake_rule_with_deps.yaml",
+            python_file_path="rules/fake_rule_with_deps.py",
+            python_file_contents=bytes(_FAKE_PY_WITH_HELPERS, "utf-8"),
+        )
+    ]
+    clone_item.clone_deps(items)
 
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()

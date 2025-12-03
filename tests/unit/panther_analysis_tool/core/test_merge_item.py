@@ -143,6 +143,7 @@ def test_merge_item_no_conflict_with_python(
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+    pathlib.Path(rule_1.spec_filename).write_text("user: yaml")
 
     has_conflict = merge_item.merge_item(
         merge_item.MergeableItem(
@@ -168,6 +169,7 @@ def test_merge_items_no_conflict_no_python(
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
+    pathlib.Path(rule_1.spec_filename).write_text("user: yaml")
 
     has_conflict = merge_item.merge_item(
         merge_item.MergeableItem(
@@ -243,6 +245,7 @@ def test_merge_item_with_analysis_id_with_conflict(
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
+    pathlib.Path(rule_1.spec_filename).write_text("user: yaml")
 
     merge_item.merge_item(
         merge_item.MergeableItem(
@@ -267,6 +270,7 @@ def test_merge_item_with_analysis_id_no_conflict(
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
+    pathlib.Path(rule_1.spec_filename).write_text("user: yaml")
 
     merge_item.merge_item(
         merge_item.MergeableItem(
