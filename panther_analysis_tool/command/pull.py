@@ -16,6 +16,7 @@ from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+    AnalysisTypes,
     AutoAcceptOption,
 )
 from panther_analysis_tool.core import (
@@ -119,6 +120,9 @@ def populate_sqlite(
         return
 
     id_value = spec.analysis_id()
+
+    if spec.analysis_type() == AnalysisTypes.PACK:
+        return
 
     if id_value not in versions:
         logging.debug(
