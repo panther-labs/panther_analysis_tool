@@ -3,7 +3,6 @@ import shutil
 from unittest import mock
 from unittest.mock import call
 
-import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -14,7 +13,7 @@ from panther_analysis_tool.constants import (
     CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
-from panther_analysis_tool.core import analysis_cache, versions_file
+from panther_analysis_tool.core import analysis_cache, versions_file, yaml
 from panther_analysis_tool.core.git_helpers import CLONED_VERSIONS_FILE_PATH
 
 _FAKE_PY = """
@@ -571,3 +570,37 @@ def test_pull_and_merge_works(
             call("  * fake.rule.2"),
         ]
     )
+
+
+def test_populate_skips_packs(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    assert cache.list_spec_ids() == []
+
+    spec = analysis_utils.LoadAnalysisSpecsResult(
+        spec_filename="fake.pack.1.yaml",
+        relative_path="fake.pack.1.yaml",
+        analysis_spec={"AnalysisType": "pack", "PackID": "fake.pack.1"},
+        yaml_ctx=yaml.BlockStyleYAML(),
+        error=None,
+        raw_spec_file_content=b"",
+    )
+    versions = {
+        "fake.pack.1": versions_file.AnalysisVersionItem(
+            version=1,
+            sha256="fake.pack.1.sha256",
+            type="pack",
+            history={
+                1: versions_file.AnalysisVersionHistoryItem(
+                    commit_hash="fake.pack.1.commit.hash",
+                    yaml_file_path="fake.pack.1.yaml",
+                    py_file_path="fake.pack.1.py",
+                ),
+            },
+        )
+    }
+    pull.populate_sqlite(spec, cache, {}, versions)
+    assert cache.list_spec_ids() == []
