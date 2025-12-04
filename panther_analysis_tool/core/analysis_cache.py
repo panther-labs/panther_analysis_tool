@@ -1,8 +1,20 @@
 import dataclasses
+import logging
+import os
+import pathlib
+import shutil
 import sqlite3
 from typing import Optional
 
-from panther_analysis_tool.constants import PANTHER_ANALYSIS_SQLITE_FILE_PATH
+from rich.progress import BarColumn, Progress, TextColumn, track
+
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import (
+    CACHE_DIR,
+    CACHED_VERSIONS_FILE_PATH,
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+)
+from panther_analysis_tool.core import git_helpers, versions_file
 
 
 class NoCacheException(Exception):
@@ -303,3 +315,170 @@ class AnalysisCache:
         self.cursor.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
         self.conn.commit()
+
+
+def update_with_latest_panther_analysis(
+    user_analysis_specs: dict[str, analysis_utils.LoadAnalysisSpecsResult] = {},
+    show_progress_bar: bool = False,
+) -> None:
+    """
+    Update the analysis cache with the latest Panther Analysis content.
+
+    Args:
+        user_analysis_specs (dict[str, analysis_utils.LoadAnalysisSpecsResult]): The user analysis specs used to determine if older item versions are needed in the cache with.
+        show_progress_bar (bool): Whether to show a progress bar in the terminal.
+
+    Returns:
+        None
+    """
+    sqlite_file = PANTHER_ANALYSIS_SQLITE_FILE_PATH
+    sqlite_file.parent.mkdir(parents=True, exist_ok=True)
+    sqlite_file.touch(exist_ok=True)
+
+    # clone panther analysis
+    with Progress(
+        TextColumn("Pulling latest from Panther Analysis:"),
+        BarColumn(),
+        transient=True,
+        disable=not show_progress_bar,
+    ) as progress:
+        task = progress.add_task("cloning_panther_analysis", total=None)
+        _clone_panther_analysis()
+        progress.update(task, completed=True)
+
+    # populate cache
+    cache = AnalysisCache()
+    cache.create_tables()
+    versions = versions_file.get_versions().versions
+
+    for spec in track(
+        analysis_utils.load_analysis_specs_ex([str(CACHE_DIR)], [], True),
+        description="Populating cache:",
+        disable=not show_progress_bar,
+        transient=True,
+    ):
+        _populate_sqlite(spec, cache, user_analysis_specs, versions)
+
+
+def _clone_panther_analysis() -> None:
+    """
+    Clone the Panther Analysis repository to the cache directory.
+
+    Returns:
+        None
+    """
+    # allows for testing against a different branch or manual override
+    release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
+    commit = ""
+
+    if release_branch == "":
+        release_branch = "main"
+        commit = git_helpers.panther_analysis_latest_release_commit()
+        logging.debug("Using Panther Analysis release: %s", commit)
+
+    git_helpers.clone_panther_analysis(release_branch, commit)
+    shutil.move(
+        git_helpers.CLONED_VERSIONS_FILE_PATH,
+        CACHED_VERSIONS_FILE_PATH,
+    )  # move versions file so PA can be deleted
+
+
+def _populate_sqlite(
+    spec: analysis_utils.LoadAnalysisSpecsResult,
+    cache: AnalysisCache,
+    user_analysis_specs: dict[str, analysis_utils.LoadAnalysisSpecsResult],
+    versions: dict[str, versions_file.AnalysisVersionItem],
+) -> None:
+    """
+    Populate the analysis cache with the latest Panther Analysis content.
+
+    Args:
+        spec (analysis_utils.LoadAnalysisSpecsResult): The analysis spec to populate the cache with.
+        cache (AnalysisCache): The cache to populate.
+        user_analysis_specs (dict[str, analysis_utils.LoadAnalysisSpecsResult]): The user analysis specs to populate the cache with.
+        versions (dict[str, versions_file.AnalysisVersionItem]): The versions to populate the cache with.
+
+    Returns:
+        None
+    """
+    if spec.error is not None:
+        return
+
+    id_value = spec.analysis_id()
+
+    if id_value not in versions:
+        logging.debug(
+            "Analysis item %s not found in versions file, not loading it into cache", id_value
+        )
+        return
+
+    if id_value in user_analysis_specs:
+        _check_if_old_version_is_needed(cache, user_analysis_specs[id_value], versions[id_value])
+
+    content = None
+    filename = spec.analysis_spec.get("Filename")
+    if spec.analysis_spec.get("Filename") is not None:
+        file_path = pathlib.Path(spec.spec_filename).parent / filename
+        with open(file_path, "rb") as spec_file:
+            content = spec_file.read()
+
+    cache.insert_analysis_spec(
+        AnalysisSpec(
+            id=None,
+            id_field=spec.analysis_id_field_name(),
+            id_value=id_value,
+            spec=spec.raw_spec_file_content
+            or bytes(),  # is only none if error which is handled above
+            version=versions[id_value].version,
+        ),
+        content,
+    )
+
+
+def _check_if_old_version_is_needed(
+    cache: AnalysisCache,
+    user_spec: analysis_utils.LoadAnalysisSpecsResult,
+    version_item: versions_file.AnalysisVersionItem,
+) -> None:
+    """
+    Check if the user spec is older than the latest version, and if so, insert the old spec into the cache.
+    Having the old version will allows us to perform a 3-way merge between the user spec, the old spec, and the latest spec.
+
+    Returns:
+        None
+
+    Args:
+        cache (analysis_cache.AnalysisCache): The cache to insert the old spec into.
+        user_spec (LoadAnalysisSpecsResult): The user spec to check.
+        version_item (versions_file.AnalysisVersionItem): The version item to check.
+    """
+    user_spec_version = user_spec.analysis_spec.get("BaseVersion", None)
+
+    # if the user spec is older than the latest version, we need to insert the old spec too.
+    # We know where to find the old spec because we have the version history in the versions file
+    # and we can use the commit hash and file path to get the content from the panther-analysis repository.
+    if user_spec_version is not None and user_spec_version < version_item.version:
+        spec_history_item = version_item.history[user_spec_version]
+
+        yaml_content = git_helpers.get_panther_analysis_file_contents(
+            spec_history_item.commit_hash, spec_history_item.yaml_file_path
+        )
+        py_content = None
+        if spec_history_item.py_file_path is not None:
+            py_content = bytes(
+                git_helpers.get_panther_analysis_file_contents(
+                    spec_history_item.commit_hash, spec_history_item.py_file_path
+                ),
+                "utf-8",
+            )
+
+        cache.insert_analysis_spec(
+            AnalysisSpec(
+                id=None,
+                id_field=user_spec.analysis_id_field_name(),
+                id_value=user_spec.analysis_id(),
+                spec=bytes(yaml_content, "utf-8"),
+                version=user_spec_version,
+            ),
+            py_content,
+        )
