@@ -791,3 +791,37 @@ def test_update_with_latest_panther_analysis_skips_if_cache_is_latest(
     analysis_cache.update_with_latest_panther_analysis()
     assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_1"
     assert not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists()
+
+
+def test_populate_skips_packs(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    assert cache.list_spec_ids() == []
+
+    spec = analysis_utils.LoadAnalysisSpecsResult(
+        spec_filename="fake.pack.1.yaml",
+        relative_path="fake.pack.1.yaml",
+        analysis_spec={"AnalysisType": "pack", "PackID": "fake.pack.1"},
+        yaml_ctx=yaml.BlockStyleYAML(),
+        error=None,
+        raw_spec_file_content=b"",
+    )
+    versions = {
+        "fake.pack.1": versions_file.AnalysisVersionItem(
+            version=1,
+            sha256="fake.pack.1.sha256",
+            type="pack",
+            history={
+                1: versions_file.AnalysisVersionHistoryItem(
+                    commit_hash="fake.pack.1.commit.hash",
+                    yaml_file_path="fake.pack.1.yaml",
+                    py_file_path="fake.pack.1.py",
+                ),
+            },
+        )
+    }
+    analysis_cache._populate_sqlite(spec, cache, {}, versions)
+    assert cache.list_spec_ids() == []
