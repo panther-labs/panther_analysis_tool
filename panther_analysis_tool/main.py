@@ -2517,12 +2517,6 @@ def migrate_command(
         ),
     ] = None,
 ) -> Tuple[int, str]:
-    if analysis_id is None:
-        pulled_latest = typer.confirm(
-            "Migration requires the latest Panther Analysis updates. Did you run `pat pull` before running this?"
-        )
-        if not pulled_latest:
-            return 1, "Migration cancelled. Run `pat pull` before running this command."
     return migrate.run(analysis_id, editor, auto_accept)
 
 
