@@ -84,6 +84,8 @@ class MigrationResult:
 def run(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
 ) -> Tuple[int, str]:
+    analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
+
     migration_output = pathlib.Path("migration_output.md")
     migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
 

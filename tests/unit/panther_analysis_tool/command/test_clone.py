@@ -12,7 +12,6 @@ from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
-    AnalysisTypes,
 )
 from panther_analysis_tool.core import analysis_cache, yaml
 
@@ -624,7 +623,13 @@ def test_clone_analysis_items_already_exists(
     assert rule_py.read_text() == "new py"
 
 
-def test_enable_works_with_all_types(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_enable_works_with_all_types(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
     set_up_cache(tmp_path, monkeypatch)
 
     for _id in [
@@ -644,7 +649,13 @@ def test_enable_works_with_all_types(tmp_path: pathlib.Path, monkeypatch: Monkey
         assert err_str == ""
 
 
-def test_enable_sets_base_version_field(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_enable_sets_base_version_field(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
     set_up_cache(tmp_path, monkeypatch)
     code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert code == 0
@@ -659,7 +670,13 @@ def test_enable_sets_base_version_field(tmp_path: pathlib.Path, monkeypatch: Mon
     assert (yaml.load((rule_path / "fake_rule_2.yaml").read_text())["BaseVersion"]) == 2
 
 
-def test_enable_messaging(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_enable_messaging(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
     set_up_cache(tmp_path, monkeypatch)
     code, err_str = clone.run(analysis_id="bad", filter_args=[])
     assert code == 1

@@ -12,6 +12,7 @@ from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
 from panther_analysis_tool.core import git_helpers, versions_file
@@ -331,6 +332,18 @@ def update_with_latest_panther_analysis(
     Returns:
         None
     """
+    # allows for testing against a different branch or manual override
+    release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
+    commit = ""
+
+    if release_branch == "":
+        release_branch = "main"
+        commit = git_helpers.panther_analysis_latest_release_commit()
+        logging.debug("Using Panther Analysis release: %s", commit)
+
+    if _cache_is_latest(release_branch, commit):
+        return
+
     sqlite_file = PANTHER_ANALYSIS_SQLITE_FILE_PATH
     sqlite_file.parent.mkdir(parents=True, exist_ok=True)
     sqlite_file.touch(exist_ok=True)
@@ -343,7 +356,7 @@ def update_with_latest_panther_analysis(
         disable=not show_progress_bar,
     ) as progress:
         task = progress.add_task("cloning_panther_analysis", total=None)
-        _clone_panther_analysis()
+        _clone_panther_analysis(release_branch, commit)
         progress.update(task, completed=True)
 
     # populate cache
@@ -360,22 +373,40 @@ def update_with_latest_panther_analysis(
         _populate_sqlite(spec, cache, user_analysis_specs, versions)
 
 
-def _clone_panther_analysis() -> None:
+def _cache_is_latest(release_branch: str, commit: str) -> bool:
+    """
+    Check if the cache is up to date with the latest Panther Analysis content.
+    """
+    if release_branch != "main":
+        return False  # not main branch, always need to update
+
+    commit = commit.strip()
+
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch(exist_ok=True)
+
+    latest_cached_commit = LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip()
+    if latest_cached_commit == commit:
+        return True
+
+    # update the cached commit with the latest commit
+    if commit != "":
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text(commit)
+
+    return False
+
+
+def _clone_panther_analysis(release_branch: str, commit: str) -> None:
     """
     Clone the Panther Analysis repository to the cache directory.
+
+    Args:
+        release_branch (str): The branch of Panther Analysis to clone.
+        commit (str): The commit of Panther Analysis to clone.
 
     Returns:
         None
     """
-    # allows for testing against a different branch or manual override
-    release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
-    commit = ""
-
-    if release_branch == "":
-        release_branch = "main"
-        commit = git_helpers.panther_analysis_latest_release_commit()
-        logging.debug("Using Panther Analysis release: %s", commit)
-
     git_helpers.clone_panther_analysis(release_branch, commit)
     shutil.move(
         git_helpers.CLONED_VERSIONS_FILE_PATH,

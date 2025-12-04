@@ -7,6 +7,7 @@ from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
 from panther_analysis_tool.core import analysis_cache, versions_file, yaml
@@ -757,3 +758,36 @@ def test_populate_works_with_scheduled_query(
     assert latest_spec.version == 1
     assert latest_spec.id_field == "QueryName"
     assert latest_spec.id_value == "fake.scheduled_query.1"
+
+
+def test_cache_is_latest(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert not LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.exists()
+
+    assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_1"
+    assert analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+
+    assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_2")
+    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_2"
+    assert analysis_cache._cache_is_latest("main", "fake_commit_hash_2")
+
+    assert not analysis_cache._cache_is_latest("main", "")
+    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_2"
+
+
+def test_update_with_latest_panther_analysis_skips_if_cache_is_latest(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+        return_value="fake_commit_hash_1",
+    )
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch()
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("fake_commit_hash_1")
+
+    analysis_cache.update_with_latest_panther_analysis()
+    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_1"
+    assert not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists()
