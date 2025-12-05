@@ -78,7 +78,7 @@ class ExploreApp(App):
         spec_by_type = defaultdict(list)
 
         for spec in specs:
-            spec_by_type[spec.pretty_analysis_type()].append(spec)
+            spec_by_type[spec.pretty_analysis_type(plural=True)].append(spec)
 
         for analysis_type, specs in spec_by_type.items():
             analysis_node = tree.root.add(analysis_type, expand=False)

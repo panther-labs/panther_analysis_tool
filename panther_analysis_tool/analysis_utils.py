@@ -820,27 +820,31 @@ class AnalysisItem:
         return self.yaml_file_contents.get("Description", "")
 
     # pylint: disable=too-many-return-statements
-    def pretty_analysis_type(self) -> str:
+    def pretty_analysis_type(self, plural: bool = False) -> str:
         match self.analysis_type():
-            case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
-                return "Rule"
+            case AnalysisTypes.RULE:
+                return "Rule" if not plural else "Rules"
+            case AnalysisTypes.CORRELATION_RULE:
+                return "Correlation Rule" if not plural else "Correlation Rules"
+            case AnalysisTypes.SCHEDULED_RULE:
+                return "Scheduled Rule" if not plural else "Scheduled Rules"
             case AnalysisTypes.DATA_MODEL:
-                return "Data Model"
+                return "Data Model" if not plural else "Data Models"
             case AnalysisTypes.POLICY:
-                return "Policy"
+                return "Policy" if not plural else "Policies"
             case AnalysisTypes.GLOBAL:
-                return "Global Helper"
+                return "Global Helper" if not plural else "Global Helpers"
             case AnalysisTypes.SCHEDULED_QUERY:
-                return "Scheduled Query"
+                return "Scheduled Query" if not plural else "Scheduled Queries"
             case AnalysisTypes.SAVED_QUERY:
-                return "SavedQuery"
+                return "Saved Query" if not plural else "Saved Queries"
             case AnalysisTypes.PACK:
-                return "Pack"
+                return "Pack" if not plural else "Packs"
             case AnalysisTypes.LOOKUP_TABLE:
-                return "Lookup Table"
+                return "Lookup Table" if not plural else "Lookup Tables"
             case AnalysisTypes.DERIVED:
-                return "Derived Detection"
+                return "Derived Detection" if not plural else "Derived Detections"
             case AnalysisTypes.SIMPLE_DETECTION:
-                return "Simple Detection"
+                return "Simple Detection" if not plural else "Simple Detections"
             case _:
                 raise ValueError(f"Unsupported analysis type: {self.analysis_type()}")
