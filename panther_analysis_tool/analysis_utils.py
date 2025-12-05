@@ -17,14 +17,14 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
+    BackendError,
     GetRuleBodyParams,
     TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_LOCATION,
@@ -822,8 +822,12 @@ class AnalysisItem:
     # pylint: disable=too-many-return-statements
     def pretty_analysis_type(self) -> str:
         match self.analysis_type():
-            case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
+            case AnalysisTypes.RULE:
                 return "Rule"
+            case AnalysisTypes.CORRELATION_RULE:
+                return "Correlation Rule"
+            case AnalysisTypes.SCHEDULED_RULE:
+                return "Scheduled Rule"
             case AnalysisTypes.DATA_MODEL:
                 return "Data Model"
             case AnalysisTypes.POLICY:
@@ -833,7 +837,7 @@ class AnalysisItem:
             case AnalysisTypes.SCHEDULED_QUERY:
                 return "Scheduled Query"
             case AnalysisTypes.SAVED_QUERY:
-                return "SavedQuery"
+                return "Saved Query"
             case AnalysisTypes.PACK:
                 return "Pack"
             case AnalysisTypes.LOOKUP_TABLE:
