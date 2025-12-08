@@ -91,8 +91,9 @@ class ExploreApp(App):
         for spec in specs:
             spec_by_type[spec.pretty_analysis_type(plural=True)].append(spec)
 
-        for analysis_type, specs in spec_by_type.items():
-            analysis_node = tree.root.add(analysis_type, expand=False)
+        for pretty_analysis_type, specs in spec_by_type.items():
+            analysis_node = tree.root.add(pretty_analysis_type, expand=False)
+            analysis_node.data = {"analysis_type": specs[0].analysis_type()}
 
             for spec in specs:
                 analysis_node.add_leaf(spec.analysis_id())
@@ -133,8 +134,8 @@ class ExploreApp(App):
             table.filter_by_id(selected_id)
         else:
             # If it's a parent node, show all items under it
-            pretty_analysis_type = str(event.node.label)
-            table.filter_by_type(pretty_analysis_type)
+            analysis_type = str((event.node.data or {})["analysis_type"])
+            table.filter_by_type(analysis_type)
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""

@@ -97,6 +97,7 @@ class AnalysisItemDataTable(DataTable):
     table_row_by_id: dict[str, TableRow]
     all_specs: list[AnalysisDataTableItem]
     current_rows: list[TableRow]
+    CLONED_INDICATOR = "[green]Yes ✓[/green]"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -138,7 +139,7 @@ class AnalysisItemDataTable(DataTable):
 
     def add_row_to_table(self, row: TableRow) -> None:
         self.current_rows.append(row)
-        status_indicator = "[green]✓[/green]" if row.user_has_item else ""
+        status_indicator = self.CLONED_INDICATOR if row.user_has_item else "No"
         self.add_row(status_indicator, row.type_label, row.item_id_label, row.description_label)
 
     def clear(self, columns: bool = False) -> "AnalysisItemDataTable":
