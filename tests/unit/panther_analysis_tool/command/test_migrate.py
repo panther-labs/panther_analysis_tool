@@ -6,6 +6,7 @@ from pytest_mock import MockerFixture
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import migrate
 from panther_analysis_tool.constants import (
+    CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AutoAcceptOption,
 )
@@ -19,6 +20,121 @@ def setup(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.An
     cache = analysis_cache.AnalysisCache()
     cache.create_tables()
     return cache
+
+
+def test_migrate_deletes_items(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value="abc123",
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        side_effect=[
+            b"{RuleID: fake.rule.1}",
+            b"",
+            b"{RuleID: fake.rule.2}",
+            b"",
+            b"{RuleID: fake.rule.to.delete}",
+            b"",
+        ],
+    )
+    cache = setup(tmp_path, monkeypatch)
+
+    rule_1_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.1",
+        "Filename": "fake_rule_1.py",
+        "Enabled": True,
+    }
+    rule_2_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.2",
+        "Filename": "fake_rule_2.py",
+        "Enabled": False,
+    }
+    rule_to_delete_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.to.delete",
+        "Filename": "fake_rule_to_delete.py",
+        "Enabled": False,
+    }
+    pack_spec = {
+        "AnalysisType": "pack",
+        "PackID": "fake.pack.1",
+    }
+
+    (tmp_path / "fake_rule_1.yml").write_text(yaml.dump(rule_1_spec))
+    (tmp_path / "fake_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "fake_rule_2.yml").write_text(yaml.dump(rule_2_spec))
+    (tmp_path / "fake_rule_2.py").write_text("def rule(event): return True")
+    (tmp_path / "fake_rule_to_delete.yml").write_text(yaml.dump(rule_to_delete_spec))
+    (tmp_path / "fake_rule_to_delete.py").write_text("def rule(event): return True")
+    (tmp_path / "fake_pack_1.yml").write_text(yaml.dump(pack_spec))
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(rule_1_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="fake.rule.1",
+        ),
+        b"def rule(event): return True",
+    )
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(rule_2_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="fake.rule.2",
+        ),
+        b"def rule(event): return True",
+    )
+
+    result = migrate.migrate(None, None, tmp_path / "migration_output.md", None)
+    assert len(result.items_deleted) == 2
+    assert result.items_deleted[0].analysis_id == "fake.pack.1"
+    assert result.items_deleted[0].pretty_analysis_type == "Pack"
+    assert (
+        result.items_deleted[0].reason
+        == "Packs are managed by Panther and not needed in your repo."
+    )
+    assert result.items_deleted[1].analysis_id == "fake.rule.to.delete"
+    assert result.items_deleted[1].pretty_analysis_type == "Rule"
+    assert (
+        result.items_deleted[1].reason
+        == "Item was deleted by Panther since your last update and was disabled in your repo."
+    )
+
+    assert len(result.items_migrated) == 2
+    assert result.items_migrated[0].analysis_id == "fake.rule.1"
+    assert result.items_migrated[0].pretty_analysis_type == "Rule"
+    assert result.items_migrated[1].analysis_id == "fake.rule.2"
+    assert result.items_migrated[1].pretty_analysis_type == "Rule"
+    assert len(result.items_with_conflicts) == 0
+
+    assert not (tmp_path / "fake_rule_to_delete.yml").exists()
+    assert not (tmp_path / "fake_rule_to_delete.py").exists()
+    assert not (tmp_path / "fake_pack_1.yml").exists()
+
+    assert (tmp_path / "fake_rule_1.yml").exists()
+    assert (tmp_path / "fake_rule_1.py").exists()
+    assert (tmp_path / "fake_rule_2.yml").exists()
+    assert (tmp_path / "fake_rule_2.py").exists()
 
 
 def test_migrate_with_analysis_id(
