@@ -134,7 +134,8 @@ def test_get_migration_item_has_base_version(
 
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
-    item = migrate.get_migration_item(specs[0], None, cache)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    item = migrate.get_migration_item(specs[0], None, cache, result)
     assert item is None
 
 
@@ -153,7 +154,8 @@ def test_get_migration_item_no_latest_spec(
 
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
-    item = migrate.get_migration_item(specs[0], None, cache)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    item = migrate.get_migration_item(specs[0], None, cache, result)
     assert item is None
 
 
@@ -199,7 +201,8 @@ def test_get_migration_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) ->
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 2
 
-    items = [migrate.get_migration_item(spec, None, cache) for spec in specs]
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    items = [migrate.get_migration_item(spec, None, cache, result) for spec in specs]
     assert len(items) == 2
     assert items[0] is not None
     assert items[1] is not None
@@ -243,6 +246,10 @@ def test_get_migration_item_with_remote_base(
     mocker.patch(
         "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
         side_effect=[b"fake: yaml", b"from fake import python"],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
     )
 
     py = "def rule(event): return True"
@@ -289,10 +296,12 @@ def test_get_migration_item_with_remote_base(
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
 
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     item = migrate.get_migration_item(
         user_spec=specs[0],
         analysis_id=None,
         cache=cache,
+        result=result,
         ancestor_commit="fake.commit.1",
     )
 
@@ -332,7 +341,8 @@ def test_get_migration_item_pack(tmp_path: pathlib.Path, monkeypatch: MonkeyPatc
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
 
-    item = migrate.get_migration_item(specs[0], None, cache)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    item = migrate.get_migration_item(specs[0], None, cache, result)
     assert item is None
 
 
@@ -594,7 +604,11 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
             ],
             items_deleted=[
                 migrate.MigrationItem(analysis_id="fake.pack.1", pretty_analysis_type="Pack"),
-                migrate.MigrationItem(analysis_id="fake.pack.2", pretty_analysis_type="Pack"),
+                migrate.MigrationItem(
+                    analysis_id="fake.pack.2",
+                    pretty_analysis_type="Pack",
+                    reason="Item is dead to me. I deleted it.",
+                ),
             ],
         ),
         output_path,
@@ -624,7 +638,7 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
 2 analysis item(s) deleted.
 
   * (Pack) fake.pack.1
-  * (Pack) fake.pack.2
+  * (Pack) fake.pack.2 - Item is dead to me. I deleted it.
 
 ## Analysis Items Migrated
 

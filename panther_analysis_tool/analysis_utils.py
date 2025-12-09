@@ -238,6 +238,10 @@ class LoadAnalysisSpecsResult:
         """Returns the analysis type for this analysis spec."""
         return self.analysis_spec["AnalysisType"]
 
+    def enabled(self) -> bool:
+        """Returns True if the analysis spec is enabled, defaulting to True if no enabled field exists."""
+        return self.analysis_spec.get("Enabled", True)
+
     # pylint: disable=too-many-return-statements
     def analysis_id_field_name(self) -> str:
         """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
@@ -281,6 +285,12 @@ class LoadAnalysisSpecsResult:
 
     def pretty_analysis_type(self) -> str:
         return pretty_analysis_type(self.analysis_type(), plural=False)
+
+    def unlink(self) -> None:
+        pathlib.Path(self.spec_filename).unlink()
+        py_file_path = self.python_file_path()
+        if py_file_path is not None:
+            pathlib.Path(py_file_path).unlink()
 
 
 # pylint: disable=too-many-locals
@@ -824,6 +834,13 @@ class AnalysisItem:
 
     def pretty_analysis_type(self, plural: bool = False) -> str:
         return pretty_analysis_type(self.analysis_type(), plural)
+
+    def empty(self) -> bool:
+        return (
+            self.yaml_file_contents == {}
+            and (self.raw_yaml_file_contents is None or self.raw_yaml_file_contents == b"{}")
+            and (self.python_file_contents is None or self.python_file_contents == b"")
+        )
 
 
 # pylint: disable=too-many-return-statements
