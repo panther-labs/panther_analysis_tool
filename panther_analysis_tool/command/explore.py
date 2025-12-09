@@ -7,13 +7,19 @@ from panther_analysis_tool.gui.explore_gui import ExploreApp
 
 def run() -> tuple[int, str]:
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
-    all_specs = load_all_specs(show_progress_bar=True)
-    app = ExploreApp(all_specs)
+    all_specs = load_panther_analysis_specs(show_progress_bar=True)
+    user_spec_ids = load_user_specs(show_progress_bar=True)
+    app = ExploreApp(
+        all_specs=all_specs,
+        user_spec_ids=user_spec_ids,
+    )
     app.run()
     return 0, ""
 
 
-def load_all_specs(show_progress_bar: bool = False) -> list[analysis_utils.AnalysisItem]:
+def load_panther_analysis_specs(
+    show_progress_bar: bool = False,
+) -> list[analysis_utils.AnalysisItem]:
     yaml_loader = yaml.BlockStyleYAML()
     cache = analysis_cache.AnalysisCache()
     versions = versions_file.get_versions().versions
@@ -46,3 +52,15 @@ def load_all_specs(show_progress_bar: bool = False) -> list[analysis_utils.Analy
         specs.append(item)
 
     return specs
+
+
+def load_user_specs(show_progress_bar: bool = False) -> set[str]:
+    spec_ids: set[str] = set()
+    for spec in track(
+        analysis_utils.load_analysis_specs_ex(["."], [], True),
+        description="Loading user analysis items:",
+        disable=not show_progress_bar,
+        transient=True,
+    ):
+        spec_ids.add(spec.analysis_id())
+    return spec_ids
