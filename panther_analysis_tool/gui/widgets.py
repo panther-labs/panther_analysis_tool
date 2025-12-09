@@ -26,9 +26,11 @@ class YamlDiffItem:
 
 @dataclasses.dataclass
 class TableRow:
-    type: str
-    item_id: str
-    description: str
+    type_label: str
+    item_id_label: str
+    description_label: str
+    user_has_item: bool
+    analysis_item: analysis_utils.AnalysisItem
 
 
 class PythonWindow(TextArea):
@@ -84,28 +86,65 @@ class CustomerPythonWindow(PythonWindow):
     BORDER_TITLE = "Your Python"
 
 
+@dataclasses.dataclass
+class AnalysisDataTableItem:
+    user_has_item: bool
+    item: analysis_utils.AnalysisItem
+
+
 class AnalysisItemDataTable(DataTable):
     all_table_data: list[TableRow]
+    table_row_by_id: dict[str, TableRow]
+    all_specs: list[AnalysisDataTableItem]
+    current_rows: list[TableRow]
+    CLONED_INDICATOR = "[green]Yes ✓[/green]"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.add_columns("Type", "ID", "Description")
+        self.add_columns("Cloned", "Type", "ID", "Description")
         self.all_table_data = []
+        self.table_row_by_id = {}
+        self.all_specs = []
+        self.current_rows = []
 
-    def add_specs_to_table(self, specs: list[analysis_utils.AnalysisItem]) -> None:
+    def add_specs_to_table(self, items: list[AnalysisDataTableItem]) -> None:
         """Add specs to the table."""
         self.clear()
-        for spec in specs:
-            row = TableRow(
-                type=spec.pretty_analysis_type().strip(),
-                item_id=spec.analysis_id().strip(),
-                description=spec.description().strip() or "(No description)",
-            )
+        self.all_specs = items
+
+        for item in items:
+            row = self.table_item_to_table_row(item)
             self.all_table_data.append(row)
             self.add_row_to_table(row)
+            self.table_row_by_id[item.item.analysis_id()] = row
+
+    def table_item_to_table_row(self, item: AnalysisDataTableItem) -> TableRow:
+        return TableRow(
+            type_label=item.item.pretty_analysis_type().strip(),
+            item_id_label=item.item.analysis_id().strip(),
+            description_label=item.item.description().strip() or "(No description)",
+            user_has_item=item.user_has_item,
+            analysis_item=item.item,
+        )
+
+    def mark_user_has_item(self, item_id: str) -> None:
+        self.table_row_by_id[item_id].user_has_item = True
+        for spec in self.all_specs:
+            if spec.item.analysis_id() == item_id:
+                spec.user_has_item = True
+                break
+
+        # refresh data in table
+        self.add_rows_to_table(self.current_rows)
 
     def add_row_to_table(self, row: TableRow) -> None:
-        self.add_row(row.type, row.item_id, row.description)
+        self.current_rows.append(row)
+        status_indicator = self.CLONED_INDICATOR if row.user_has_item else "No"
+        self.add_row(status_indicator, row.type_label, row.item_id_label, row.description_label)
+
+    def clear(self, columns: bool = False) -> "AnalysisItemDataTable":
+        self.current_rows = []
+        return super().clear(columns=columns)
 
     def add_rows_to_table(self, rows: list[TableRow]) -> None:
         self.clear()
@@ -118,34 +157,42 @@ class AnalysisItemDataTable(DataTable):
         if not search_term:
             self.reset_table()
         else:
-            # Filter items that match the search term in either ID, type, or Description
             self.add_rows_to_table(
                 [
                     row
                     for row in self.all_table_data
-                    if search_term in row.item_id.lower()
-                    or search_term in row.type.lower()
-                    or search_term in row.description.lower()
+                    if self.search_matches_item(search_term, row.analysis_item)
                 ]
             )
+
+    def search_matches_item(self, search_term: str, item: analysis_utils.AnalysisItem) -> bool:
+        """Filter items that match the search term in either ID, type, or Description"""
+        return (
+            search_term in item.analysis_id().lower()
+            or search_term in item.pretty_analysis_type().lower()
+            or search_term in item.analysis_type().lower()
+            or search_term in item.description().lower()
+        )
 
     def filter_by_id(self, _id: str) -> None:
         self.clear()
         for row in self.all_table_data:
-            if _id == row.item_id:
+            if _id == row.analysis_item.analysis_id():
                 self.add_row_to_table(row)
                 break
 
     def filter_by_type(self, _type: str) -> None:
         self.clear()
         for row in self.all_table_data:
-            if _type == row.type:
+            if (
+                _type == row.analysis_item.pretty_analysis_type()
+                or _type == row.analysis_item.analysis_type()
+            ):
                 self.add_row_to_table(row)
 
     def reset_table(self) -> None:
         self.clear()
-        for row in self.all_table_data:
-            self.add_row_to_table(row)
+        self.add_rows_to_table(self.all_table_data)
 
 
 class DiffResolver(Widget):

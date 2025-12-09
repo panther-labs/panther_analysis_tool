@@ -34,12 +34,17 @@ class ExploreApp(App):
     CSS_PATH = "explore_gui.tcss"
 
     def __init__(
-        self, all_specs: list[analysis_utils.AnalysisItem], *args: Any, **kwargs: Any
+        self,
+        all_specs: list[analysis_utils.AnalysisItem],
+        user_spec_ids: set[str],
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.all_specs = all_specs
         self.view_editors = False
         self.selected_item: analysis_utils.AnalysisItem | None = None
+        self.user_spec_ids = user_spec_ids
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -60,12 +65,18 @@ class ExploreApp(App):
 
     def on_mount(self) -> None:
         """Populate the DataTable and Tree when the app starts."""
-        table = self.query_one("#table", widgets.AnalysisItemDataTable)
-        table.add_specs_to_table(self.all_specs)
-
         self.all_specs.sort(key=lambda x: x.pretty_analysis_type() + x.analysis_id())
-        self.add_specs_to_tree(self.all_specs)
 
+        table = self.query_one("#table", widgets.AnalysisItemDataTable)
+        table.add_specs_to_table(
+            [
+                widgets.AnalysisDataTableItem(
+                    item=item, user_has_item=item.analysis_id() in self.user_spec_ids
+                )
+                for item in self.all_specs
+            ]
+        )
+        self.add_specs_to_tree(self.all_specs)
         self.query_one("#code-windows").styles.display = "none"
 
     def add_specs_to_tree(self, specs: list[analysis_utils.AnalysisItem]) -> None:
@@ -80,8 +91,9 @@ class ExploreApp(App):
         for spec in specs:
             spec_by_type[spec.pretty_analysis_type(plural=True)].append(spec)
 
-        for analysis_type, specs in spec_by_type.items():
-            analysis_node = tree.root.add(analysis_type, expand=False)
+        for pretty_analysis_type, specs in spec_by_type.items():
+            analysis_node = tree.root.add(pretty_analysis_type, expand=False)
+            analysis_node.data = {"analysis_type": specs[0].analysis_type()}
 
             for spec in specs:
                 analysis_node.add_leaf(spec.analysis_id())
@@ -101,7 +113,7 @@ class ExploreApp(App):
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle row selection in the DataTable."""
-        _, item_id, _ = event.data_table.get_row(event.row_key)
+        _, _, item_id, _ = event.data_table.get_row(event.row_key)
         item = self.analysis_item_by_id(item_id)
         self.view_editors = True
         self.switch_views(item)
@@ -122,8 +134,8 @@ class ExploreApp(App):
             table.filter_by_id(selected_id)
         else:
             # If it's a parent node, show all items under it
-            pretty_analysis_type = str(event.node.label)
-            table.filter_by_type(pretty_analysis_type)
+            analysis_type = str((event.node.data or {})["analysis_type"])
+            table.filter_by_type(analysis_type)
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
@@ -156,6 +168,8 @@ class ExploreApp(App):
         """Perform the actual clone operation in a background thread."""
         try:
             clone.clone(item_id, [])
+            table = self.query_one("#table", widgets.AnalysisItemDataTable)
+            table.mark_user_has_item(item_id)
             # Use call_from_thread to safely update UI from the worker thread
             self.call_from_thread(
                 self.notify,
