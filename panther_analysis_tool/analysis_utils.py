@@ -279,6 +279,9 @@ class LoadAnalysisSpecsResult:
 
         return path
 
+    def pretty_analysis_type(self) -> str:
+        return pretty_analysis_type(self.analysis_type(), plural=False)
+
 
 # pylint: disable=too-many-locals
 def load_analysis_specs_ex(
@@ -819,32 +822,36 @@ class AnalysisItem:
     def description(self) -> str:
         return self.yaml_file_contents.get("Description", "")
 
-    # pylint: disable=too-many-return-statements
     def pretty_analysis_type(self, plural: bool = False) -> str:
-        match self.analysis_type():
-            case AnalysisTypes.RULE:
-                return "Rule" if not plural else "Rules"
-            case AnalysisTypes.CORRELATION_RULE:
-                return "Correlation Rule" if not plural else "Correlation Rules"
-            case AnalysisTypes.SCHEDULED_RULE:
-                return "Scheduled Rule" if not plural else "Scheduled Rules"
-            case AnalysisTypes.DATA_MODEL:
-                return "Data Model" if not plural else "Data Models"
-            case AnalysisTypes.POLICY:
-                return "Policy" if not plural else "Policies"
-            case AnalysisTypes.GLOBAL:
-                return "Global Helper" if not plural else "Global Helpers"
-            case AnalysisTypes.SCHEDULED_QUERY:
-                return "Scheduled Query" if not plural else "Scheduled Queries"
-            case AnalysisTypes.SAVED_QUERY:
-                return "Saved Query" if not plural else "Saved Queries"
-            case AnalysisTypes.PACK:
-                return "Pack" if not plural else "Packs"
-            case AnalysisTypes.LOOKUP_TABLE:
-                return "Lookup Table" if not plural else "Lookup Tables"
-            case AnalysisTypes.DERIVED:
-                return "Derived Detection" if not plural else "Derived Detections"
-            case AnalysisTypes.SIMPLE_DETECTION:
-                return "Simple Detection" if not plural else "Simple Detections"
-            case _:
-                raise ValueError(f"Unsupported analysis type: {self.analysis_type()}")
+        return pretty_analysis_type(self.analysis_type(), plural)
+
+
+# pylint: disable=too-many-return-statements
+def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
+    match analysis_type:
+        case AnalysisTypes.RULE:
+            return "Rule" if not plural else "Rules"
+        case AnalysisTypes.CORRELATION_RULE:
+            return "Correlation Rule" if not plural else "Correlation Rules"
+        case AnalysisTypes.SCHEDULED_RULE:
+            return "Scheduled Rule" if not plural else "Scheduled Rules"
+        case AnalysisTypes.DATA_MODEL:
+            return "Data Model" if not plural else "Data Models"
+        case AnalysisTypes.POLICY:
+            return "Policy" if not plural else "Policies"
+        case AnalysisTypes.GLOBAL:
+            return "Global Helper" if not plural else "Global Helpers"
+        case AnalysisTypes.SCHEDULED_QUERY:
+            return "Scheduled Query" if not plural else "Scheduled Queries"
+        case AnalysisTypes.SAVED_QUERY:
+            return "Saved Query" if not plural else "Saved Queries"
+        case AnalysisTypes.PACK:
+            return "Pack" if not plural else "Packs"
+        case AnalysisTypes.LOOKUP_TABLE:
+            return "Lookup Table" if not plural else "Lookup Tables"
+        case AnalysisTypes.DERIVED:
+            return "Derived Detection" if not plural else "Derived Detections"
+        case AnalysisTypes.SIMPLE_DETECTION:
+            return "Simple Detection" if not plural else "Simple Detections"
+        case _:
+            raise ValueError(f"Unsupported analysis type: {analysis_type}")

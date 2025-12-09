@@ -32,15 +32,15 @@ class MigrationItem:
 
     Attributes:
         analysis_id: The ID of the analysis item
-        analysis_type: The type of the analysis item
+        pretty_analysis_type: The type of the analysis item in a pretty format
         merged_item: The merged item that was migrated
     """
 
     analysis_id: str
     "The ID of the analysis item"
 
-    analysis_type: str
-    "The type of the analysis item"
+    pretty_analysis_type: str
+    "The type of the analysis item in a pretty format"
 
     merged_item: analysis_utils.AnalysisItem | None = None
     "The merged item that was migrated, or None if there was a merge conflict"
@@ -62,13 +62,16 @@ class MigrationResult:
     items_migrated: list[MigrationItem]
     "Items migrated"
 
+    items_deleted: list[MigrationItem]
+    "Items deleted"
+
     def empty(self) -> bool:
         return len(self.items_with_conflicts) == 0 and len(self.items_migrated) == 0
 
     def _by_analysis_type(self, items: list[MigrationItem]) -> dict[str, list[MigrationItem]]:
         result = defaultdict(list)
         for item in items:
-            result[item.analysis_type].append(item)
+            result[item.pretty_analysis_type].append(item)
         return dict(result)
 
     def migrated_items_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
@@ -123,7 +126,7 @@ def migrate(
     migration_output: pathlib.Path,
     auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
-    result = MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     cache = analysis_cache.AnalysisCache()
 
     ancestor_commit: str | None = None
@@ -140,6 +143,15 @@ def migrate(
         disable=analysis_id is not None,
         transient=True,
     ):
+        if spec.analysis_type() == AnalysisTypes.PACK:
+            pathlib.Path(spec.spec_filename).unlink()
+            result.items_deleted.append(
+                MigrationItem(
+                    analysis_id=spec.analysis_id(), pretty_analysis_type=spec.pretty_analysis_type()
+                )
+            )
+            continue
+
         specs.append(spec)
 
     # migrate each user analysis spec
@@ -187,33 +199,33 @@ def write_migration_results(
     stream = io.StringIO()
     stream.write("# Migration Results\n\n")
 
+    stream.write("## Migration Summary\n\n")
+    stream.write(f"  * {len(migration_result.items_with_conflicts)} merge conflict(s) found.\n")
+    stream.write(f"  * {len(migration_result.items_deleted)} analysis item(s) deleted.\n")
+    stream.write(f"  * {len(migration_result.items_migrated)} analysis item(s) migrated.\n\n")
+
     if len(migration_result.items_with_conflicts) > 0:
         stream.write("## Analysis Items with Merge Conflicts\n\n")
         stream.write(
             f"{len(migration_result.items_with_conflicts)} merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n\n"  # pylint: disable=line-too-long
         )
-        for (
-            analysis_type,
-            conflicts,
-        ) in migration_result.items_with_conflicts_by_analysis_type().items():
-            stream.write(f"### Analysis Type: {analysis_type}\n\n")
-            stream.write(f"{len(conflicts)} merge conflict(s).\n\n")
-            for conflict in conflicts:
-                stream.write(f"  * {conflict.analysis_id}\n")
-            stream.write("\n")
+        for conflict in migration_result.items_with_conflicts:
+            stream.write(f"  * ({conflict.pretty_analysis_type}) {conflict.analysis_id}\n")
+        stream.write("\n")
+
+    if len(migration_result.items_deleted) > 0:
+        stream.write("## Analysis Items Deleted\n\n")
+        stream.write(f"{len(migration_result.items_deleted)} analysis item(s) deleted.\n\n")
+        for item in migration_result.items_deleted:
+            stream.write(f"  * ({item.pretty_analysis_type}) {item.analysis_id}\n")
+        stream.write("\n")
 
     if len(migration_result.items_migrated) > 0:
         stream.write("## Analysis Items Migrated\n\n")
         stream.write(f"{len(migration_result.items_migrated)} analysis item(s) migrated.\n\n")
-        for (
-            analysis_type,
-            items_migrated,
-        ) in migration_result.migrated_items_by_analysis_type().items():
-            stream.write(f"### Analysis Type: {analysis_type}\n\n")
-            stream.write(f"{len(items_migrated)} analysis item(s) migrated.\n\n")
-            for item in items_migrated:
-                stream.write(f"  * {item.analysis_id}\n")
-            stream.write("\n")
+        for item in migration_result.items_migrated:
+            stream.write(f"  * ({item.pretty_analysis_type}) {item.analysis_id}\n")
+        stream.write("\n")
 
     migration_output.write_text(stream.getvalue())
 
@@ -291,14 +303,14 @@ def migrate_item(
         migration_result.items_with_conflicts.append(
             MigrationItem(
                 analysis_id=item.user_item.analysis_id(),
-                analysis_type=item.user_item.analysis_type(),
+                pretty_analysis_type=item.user_item.pretty_analysis_type(),
             )
         )
     else:
         migration_result.items_migrated.append(
             MigrationItem(
                 analysis_id=item.user_item.analysis_id(),
-                analysis_type=item.user_item.analysis_type(),
+                pretty_analysis_type=item.user_item.pretty_analysis_type(),
                 merged_item=item.merged_item,
             )
         )

@@ -94,15 +94,17 @@ def test_migrate_with_analysis_id(
         migration_output.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 0 merge conflict(s) found.
+  * 0 analysis item(s) deleted.
+  * 1 analysis item(s) migrated.
+
 ## Analysis Items Migrated
 
 1 analysis item(s) migrated.
 
-### Analysis Type: rule
-
-1 analysis item(s) migrated.
-
-  * fake.rule.1
+  * (Rule) fake.rule.1
 
 """
     )
@@ -375,7 +377,7 @@ def test_migrate_items_no_conflicts(
         ),
     ]
 
-    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     for item in items:
         migrate.migrate_item(item, False, None, result)
     assert len(result.items_with_conflicts) == 0
@@ -411,7 +413,7 @@ def test_migrate_items_with_conflicts(mocker: MockerFixture) -> None:
         ),
     ]
 
-    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     for item in items:
         migrate.migrate_item(item, False, None, result)
     assert len(result.items_with_conflicts) == 2
@@ -455,7 +457,7 @@ def test_migrate_items_with_conflicts_accept_yours(
         ),
     ]
 
-    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     for item in items:
         migrate.migrate_item(item, False, None, result, AutoAcceptOption.YOURS)
     assert len(result.items_with_conflicts) == 0
@@ -482,6 +484,7 @@ def test_write_migration_results_empty(tmp_path: pathlib.Path) -> None:
         migrate.MigrationResult(
             items_with_conflicts=[],
             items_migrated=[],
+            items_deleted=[],
         ),
         output_path,
     )
@@ -497,11 +500,12 @@ def test_write_migration_results_no_conflicts(tmp_path: pathlib.Path) -> None:
         migrate.MigrationResult(
             items_with_conflicts=[],
             items_migrated=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
             ],
+            items_deleted=[],
         ),
         output_path,
     )
@@ -510,23 +514,20 @@ def test_write_migration_results_no_conflicts(tmp_path: pathlib.Path) -> None:
         output_path.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 0 merge conflict(s) found.
+  * 0 analysis item(s) deleted.
+  * 4 analysis item(s) migrated.
+
 ## Analysis Items Migrated
 
 4 analysis item(s) migrated.
 
-### Analysis Type: rule
-
-2 analysis item(s) migrated.
-
-  * fake.rule.1
-  * fake.rule.2
-
-### Analysis Type: policy
-
-2 analysis item(s) migrated.
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
 """
     )
@@ -539,12 +540,13 @@ def test_write_migration_results_with_conflicts_only(tmp_path: pathlib.Path) -> 
     migrate.write_migration_results(
         migrate.MigrationResult(
             items_with_conflicts=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
             ],
             items_migrated=[],
+            items_deleted=[],
         ),
         output_path,
     )
@@ -553,23 +555,20 @@ def test_write_migration_results_with_conflicts_only(tmp_path: pathlib.Path) -> 
         output_path.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 4 merge conflict(s) found.
+  * 0 analysis item(s) deleted.
+  * 0 analysis item(s) migrated.
+
 ## Analysis Items with Merge Conflicts
 
 4 merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.
 
-### Analysis Type: rule
-
-2 merge conflict(s).
-
-  * fake.rule.1
-  * fake.rule.2
-
-### Analysis Type: policy
-
-2 merge conflict(s).
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
 """
     )
@@ -582,16 +581,20 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
     migrate.write_migration_results(
         migrate.MigrationResult(
             items_with_conflicts=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
             ],
             items_migrated=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
+            ],
+            items_deleted=[
+                migrate.MigrationItem(analysis_id="fake.pack.1", pretty_analysis_type="Pack"),
+                migrate.MigrationItem(analysis_id="fake.pack.2", pretty_analysis_type="Pack"),
             ],
         ),
         output_path,
@@ -601,41 +604,36 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
         output_path.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 4 merge conflict(s) found.
+  * 2 analysis item(s) deleted.
+  * 4 analysis item(s) migrated.
+
 ## Analysis Items with Merge Conflicts
 
 4 merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.
 
-### Analysis Type: rule
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
-2 merge conflict(s).
+## Analysis Items Deleted
 
-  * fake.rule.1
-  * fake.rule.2
+2 analysis item(s) deleted.
 
-### Analysis Type: policy
-
-2 merge conflict(s).
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Pack) fake.pack.1
+  * (Pack) fake.pack.2
 
 ## Analysis Items Migrated
 
 4 analysis item(s) migrated.
 
-### Analysis Type: rule
-
-2 analysis item(s) migrated.
-
-  * fake.rule.1
-  * fake.rule.2
-
-### Analysis Type: policy
-
-2 analysis item(s) migrated.
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
 """
     )
