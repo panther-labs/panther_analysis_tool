@@ -403,31 +403,32 @@ def ensure_python_file_exists(item: merge_item.MergeableItem) -> None:
     if item.merged_item.yaml_file_path is None:
         return
 
-    python_file_path: pathlib.Path = (
+    abs_python_file_path: pathlib.Path = (
         pathlib.Path(item.merged_item.yaml_file_path).parent
         / item.merged_item.yaml_file_contents["Filename"]
     )
 
     # when the item was updated during migration, the "Filename" value might have changed to
     # something not in the user's repo, so we need to check
-    if python_file_path.exists():
+    if abs_python_file_path.exists():
         return
 
     # turn absolute path into relative path
-    python_file_path = python_file_path.relative_to(git_helpers.git_root())
+    git_python_file_path = abs_python_file_path.relative_to(git_helpers.git_root())
 
     # if the python file does not exist, try to grab it from PA
     python_file_contents = git_helpers.get_file_at_commit(
-        git_helpers.REMOTE_UPSTREAM_NAME, python_file_path
+        git_helpers.REMOTE_UPSTREAM_NAME, git_python_file_path
     )
 
     # this is a best attempt effort so it is okay if it does not exist
-    if python_file_contents is None:
+    if python_file_contents is None or python_file_contents == b"":
         return
 
     # save the remote version of the python file if it does exist
-    python_file_path.write_bytes(python_file_contents)
+    abs_python_file_path.parent.mkdir(parents=True, exist_ok=True)
+    abs_python_file_path.write_bytes(python_file_contents)
 
     # update the merged item with the new stuff
     item.merged_item.python_file_contents = python_file_contents
-    item.merged_item.python_file_path = str(python_file_path)
+    item.merged_item.python_file_path = str(abs_python_file_path)

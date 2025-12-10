@@ -767,3 +767,162 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
 
 """
     )
+
+
+#######################################################################################
+### Test ensure_python_file_exists
+#######################################################################################
+
+
+def test_ensure_python_file_exists(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        return_value=b"def rule(event): return True",
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+
+    item = merge_item.MergeableItem(
+        user_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        merged_item=analysis_utils.AnalysisItem(
+            yaml_file_contents={
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+                "Filename": "fake_rule_1.py",
+            },
+            yaml_file_path=str(rule_path / "fake_rule_1.yml"),
+        ),
+    )
+
+    migrate.ensure_python_file_exists(item)
+    assert item.merged_item is not None
+    assert item.merged_item.python_file_contents == b"def rule(event): return True"
+    assert item.merged_item.python_file_path == str(rule_path / "fake_rule_1.py")
+    assert (rule_path / "fake_rule_1.py").exists()
+    assert (rule_path / "fake_rule_1.py").read_bytes() == b"def rule(event): return True"
+
+
+def test_ensure_python_file_exists_no_merged_item(
+    tmp_path: pathlib.Path, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        return_value=b"def rule(event): return True",
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+
+    item = merge_item.MergeableItem(
+        user_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        merged_item=None,
+    )
+
+    migrate.ensure_python_file_exists(item)
+    assert item.merged_item is None
+    assert not (rule_path / "fake_rule_1.py").exists()
+
+
+def test_ensure_python_file_exists_no_filename(
+    tmp_path: pathlib.Path, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        return_value=b"def rule(event): return True",
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+
+    item = merge_item.MergeableItem(
+        user_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        merged_item=analysis_utils.AnalysisItem(
+            yaml_file_contents={
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+            },
+            yaml_file_path=str(rule_path / "fake_rule_1.yml"),
+        ),
+    )
+
+    migrate.ensure_python_file_exists(item)
+    assert item.merged_item is not None
+    assert not (rule_path / "fake_rule_1.py").exists()
+
+
+def test_ensure_python_file_exists_python_exists(
+    tmp_path: pathlib.Path, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+    rule_path.mkdir(parents=True, exist_ok=True)
+    (rule_path / "fake_rule_1.py").write_bytes(b"def rule(event): return True")
+    item = merge_item.MergeableItem(
+        user_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        merged_item=analysis_utils.AnalysisItem(
+            yaml_file_contents={
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+            },
+            yaml_file_path=str(rule_path / "fake_rule_1.yml"),
+        ),
+    )
+
+    migrate.ensure_python_file_exists(item)
+    assert item.merged_item is not None
+    assert (rule_path / "fake_rule_1.py").exists()
+
+
+def test_ensure_python_file_exists_nothing_in_remote(
+    tmp_path: pathlib.Path, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        return_value=None,
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+
+    item = merge_item.MergeableItem(
+        user_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        merged_item=analysis_utils.AnalysisItem(
+            yaml_file_contents={
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+                "Filename": "fake_rule_1.py",
+            },
+            yaml_file_path=str(rule_path / "fake_rule_1.yml"),
+        ),
+    )
+
+    migrate.ensure_python_file_exists(item)
+    assert item.merged_item is not None
+    assert not (rule_path / "fake_rule_1.py").exists()
