@@ -60,13 +60,13 @@ class MigrationResult:
         items_migrated: (analysis id, analysis type) of items migrated
     """
 
-    items_with_conflicts: list[MigrationItem]
+    items_with_conflicts: list[MigrationItem] = dataclasses.field(default_factory=list)
     "Items not migrated due to merge conflicts"
 
-    items_migrated: list[MigrationItem]
+    items_migrated: list[MigrationItem] = dataclasses.field(default_factory=list)
     "Items migrated"
 
-    items_deleted: list[MigrationItem]
+    items_deleted: list[MigrationItem] = dataclasses.field(default_factory=list)
     "Items deleted"
 
     def empty(self) -> bool:
@@ -130,7 +130,7 @@ def migrate(
     migration_output: pathlib.Path,
     auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
-    result = MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    result = MigrationResult()
     cache = analysis_cache.AnalysisCache()
 
     ancestor_commit: str | None = None
@@ -169,6 +169,7 @@ def migrate(
             continue
 
         migrate_item(item, analysis_id is not None, editor, result, auto_accept)
+        ensure_python_file_exists(item)
 
     # we need to check if the new migrated python includes any
     # new global helper imports and clone those so the new python works
@@ -387,3 +388,46 @@ def get_base_item(
         )
 
     return base_item
+
+
+def ensure_python_file_exists(item: merge_item.MergeableItem) -> None:
+    """
+    Ensure the python file exists for the merged item.
+    """
+    if item.merged_item is None:
+        return
+
+    if "Filename" not in item.merged_item.yaml_file_contents:
+        return
+
+    if item.merged_item.yaml_file_path is None:
+        return
+
+    python_file_path: pathlib.Path = (
+        pathlib.Path(item.merged_item.yaml_file_path).parent
+        / item.merged_item.yaml_file_contents["Filename"]
+    )
+
+    # when the item was updated during migration, the "Filename" value might have changed to
+    # something not in the user's repo, so we need to check
+    if python_file_path.exists():
+        return
+
+    # turn absolute path into relative path
+    python_file_path = python_file_path.relative_to(git_helpers.git_root())
+
+    # if the python file does not exist, try to grab it from PA
+    python_file_contents = git_helpers.get_file_at_commit(
+        git_helpers.REMOTE_UPSTREAM_NAME, python_file_path
+    )
+
+    # this is a best attempt effort so it is okay if it does not exist
+    if python_file_contents is None:
+        return
+
+    # save the remote version of the python file if it does exist
+    python_file_path.write_bytes(python_file_contents)
+
+    # update the merged item with the new stuff
+    item.merged_item.python_file_contents = python_file_contents
+    item.merged_item.python_file_path = str(python_file_path)
