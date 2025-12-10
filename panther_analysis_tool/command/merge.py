@@ -7,13 +7,16 @@ from rich.progress import track
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import load_analysis_specs_ex
 from panther_analysis_tool.constants import AutoAcceptOption
-from panther_analysis_tool.core import analysis_cache, merge_item, yaml
+from panther_analysis_tool.core import analysis_cache, file_editor, merge_item, yaml
 
 
 def run(
     analysis_id: str, editor: str | None, auto_accept: AutoAcceptOption | None
 ) -> Tuple[int, str]:
-    return merge_analysis(analysis_id, editor, auto_accept)
+    try:
+        return merge_analysis(analysis_id, editor, auto_accept)
+    except file_editor.EditorCommandNotFoundError as err:
+        return 1, str(err)
 
 
 def merge_analysis(
