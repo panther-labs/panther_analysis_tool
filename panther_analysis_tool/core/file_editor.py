@@ -1,8 +1,18 @@
 import dataclasses
 import pathlib
+import shutil
 import subprocess  # nosec:B404
 
 from panther_analysis_tool.constants import DEFAULT_EDITOR
+
+
+class EditorCommandNotFoundError(RuntimeError):
+    """
+    Raised when an editor command is not found in system path.
+    """
+
+    def __init__(self, editor: str) -> None:
+        super().__init__(f"Editor command {editor} was not found in system path")
 
 
 @dataclasses.dataclass
@@ -41,6 +51,10 @@ def merge_files_in_editor(files: MergeableFiles, editor: str | None) -> bool:
         True if the editor returns before the merge is solved because it is solved asynchronously, False otherwise.
     """
     editor = editor.lower() if editor else DEFAULT_EDITOR.lower()
+
+    # test if command is within system path
+    if shutil.which(editor) is None:
+        raise EditorCommandNotFoundError(editor)
 
     args = [editor]
     async_edit = True

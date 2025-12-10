@@ -18,6 +18,7 @@ from panther_analysis_tool.constants import AnalysisTypes, AutoAcceptOption
 from panther_analysis_tool.core import (
     analysis_cache,
     clone_item,
+    file_editor,
     git_helpers,
     merge_item,
     versions_file,
@@ -87,7 +88,10 @@ def run(
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 
     migration_output = pathlib.Path("migration_output.md")
-    migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
+    try:
+        migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
+    except file_editor.EditorCommandNotFoundError as err:
+        return 1, str(err)
 
     if analysis_id is not None:
         # skip the completion message if the user specified an analysis id

@@ -29,6 +29,7 @@ def test_merge_files_in_jetbrains_editor(
     mock_run = mocker.patch(
         "panther_analysis_tool.core.file_editor.subprocess.run", return_value=None
     )
+    mocker.patch("panther_analysis_tool.core.file_editor.shutil.which", return_value=editor_cmd)
 
     files = file_editor.MergeableFiles(
         users_file=tmp_path / "users_file.py",
@@ -65,6 +66,7 @@ def test_merge_files_in_other_editor(
     mock_run = mocker.patch(
         "panther_analysis_tool.core.file_editor.subprocess.run", return_value=None
     )
+    mocker.patch("panther_analysis_tool.core.file_editor.shutil.which", return_value=editor_cmd)
 
     files = file_editor.MergeableFiles(
         users_file=tmp_path / "users_file.py",

@@ -1,4 +1,5 @@
 import dataclasses
+import io
 import logging
 import pathlib
 import shutil
@@ -33,8 +34,11 @@ def merge_item(
     latest_item = mergeable_item.latest_panther_item
     base_item = mergeable_item.base_panther_item
 
+    merged_yaml_contents = b""
+    merged_python_contents = b""
+
     # merge yaml
-    has_conflict = merge_file(
+    has_conflict, merged_yaml_contents = merge_file(
         solve_merge=solve_merge,
         # or b"" makes typing happy but it should never be None
         user=user_item.raw_yaml_file_contents or b"",
@@ -53,7 +57,7 @@ def merge_item(
 
     # merge python (do this second since IDE may return before merge happens)
     if user_item.python_file_contents is not None:
-        has_conflict = merge_file(
+        has_conflict, merged_python_contents = merge_file(
             solve_merge=solve_merge,
             # or b"" makes typing happy but it should never be None
             user=user_item.python_file_contents or b"",
@@ -66,6 +70,12 @@ def merge_item(
         )
         if has_conflict:
             return True
+
+    if merged_yaml_contents != b"":
+        pathlib.Path(user_item.yaml_file_path or "").write_bytes(merged_yaml_contents)
+
+    if merged_python_contents != b"":
+        pathlib.Path(user_item.python_file_path or "").write_bytes(merged_python_contents)
 
     # if it does not have a conflict, the user item has been updated
     # with the merged contents
@@ -96,7 +106,7 @@ def merge_file(
     output_path: pathlib.Path,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
-) -> bool:
+) -> tuple[bool, bytes]:
     """
     Merge a file with git and solve the merge conflict if requested.
     YAML conflicts are solved with the yaml_conflict_resolver_gui.
@@ -112,6 +122,7 @@ def merge_file(
 
     Returns:
         True if there was a merge conflict, False otherwise or if the user soled the merge conflict.
+        The merged file contents.
     """
     ext = output_path.suffix
     yaml_loader = yaml.BlockStyleYAML()
@@ -136,12 +147,12 @@ def merge_file(
             )
 
             if len(conflicts) == 0:
-                with open(output_path, "w", encoding="utf-8") as file:
-                    yaml_loader.dump(merge_dict.customer_dict, file)
-                return False  # merge was solved so no more conflict
+                out = io.BytesIO()
+                yaml_loader.dump(merge_dict.customer_dict, out)
+                return False, out.getvalue()  # merge was solved so no more conflict
 
             if not solve_merge:
-                return True
+                return True, b""
 
             app = yaml_conflict_resolver_gui.YAMLConflictResolverApp(
                 customer_python=user_python.decode("utf-8"),
@@ -153,9 +164,9 @@ def merge_file(
             )
             app.run()
 
-            with open(output_path, "w", encoding="utf-8") as file:
-                yaml_loader.dump(app.get_final_dict(), file)
-            return False  # merge was solved so no more conflict
+            out = io.BytesIO()
+            yaml_loader.dump(app.get_final_dict(), out)
+            return False, out.getvalue()  # merge was solved so no more conflict
 
         # python merge
         has_conflict, merged_contents = git_helpers.merge_file(
@@ -165,12 +176,10 @@ def merge_file(
             auto_accept=auto_accept,
         )
         if not has_conflict:
-            with open(output_path, "wb") as file:
-                file.write(merged_contents)
-            return False
+            return False, merged_contents
 
         if not solve_merge:
-            return True
+            return True, b""
 
         # make a long-lived temp dir so that async editors can use the files in the directory.
         # IDE editing may outlive this function call because some IDEs are not blocking, like vscode and goland.
@@ -194,7 +203,7 @@ def merge_file(
             # editing has finished so remove the long-lived temp dir
             shutil.rmtree(long_lived_temp_dir)
 
-        return False  # merge was solved so no more conflict
+        return False, b""  # merge was solved so no more conflict
 
 
 def make_long_lived_temp_dir(copy_dir: pathlib.Path) -> pathlib.Path:
