@@ -139,7 +139,7 @@ def test_merge_item_no_conflict_with_python(
 ) -> None:
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.core.merge_item.merge_file",
-        side_effect=[False, False],
+        side_effect=[(False, b"merged"), (False, b"merged")],
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
@@ -156,6 +156,8 @@ def test_merge_item_no_conflict_with_python(
     )
     assert not has_conflict
     assert mock_merge_file.call_count == 2
+    assert pathlib.Path(rule_1.spec_filename).read_text() == "merged"
+    assert pathlib.Path(rule_1.python_file_path() or "").read_text() == "merged"
 
 
 def test_merge_items_no_conflict_no_python(
@@ -165,7 +167,7 @@ def test_merge_items_no_conflict_no_python(
 ) -> None:
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.core.merge_item.merge_file",
-        side_effect=[False],
+        side_effect=[(False, b"merged")],
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
@@ -182,6 +184,7 @@ def test_merge_items_no_conflict_no_python(
     )
     assert not has_conflict
     assert mock_merge_file.call_count == 1
+    assert pathlib.Path(rule_1.spec_filename).read_text() == "merged"
 
 
 def test_merge_items_yaml_conflict(
@@ -191,7 +194,7 @@ def test_merge_items_yaml_conflict(
 ) -> None:
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.core.merge_item.merge_file",
-        side_effect=[True],
+        side_effect=[(True, b"")],
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
@@ -216,7 +219,7 @@ def test_merge_item_python_conflict(
 ) -> None:
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.core.merge_item.merge_file",
-        side_effect=[False, True],
+        side_effect=[(False, b"merged"), (True, b"")],
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
@@ -241,7 +244,7 @@ def test_merge_item_with_analysis_id_with_conflict(
 ) -> None:
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.core.merge_item.merge_file",
-        side_effect=[True, False],
+        side_effect=[(True, b""), (False, b"merged")],
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
@@ -257,6 +260,7 @@ def test_merge_item_with_analysis_id_with_conflict(
         None,
     )
     assert mock_merge_file.call_count == 2
+    assert pathlib.Path(rule_1.spec_filename).read_text() == "user: yaml"
 
 
 def test_merge_item_with_analysis_id_no_conflict(
@@ -266,7 +270,7 @@ def test_merge_item_with_analysis_id_no_conflict(
 ) -> None:
     mock_merge_file = mocker.patch(
         "panther_analysis_tool.core.merge_item.merge_file",
-        side_effect=[False, False],
+        side_effect=[(False, b"merged"), (False, b"merged")],
     )
 
     rule_1 = make_load_spec(tmp_path, "rule", "target", 1, True)
@@ -282,6 +286,7 @@ def test_merge_item_with_analysis_id_no_conflict(
         None,
     )
     assert mock_merge_file.call_count == 2
+    assert pathlib.Path(rule_1.spec_filename).read_text() == "merged"
 
 
 ################################################################################
@@ -292,12 +297,8 @@ def test_merge_item_with_analysis_id_no_conflict(
 def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
     output_path = tmp_path / "output.yml"
     output_path.write_text("user: yaml")
-    mocker.patch(
-        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
-        return_value=(False, b"merged: yaml"),
-    )
 
-    has_conflict = merge_item.merge_file(
+    has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=False,
         user=b"user: yaml",
         base=b"base: yaml",
@@ -307,7 +308,8 @@ def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Pa
         editor=None,
     )
     assert not has_conflict
-    assert output_path.read_text() == "user: yaml\nbase: yaml\n"
+    assert merged_contents == b"user: yaml\nbase: yaml\n"
+    assert output_path.read_text() == "user: yaml"
 
 
 def test_merge_file_yaml_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
@@ -336,15 +338,11 @@ def test_merge_file_yaml_conflict_solve(mocker: MockerFixture, tmp_path: pathlib
     output_path = tmp_path / "output.yml"
     output_path.write_text("common: user")
     mocker.patch(
-        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
-        return_value=(True, b"merged: yaml"),
-    )
-    mocker.patch(
         "panther_analysis_tool.core.merge_item.yaml_conflict_resolver_gui.YAMLConflictResolverApp",
         return_value=mocker.Mock(get_final_dict=lambda: {"common": "user"}, run=lambda: None),
     )
 
-    has_conflict = merge_item.merge_file(
+    has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=True,
         user=b"common: user",
         base=b"common: base",
@@ -354,7 +352,8 @@ def test_merge_file_yaml_conflict_solve(mocker: MockerFixture, tmp_path: pathlib
         editor=None,
     )
     assert not has_conflict
-    assert output_path.read_text() == "common: user\n"
+    assert merged_contents == b"common: user\n"
+    assert output_path.read_text() == "common: user"
 
 
 def test_merge_file_python_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
@@ -365,7 +364,7 @@ def test_merge_file_python_no_conflict(mocker: MockerFixture, tmp_path: pathlib.
         return_value=(False, b"merged_python"),
     )
 
-    has_conflict = merge_item.merge_file(
+    has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=False,
         user=b"user_python",
         base=b"base_python",
@@ -375,7 +374,8 @@ def test_merge_file_python_no_conflict(mocker: MockerFixture, tmp_path: pathlib.
         editor=None,
     )
     assert not has_conflict
-    assert output_path.read_text() == "merged_python"
+    assert merged_contents == b"merged_python"
+    assert output_path.read_text() == "user_python"
 
 
 def test_merge_file_python_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
@@ -412,7 +412,7 @@ def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathl
     )
     merge_files_mock.side_effect = lambda _, **kwargs: output_path.write_text("merged_python")
 
-    has_conflict = merge_item.merge_file(
+    has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=True,
         user=b"user_python",
         base=b"base_python",
@@ -422,7 +422,7 @@ def test_merge_file_python_conflict_solve(mocker: MockerFixture, tmp_path: pathl
         editor=None,
     )
     assert not has_conflict
-    assert output_path.read_text() == "merged_python"
+    assert merged_contents == b""
     assert output_path.read_text() == "merged_python"
 
 
@@ -433,10 +433,10 @@ def test_merge_file_python_conflict_auto_accept(
     output_path.write_text("user_python")
     mocker.patch(
         "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
-        return_value=(False, b"merged_python"),
+        return_value=(False, b"user_python"),
     )
 
-    has_conflict = merge_item.merge_file(
+    has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=False,
         user=b"user_python",
         base=b"base_python",
@@ -447,7 +447,8 @@ def test_merge_file_python_conflict_auto_accept(
         auto_accept=AutoAcceptOption.YOURS,
     )
     assert not has_conflict
-    assert output_path.read_text() == "merged_python"
+    assert merged_contents == b"user_python"
+    assert output_path.read_text() == "user_python"
 
 
 def test_merge_file_yaml_conflict_auto_accept(
@@ -455,12 +456,8 @@ def test_merge_file_yaml_conflict_auto_accept(
 ) -> None:
     output_path = tmp_path / "output.yml"
     output_path.write_text("user: yaml")
-    mocker.patch(
-        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
-        return_value=(False, b"merged: yaml"),
-    )
 
-    has_conflict = merge_item.merge_file(
+    has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=False,
         user=b"key: user",
         base=b"key: base",
@@ -471,5 +468,6 @@ def test_merge_file_yaml_conflict_auto_accept(
         auto_accept=AutoAcceptOption.YOURS,
     )
     assert not has_conflict
+    assert merged_contents == b"key: user\n"
     # output file should not have changed
-    assert output_path.read_text() == "key: user\n"
+    assert output_path.read_text() == "user: yaml"
