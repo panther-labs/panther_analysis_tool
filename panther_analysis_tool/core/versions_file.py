@@ -49,6 +49,9 @@ class Versions(pydantic.BaseModel):
 
     versions: dict[str, AnalysisVersionItem]
 
+    def has_item(self, analysis_id: str) -> bool:
+        return analysis_id in self.versions
+
     def get_current_version_history_item(self, analysis_id: str) -> AnalysisVersionHistoryItem:
         return self.versions[analysis_id].history[self.versions[analysis_id].version]
 

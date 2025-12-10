@@ -32,18 +32,22 @@ class MigrationItem:
 
     Attributes:
         analysis_id: The ID of the analysis item
-        analysis_type: The type of the analysis item
+        pretty_analysis_type: The type of the analysis item in a pretty format
         merged_item: The merged item that was migrated
+        reason: More information about what happened to the item during migration
     """
 
     analysis_id: str
     "The ID of the analysis item"
 
-    analysis_type: str
-    "The type of the analysis item"
+    pretty_analysis_type: str
+    "The type of the analysis item in a pretty format"
 
     merged_item: analysis_utils.AnalysisItem | None = None
     "The merged item that was migrated, or None if there was a merge conflict"
+
+    reason: str | None = None
+    "More information about what happened to the item during migration"
 
 
 @dataclasses.dataclass
@@ -62,13 +66,16 @@ class MigrationResult:
     items_migrated: list[MigrationItem]
     "Items migrated"
 
+    items_deleted: list[MigrationItem]
+    "Items deleted"
+
     def empty(self) -> bool:
         return len(self.items_with_conflicts) == 0 and len(self.items_migrated) == 0
 
     def _by_analysis_type(self, items: list[MigrationItem]) -> dict[str, list[MigrationItem]]:
         result = defaultdict(list)
         for item in items:
-            result[item.analysis_type].append(item)
+            result[item.pretty_analysis_type].append(item)
         return dict(result)
 
     def migrated_items_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
@@ -123,7 +130,7 @@ def migrate(
     migration_output: pathlib.Path,
     auto_accept: AutoAcceptOption | None = None,
 ) -> MigrationResult:
-    result = MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     cache = analysis_cache.AnalysisCache()
 
     ancestor_commit: str | None = None
@@ -140,13 +147,24 @@ def migrate(
         disable=analysis_id is not None,
         transient=True,
     ):
+        if spec.analysis_type() == AnalysisTypes.PACK:
+            pathlib.Path(spec.spec_filename).unlink()
+            result.items_deleted.append(
+                MigrationItem(
+                    analysis_id=spec.analysis_id(),
+                    pretty_analysis_type=spec.pretty_analysis_type(),
+                    reason="Packs are managed by Panther and not needed in your repo.",
+                )
+            )
+            continue
+
         specs.append(spec)
 
     # migrate each user analysis spec
     for user_spec in track(
         specs, description="Migration progress:", disable=analysis_id is not None, transient=True
     ):
-        item = get_migration_item(user_spec, analysis_id, cache, ancestor_commit)
+        item = get_migration_item(user_spec, analysis_id, cache, result, ancestor_commit)
         if item is None:
             continue
 
@@ -187,33 +205,35 @@ def write_migration_results(
     stream = io.StringIO()
     stream.write("# Migration Results\n\n")
 
+    stream.write("## Migration Summary\n\n")
+    stream.write(f"  * {len(migration_result.items_with_conflicts)} merge conflict(s) found.\n")
+    stream.write(f"  * {len(migration_result.items_deleted)} analysis item(s) deleted.\n")
+    stream.write(f"  * {len(migration_result.items_migrated)} analysis item(s) migrated.\n\n")
+
     if len(migration_result.items_with_conflicts) > 0:
         stream.write("## Analysis Items with Merge Conflicts\n\n")
         stream.write(
             f"{len(migration_result.items_with_conflicts)} merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n\n"  # pylint: disable=line-too-long
         )
-        for (
-            analysis_type,
-            conflicts,
-        ) in migration_result.items_with_conflicts_by_analysis_type().items():
-            stream.write(f"### Analysis Type: {analysis_type}\n\n")
-            stream.write(f"{len(conflicts)} merge conflict(s).\n\n")
-            for conflict in conflicts:
-                stream.write(f"  * {conflict.analysis_id}\n")
-            stream.write("\n")
+        for conflict in migration_result.items_with_conflicts:
+            stream.write(f"  * ({conflict.pretty_analysis_type}) {conflict.analysis_id}\n")
+        stream.write("\n")
+
+    if len(migration_result.items_deleted) > 0:
+        stream.write("## Analysis Items Deleted\n\n")
+        stream.write(f"{len(migration_result.items_deleted)} analysis item(s) deleted.\n\n")
+        for item in migration_result.items_deleted:
+            stream.write(
+                f"  * ({item.pretty_analysis_type}) {item.analysis_id}{f' - {item.reason}' if item.reason is not None else ''}\n"
+            )
+        stream.write("\n")
 
     if len(migration_result.items_migrated) > 0:
         stream.write("## Analysis Items Migrated\n\n")
         stream.write(f"{len(migration_result.items_migrated)} analysis item(s) migrated.\n\n")
-        for (
-            analysis_type,
-            items_migrated,
-        ) in migration_result.migrated_items_by_analysis_type().items():
-            stream.write(f"### Analysis Type: {analysis_type}\n\n")
-            stream.write(f"{len(items_migrated)} analysis item(s) migrated.\n\n")
-            for item in items_migrated:
-                stream.write(f"  * {item.analysis_id}\n")
-            stream.write("\n")
+        for item in migration_result.items_migrated:
+            stream.write(f"  * ({item.pretty_analysis_type}) {item.analysis_id}\n")
+        stream.write("\n")
 
     migration_output.write_text(stream.getvalue())
 
@@ -222,6 +242,7 @@ def get_migration_item(
     user_spec: analysis_utils.LoadAnalysisSpecsResult,
     analysis_id: str | None,
     cache: analysis_cache.AnalysisCache,
+    result: MigrationResult,
     ancestor_commit: str | None = None,
 ) -> merge_item.MergeableItem | None:
     yaml_loader = yaml.BlockStyleYAML()
@@ -242,10 +263,25 @@ def get_migration_item(
             print(f"{user_spec_id} already migrated.")
         return None
 
+    base_item = get_base_item(user_spec, ancestor_commit)
+
     # load the latest analysis item from the cache using the user spec's ID
     latest_spec = cache.get_latest_spec(user_spec_id)
+
+    # was deleted by Panther, delete if the item was unused by the user
+    if latest_spec is None and not base_item.empty() and not user_spec.enabled():
+        user_spec.unlink()
+        result.items_deleted.append(
+            MigrationItem(
+                analysis_id=user_spec_id,
+                pretty_analysis_type=user_spec.pretty_analysis_type(),
+                reason="Item was deleted by Panther since your last update and was disabled in your repo.",
+            )
+        )
+
     if latest_spec is None:
         # this happens with custom analysis items
+        # or if the item was removed by Panther
         return None
 
     # load the python file for the user spec from the file system
@@ -254,8 +290,6 @@ def get_migration_item(
     if user_spec.analysis_spec.get("Filename") is not None:
         py_path = user_spec.python_file_path()
         user_py = py_path.read_bytes() if py_path is not None else None
-
-    base_item = get_base_item(user_spec_id, ancestor_commit)
 
     return merge_item.MergeableItem(
         user_item=analysis_utils.AnalysisItem(
@@ -291,14 +325,14 @@ def migrate_item(
         migration_result.items_with_conflicts.append(
             MigrationItem(
                 analysis_id=item.user_item.analysis_id(),
-                analysis_type=item.user_item.analysis_type(),
+                pretty_analysis_type=item.user_item.pretty_analysis_type(),
             )
         )
     else:
         migration_result.items_migrated.append(
             MigrationItem(
                 analysis_id=item.user_item.analysis_id(),
-                analysis_type=item.user_item.analysis_type(),
+                pretty_analysis_type=item.user_item.pretty_analysis_type(),
                 merged_item=item.merged_item,
             )
         )
@@ -310,13 +344,15 @@ def migrate_item(
         yaml_loader.dump(user_spec, yaml_file_path)
 
 
-def get_base_item(user_spec_id: str, ancestor_commit: str | None) -> analysis_utils.AnalysisItem:
+def get_base_item(
+    user_spec: analysis_utils.LoadAnalysisSpecsResult, ancestor_commit: str | None
+) -> analysis_utils.AnalysisItem:
     """
     Get the base item for a user spec from Panther Analysis using the ancestor commit.
     If the ancestor commit is not provided, the base item will be an empty analysis item.
 
     Args:
-        user_spec_id: The ID of the user spec (the analysis ID)
+        user_spec: The user spec to get the base item for
         ancestor_commit: The commit hash of the ancestor commit
     Returns:
         The base item for the user spec
@@ -325,20 +361,29 @@ def get_base_item(user_spec_id: str, ancestor_commit: str | None) -> analysis_ut
     if ancestor_commit is None or ancestor_commit == "":
         return base_item
 
+    yaml_file_path = pathlib.Path(user_spec.spec_filename).relative_to(git_helpers.git_root())
+    py_file_path = user_spec.python_file_path()
+    if py_file_path is not None:
+        py_file_path = pathlib.Path(py_file_path).relative_to(git_helpers.git_root())
+
+    # use panther's file path if it exists
+    if versions_file.get_versions().has_item(user_spec.analysis_id()):
+        history_item = versions_file.get_versions().get_current_version_history_item(
+            user_spec.analysis_id()
+        )
+        yaml_file_path = pathlib.Path(history_item.yaml_file_path)
+        if py_file_path is not None:
+            py_file_path = pathlib.Path(history_item.py_file_path or "")
+
     yaml_loader = yaml.BlockStyleYAML()
-    version_history_item = versions_file.get_versions().get_current_version_history_item(
-        user_spec_id
-    )
-    base_yaml = git_helpers.get_file_at_commit(
-        ancestor_commit, pathlib.Path(version_history_item.yaml_file_path)
-    )
+    base_yaml = git_helpers.get_file_at_commit(ancestor_commit, yaml_file_path)
     if base_yaml is not None:
         base_item.yaml_file_contents = yaml_loader.load(base_yaml)
         base_item.raw_yaml_file_contents = base_yaml
 
-    if version_history_item.py_file_path is not None:
+    if py_file_path is not None:
         base_item.python_file_contents = git_helpers.get_file_at_commit(
-            ancestor_commit, pathlib.Path(version_history_item.py_file_path)
+            ancestor_commit, py_file_path
         )
 
     return base_item

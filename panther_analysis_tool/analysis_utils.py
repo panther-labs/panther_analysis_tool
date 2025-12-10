@@ -238,6 +238,10 @@ class LoadAnalysisSpecsResult:
         """Returns the analysis type for this analysis spec."""
         return self.analysis_spec["AnalysisType"]
 
+    def enabled(self) -> bool:
+        """Returns True if the analysis spec is enabled, defaulting to True if no enabled field exists."""
+        return self.analysis_spec.get("Enabled", True)
+
     # pylint: disable=too-many-return-statements
     def analysis_id_field_name(self) -> str:
         """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
@@ -278,6 +282,15 @@ class LoadAnalysisSpecsResult:
             return None
 
         return path
+
+    def pretty_analysis_type(self) -> str:
+        return pretty_analysis_type(self.analysis_type(), plural=False)
+
+    def unlink(self) -> None:
+        pathlib.Path(self.spec_filename).unlink()
+        py_file_path = self.python_file_path()
+        if py_file_path is not None:
+            pathlib.Path(py_file_path).unlink()
 
 
 # pylint: disable=too-many-locals
@@ -819,32 +832,43 @@ class AnalysisItem:
     def description(self) -> str:
         return self.yaml_file_contents.get("Description", "")
 
-    # pylint: disable=too-many-return-statements
     def pretty_analysis_type(self, plural: bool = False) -> str:
-        match self.analysis_type():
-            case AnalysisTypes.RULE:
-                return "Rule" if not plural else "Rules"
-            case AnalysisTypes.CORRELATION_RULE:
-                return "Correlation Rule" if not plural else "Correlation Rules"
-            case AnalysisTypes.SCHEDULED_RULE:
-                return "Scheduled Rule" if not plural else "Scheduled Rules"
-            case AnalysisTypes.DATA_MODEL:
-                return "Data Model" if not plural else "Data Models"
-            case AnalysisTypes.POLICY:
-                return "Policy" if not plural else "Policies"
-            case AnalysisTypes.GLOBAL:
-                return "Global Helper" if not plural else "Global Helpers"
-            case AnalysisTypes.SCHEDULED_QUERY:
-                return "Scheduled Query" if not plural else "Scheduled Queries"
-            case AnalysisTypes.SAVED_QUERY:
-                return "Saved Query" if not plural else "Saved Queries"
-            case AnalysisTypes.PACK:
-                return "Pack" if not plural else "Packs"
-            case AnalysisTypes.LOOKUP_TABLE:
-                return "Lookup Table" if not plural else "Lookup Tables"
-            case AnalysisTypes.DERIVED:
-                return "Derived Detection" if not plural else "Derived Detections"
-            case AnalysisTypes.SIMPLE_DETECTION:
-                return "Simple Detection" if not plural else "Simple Detections"
-            case _:
-                raise ValueError(f"Unsupported analysis type: {self.analysis_type()}")
+        return pretty_analysis_type(self.analysis_type(), plural)
+
+    def empty(self) -> bool:
+        return (
+            self.yaml_file_contents == {}
+            and (self.raw_yaml_file_contents is None or self.raw_yaml_file_contents == b"{}")
+            and (self.python_file_contents is None or self.python_file_contents == b"")
+        )
+
+
+# pylint: disable=too-many-return-statements
+def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
+    match analysis_type:
+        case AnalysisTypes.RULE:
+            return "Rule" if not plural else "Rules"
+        case AnalysisTypes.CORRELATION_RULE:
+            return "Correlation Rule" if not plural else "Correlation Rules"
+        case AnalysisTypes.SCHEDULED_RULE:
+            return "Scheduled Rule" if not plural else "Scheduled Rules"
+        case AnalysisTypes.DATA_MODEL:
+            return "Data Model" if not plural else "Data Models"
+        case AnalysisTypes.POLICY:
+            return "Policy" if not plural else "Policies"
+        case AnalysisTypes.GLOBAL:
+            return "Global Helper" if not plural else "Global Helpers"
+        case AnalysisTypes.SCHEDULED_QUERY:
+            return "Scheduled Query" if not plural else "Scheduled Queries"
+        case AnalysisTypes.SAVED_QUERY:
+            return "Saved Query" if not plural else "Saved Queries"
+        case AnalysisTypes.PACK:
+            return "Pack" if not plural else "Packs"
+        case AnalysisTypes.LOOKUP_TABLE:
+            return "Lookup Table" if not plural else "Lookup Tables"
+        case AnalysisTypes.DERIVED:
+            return "Derived Detection" if not plural else "Derived Detections"
+        case AnalysisTypes.SIMPLE_DETECTION:
+            return "Simple Detection" if not plural else "Simple Detections"
+        case _:
+            raise ValueError(f"Unsupported analysis type: {analysis_type}")

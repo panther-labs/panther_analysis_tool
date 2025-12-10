@@ -6,6 +6,7 @@ from pytest_mock import MockerFixture
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import migrate
 from panther_analysis_tool.constants import (
+    CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AutoAcceptOption,
 )
@@ -19,6 +20,121 @@ def setup(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.An
     cache = analysis_cache.AnalysisCache()
     cache.create_tables()
     return cache
+
+
+def test_migrate_deletes_items(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value="abc123",
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        side_effect=[
+            b"{RuleID: fake.rule.1}",
+            b"",
+            b"{RuleID: fake.rule.2}",
+            b"",
+            b"{RuleID: fake.rule.to.delete}",
+            b"",
+        ],
+    )
+    cache = setup(tmp_path, monkeypatch)
+
+    rule_1_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.1",
+        "Filename": "fake_rule_1.py",
+        "Enabled": True,
+    }
+    rule_2_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.2",
+        "Filename": "fake_rule_2.py",
+        "Enabled": False,
+    }
+    rule_to_delete_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.to.delete",
+        "Filename": "fake_rule_to_delete.py",
+        "Enabled": False,
+    }
+    pack_spec = {
+        "AnalysisType": "pack",
+        "PackID": "fake.pack.1",
+    }
+
+    (tmp_path / "fake_rule_1.yml").write_text(yaml.dump(rule_1_spec))
+    (tmp_path / "fake_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "fake_rule_2.yml").write_text(yaml.dump(rule_2_spec))
+    (tmp_path / "fake_rule_2.py").write_text("def rule(event): return True")
+    (tmp_path / "fake_rule_to_delete.yml").write_text(yaml.dump(rule_to_delete_spec))
+    (tmp_path / "fake_rule_to_delete.py").write_text("def rule(event): return True")
+    (tmp_path / "fake_pack_1.yml").write_text(yaml.dump(pack_spec))
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(rule_1_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="fake.rule.1",
+        ),
+        b"def rule(event): return True",
+    )
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(rule_2_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="fake.rule.2",
+        ),
+        b"def rule(event): return True",
+    )
+
+    result = migrate.migrate(None, None, tmp_path / "migration_output.md", None)
+    assert len(result.items_deleted) == 2
+    assert result.items_deleted[0].analysis_id == "fake.pack.1"
+    assert result.items_deleted[0].pretty_analysis_type == "Pack"
+    assert (
+        result.items_deleted[0].reason
+        == "Packs are managed by Panther and not needed in your repo."
+    )
+    assert result.items_deleted[1].analysis_id == "fake.rule.to.delete"
+    assert result.items_deleted[1].pretty_analysis_type == "Rule"
+    assert (
+        result.items_deleted[1].reason
+        == "Item was deleted by Panther since your last update and was disabled in your repo."
+    )
+
+    assert len(result.items_migrated) == 2
+    assert result.items_migrated[0].analysis_id == "fake.rule.1"
+    assert result.items_migrated[0].pretty_analysis_type == "Rule"
+    assert result.items_migrated[1].analysis_id == "fake.rule.2"
+    assert result.items_migrated[1].pretty_analysis_type == "Rule"
+    assert len(result.items_with_conflicts) == 0
+
+    assert not (tmp_path / "fake_rule_to_delete.yml").exists()
+    assert not (tmp_path / "fake_rule_to_delete.py").exists()
+    assert not (tmp_path / "fake_pack_1.yml").exists()
+
+    assert (tmp_path / "fake_rule_1.yml").exists()
+    assert (tmp_path / "fake_rule_1.py").exists()
+    assert (tmp_path / "fake_rule_2.yml").exists()
+    assert (tmp_path / "fake_rule_2.py").exists()
 
 
 def test_migrate_with_analysis_id(
@@ -94,15 +210,17 @@ def test_migrate_with_analysis_id(
         migration_output.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 0 merge conflict(s) found.
+  * 0 analysis item(s) deleted.
+  * 1 analysis item(s) migrated.
+
 ## Analysis Items Migrated
 
 1 analysis item(s) migrated.
 
-### Analysis Type: rule
-
-1 analysis item(s) migrated.
-
-  * fake.rule.1
+  * (Rule) fake.rule.1
 
 """
     )
@@ -132,7 +250,8 @@ def test_get_migration_item_has_base_version(
 
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
-    item = migrate.get_migration_item(specs[0], None, cache)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    item = migrate.get_migration_item(specs[0], None, cache, result)
     assert item is None
 
 
@@ -151,7 +270,8 @@ def test_get_migration_item_no_latest_spec(
 
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
-    item = migrate.get_migration_item(specs[0], None, cache)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    item = migrate.get_migration_item(specs[0], None, cache, result)
     assert item is None
 
 
@@ -197,7 +317,8 @@ def test_get_migration_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) ->
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 2
 
-    items = [migrate.get_migration_item(spec, None, cache) for spec in specs]
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    items = [migrate.get_migration_item(spec, None, cache, result) for spec in specs]
     assert len(items) == 2
     assert items[0] is not None
     assert items[1] is not None
@@ -241,6 +362,10 @@ def test_get_migration_item_with_remote_base(
     mocker.patch(
         "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
         side_effect=[b"fake: yaml", b"from fake import python"],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
     )
 
     py = "def rule(event): return True"
@@ -287,10 +412,12 @@ def test_get_migration_item_with_remote_base(
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
 
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     item = migrate.get_migration_item(
         user_spec=specs[0],
         analysis_id=None,
         cache=cache,
+        result=result,
         ancestor_commit="fake.commit.1",
     )
 
@@ -330,7 +457,8 @@ def test_get_migration_item_pack(tmp_path: pathlib.Path, monkeypatch: MonkeyPatc
     specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
     assert len(specs) == 1
 
-    item = migrate.get_migration_item(specs[0], None, cache)
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
+    item = migrate.get_migration_item(specs[0], None, cache, result)
     assert item is None
 
 
@@ -375,7 +503,7 @@ def test_migrate_items_no_conflicts(
         ),
     ]
 
-    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     for item in items:
         migrate.migrate_item(item, False, None, result)
     assert len(result.items_with_conflicts) == 0
@@ -411,7 +539,7 @@ def test_migrate_items_with_conflicts(mocker: MockerFixture) -> None:
         ),
     ]
 
-    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     for item in items:
         migrate.migrate_item(item, False, None, result)
     assert len(result.items_with_conflicts) == 2
@@ -455,7 +583,7 @@ def test_migrate_items_with_conflicts_accept_yours(
         ),
     ]
 
-    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[])
+    result = migrate.MigrationResult(items_with_conflicts=[], items_migrated=[], items_deleted=[])
     for item in items:
         migrate.migrate_item(item, False, None, result, AutoAcceptOption.YOURS)
     assert len(result.items_with_conflicts) == 0
@@ -482,6 +610,7 @@ def test_write_migration_results_empty(tmp_path: pathlib.Path) -> None:
         migrate.MigrationResult(
             items_with_conflicts=[],
             items_migrated=[],
+            items_deleted=[],
         ),
         output_path,
     )
@@ -497,11 +626,12 @@ def test_write_migration_results_no_conflicts(tmp_path: pathlib.Path) -> None:
         migrate.MigrationResult(
             items_with_conflicts=[],
             items_migrated=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
             ],
+            items_deleted=[],
         ),
         output_path,
     )
@@ -510,23 +640,20 @@ def test_write_migration_results_no_conflicts(tmp_path: pathlib.Path) -> None:
         output_path.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 0 merge conflict(s) found.
+  * 0 analysis item(s) deleted.
+  * 4 analysis item(s) migrated.
+
 ## Analysis Items Migrated
 
 4 analysis item(s) migrated.
 
-### Analysis Type: rule
-
-2 analysis item(s) migrated.
-
-  * fake.rule.1
-  * fake.rule.2
-
-### Analysis Type: policy
-
-2 analysis item(s) migrated.
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
 """
     )
@@ -539,12 +666,13 @@ def test_write_migration_results_with_conflicts_only(tmp_path: pathlib.Path) -> 
     migrate.write_migration_results(
         migrate.MigrationResult(
             items_with_conflicts=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
             ],
             items_migrated=[],
+            items_deleted=[],
         ),
         output_path,
     )
@@ -553,23 +681,20 @@ def test_write_migration_results_with_conflicts_only(tmp_path: pathlib.Path) -> 
         output_path.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 4 merge conflict(s) found.
+  * 0 analysis item(s) deleted.
+  * 0 analysis item(s) migrated.
+
 ## Analysis Items with Merge Conflicts
 
 4 merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.
 
-### Analysis Type: rule
-
-2 merge conflict(s).
-
-  * fake.rule.1
-  * fake.rule.2
-
-### Analysis Type: policy
-
-2 merge conflict(s).
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
 """
     )
@@ -582,16 +707,24 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
     migrate.write_migration_results(
         migrate.MigrationResult(
             items_with_conflicts=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
             ],
             items_migrated=[
-                migrate.MigrationItem(analysis_id="fake.rule.1", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.rule.2", analysis_type="rule"),
-                migrate.MigrationItem(analysis_id="fake.policy.1", analysis_type="policy"),
-                migrate.MigrationItem(analysis_id="fake.policy.2", analysis_type="policy"),
+                migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.rule.2", pretty_analysis_type="Rule"),
+                migrate.MigrationItem(analysis_id="fake.policy.1", pretty_analysis_type="Policy"),
+                migrate.MigrationItem(analysis_id="fake.policy.2", pretty_analysis_type="Policy"),
+            ],
+            items_deleted=[
+                migrate.MigrationItem(analysis_id="fake.pack.1", pretty_analysis_type="Pack"),
+                migrate.MigrationItem(
+                    analysis_id="fake.pack.2",
+                    pretty_analysis_type="Pack",
+                    reason="Item is dead to me. I deleted it.",
+                ),
             ],
         ),
         output_path,
@@ -601,41 +734,36 @@ def test_write_migration_results(tmp_path: pathlib.Path) -> None:
         output_path.read_text()
         == """# Migration Results
 
+## Migration Summary
+
+  * 4 merge conflict(s) found.
+  * 2 analysis item(s) deleted.
+  * 4 analysis item(s) migrated.
+
 ## Analysis Items with Merge Conflicts
 
 4 merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.
 
-### Analysis Type: rule
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
-2 merge conflict(s).
+## Analysis Items Deleted
 
-  * fake.rule.1
-  * fake.rule.2
+2 analysis item(s) deleted.
 
-### Analysis Type: policy
-
-2 merge conflict(s).
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Pack) fake.pack.1
+  * (Pack) fake.pack.2 - Item is dead to me. I deleted it.
 
 ## Analysis Items Migrated
 
 4 analysis item(s) migrated.
 
-### Analysis Type: rule
-
-2 analysis item(s) migrated.
-
-  * fake.rule.1
-  * fake.rule.2
-
-### Analysis Type: policy
-
-2 analysis item(s) migrated.
-
-  * fake.policy.1
-  * fake.policy.2
+  * (Rule) fake.rule.1
+  * (Rule) fake.rule.2
+  * (Policy) fake.policy.1
+  * (Policy) fake.policy.2
 
 """
     )

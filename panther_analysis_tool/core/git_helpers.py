@@ -16,6 +16,8 @@ PANTHER_ANALYSIS_HTTPS_URL = "https://github.com/panther-labs/panther-analysis.g
 REMOTE_UPSTREAM_NAME = "upstream"
 PANTHER_ANALYSIS_MAIN_BRANCH = "main"
 
+_git_root: str | None = None
+
 
 def panther_analysis_release_url(tag: str = "latest") -> str:
     """
@@ -317,3 +319,25 @@ def get_file_at_commit(commit: str, file_path: pathlib.Path) -> bytes | None:
         logging.debug(proc.stderr)
         return None
     return proc.stdout.encode("utf-8")
+
+
+def git_root() -> str:
+    """
+    Get the root of the git repo
+    """
+    global _git_root
+    if _git_root is not None:
+        return _git_root
+
+    rev_parse = subprocess.run(  # nosec:B607 B603
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    if rev_parse.returncode != 0:
+        raise Exception(f"Failed to get git root: {rev_parse.stderr}")
+    if rev_parse.stdout is None:
+        raise Exception("Failed to get git root")
+    _git_root = rev_parse.stdout.strip()
+    return _git_root
