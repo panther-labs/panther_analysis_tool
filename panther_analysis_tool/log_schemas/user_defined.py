@@ -10,7 +10,10 @@ from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scanner import ScannerError
 
-from panther_analysis_tool.backend.client import BackendError, BackendResponse
+from panther_analysis_tool.backend.client import (
+    BackendError,
+    BackendResponse,
+)
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     ListSchemasParams,
