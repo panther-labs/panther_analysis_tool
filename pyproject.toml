@@ -4,7 +4,7 @@ version = "1.2.1"
 description = "Panther command line interface for writing, testing, and packaging policies/rules."
 authors = [{ name = "Panther Labs Inc", email = "pypi@runpanther.io" }]
 readme = "README.md"
-requires-python = ">=3.11, <4.0"
+requires-python = ">=3.13, <4.0"
 dependencies = [
     "setuptools>=78.1.1",
     "aiohappyeyeballs==2.4.6",
@@ -57,8 +57,8 @@ dependencies = [
     "regex==2024.11.6",
     "requests==2.32.4",
     "rpds-py==0.22.3",
-    "ruamel-yaml==0.17.32",
-    "ruamel-yaml-clib==0.2.7",
+    "ruamel-yaml==0.18.16",
+    "ruamel-yaml-clib==0.2.15",
     "s3transfer==0.6.2",
     "schema==0.7.5",
     "semver==2.13.0",
@@ -83,7 +83,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Security",
 ]
 
@@ -114,7 +114,6 @@ nose2 = "^0.13.0"
 pyfakefs = "^5.9.3"
 pylint = "2.17.5"
 responses = "*"
-typed-ast = "1.5.5"
 types-python-dateutil = "*"
 types-requests = "*"
 

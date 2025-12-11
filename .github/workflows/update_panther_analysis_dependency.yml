@@ -25,7 +25,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
       with:
-        python-version: '3.11'
+        python-version: '3.13'
 
     - name: Checkout panther-analysis Repository
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
