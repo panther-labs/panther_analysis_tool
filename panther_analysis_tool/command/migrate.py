@@ -108,8 +108,8 @@ def run(
         completion_message = "Migration complete! Details can be found in: `migration_output.md`."
         if migration_result.has_conflicts():
             completion_message = (
-                "Migration completed for analysis items without merge conflicts. "
-                "Items with conflicts need to be resolved manually. \n"
+                "Migration completed! However, some analysis items had merge conflicts. "
+                "Merge conflicts need to be resolved manually. \n"
                 "  * Details can be found in: `migration_output.md`.\n"
                 "  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n"
                 "  * Run `pat migrate --auto-accept=<panthers|yours>` to automatically accept your changes or Panther's changes for merge conflicts."  # pylint: disable=line-too-long
@@ -187,6 +187,11 @@ def migrate(
         items = [item.merged_item for item in result.items_migrated if item.merged_item is not None]
         clone_item.clone_deps(items)
         progress.update(task, completed=True)
+
+    if analysis_id is not None:
+        # skip writing migration results if an analysis id was specified
+        # because the user is only interested in that one analysis item
+        return result
 
     with Progress(
         TextColumn("Writing migration results:"),

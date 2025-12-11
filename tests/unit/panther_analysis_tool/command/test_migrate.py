@@ -200,30 +200,12 @@ def test_migrate_with_analysis_id(
     )
 
     migration_output = tmp_path / "migration_output.md"
-    migration_output.touch()
 
     result = migrate.migrate("fake.rule.1", None, migration_output, None)
     assert not result.empty()
     assert len(result.items_migrated) == 1
     assert len(result.items_with_conflicts) == 0
-    assert (
-        migration_output.read_text()
-        == """# Migration Results
-
-## Migration Summary
-
-  * 0 merge conflict(s) found.
-  * 0 analysis item(s) deleted.
-  * 1 analysis item(s) migrated.
-
-## Analysis Items Migrated
-
-1 analysis item(s) migrated.
-
-  * (Rule) fake.rule.1
-
-"""
-    )
+    assert not migration_output.exists()
     assert mock_yaml_resolver.call_count == 1
     assert mock_merge_item.call_count == 1
     assert mock_merge_files_in_editor.call_count == 1
