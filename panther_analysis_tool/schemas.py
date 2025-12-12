@@ -1,6 +1,6 @@
 import json
 import pkgutil
-from typing import Any, Dict, Set
+from typing import Any, Set
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
@@ -8,11 +8,13 @@ from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
 
 
 class QueryScheduleSchema(Schema):
-    # pylint: disable=arguments-differ
     def validate(
-        self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
-    ) -> Dict[str, Any]:
-        super().validate(data, _is_query_schedule_schema=False)
+        self,
+        data: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        _is_query_schedule_schema: bool = bool(kwargs.get("_is_query_schedule_schema", True))
+        super().validate(data=data)
         if _is_query_schedule_schema:
             rate, timeout = data.get("RateMinutes"), data.get("TimeoutMinutes")
             if rate is not None:

@@ -3,6 +3,7 @@ import os
 import shutil
 import zipfile
 from datetime import datetime
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -12,8 +13,7 @@ from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from typer.testing import CliRunner, Result
 
-from panther_analysis_tool import analysis_utils
-from panther_analysis_tool import main
+from panther_analysis_tool import analysis_utils, main
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.backend.client import (
     BackendError,
@@ -50,7 +50,7 @@ def mock_test_analysis_results(tc: TestCase, args: list[str]) -> tuple[int, list
     return_code = -1
     invalid_specs = None
 
-    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, list[str]]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = test_analysis(*args, **kwargs)
         return return_code, invalid_specs
@@ -72,7 +72,7 @@ def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]
     return_code = -1
     invalid_specs = None
 
-    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, list[str]]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = upload_analysis(*args, **kwargs)
         return return_code, invalid_specs
@@ -446,7 +446,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_test_names_filter_nonexistent_test(self):
+    def test_with_test_names_filter_nonexistent_test(self) -> None:
         # Test with a test name that doesn't exist
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -462,7 +462,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_minimum_tests(self):
+    def test_with_minimum_tests(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
         )
@@ -511,7 +511,7 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
+        def check_result(*args: Any, **kwargs: Any) -> None:
             results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
@@ -537,7 +537,7 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
+        def check_result(*args: Any, **kwargs: Any) -> None:
             results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
@@ -583,7 +583,7 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
+        def check_result(*args: Any, **kwargs: Any) -> None:
             results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))

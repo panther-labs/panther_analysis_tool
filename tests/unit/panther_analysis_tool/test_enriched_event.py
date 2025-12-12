@@ -67,7 +67,7 @@ class TestEnrichedEvent(TestCase):
         )
         enriched_event = PantherEvent(event, data_model)
         self.assertEqual(enriched_event.udm("destination_ip"), "1.1.1.1")
-        self.assertEqual(enriched_event.udm_path("destination_ip"), "destination.ip")
+        self.assertEqual(enriched_event.udm_path("destination_ip"), "'destination.ip'")
 
     def test_udm_json_path(self) -> None:
         event = {"dst": {"ip": "1.1.1.1", "port": "2222"}}
