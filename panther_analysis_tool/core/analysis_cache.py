@@ -423,6 +423,7 @@ def _populate_sqlite(
 ) -> None:
     """
     Populate the analysis cache with the latest Panther Analysis content.
+    Skips experimental items and packs.
 
     Args:
         spec (analysis_utils.LoadAnalysisSpecsResult): The analysis spec to populate the cache with.
@@ -439,6 +440,9 @@ def _populate_sqlite(
     id_value = spec.analysis_id()
 
     if spec.analysis_type() == AnalysisTypes.PACK:
+        return
+
+    if spec.is_experimental():
         return
 
     if id_value not in versions:

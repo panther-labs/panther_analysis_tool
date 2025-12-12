@@ -825,3 +825,25 @@ def test_populate_skips_packs(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     }
     analysis_cache._populate_sqlite(spec, cache, {}, versions)
     assert cache.list_spec_ids() == []
+
+
+def test_populate_skips_experimental_detections(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    assert cache.list_spec_ids() == []
+
+    spec = analysis_utils.LoadAnalysisSpecsResult(
+        spec_filename="fake_rule_1.yaml",
+        relative_path=str(tmp_path / "fake_rule_1.yaml"),
+        analysis_spec={"AnalysisType": "rule", "RuleID": "fake_rule_1", "Status": "experimental"},
+        yaml_ctx=yaml.BlockStyleYAML(),
+        error=None,
+        raw_spec_file_content=b"",
+    )
+    analysis_cache._populate_sqlite(spec, cache, {}, {})
+    assert cache.list_spec_ids() == []

@@ -17,14 +17,14 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
-from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
+    BackendError,
     GetRuleBodyParams,
     TestCorrelationRuleParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
     DATA_MODEL_LOCATION,
@@ -40,7 +40,7 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
-from panther_analysis_tool.core import yaml
+from panther_analysis_tool.core import parse, yaml
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
@@ -291,6 +291,9 @@ class LoadAnalysisSpecsResult:
         py_file_path = self.python_file_path()
         if py_file_path is not None:
             pathlib.Path(py_file_path).unlink()
+
+    def is_experimental(self) -> bool:
+        return self.analysis_spec.get("Status", "").lower() == parse.EXPERIMENTAL_STATUS.lower()
 
 
 # pylint: disable=too-many-locals
