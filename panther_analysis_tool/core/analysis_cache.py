@@ -437,13 +437,13 @@ def _populate_sqlite(
     if spec.error is not None:
         return
 
-    id_value = spec.analysis_id()
-
     if spec.analysis_type() == AnalysisTypes.PACK:
         return
 
     if spec.is_experimental():
         return
+
+    id_value = spec.analysis_id()
 
     if id_value not in versions:
         logging.debug(
