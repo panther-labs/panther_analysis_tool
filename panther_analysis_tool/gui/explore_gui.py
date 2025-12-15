@@ -29,6 +29,7 @@ class ExploreApp(App):
             show=True,
             priority=True,
         ),
+        Binding("ctrl+c", "quit", "Quit"),
     ]
 
     CSS_PATH = "explore_gui.tcss"

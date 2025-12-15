@@ -341,3 +341,10 @@ def git_root() -> str:
         raise Exception("Failed to get git root")
     _git_root = rev_parse.stdout.strip()
     return _git_root
+
+
+def chdir_to_git_root() -> None:
+    """
+    Change the current working directory to the git root.
+    """
+    os.chdir(git_root())

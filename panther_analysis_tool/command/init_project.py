@@ -3,10 +3,11 @@ import subprocess  # nosec:B404
 from pathlib import Path
 from typing import Tuple
 
-from panther_analysis_tool.core import analysis_cache
+from panther_analysis_tool.core import analysis_cache, git_helpers
 
 
 def run(working_dir: str) -> Tuple[int, str]:
+    git_helpers.chdir_to_git_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
     setup_git_ignore(Path(working_dir))
     enable_rerere()

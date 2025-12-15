@@ -92,6 +92,7 @@ class MigrationResult:
 def run(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
 ) -> Tuple[int, str]:
+    git_helpers.chdir_to_git_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 
     migration_output = pathlib.Path("migration_output.md")
