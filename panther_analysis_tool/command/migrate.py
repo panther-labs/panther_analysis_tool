@@ -64,12 +64,12 @@ class MigrationItem:
         }
 
     @staticmethod
-    def from_dict(dict: dict) -> "MigrationItem":
+    def from_dict(dict_: dict) -> "MigrationItem":
         """Returns a MigrationItem from a JSON dictionary."""
         return MigrationItem(
-            analysis_id=dict.get("analysis_id", ""),
-            pretty_analysis_type=dict.get("pretty_analysis_type", ""),
-            reason=dict.get("reason", None),
+            analysis_id=dict_.get("analysis_id", ""),
+            pretty_analysis_type=dict_.get("pretty_analysis_type", ""),
+            reason=dict_.get("reason", None),
         )
 
 
@@ -133,18 +133,18 @@ class MigrationStatus:
         }
 
     @staticmethod
-    def from_dict(dict: dict) -> "MigrationStatus":
+    def from_dict(dict_: dict) -> "MigrationStatus":
         """Returns a MigrationStatus from a JSON dictionary."""
         return MigrationStatus(
             items_with_conflicts={
                 k: MigrationItem.from_dict(v)
-                for k, v in dict.get("items_with_conflicts", {}).items()
+                for k, v in dict_.get("items_with_conflicts", {}).items()
             },
             items_migrated={
-                k: MigrationItem.from_dict(v) for k, v in dict.get("items_migrated", {}).items()
+                k: MigrationItem.from_dict(v) for k, v in dict_.get("items_migrated", {}).items()
             },
             items_deleted={
-                k: MigrationItem.from_dict(v) for k, v in dict.get("items_deleted", {}).items()
+                k: MigrationItem.from_dict(v) for k, v in dict_.get("items_deleted", {}).items()
             },
         )
 
@@ -190,7 +190,7 @@ class MigrationStatus:
                 stream.write(f"  * ({item.pretty_analysis_type}) {item.analysis_id}\n")
             stream.write("\n")
 
-        MIGRATION_STATUS_FILE_PATH.write_text(stream.getvalue())
+        MIGRATION_STATUS_FILE_PATH.write_text(stream.getvalue(), encoding="utf-8")
 
     @staticmethod
     def load_migration_status() -> "MigrationStatus":
