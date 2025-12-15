@@ -1,5 +1,4 @@
 import pathlib
-import shutil
 from unittest.mock import call
 
 from _pytest.monkeypatch import MonkeyPatch
@@ -12,7 +11,6 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
 from panther_analysis_tool.core import analysis_cache, yaml
-from panther_analysis_tool.core.git_helpers import CLONED_VERSIONS_FILE_PATH
 
 _FAKE_PY = """
 def rule(event):
@@ -136,11 +134,9 @@ def test_pull_and_merge_works(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
-    mocker.patch("panther_analysis_tool.command.pull.git_helpers.clone_panther_analysis")
+    mocker.patch("panther_analysis_tool.command.pull.analysis_cache._clone_panther_analysis")
 
     set_up_cache(tmp_path, monkeypatch)
-    # move the cached versions file to its first location so we can fake move it
-    shutil.move(CACHED_VERSIONS_FILE_PATH, CLONED_VERSIONS_FILE_PATH)
     pull.run()
 
     mock_print.assert_has_calls(
