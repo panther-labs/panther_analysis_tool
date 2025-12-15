@@ -55,6 +55,11 @@ class Versions(pydantic.BaseModel):
     def get_current_version_history_item(self, analysis_id: str) -> AnalysisVersionHistoryItem:
         return self.versions[analysis_id].history[self.versions[analysis_id].version]
 
+    def get_current_version(self, analysis_id: str) -> int:
+        if not self.has_item(analysis_id):
+            raise ValueError(f"Analysis ID '{analysis_id}' not found in versions file")
+        return self.versions[analysis_id].version
+
 
 _VERSIONS: Optional[Versions] = None
 

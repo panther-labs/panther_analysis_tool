@@ -616,3 +616,22 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
     assert (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
     assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
+
+
+def test_clone_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE)
+    item = analysis_utils.AnalysisItem(
+        yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
+        yaml_file_path="rules/fake_rule_1.yaml",
+        python_file_path="rules/fake_rule_1.py",
+        python_file_contents=bytes(_FAKE_PY, "utf-8"),
+    )
+    clone_item.clone_analysis_item(item, show_cloned_items=True)
+
+    assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
+    assert (tmp_path / "rules" / "fake_rule_1.py").exists()
+
+    assert "Enabled: true" in (tmp_path / "rules" / "fake_rule_1.yaml").read_text()
+    assert "BaseVersion: 1" in (tmp_path / "rules" / "fake_rule_1.yaml").read_text()

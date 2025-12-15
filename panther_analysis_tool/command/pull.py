@@ -8,7 +8,7 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.command import merge
 from panther_analysis_tool.constants import AutoAcceptOption
-from panther_analysis_tool.core import analysis_cache, clone_item, git_helpers
+from panther_analysis_tool.core import analysis_cache, clone_item
 
 
 def run() -> Tuple[int, str]:
@@ -35,8 +35,6 @@ def pull(show_progress_bar: bool = False, auto_accept: AutoAcceptOption | None =
     mergeable_items = merge.get_mergeable_items(None, list(user_analysis_specs.values()))
     if len(mergeable_items) > 0:
         merge.merge_items(mergeable_items, None, None, auto_accept, show_progress_bar)
-
-    git_helpers.delete_cloned_panther_analysis()
 
     # we need to check if the new merged python includes any
     # new global helper imports and clone those so the new python works
