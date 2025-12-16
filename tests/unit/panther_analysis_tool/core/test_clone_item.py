@@ -93,7 +93,6 @@ _FAKE_GLOBAL_HELPER_1_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.1",
-        "Enabled": False,
         "Description": "Fake global helper 1 v1",
         "Filename": "fake_global_helper_1.py",
     }
@@ -103,7 +102,6 @@ _FAKE_GLOBAL_HELPER_2_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.2",
-        "Enabled": False,
         "Description": "Fake global helper 2 v1",
         "Filename": "fake_global_helper_2.py",
     }
@@ -113,7 +111,6 @@ _FAKE_GLOBAL_HELPER_3_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.3",
-        "Enabled": False,
         "Description": "Fake global helper 3 v1",
         "Filename": "fake_global_helper_3.py",
     }
@@ -123,7 +120,6 @@ _FAKE_GLOBAL_HELPER_4_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.4",
-        "Enabled": False,
         "Description": "Fake global helper 4 v1",
         "Filename": "fake_global_helper_4.py",
     }
@@ -591,6 +587,7 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
 
 def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
+
     items = [
         analysis_utils.AnalysisItem(
             yaml_file_contents=yaml.load(_FAKE_RULE_WITH_DEPS),
@@ -616,6 +613,14 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
     assert (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
     assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
+    assert "BaseVersion: 1" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
+    assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_2.yaml").read_text()
+    assert "BaseVersion: 1" in (tmp_path / "data_models" / "fake_datamodel_2.yaml").read_text()
+    global_path = tmp_path / "global_helpers"
+    assert "BaseVersion: 1" in (global_path / "fake_global_helper_1.yaml").read_text()
+    assert "BaseVersion: 1" in (global_path / "fake_global_helper_2.yaml").read_text()
+    assert "BaseVersion: 1" in (global_path / "fake_global_helper_3.yaml").read_text()
+    assert "BaseVersion: 1" in (global_path / "fake_global_helper_4.yaml").read_text()
 
 
 def test_clone_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
