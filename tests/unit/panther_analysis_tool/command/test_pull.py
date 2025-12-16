@@ -142,7 +142,7 @@ def test_pull_and_merge_works(
     set_up_cache(tmp_path, monkeypatch)
     # move the cached versions file to its first location so we can fake move it
     shutil.move(CACHED_VERSIONS_FILE_PATH, CLONED_VERSIONS_FILE_PATH)
-    pull.run()
+    pull.run(pull.PullArgs())
 
     mock_print.assert_has_calls(
         [

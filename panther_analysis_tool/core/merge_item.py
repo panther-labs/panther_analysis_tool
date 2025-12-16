@@ -29,7 +29,13 @@ def merge_item(
     solve_merge: bool,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
+    write_merge_conflicts: bool = False,
 ) -> bool:
+    # cannot write merge conflicts and auto accept at the same time
+    # but write merge conflicts can be used with solve merge because that just means we are solving for one item at a time
+    if write_merge_conflicts and auto_accept is not None:
+        raise RuntimeError("Cannot write merge conflicts and auto accept at the same time")
+
     user_item = mergeable_item.user_item
     latest_item = mergeable_item.latest_panther_item
     base_item = mergeable_item.base_panther_item
@@ -38,7 +44,7 @@ def merge_item(
     merged_python_contents = b""
 
     # merge yaml
-    has_conflict, merged_yaml_contents = merge_file(
+    yaml_has_conflict, merged_yaml_contents = merge_file(
         solve_merge=solve_merge,
         # or b"" makes typing happy but it should never be None
         user=user_item.raw_yaml_file_contents or b"",
@@ -48,16 +54,18 @@ def merge_item(
         output_path=pathlib.Path(user_item.yaml_file_path or ""),
         editor=editor,
         auto_accept=auto_accept,
+        write_merge_conflicts=write_merge_conflicts,
     )
-    if has_conflict and not solve_merge:
+    if yaml_has_conflict and not solve_merge and not write_merge_conflicts:
         # no need to merge python if yaml has a conflict because
         # we are just tracking what items have conflicts, not which files,
-        # and has_conflict would be False if solve_merge is True
+        # and yaml_has_conflict would be False if solve_merge is True
         return True
 
     # merge python (do this second since IDE may return before merge happens)
+    py_has_conflict = False
     if user_item.python_file_contents is not None:
-        has_conflict, merged_python_contents = merge_file(
+        py_has_conflict, merged_python_contents = merge_file(
             solve_merge=solve_merge,
             # or b"" makes typing happy but it should never be None
             user=user_item.python_file_contents or b"",
@@ -67,8 +75,9 @@ def merge_item(
             output_path=pathlib.Path(user_item.python_file_path or ""),
             editor=editor,
             auto_accept=auto_accept,
+            write_merge_conflicts=write_merge_conflicts,
         )
-        if has_conflict:
+        if py_has_conflict and not write_merge_conflicts:
             return True
 
     if merged_yaml_contents != b"":
@@ -77,8 +86,10 @@ def merge_item(
     if merged_python_contents != b"":
         pathlib.Path(user_item.python_file_path or "").write_bytes(merged_python_contents)
 
-    # if it does not have a conflict, the user item has been updated
-    # with the merged contents
+    if yaml_has_conflict or py_has_conflict:
+        return True
+
+    # the user item has been updated with the merged contents
     yaml_loader = yaml.BlockStyleYAML()
     raw_yaml_contents = pathlib.Path(user_item.yaml_file_path or "").read_bytes()
     mergeable_item.merged_item = analysis_utils.AnalysisItem(
@@ -106,6 +117,7 @@ def merge_file(
     output_path: pathlib.Path,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
+    write_merge_conflicts: bool = False,
 ) -> tuple[bool, bytes]:
     """
     Merge a file with git and solve the merge conflict if requested.
@@ -151,6 +163,15 @@ def merge_file(
                 yaml_loader.dump(merge_dict.customer_dict, out)
                 return False, out.getvalue()  # merge was solved so no more conflict
 
+            if write_merge_conflicts:
+                # we cannot cleanly write the merge conflicts of the yaml diff, so we need to use git before writing the conflicts to the files
+                return git_helpers.merge_file(
+                    user_file_path=user_path,
+                    base_file_path=base_path,
+                    latest_file_path=latest_path,
+                    auto_accept=auto_accept,
+                )
+
             if not solve_merge:
                 return True, b""
 
@@ -177,6 +198,9 @@ def merge_file(
         )
         if not has_conflict:
             return False, merged_contents
+
+        if write_merge_conflicts:
+            return True, merged_contents
 
         if not solve_merge:
             return True, b""

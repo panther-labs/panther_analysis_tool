@@ -579,6 +579,52 @@ def test_migrate_items_with_conflicts_accept_yours(
     ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.2\nBaseVersion: 1\n"
 
 
+def test_migrate_item_write_merge_conflicts(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "fake_rule_1.yml").write_text(
+        yaml.dump({"AnalysisType": "rule", "RuleID": "fake.rule.1", "Filename": "fake_rule_1.py"})
+    )
+
+    mocker.patch("panther_analysis_tool.command.migrate.merge_item.merge_item", side_effect=[True])
+
+    item = merge_item.MergeableItem(
+        user_item=analysis_utils.AnalysisItem(
+            yaml_file_contents={
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+                "Filename": "fake_rule_1.py",
+            },
+            yaml_file_path=str(tmp_path / "fake_rule_1.yml"),
+            raw_yaml_file_contents=b"AnalysisType: rule\nRuleID: fake.rule.1\nFilename: fake_rule_1.py\n",
+            python_file_contents=b"def rule(event): return True",
+            python_file_path=str(tmp_path / "fake_rule_1.py"),
+        ),
+        latest_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        base_panther_item=analysis_utils.AnalysisItem(yaml_file_contents={}),
+        latest_item_version=1,
+    )
+
+    result = migrate.MigrationResult()
+    migrate.migrate_item(
+        item=item,
+        solve_merge=False,
+        editor=None,
+        migration_result=result,
+        write_merge_conflicts=True,
+    )
+
+    assert result.items_with_conflicts == [
+        migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule")
+    ]
+    assert result.items_migrated == []
+    assert result.items_deleted == []
+    assert (
+        tmp_path / "fake_rule_1.yml"
+    ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.1\nFilename: fake_rule_1.py\nBaseVersion: 1\n"
+
+
 #######################################################################################
 ### Test write_migration_results
 #######################################################################################

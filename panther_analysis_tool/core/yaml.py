@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from ruamel import yaml
+from ruamel.yaml import scanner
 
 
 class BlockStyleYAML(yaml.YAML):
@@ -23,7 +24,11 @@ class BlockStyleYAML(yaml.YAML):
         if stream is None:
             return None
 
-        data = super().load(stream)
+        try:
+            data = super().load(stream)
+        except scanner.ScannerError:
+            return None
+
         if data is not None:
             self._convert_to_block_style(data)
         return data

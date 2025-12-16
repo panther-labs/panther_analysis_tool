@@ -98,6 +98,7 @@ from panther_analysis_tool.command import (
 from panther_analysis_tool.command.standard_args import (
     APIHostType,
     APITokenType,
+    AutoAcceptType,
     AvailableDestinationType,
     AWSProfileType,
     FilterType,
@@ -113,6 +114,7 @@ from panther_analysis_tool.command.standard_args import (
     SkipTestsType,
     SortTestResultsType,
     ValidTableNamesType,
+    WriteMergeConflictsType,
 )
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
@@ -121,7 +123,6 @@ from panther_analysis_tool.constants import (
     PACKAGE_NAME,
     VERSION_STRING,
     AnalysisTypes,
-    AutoAcceptOption,
 )
 from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.core.definitions import (
@@ -2441,10 +2442,17 @@ def init_command() -> Tuple[int, str]:
 
 @app_command_with_config(
     name="pull",
-    help="Pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content.",
+    help="Pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content. "
+    + "Items with the same ID as a Panther Analysis Item and a BaseVersion field will be merged with the latest Panther Analysis Item. "
+    + "Items that have merge conflicts will be skipped to be resolved manually with the `merge` command. "
+    + "Use the --write-merge-conflicts flag to write all merge conflicts to their respective files instead of skipping them.",
 )
-def pull_command() -> Tuple[int, str]:
-    return pull.run()
+def pull_command(
+    auto_accept: AutoAcceptType = None,
+    write_merge_conflicts: WriteMergeConflictsType = False,
+) -> Tuple[int, str]:
+    args = pull.PullArgs(auto_accept, write_merge_conflicts)
+    return pull.run(args)
 
 
 @app_command_with_config(
@@ -2483,14 +2491,11 @@ def merge_command(
         Optional[str],
         typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
     ] = None,
-    auto_accept: Annotated[
-        Optional[AutoAcceptOption],
-        typer.Option(
-            help="Auto accept your changes or Panther's changes for merge conflicts.",
-        ),
-    ] = None,
+    auto_accept: AutoAcceptType = None,
+    write_merge_conflicts: WriteMergeConflictsType = False,
 ) -> Tuple[int, str]:
-    return merge.run(analysis_id, editor, auto_accept)
+    args = merge.MergeArgs(analysis_id, editor, auto_accept, write_merge_conflicts)
+    return merge.run(args)
 
 
 @app_command_with_config(
@@ -2510,14 +2515,11 @@ def migrate_command(
         Optional[str],
         typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
     ] = None,
-    auto_accept: Annotated[
-        Optional[AutoAcceptOption],
-        typer.Option(
-            help="Auto accept your changes or Panther's changes for merge conflicts.",
-        ),
-    ] = None,
+    auto_accept: AutoAcceptType = None,
+    write_merge_conflicts: WriteMergeConflictsType = False,
 ) -> Tuple[int, str]:
-    return migrate.run(analysis_id, editor, auto_accept)
+    args = migrate.MigrateArgs(analysis_id, editor, auto_accept, write_merge_conflicts)
+    return migrate.run(args)
 
 
 @app_command_with_config(

@@ -289,6 +289,126 @@ def test_merge_item_with_analysis_id_no_conflict(
     assert pathlib.Path(rule_1.spec_filename).read_text() == "merged"
 
 
+def test_merge_item_write_merge_conflicts_and_auto_accept(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
+    with pytest.raises(RuntimeError):
+        merge_item.merge_item(
+            merge_item.MergeableItem(
+                user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+                latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+                base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+            ),
+            solve_merge=True,
+            editor=None,
+            auto_accept=AutoAcceptOption.YOURS,
+            write_merge_conflicts=True,
+        )
+
+
+def test_merge_item_write_merge_conflicts(
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+    yaml_file_path = pathlib.Path(rule_1.spec_filename)
+    python_file_path = pathlib.Path(rule_1.python_file_path() or "")
+
+    # Mock diff.Dict.merge_dict to return conflicts so git_helpers.merge_file is called for YAML
+    mocker.patch(
+        "panther_analysis_tool.core.merge_item.diff.Dict.merge_dict",
+        return_value=[{"key": "Description"}],  # Return a list of conflicts
+    )
+
+    # Mock git_helpers.merge_file to return conflict markers
+    conflict_yaml = b"<<<<<<< yours\nuser: yaml\n=======\nlatest: yaml\n>>>>>>> panthers\n"
+    conflict_python = b"<<<<<<< yours\nuser_python\n=======\nlatest_python\n>>>>>>> panthers\n"
+
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
+        side_effect=[
+            (True, conflict_yaml),  # YAML conflict
+            (True, conflict_python),  # Python conflict
+        ],
+    )
+
+    has_conflicts = merge_item.merge_item(
+        merge_item.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+        solve_merge=False,
+        editor=None,
+        write_merge_conflicts=True,
+    )
+
+    assert has_conflicts
+    # Verify git_helpers.merge_file was called for both YAML and Python
+    assert mock_merge_file.call_count == 2
+    # Verify conflict markers were written to YAML file
+    assert yaml_file_path.read_bytes() == conflict_yaml
+    # Verify conflict markers were written to Python file
+    assert python_file_path.read_bytes() == conflict_python
+
+
+def test_merge_item_write_merge_conflicts_and_solve_merge(
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+    yaml_file_path = pathlib.Path(rule_1.spec_filename)
+    python_file_path = pathlib.Path(rule_1.python_file_path() or "")
+
+    # Mock diff.Dict.merge_dict to return conflicts so git_helpers.merge_file is called for YAML
+    mocker.patch(
+        "panther_analysis_tool.core.merge_item.diff.Dict.merge_dict",
+        return_value=[{"key": "Description"}],  # Return a list of conflicts
+    )
+
+    # Mock git_helpers.merge_file to return conflict markers
+    conflict_yaml = b"<<<<<<< yours\nuser: yaml\n=======\nlatest: yaml\n>>>>>>> panthers\n"
+    conflict_python = b"<<<<<<< yours\nuser_python\n=======\nlatest_python\n>>>>>>> panthers\n"
+
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.core.merge_item.git_helpers.merge_file",
+        side_effect=[
+            (True, conflict_yaml),  # YAML conflict
+            (True, conflict_python),  # Python conflict
+        ],
+    )
+
+    has_conflicts = merge_item.merge_item(
+        merge_item.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+        solve_merge=True,  # true when an analysis id is provided
+        editor=None,
+        write_merge_conflicts=True,
+    )
+
+    assert has_conflicts
+    # Verify git_helpers.merge_file was called for both YAML and Python
+    assert mock_merge_file.call_count == 2
+    # Verify conflict markers were written to YAML file
+    assert yaml_file_path.read_bytes() == conflict_yaml
+    # Verify conflict markers were written to Python file
+    assert python_file_path.read_bytes() == conflict_python
+
+
 ################################################################################
 ### TEST merge_file
 ################################################################################
@@ -469,5 +589,47 @@ def test_merge_file_yaml_conflict_auto_accept(
     )
     assert not has_conflict
     assert merged_contents == b"key: user\n"
+    # output file should not have changed
+    assert output_path.read_text() == "user: yaml"
+
+
+def test_merge_file_write_merge_conflicts(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
+    output_path = tmp_path / "output.yml"
+    output_path.write_text("user: yaml")
+
+    has_conflict, merged_contents = merge_item.merge_file(
+        solve_merge=False,
+        user=b"key: user",
+        base=b"key: base",
+        latest=b"key: latest",
+        user_python=b"",
+        output_path=output_path,
+        editor=None,
+        write_merge_conflicts=True,
+    )
+    assert has_conflict
+    assert merged_contents == b"<<<<<<< yours\nkey: user\n=======\nkey: latest\n>>>>>>> panthers\n"
+    # output file should not have changed
+    assert output_path.read_text() == "user: yaml"
+
+
+def test_merge_file_write_merge_conflicts_and_solve_merge(
+    mocker: MockerFixture, tmp_path: pathlib.Path
+) -> None:
+    output_path = tmp_path / "output.yml"
+    output_path.write_text("user: yaml")
+
+    has_conflict, merged_contents = merge_item.merge_file(
+        solve_merge=True,
+        user=b"key: user",
+        base=b"key: base",
+        latest=b"key: latest",
+        user_python=b"",
+        output_path=output_path,
+        editor=None,
+        write_merge_conflicts=True,
+    )
+    assert has_conflict
+    assert merged_contents == b"<<<<<<< yours\nkey: user\n=======\nkey: latest\n>>>>>>> panthers\n"
     # output file should not have changed
     assert output_path.read_text() == "user: yaml"
