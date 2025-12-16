@@ -134,7 +134,14 @@ def test_pull_and_merge_works(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
-    mocker.patch("panther_analysis_tool.command.pull.analysis_cache._clone_panther_analysis")
+    mocker.patch(
+        "panther_analysis_tool.command.pull.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+        return_value="fake_commit_hash_1",
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.pull.analysis_cache._clone_panther_analysis",
+        return_value=None,
+    )
     mocker.patch("panther_analysis_tool.command.pull.git_helpers.chdir_to_git_root")
 
     set_up_cache(tmp_path, monkeypatch)
