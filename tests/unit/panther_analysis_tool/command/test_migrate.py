@@ -773,7 +773,7 @@ def test_migrate_item_write_merge_conflicts(
         latest_item_version=1,
     )
 
-    result = migrate.MigrationResult()
+    result = migrate.MigrationStatus()
     migrate.migrate_item(
         item=item,
         solve_merge=False,
@@ -782,11 +782,11 @@ def test_migrate_item_write_merge_conflicts(
         write_merge_conflicts=True,
     )
 
-    assert result.items_with_conflicts == [
-        migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule")
-    ]
-    assert result.items_migrated == []
-    assert result.items_deleted == []
+    assert result.items_with_conflicts == {
+        "fake.rule.1": migrate.MigrationItem(analysis_id="fake.rule.1", pretty_analysis_type="Rule")
+    }
+    assert result.items_migrated == {}
+    assert result.items_deleted == {}
     assert (
         tmp_path / "fake_rule_1.yml"
     ).read_text() == "AnalysisType: rule\nRuleID: fake.rule.1\nFilename: fake_rule_1.py\nBaseVersion: 1\n"
