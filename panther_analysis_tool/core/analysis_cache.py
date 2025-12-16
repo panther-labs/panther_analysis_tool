@@ -373,6 +373,8 @@ def update_with_latest_panther_analysis(
     ):
         _populate_sqlite(spec, cache, user_analysis_specs, versions)
 
+    git_helpers.delete_cloned_panther_analysis()
+
 
 def _cache_is_latest(release_branch: str, commit: str) -> bool:
     """
@@ -423,6 +425,7 @@ def _populate_sqlite(
 ) -> None:
     """
     Populate the analysis cache with the latest Panther Analysis content.
+    Skips experimental items and packs.
 
     Args:
         spec (analysis_utils.LoadAnalysisSpecsResult): The analysis spec to populate the cache with.
@@ -436,10 +439,13 @@ def _populate_sqlite(
     if spec.error is not None:
         return
 
-    id_value = spec.analysis_id()
-
     if spec.analysis_type() == AnalysisTypes.PACK:
         return
+
+    if spec.is_experimental():
+        return
+
+    id_value = spec.analysis_id()
 
     if id_value not in versions:
         logging.debug(

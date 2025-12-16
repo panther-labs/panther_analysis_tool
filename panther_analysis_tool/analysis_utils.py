@@ -40,7 +40,7 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
-from panther_analysis_tool.core import yaml
+from panther_analysis_tool.core import parse, yaml
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
@@ -242,26 +242,8 @@ class LoadAnalysisSpecsResult:
         """Returns True if the analysis spec is enabled, defaulting to True if no enabled field exists."""
         return self.analysis_spec.get("Enabled", True)
 
-    # pylint: disable=too-many-return-statements
     def analysis_id_field_name(self) -> str:
-        """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
-        match self.analysis_type():
-            case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
-                return "RuleID"
-            case AnalysisTypes.DATA_MODEL:
-                return "DataModelID"
-            case AnalysisTypes.POLICY:
-                return "PolicyID"
-            case AnalysisTypes.GLOBAL:
-                return "GlobalID"
-            case AnalysisTypes.SCHEDULED_QUERY | AnalysisTypes.SAVED_QUERY:
-                return "QueryName"
-            case AnalysisTypes.PACK:
-                return "PackID"
-            case AnalysisTypes.LOOKUP_TABLE:
-                return "LookupName"
-            case _:
-                raise ValueError(f"Unsupported analysis type: {self.analysis_type()}")
+        return analysis_id_field_name(self.analysis_type())
 
     # pylint: disable=line-too-long
     def __str__(self) -> str:
@@ -291,6 +273,9 @@ class LoadAnalysisSpecsResult:
         py_file_path = self.python_file_path()
         if py_file_path is not None:
             pathlib.Path(py_file_path).unlink()
+
+    def is_experimental(self) -> bool:
+        return self.analysis_spec.get("Status", "").lower() == parse.EXPERIMENTAL_STATUS.lower()
 
 
 # pylint: disable=too-many-locals
@@ -842,6 +827,9 @@ class AnalysisItem:
             and (self.python_file_contents is None or self.python_file_contents == b"")
         )
 
+    def analysis_id_field_name(self) -> str:
+        return analysis_id_field_name(self.analysis_type())
+
 
 # pylint: disable=too-many-return-statements
 def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
@@ -870,5 +858,27 @@ def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
             return "Derived Detection" if not plural else "Derived Detections"
         case AnalysisTypes.SIMPLE_DETECTION:
             return "Simple Detection" if not plural else "Simple Detections"
+        case _:
+            raise ValueError(f"Unsupported analysis type: {analysis_type}")
+
+
+# pylint: disable=too-many-return-statements
+def analysis_id_field_name(analysis_type: str) -> str:
+    """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
+    match analysis_type:
+        case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
+            return "RuleID"
+        case AnalysisTypes.DATA_MODEL:
+            return "DataModelID"
+        case AnalysisTypes.POLICY:
+            return "PolicyID"
+        case AnalysisTypes.GLOBAL:
+            return "GlobalID"
+        case AnalysisTypes.SCHEDULED_QUERY | AnalysisTypes.SAVED_QUERY:
+            return "QueryName"
+        case AnalysisTypes.PACK:
+            return "PackID"
+        case AnalysisTypes.LOOKUP_TABLE:
+            return "LookupName"
         case _:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")

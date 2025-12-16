@@ -18,6 +18,7 @@ def test_init_project_with_no_gitignore(
         "panther_analysis_tool.command.init_project.subprocess.run",
         return_value=subprocess.CompletedProcess(returncode=0, args=[]),
     )
+    mocker.patch("panther_analysis_tool.command.init_project.git_helpers.chdir_to_git_root")
     mock_print = mocker.patch("panther_analysis_tool.command.init_project.print")
     assert tmp_path.exists()
     monkeypatch.chdir(tmp_path)
@@ -58,6 +59,7 @@ def test_init_project_with_gitignore(
         "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
+    mocker.patch("panther_analysis_tool.command.init_project.git_helpers.chdir_to_git_root")
     monkeypatch.chdir(tmp_path)
     mock_subprocess_run = mocker.patch(
         "panther_analysis_tool.command.init_project.subprocess.run",
@@ -109,6 +111,7 @@ def test_init_project_with_gitignore_end_with_newline(
         "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
+    mocker.patch("panther_analysis_tool.command.init_project.git_helpers.chdir_to_git_root")
     monkeypatch.chdir(tmp_path)
     mock_subprocess_run = mocker.patch(
         "panther_analysis_tool.command.init_project.subprocess.run",

@@ -6,15 +6,20 @@ manage their analysis items without a fork, taking over the merge process.
 
 import dataclasses
 import io
+import json
 import logging
 import pathlib
-from collections import defaultdict
 from typing import Tuple
 
 from rich.progress import BarColumn, Progress, TextColumn, track  # from tqdm
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.constants import AnalysisTypes, AutoAcceptOption
+from panther_analysis_tool.constants import (
+    CACHED_MIGRATION_STATUS_FILE_PATH,
+    MIGRATION_STATUS_FILE_PATH,
+    AnalysisTypes,
+    AutoAcceptOption,
+)
 from panther_analysis_tool.core import (
     analysis_cache,
     clone_item,
@@ -50,53 +55,160 @@ class MigrationItem:
     reason: str | None = None
     "More information about what happened to the item during migration"
 
+    def to_dict(self) -> dict:
+        """Returns a JSON string representation of the migration item without the merged item."""
+        return {
+            "analysis_id": self.analysis_id,
+            "pretty_analysis_type": self.pretty_analysis_type,
+            "reason": self.reason,
+        }
+
+    @staticmethod
+    def from_dict(dict_: dict) -> "MigrationItem":
+        """Returns a MigrationItem from a JSON dictionary."""
+        return MigrationItem(
+            analysis_id=dict_.get("analysis_id", ""),
+            pretty_analysis_type=dict_.get("pretty_analysis_type", ""),
+            reason=dict_.get("reason", None),
+        )
+
 
 @dataclasses.dataclass
-class MigrationResult:
+class MigrationStatus:
     """
-    Result of a migration operation.
+    Status of the user's migration.
 
     Attributes:
-        items_with_conflicts: (analysis id, analysis type) of items not migrated due to merge conflicts
-        items_migrated: (analysis id, analysis type) of items migrated
+        items_with_conflicts (dict[str, MigrationItem]): Items not migrated due to merge conflicts
+        items_migrated (dict[str, MigrationItem]): Items migrated
+        items_deleted (dict[str, MigrationItem]): Items deleted during the migration
     """
 
-    items_with_conflicts: list[MigrationItem] = dataclasses.field(default_factory=list)
+    items_with_conflicts: dict[str, MigrationItem] = dataclasses.field(default_factory=dict)
     "Items not migrated due to merge conflicts"
 
-    items_migrated: list[MigrationItem] = dataclasses.field(default_factory=list)
+    items_migrated: dict[str, MigrationItem] = dataclasses.field(default_factory=dict)
     "Items migrated"
 
-    items_deleted: list[MigrationItem] = dataclasses.field(default_factory=list)
+    items_deleted: dict[str, MigrationItem] = dataclasses.field(default_factory=dict)
     "Items deleted"
 
     def empty(self) -> bool:
-        return len(self.items_with_conflicts) == 0 and len(self.items_migrated) == 0
-
-    def _by_analysis_type(self, items: list[MigrationItem]) -> dict[str, list[MigrationItem]]:
-        result = defaultdict(list)
-        for item in items:
-            result[item.pretty_analysis_type].append(item)
-        return dict(result)
-
-    def migrated_items_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
-        return self._by_analysis_type(self.items_migrated)
-
-    def items_with_conflicts_by_analysis_type(self) -> dict[str, list[MigrationItem]]:
-        return self._by_analysis_type(self.items_with_conflicts)
+        return (
+            len(self.items_with_conflicts) == 0
+            and len(self.items_migrated) == 0
+            and len(self.items_deleted) == 0
+        )
 
     def has_conflicts(self) -> bool:
         return len(self.items_with_conflicts) > 0
+
+    def items_with_conflicts_sorted(self) -> list[MigrationItem]:
+        return self._sort_items(self.items_with_conflicts)
+
+    def items_deleted_sorted(self) -> list[MigrationItem]:
+        return self._sort_items(self.items_deleted)
+
+    def items_migrated_sorted(self) -> list[MigrationItem]:
+        return self._sort_items(self.items_migrated)
+
+    def _sort_items(self, items: dict[str, MigrationItem]) -> list[MigrationItem]:
+        return sorted(items.values(), key=lambda x: x.pretty_analysis_type + x.analysis_id)
+
+    def migrated_merged_items(self) -> list[analysis_utils.AnalysisItem]:
+        return [
+            item.merged_item
+            for item in self.items_migrated.values()
+            if item.merged_item is not None
+        ]
+
+    def to_dict(self) -> dict:
+        """Returns a JSON string representation of the migration status."""
+        return {
+            "items_with_conflicts": {k: v.to_dict() for k, v in self.items_with_conflicts.items()},
+            "items_migrated": {k: v.to_dict() for k, v in self.items_migrated.items()},
+            "items_deleted": {k: v.to_dict() for k, v in self.items_deleted.items()},
+        }
+
+    @staticmethod
+    def from_dict(dict_: dict) -> "MigrationStatus":
+        """Returns a MigrationStatus from a JSON dictionary."""
+        return MigrationStatus(
+            items_with_conflicts={
+                k: MigrationItem.from_dict(v)
+                for k, v in dict_.get("items_with_conflicts", {}).items()
+            },
+            items_migrated={
+                k: MigrationItem.from_dict(v) for k, v in dict_.get("items_migrated", {}).items()
+            },
+            items_deleted={
+                k: MigrationItem.from_dict(v) for k, v in dict_.get("items_deleted", {}).items()
+            },
+        )
+
+    def write_migration_status(self) -> None:
+        if self.empty():
+            return
+
+        # write the cached version of the migration status as json
+        CACHED_MIGRATION_STATUS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CACHED_MIGRATION_STATUS_FILE_PATH.write_text(json.dumps(self.to_dict()))
+
+        # write the human readable version of the migration status to the file system as a markdown file
+        stream = io.StringIO()
+        stream.write("# Migration Results\n\n")
+
+        stream.write("## Migration Summary\n\n")
+        stream.write(f"  * {len(self.items_with_conflicts)} merge conflict(s) found.\n")
+        stream.write(f"  * {len(self.items_deleted)} analysis item(s) deleted.\n")
+        stream.write(f"  * {len(self.items_migrated)} analysis item(s) migrated.\n\n")
+
+        if len(self.items_with_conflicts) > 0:
+            stream.write("## Analysis Items with Merge Conflicts\n\n")
+            stream.write(
+                f"{len(self.items_with_conflicts)} merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n\n"  # pylint: disable=line-too-long
+            )
+            for conflict in self.items_with_conflicts_sorted():
+                stream.write(f"  * ({conflict.pretty_analysis_type}) {conflict.analysis_id}\n")
+            stream.write("\n")
+
+        if len(self.items_deleted) > 0:
+            stream.write("## Analysis Items Deleted\n\n")
+            stream.write(f"{len(self.items_deleted)} analysis item(s) deleted.\n\n")
+            for item in self.items_deleted_sorted():
+                stream.write(
+                    f"  * ({item.pretty_analysis_type}) {item.analysis_id}{f' - {item.reason}' if item.reason is not None else ''}\n"
+                )
+            stream.write("\n")
+
+        if len(self.items_migrated) > 0:
+            stream.write("## Analysis Items Migrated\n\n")
+            stream.write(f"{len(self.items_migrated)} analysis item(s) migrated.\n\n")
+            for item in self.items_migrated_sorted():
+                stream.write(f"  * ({item.pretty_analysis_type}) {item.analysis_id}\n")
+            stream.write("\n")
+
+        MIGRATION_STATUS_FILE_PATH.write_text(stream.getvalue(), encoding="utf-8")
+
+    @staticmethod
+    def load_migration_status() -> "MigrationStatus":
+        """
+        Load the migration status from the cached file.
+        """
+        if not CACHED_MIGRATION_STATUS_FILE_PATH.exists():
+            return MigrationStatus()
+        dict_status = json.loads(CACHED_MIGRATION_STATUS_FILE_PATH.read_text())
+        return MigrationStatus.from_dict(dict_status)
 
 
 def run(
     analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
 ) -> Tuple[int, str]:
+    git_helpers.chdir_to_git_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 
-    migration_output = pathlib.Path("migration_output.md")
     try:
-        migration_result = migrate(analysis_id, editor, migration_output, auto_accept)
+        migration_result = migrate(analysis_id, editor, auto_accept)
     except file_editor.EditorCommandNotFoundError as err:
         return 1, str(err)
 
@@ -131,10 +243,9 @@ def run(
 def migrate(
     analysis_id: str | None,
     editor: str | None,
-    migration_output: pathlib.Path,
     auto_accept: AutoAcceptOption | None = None,
-) -> MigrationResult:
-    result = MigrationResult()
+) -> MigrationStatus:
+    result = MigrationStatus.load_migration_status()
     cache = analysis_cache.AnalysisCache()
 
     ancestor_commit: str | None = None
@@ -161,13 +272,12 @@ def migrate(
     ):
         if analysis_id is None and spec.analysis_type() == AnalysisTypes.PACK:
             pathlib.Path(spec.spec_filename).unlink()
-            result.items_deleted.append(
-                MigrationItem(
-                    analysis_id=spec.analysis_id(),
-                    pretty_analysis_type=spec.pretty_analysis_type(),
-                    reason="Packs are managed by Panther and not needed in your repo.",
-                )
+            result.items_deleted[spec.analysis_id()] = MigrationItem(
+                analysis_id=spec.analysis_id(),
+                pretty_analysis_type=spec.pretty_analysis_type(),
+                reason="Packs are managed by Panther and not needed in your repo.",
             )
+
             continue
 
         specs.append(spec)
@@ -192,14 +302,9 @@ def migrate(
         disable=analysis_id is not None,
     ) as progress:
         task = progress.add_task("cloning_dependencies", total=None)
-        items = [item.merged_item for item in result.items_migrated if item.merged_item is not None]
+        items = result.migrated_merged_items()
         clone_item.clone_deps(items)
         progress.update(task, completed=True)
-
-    if analysis_id is not None:
-        # skip writing migration results if an analysis id was specified
-        # because the user is only interested in that one analysis item
-        return result
 
     with Progress(
         TextColumn("Writing migration results:"),
@@ -208,59 +313,17 @@ def migrate(
         disable=analysis_id is not None,
     ) as progress:
         task = progress.add_task("writing_migration_results", total=None)
-        write_migration_results(result, migration_output)
+        result.write_migration_status()
         progress.update(task, completed=True)
 
     return result
-
-
-def write_migration_results(
-    migration_result: MigrationResult, migration_output: pathlib.Path
-) -> None:
-    if migration_result.empty():
-        return
-
-    stream = io.StringIO()
-    stream.write("# Migration Results\n\n")
-
-    stream.write("## Migration Summary\n\n")
-    stream.write(f"  * {len(migration_result.items_with_conflicts)} merge conflict(s) found.\n")
-    stream.write(f"  * {len(migration_result.items_deleted)} analysis item(s) deleted.\n")
-    stream.write(f"  * {len(migration_result.items_migrated)} analysis item(s) migrated.\n\n")
-
-    if len(migration_result.items_with_conflicts) > 0:
-        stream.write("## Analysis Items with Merge Conflicts\n\n")
-        stream.write(
-            f"{len(migration_result.items_with_conflicts)} merge conflict(s) found. Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n\n"  # pylint: disable=line-too-long
-        )
-        for conflict in migration_result.items_with_conflicts:
-            stream.write(f"  * ({conflict.pretty_analysis_type}) {conflict.analysis_id}\n")
-        stream.write("\n")
-
-    if len(migration_result.items_deleted) > 0:
-        stream.write("## Analysis Items Deleted\n\n")
-        stream.write(f"{len(migration_result.items_deleted)} analysis item(s) deleted.\n\n")
-        for item in migration_result.items_deleted:
-            stream.write(
-                f"  * ({item.pretty_analysis_type}) {item.analysis_id}{f' - {item.reason}' if item.reason is not None else ''}\n"
-            )
-        stream.write("\n")
-
-    if len(migration_result.items_migrated) > 0:
-        stream.write("## Analysis Items Migrated\n\n")
-        stream.write(f"{len(migration_result.items_migrated)} analysis item(s) migrated.\n\n")
-        for item in migration_result.items_migrated:
-            stream.write(f"  * ({item.pretty_analysis_type}) {item.analysis_id}\n")
-        stream.write("\n")
-
-    migration_output.write_text(stream.getvalue())
 
 
 def get_migration_item(
     user_spec: analysis_utils.LoadAnalysisSpecsResult,
     analysis_id: str | None,
     cache: analysis_cache.AnalysisCache,
-    result: MigrationResult,
+    result: MigrationStatus,
     ancestor_commit: str | None = None,
 ) -> merge_item.MergeableItem | None:
     yaml_loader = yaml.BlockStyleYAML()
@@ -306,12 +369,10 @@ def get_migration_item(
     # was deleted by Panther, delete if the item was unused by the user
     if latest_item is None and not base_item.empty() and not user_spec.enabled():
         user_spec.unlink()
-        result.items_deleted.append(
-            MigrationItem(
-                analysis_id=user_spec_id,
-                pretty_analysis_type=user_spec.pretty_analysis_type(),
-                reason="Item was deleted by Panther since your last update and was disabled in your repo.",
-            )
+        result.items_deleted[user_spec_id] = MigrationItem(
+            analysis_id=user_spec_id,
+            pretty_analysis_type=user_spec.pretty_analysis_type(),
+            reason="Item was deleted by Panther since your last update and was disabled in your repo.",
         )
 
     # this happens with custom analysis items
@@ -350,7 +411,7 @@ def migrate_item(
     item: merge_item.MergeableItem,
     solve_merge: bool,
     editor: str | None,
-    migration_result: MigrationResult,
+    migration_result: MigrationStatus,
     auto_accept: AutoAcceptOption | None = None,
 ) -> None:
     yaml_loader = yaml.BlockStyleYAML()
@@ -358,20 +419,19 @@ def migrate_item(
     has_conflict = merge_item.merge_item(
         mergeable_item=item, solve_merge=solve_merge, editor=editor, auto_accept=auto_accept
     )
+    item_id = item.user_item.analysis_id()
     if has_conflict:
-        migration_result.items_with_conflicts.append(
-            MigrationItem(
-                analysis_id=item.user_item.analysis_id(),
-                pretty_analysis_type=item.user_item.pretty_analysis_type(),
-            )
+        migration_result.items_migrated.pop(item_id, None)
+        migration_result.items_with_conflicts[item_id] = MigrationItem(
+            analysis_id=item_id,
+            pretty_analysis_type=item.user_item.pretty_analysis_type(),
         )
     else:
-        migration_result.items_migrated.append(
-            MigrationItem(
-                analysis_id=item.user_item.analysis_id(),
-                pretty_analysis_type=item.user_item.pretty_analysis_type(),
-                merged_item=item.merged_item,
-            )
+        migration_result.items_with_conflicts.pop(item_id, None)
+        migration_result.items_migrated[item_id] = MigrationItem(
+            analysis_id=item_id,
+            pretty_analysis_type=item.user_item.pretty_analysis_type(),
+            merged_item=item.merged_item,
         )
 
         # once we know there are no conflicts, we can add the BaseVersion to say migration is complete
