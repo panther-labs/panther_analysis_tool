@@ -12,6 +12,7 @@ from panther_analysis_tool.core import analysis_cache, clone_item, git_helpers
 
 
 def run() -> Tuple[int, str]:
+    git_helpers.chdir_to_git_root()
     pull(show_progress_bar=True)
     return 0, ""
 

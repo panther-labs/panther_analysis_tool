@@ -630,6 +630,7 @@ def test_enable_works_with_all_types(
         "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
+    mocker.patch("panther_analysis_tool.command.clone.git_helpers.chdir_to_git_root")
     set_up_cache(tmp_path, monkeypatch)
 
     for _id in [
@@ -656,6 +657,7 @@ def test_enable_sets_base_version_field(
         "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
+    mocker.patch("panther_analysis_tool.command.clone.git_helpers.chdir_to_git_root")
     set_up_cache(tmp_path, monkeypatch)
     code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert code == 0
@@ -677,6 +679,7 @@ def test_enable_messaging(
         "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
+    mocker.patch("panther_analysis_tool.command.clone.git_helpers.chdir_to_git_root")
     set_up_cache(tmp_path, monkeypatch)
     code, err_str = clone.run(analysis_id="bad", filter_args=[])
     assert code == 1

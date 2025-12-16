@@ -137,6 +137,7 @@ def test_pull_and_merge_works(
 ) -> None:
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
     mocker.patch("panther_analysis_tool.command.pull.git_helpers.clone_panther_analysis")
+    mocker.patch("panther_analysis_tool.command.pull.git_helpers.chdir_to_git_root")
 
     set_up_cache(tmp_path, monkeypatch)
     # move the cached versions file to its first location so we can fake move it
