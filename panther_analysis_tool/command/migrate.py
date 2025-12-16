@@ -79,8 +79,9 @@ class MigrationStatus:
     Status of the user's migration.
 
     Attributes:
-        items_with_conflicts: (analysis id, analysis type) of items not migrated due to merge conflicts
-        items_migrated: (analysis id, analysis type) of items migrated
+        items_with_conflicts (dict[str, MigrationItem]): Items not migrated due to merge conflicts
+        items_migrated (dict[str, MigrationItem]): Items migrated
+        items_deleted (dict[str, MigrationItem]): Items deleted during the migration
     """
 
     items_with_conflicts: dict[str, MigrationItem] = dataclasses.field(default_factory=dict)
@@ -103,19 +104,16 @@ class MigrationStatus:
         return len(self.items_with_conflicts) > 0
 
     def items_with_conflicts_sorted(self) -> list[MigrationItem]:
-        return sorted(
-            self.items_with_conflicts.values(), key=lambda x: x.pretty_analysis_type + x.analysis_id
-        )
+        return self._sort_items(self.items_with_conflicts)
 
     def items_deleted_sorted(self) -> list[MigrationItem]:
-        return sorted(
-            self.items_deleted.values(), key=lambda x: x.pretty_analysis_type + x.analysis_id
-        )
+        return self._sort_items(self.items_deleted)
 
     def items_migrated_sorted(self) -> list[MigrationItem]:
-        return sorted(
-            self.items_migrated.values(), key=lambda x: x.pretty_analysis_type + x.analysis_id
-        )
+        return self._sort_items(self.items_migrated)
+
+    def _sort_items(self, items: dict[str, MigrationItem]) -> list[MigrationItem]:
+        return sorted(items.values(), key=lambda x: x.pretty_analysis_type + x.analysis_id)
 
     def migrated_merged_items(self) -> list[analysis_utils.AnalysisItem]:
         return [
