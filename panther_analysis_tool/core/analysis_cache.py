@@ -373,6 +373,8 @@ def update_with_latest_panther_analysis(
     ):
         _populate_sqlite(spec, cache, user_analysis_specs, versions)
 
+    git_helpers.delete_cloned_panther_analysis()
+
 
 def _cache_is_latest(release_branch: str, commit: str) -> bool:
     """

@@ -37,8 +37,6 @@ def pull(show_progress_bar: bool = False, auto_accept: AutoAcceptOption | None =
     if len(mergeable_items) > 0:
         merge.merge_items(mergeable_items, None, None, auto_accept, show_progress_bar)
 
-    git_helpers.delete_cloned_panther_analysis()
-
     # we need to check if the new merged python includes any
     # new global helper imports and clone those so the new python works
     with Progress(

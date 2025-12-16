@@ -14,7 +14,7 @@ class LoadedDataModelSpec:
     log_types: list[str]
 
 
-def clone_analysis_item(item: analysis_utils.AnalysisItem) -> None:
+def clone_analysis_item(item: analysis_utils.AnalysisItem, show_cloned_items: bool = False) -> None:
     """
     Clones the analysis item.
 
@@ -34,6 +34,9 @@ def clone_analysis_item(item: analysis_utils.AnalysisItem) -> None:
     if item.python_file_path is not None and py_path.exists():
         raise FileExistsError(f"{item.analysis_id()} at {py_path} already exists")
 
+    set_enabled_field(item.yaml_file_contents)
+    set_base_version_field(item.yaml_file_contents)
+
     yaml_path.parent.mkdir(parents=True, exist_ok=True)
     with open(yaml_path, "wb") as yaml_file:
         yaml_loader.dump(item.yaml_file_contents, yaml_file)
@@ -43,9 +46,13 @@ def clone_analysis_item(item: analysis_utils.AnalysisItem) -> None:
         with open(py_path, "wb") as py_file:
             py_file.write(item.python_file_contents)
 
+    if show_cloned_items:
+        print(f"{item.pretty_analysis_type()} {item.analysis_id()} cloned.")
+
 
 def clone_deps(
     items_with_deps: list[analysis_utils.AnalysisItem],
+    show_cloned_items: bool = False,
 ) -> None:
     """
     Clones the dependencies of the analysis item.
@@ -116,7 +123,7 @@ def clone_deps(
                 item = cached_analysis_spec_to_analysis_item(
                     global_helpers[import_], cache, versions
                 )
-                clone_analysis_item(item)
+                clone_analysis_item(item, show_cloned_items=show_cloned_items)
             except FileExistsError:
                 pass
 
@@ -127,7 +134,7 @@ def clone_deps(
                 item = cached_analysis_spec_to_analysis_item(data_model.spec_item, cache, versions)
                 set_enabled_field(item.yaml_file_contents)
                 try:
-                    clone_analysis_item(item)
+                    clone_analysis_item(item, show_cloned_items=show_cloned_items)
                 except FileExistsError:
                     pass
                 break
@@ -224,5 +231,6 @@ def set_enabled_field(spec: dict[str, Any]) -> None:
 
 
 def set_base_version_field(spec: dict[str, Any]) -> None:
-    versions = versions_file.get_versions().versions
-    spec["BaseVersion"] = versions[analysis_utils.lookup_analysis_id(spec)].version
+    spec["BaseVersion"] = versions_file.get_versions().get_current_version(
+        analysis_utils.lookup_analysis_id(spec)
+    )
