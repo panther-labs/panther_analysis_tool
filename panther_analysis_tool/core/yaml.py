@@ -24,11 +24,7 @@ class BlockStyleYAML(yaml.YAML):
         if stream is None:
             return None
 
-        try:
-            data = super().load(stream)
-        except scanner.ScannerError:
-            return None
-
+        data = super().load(stream)
         if data is not None:
             self._convert_to_block_style(data)
         return data

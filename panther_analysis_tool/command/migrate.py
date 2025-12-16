@@ -11,7 +11,8 @@ import logging
 import pathlib
 from typing import Tuple
 
-from rich.progress import BarColumn, Progress, TextColumn, track  # from tqdm
+from rich.progress import BarColumn, Progress, TextColumn, track
+from ruamel.yaml import scanner  # from tqdm
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import (
@@ -437,21 +438,19 @@ def migrate_item(  # pylint: disable=too-many-arguments
         # once we know there are no conflicts, or we wrote out the merge conflicts,
         # we can add the BaseVersion to say migration is complete
         yaml_file_path = pathlib.Path(item.user_item.yaml_file_path or "")
-        user_spec: dict | None = yaml_loader.load(yaml_file_path)
-        if user_spec is None:
+        try:
+            user_spec: dict = yaml_loader.load(yaml_file_path)
+            user_spec["BaseVersion"] = item.latest_item_version
+            yaml_loader.dump(user_spec, yaml_file_path)
+        except scanner.ScannerError:
             # the yaml might have failed to parse because we wrote out the merge conflicts,
             # but we still need to add the BaseVersion to say migration is complete so we have
             # to add it directly to the text file
             raw_user_spec = (
                 yaml_file_path.read_text(encoding="utf-8").strip()
-                + f"\nBaseVersion: {item.latest_item_version}\n"  # pylint: disable=unspecified-encoding
+                + f"\nBaseVersion: {item.latest_item_version}\n"
             )
-            yaml_file_path.write_text(
-                raw_user_spec, encoding="utf-8"
-            )  # pylint: disable=unspecified-encoding
-        else:
-            user_spec["BaseVersion"] = item.latest_item_version
-            yaml_loader.dump(user_spec, yaml_file_path)
+            yaml_file_path.write_text(raw_user_spec, encoding="utf-8")
 
 
 def get_base_item(
