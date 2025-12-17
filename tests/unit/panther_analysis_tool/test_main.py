@@ -231,24 +231,39 @@ class TestPantherAnalysisTool(TestCase):
             names.append(invalid_spec[0])
         names.sort()
 
-        self.assertEqual(
-            names,
-            [
-                f"{DETECTIONS_FIXTURES_PATH}/disabled_rule/example_rule.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_invalid_pack.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_policy_bad_resource_type.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_policy_import.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_policy_invalid_characters.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_policy_missing_policy_file.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_policy_set_duplicates.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_rule_bad_log_type.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_rule_set_duplicates.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/example_strict_invalid_yaml.yml",
-                f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/data_models/example_data_model.yml",
-            ],
+        # Expected invalid specs - one of the conflicting files will be present depending on processing order
+        expected_base = [
+            f"{DETECTIONS_FIXTURES_PATH}/example_invalid_pack.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_bad_resource_type.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_import.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_invalid_characters.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_missing_policy_file.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_set_duplicates.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_rule_bad_log_type.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_rule_set_duplicates.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_strict_invalid_yaml.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/data_models/example_data_model.yml",
+        ]
+
+        # Check that one of the conflicting files is in the invalid specs
+        conflict_file_1 = f"{DETECTIONS_FIXTURES_PATH}/disabled_rule/example_rule.yml"
+        conflict_file_2 = f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/rules/example_rule.yml"
+        conflict_found = conflict_file_1 in names or conflict_file_2 in names
+        self.assertTrue(
+            conflict_found,
+            f"Expected one of [{conflict_file_1}, {conflict_file_2}] to be in invalid specs, but got: {names}",
         )
+
+        # Build expected list with the conflict file that's actually present
+        if conflict_file_1 in names:
+            expected = [conflict_file_1] + expected_base
+        else:
+            expected = [conflict_file_2] + expected_base
+        expected.sort()
+
+        self.assertEqual(names, expected)
 
     def test_policies_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
