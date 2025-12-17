@@ -2,6 +2,8 @@ from typing import Annotated, List, Optional, TypeAlias
 
 import typer
 
+from panther_analysis_tool.constants import AutoAcceptOption
+
 API_DOCUMENTATION = "https://docs.panther.com/api-beta"
 
 
@@ -131,5 +133,20 @@ ValidTableNamesType: TypeAlias = Annotated[
             "Repeat the flag to define more than one name. "
             "Accepts '*' as wildcard matching 0 or more characters. Example: foo.*bar.baz"
         ),
+    ),
+]
+
+AutoAcceptType: TypeAlias = Annotated[
+    Optional[AutoAcceptOption],
+    typer.Option(
+        help="Auto accept your changes or Panther's changes for merge conflicts.",
+    ),
+]
+
+WriteMergeConflictsType: TypeAlias = Annotated[
+    bool,
+    typer.Option(
+        help="Write all merge conflicts to their respective files. "
+        + "Use this to bypass the YAML conflict resolver GUI or to avoid solving merge conflicts one at a time.",
     ),
 ]

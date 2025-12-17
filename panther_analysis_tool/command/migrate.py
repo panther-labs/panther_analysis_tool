@@ -11,7 +11,8 @@ import logging
 import pathlib
 from typing import Tuple
 
-from rich.progress import BarColumn, Progress, TextColumn, track  # from tqdm
+from rich.progress import BarColumn, Progress, TextColumn, track
+from ruamel.yaml import scanner  # from tqdm
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import (
@@ -29,6 +30,14 @@ from panther_analysis_tool.core import (
     versions_file,
     yaml,
 )
+
+
+@dataclasses.dataclass
+class MigrateArgs:
+    analysis_id: str | None = None
+    editor: str | None = None
+    auto_accept: AutoAcceptOption | None = None
+    write_merge_conflicts: bool = False
 
 
 @dataclasses.dataclass
@@ -201,18 +210,21 @@ class MigrationStatus:
         return MigrationStatus.from_dict(dict_status)
 
 
-def run(
-    analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None
-) -> Tuple[int, str]:
+def run(args: MigrateArgs) -> Tuple[int, str]:
     git_helpers.chdir_to_git_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 
     try:
-        migration_result = migrate(analysis_id, editor, auto_accept)
+        migration_result = migrate(
+            args.analysis_id,
+            args.editor,
+            args.auto_accept,
+            args.write_merge_conflicts,
+        )
     except file_editor.EditorCommandNotFoundError as err:
         return 1, str(err)
 
-    if analysis_id is not None:
+    if args.analysis_id is not None:
         # skip the completion message if the user specified an analysis id
         return 0, ""
 
@@ -240,10 +252,11 @@ def run(
     return 0, ""
 
 
-def migrate(
+def migrate(  # pylint: disable=too-many-locals
     analysis_id: str | None,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
+    write_merge_conflicts: bool = False,
 ) -> MigrationStatus:
     result = MigrationStatus.load_migration_status()
     cache = analysis_cache.AnalysisCache()
@@ -262,6 +275,13 @@ def migrate(
         disable=analysis_id is not None,
         transient=True,
     ):
+        if spec.analysis_spec is None:
+            logging.warning(
+                "Invalid YAML spec at %s, not migrating",
+                spec.spec_filename,
+            )
+            continue
+
         if spec.analysis_type() == AnalysisTypes.PACK:
             pathlib.Path(spec.spec_filename).unlink()
             result.items_deleted[spec.analysis_id()] = MigrationItem(
@@ -282,7 +302,9 @@ def migrate(
         if item is None:
             continue
 
-        migrate_item(item, analysis_id is not None, editor, result, auto_accept)
+        migrate_item(
+            item, analysis_id is not None, editor, result, auto_accept, write_merge_conflicts
+        )
         ensure_python_file_exists(item)
 
     # we need to check if the new migrated python includes any
@@ -380,17 +402,22 @@ def get_migration_item(
     )
 
 
-def migrate_item(
+def migrate_item(  # pylint: disable=too-many-arguments
     item: merge_item.MergeableItem,
     solve_merge: bool,
     editor: str | None,
     migration_result: MigrationStatus,
     auto_accept: AutoAcceptOption | None = None,
+    write_merge_conflicts: bool = False,
 ) -> None:
     yaml_loader = yaml.BlockStyleYAML()
 
     has_conflict = merge_item.merge_item(
-        mergeable_item=item, solve_merge=solve_merge, editor=editor, auto_accept=auto_accept
+        mergeable_item=item,
+        solve_merge=solve_merge,
+        editor=editor,
+        auto_accept=auto_accept,
+        write_merge_conflicts=write_merge_conflicts,
     )
     item_id = item.user_item.analysis_id()
     if has_conflict:
@@ -407,11 +434,23 @@ def migrate_item(
             merged_item=item.merged_item,
         )
 
-        # once we know there are no conflicts, we can add the BaseVersion to say migration is complete
+    if not has_conflict or write_merge_conflicts:
+        # once we know there are no conflicts, or we wrote out the merge conflicts,
+        # we can add the BaseVersion to say migration is complete
         yaml_file_path = pathlib.Path(item.user_item.yaml_file_path or "")
-        user_spec: dict = yaml_loader.load(yaml_file_path)
-        user_spec["BaseVersion"] = item.latest_item_version
-        yaml_loader.dump(user_spec, yaml_file_path)
+        try:
+            user_spec: dict = yaml_loader.load(yaml_file_path)
+            user_spec["BaseVersion"] = item.latest_item_version
+            yaml_loader.dump(user_spec, yaml_file_path)
+        except scanner.ScannerError:
+            # the yaml might have failed to parse because we wrote out the merge conflicts,
+            # but we still need to add the BaseVersion to say migration is complete so we have
+            # to add it directly to the text file
+            raw_user_spec = (
+                yaml_file_path.read_text(encoding="utf-8").strip()
+                + f"\nBaseVersion: {item.latest_item_version}\n"
+            )
+            yaml_file_path.write_text(raw_user_spec, encoding="utf-8")
 
 
 def get_base_item(

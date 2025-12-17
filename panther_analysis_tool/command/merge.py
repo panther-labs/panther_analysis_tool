@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import pathlib
 from typing import Tuple
@@ -16,18 +17,29 @@ from panther_analysis_tool.core import (
 )
 
 
-def run(
-    analysis_id: str, editor: str | None, auto_accept: AutoAcceptOption | None
-) -> Tuple[int, str]:
+@dataclasses.dataclass
+class MergeArgs:
+    analysis_id: str
+    editor: str | None = None
+    auto_accept: AutoAcceptOption | None = None
+    write_merge_conflicts: bool = False
+
+
+def run(args: MergeArgs) -> Tuple[int, str]:
     try:
         git_helpers.chdir_to_git_root()
-        return merge_analysis(analysis_id, editor, auto_accept)
+        return merge_analysis(
+            args.analysis_id, args.editor, args.auto_accept, args.write_merge_conflicts
+        )
     except file_editor.EditorCommandNotFoundError as err:
         return 1, str(err)
 
 
 def merge_analysis(
-    analysis_id: str | None, editor: str | None, auto_accept: AutoAcceptOption | None = None
+    analysis_id: str | None,
+    editor: str | None,
+    auto_accept: AutoAcceptOption | None = None,
+    write_merge_conflicts: bool = False,
 ) -> Tuple[int, str]:
     # load all user analysis specs
     user_specs = list(load_analysis_specs_ex(["."], [], True))
@@ -45,7 +57,7 @@ def merge_analysis(
         print(f"Analysis ID '{analysis_id}' does not need merging.")
         return 0, ""
 
-    merge_items(mergeable_items, analysis_id, editor, auto_accept)
+    merge_items(mergeable_items, analysis_id, editor, auto_accept, write_merge_conflicts)
 
     return 0, ""
 
@@ -144,12 +156,13 @@ def get_mergeable_items(
     return mergeable_items
 
 
-def merge_items(
+def merge_items(  # pylint: disable=too-many-arguments
     mergeable_items: list[merge_item.MergeableItem],
     analysis_id: str | None,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
     show_progress_bar: bool = False,
+    write_merge_conflicts: bool = False,
 ) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
@@ -166,7 +179,7 @@ def merge_items(
             continue
 
         has_conflict = merge_item.merge_item(
-            mergeable_item, analysis_id is not None, editor, auto_accept
+            mergeable_item, analysis_id is not None, editor, auto_accept, write_merge_conflicts
         )
         if has_conflict:
             merge_conflict_item_ids.append(mergeable_item.user_item.analysis_id())

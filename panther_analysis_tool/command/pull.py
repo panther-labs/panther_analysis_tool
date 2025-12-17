@@ -1,3 +1,4 @@
+import dataclasses
 from typing import Dict, Tuple
 
 from rich.progress import BarColumn, Progress, TextColumn, track
@@ -11,13 +12,27 @@ from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import analysis_cache, clone_item, git_helpers
 
 
-def run() -> Tuple[int, str]:
+@dataclasses.dataclass
+class PullArgs:
+    auto_accept: AutoAcceptOption | None = None
+    write_merge_conflicts: bool = False
+
+
+def run(args: PullArgs) -> Tuple[int, str]:
     git_helpers.chdir_to_git_root()
-    pull(show_progress_bar=True)
+    pull(
+        show_progress_bar=True,
+        auto_accept=args.auto_accept,
+        write_merge_conflicts=args.write_merge_conflicts,
+    )
     return 0, ""
 
 
-def pull(show_progress_bar: bool = False, auto_accept: AutoAcceptOption | None = None) -> None:
+def pull(
+    show_progress_bar: bool = False,
+    auto_accept: AutoAcceptOption | None = None,
+    write_merge_conflicts: bool = False,
+) -> None:
     # load specs
     user_analysis_specs: Dict[str, LoadAnalysisSpecsResult] = {}
     for spec in track(
@@ -35,7 +50,9 @@ def pull(show_progress_bar: bool = False, auto_accept: AutoAcceptOption | None =
     # merge analysis items
     mergeable_items = merge.get_mergeable_items(None, list(user_analysis_specs.values()))
     if len(mergeable_items) > 0:
-        merge.merge_items(mergeable_items, None, None, auto_accept, show_progress_bar)
+        merge.merge_items(
+            mergeable_items, None, None, auto_accept, show_progress_bar, write_merge_conflicts
+        )
 
     # we need to check if the new merged python includes any
     # new global helper imports and clone those so the new python works

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from ruamel import yaml
+from ruamel.yaml import scanner
 
 
 class BlockStyleYAML(yaml.YAML):
