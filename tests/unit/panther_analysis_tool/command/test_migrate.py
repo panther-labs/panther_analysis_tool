@@ -88,6 +88,11 @@ def setup(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.An
     return cache
 
 
+#######################################################################################
+### Test migrate
+#######################################################################################
+
+
 def test_migrate_deletes_items(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
@@ -109,6 +114,10 @@ def test_migrate_deletes_items(
             b"{RuleID: fake.rule.to.delete}",
             b"",
         ],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.get_latest_item_by_path",
+        return_value=None,
     )
     cache = setup(tmp_path, monkeypatch)
 
@@ -611,6 +620,96 @@ def test_get_migration_item_pack(tmp_path: pathlib.Path, monkeypatch: MonkeyPatc
     assert item is None
 
 
+def test_get_migration_item_gets_latest_by_path(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    cache = setup(tmp_path, monkeypatch)
+    rule_1_dict = {
+        "AnalysisType": "rule",
+        "RuleID": "some.old.id.value",
+        "Filename": "fake_rule_1.py",
+    }
+    rule_1_spec = yaml.dump(rule_1_dict)
+    rule_1_py = "def rule(event): return False"
+    new_rule_1_dict = rule_1_dict | {"RuleID": "new.id.value"}
+    new_rule_1_spec = yaml.dump(new_rule_1_dict)
+    new_rule_1_py = "def rule(event): return True"
+
+    mock_get_latest_item_by_path = mocker.patch(
+        "panther_analysis_tool.command.migrate.get_latest_item_by_path",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents=new_rule_1_dict,
+            raw_yaml_file_contents=new_rule_1_spec.encode("utf-8"),
+            yaml_file_path=str(tmp_path / "fake_rule_1.yml"),
+            python_file_contents=new_rule_1_py.encode("utf-8"),
+            python_file_path=str(tmp_path / "fake_rule_1.py"),
+        ),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.get_base_item",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents=rule_1_dict,
+            raw_yaml_file_contents=rule_1_spec.encode("utf-8"),
+            yaml_file_path=str(tmp_path / "fake_rule_1.yml"),
+            python_file_contents=rule_1_py.encode("utf-8"),
+            python_file_path=str(tmp_path / "fake_rule_1.py"),
+        ),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.versions_file.get_versions",
+        return_value=versions_file.Versions(
+            versions={
+                "new.id.value": versions_file.AnalysisVersionItem(
+                    version=100,
+                    type="rule",
+                    history={},
+                    sha256="fake.sha256",
+                ),
+            },
+        ),
+    )
+
+    (tmp_path / "fake_rule_1.yml").write_text(rule_1_spec)
+    (tmp_path / "fake_rule_1.py").write_text(rule_1_py)
+
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=new_rule_1_spec.encode("utf-8"),
+            version=3,
+            id_field="RuleID",
+            id_value="new.id.value",
+        ),
+        new_rule_1_py.encode("utf-8"),
+    )
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    item = migrate.get_migration_item(specs[0], None, cache, migrate.MigrationStatus())
+    assert item is not None
+    assert mock_get_latest_item_by_path.call_count == 1
+
+    assert item.latest_panther_item.yaml_file_contents == new_rule_1_dict
+    assert item.latest_panther_item.raw_yaml_file_contents == new_rule_1_spec.encode("utf-8")
+    assert item.latest_panther_item.yaml_file_path == str(tmp_path / "fake_rule_1.yml")
+    assert item.latest_panther_item.python_file_contents == new_rule_1_py.encode("utf-8")
+    assert item.latest_panther_item.python_file_path == str(tmp_path / "fake_rule_1.py")
+    assert item.latest_item_version == 100
+
+    assert item.user_item.yaml_file_contents == rule_1_dict
+    assert item.user_item.raw_yaml_file_contents == rule_1_spec.encode("utf-8")
+    assert item.user_item.yaml_file_path == str(tmp_path / "fake_rule_1.yml")
+    assert item.user_item.python_file_contents == rule_1_py.encode("utf-8")
+    assert item.user_item.python_file_path == str(tmp_path / "fake_rule_1.py")
+
+    assert item.base_panther_item.yaml_file_contents == rule_1_dict
+    assert item.base_panther_item.raw_yaml_file_contents == rule_1_spec.encode("utf-8")
+    assert item.base_panther_item.yaml_file_path == str(tmp_path / "fake_rule_1.yml")
+    assert item.base_panther_item.python_file_contents == rule_1_py.encode("utf-8")
+    assert item.base_panther_item.python_file_path == str(tmp_path / "fake_rule_1.py")
+
+
 #######################################################################################
 ### Test migrate_items
 #######################################################################################
@@ -949,6 +1048,113 @@ def test_ensure_python_file_exists_nothing_in_remote(
     migrate.ensure_python_file_exists(item)
     assert item.merged_item is not None
     assert not (rule_path / "fake_rule_1.py").exists()
+
+
+#######################################################################################
+### Test get_latest_item_by_path
+#######################################################################################
+
+
+def test_get_latest_item_by_path_no_python(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        return_value=b"AnalysisType: rule\nRuleID: fake.rule.1\nNew: field\n",
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+    rule_path.mkdir(parents=True, exist_ok=True)
+    (rule_path / "fake_rule_1.yml").write_text(
+        yaml.dump(
+            {
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+            }
+        )
+    )
+
+    item = migrate.get_latest_item_by_path(rule_path / "fake_rule_1.yml")
+    assert item is not None
+    assert item.yaml_file_contents == {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.1",
+        "New": "field",
+    }
+    assert item.raw_yaml_file_contents == b"AnalysisType: rule\nRuleID: fake.rule.1\nNew: field\n"
+    assert item.yaml_file_path == str(rule_path / "fake_rule_1.yml")
+    assert item.python_file_contents is None
+    assert item.python_file_path is None
+
+
+def test_get_latest_item_by_path_with_python(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        side_effect=[
+            b"AnalysisType: rule\nRuleID: fake.rule.1\nNew: field\nFilename: fake_rule_1.py\n",
+            b"def rule(event): return True",
+        ],
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+    rule_path.mkdir(parents=True, exist_ok=True)
+    (rule_path / "fake_rule_1.yml").write_text(
+        yaml.dump(
+            {
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+                "Filename": "fake_rule_1.py",
+            }
+        )
+    )
+    (rule_path / "fake_rule_1.py").write_bytes(b"def rule(event): return False")
+
+    item = migrate.get_latest_item_by_path(rule_path / "fake_rule_1.yml")
+    assert item is not None
+    assert item.yaml_file_contents == {
+        "AnalysisType": "rule",
+        "RuleID": "fake.rule.1",
+        "New": "field",
+        "Filename": "fake_rule_1.py",
+    }
+    assert (
+        item.raw_yaml_file_contents
+        == b"AnalysisType: rule\nRuleID: fake.rule.1\nNew: field\nFilename: fake_rule_1.py\n"
+    )
+    assert item.yaml_file_path == str(rule_path / "fake_rule_1.yml")
+    assert item.python_file_contents == b"def rule(event): return True"
+    assert item.python_file_path == str(rule_path / "fake_rule_1.py")
+
+
+def test_get_latest_item_by_path_no_spec(tmp_path: pathlib.Path, mocker: MockerFixture) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_file_at_commit",
+        return_value=None,
+    )
+
+    rule_path = tmp_path / "rules" / "fake_rules"
+    rule_path.mkdir(parents=True, exist_ok=True)
+    (rule_path / "fake_rule_1.yml").write_text(
+        yaml.dump(
+            {
+                "AnalysisType": "rule",
+                "RuleID": "fake.rule.1",
+            }
+        )
+    )
+
+    item = migrate.get_latest_item_by_path(rule_path / "fake_rule_1.yml")
+    assert item is None
 
 
 #######################################################################################

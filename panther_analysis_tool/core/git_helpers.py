@@ -153,7 +153,7 @@ def merge_file(
         ]
     )
 
-    proc = subprocess.run(  # nosec:B607 B603
+    proc = subprocess.run(  # nosec:B603
         args,
         check=False,
         capture_output=True,

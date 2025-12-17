@@ -262,10 +262,18 @@ def migrate(  # pylint: disable=too-many-locals
     cache = analysis_cache.AnalysisCache()
 
     ancestor_commit: str | None = None
-    try:
-        ancestor_commit = git_helpers.get_forked_panther_analysis_common_ancestor()
-    except RuntimeError as err:
-        logging.debug("Failed to get forked panther analysis common ancestor: %s", err)
+
+    with Progress(
+        TextColumn("Checking when repo last updated:"),
+        BarColumn(),
+        transient=True,
+    ) as progress:
+        task = progress.add_task("checking_for_common_ancestor", total=None)
+        try:
+            ancestor_commit = git_helpers.get_forked_panther_analysis_common_ancestor()
+        except RuntimeError as err:
+            logging.debug("Failed to get forked panther analysis common ancestor: %s", err)
+        progress.update(task, completed=True)
 
     # load all user analysis specs
     specs: list[analysis_utils.LoadAnalysisSpecsResult] = []
@@ -282,7 +290,7 @@ def migrate(  # pylint: disable=too-many-locals
             )
             continue
 
-        if spec.analysis_type() == AnalysisTypes.PACK:
+        if analysis_id is None and spec.analysis_type() == AnalysisTypes.PACK:
             pathlib.Path(spec.spec_filename).unlink()
             result.items_deleted[spec.analysis_id()] = MigrationItem(
                 analysis_id=spec.analysis_id(),
@@ -360,11 +368,28 @@ def get_migration_item(
 
     base_item = get_base_item(user_spec, ancestor_commit)
 
+    latest_item: analysis_utils.AnalysisItem | None = None
+    latest_version: int | None = None
+
     # load the latest analysis item from the cache using the user spec's ID
     latest_spec = cache.get_latest_spec(user_spec_id)
 
+    # the latest item is simply the latest spec if it was in the cache
+    if latest_spec is not None:
+        latest_item = analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml_loader.load(latest_spec.spec),
+            raw_yaml_file_contents=latest_spec.spec,
+            python_file_contents=cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version),
+        )
+        latest_version = latest_spec.version
+
+    # if the latest spec is empty but the base exists, there is a chance panther changed the ID
+    # but it is still at the same path, so we can check to see if the latest item is in the remote upstream
+    if latest_item is None and not base_item.empty():
+        latest_item = get_latest_item_by_path(pathlib.Path(user_spec.spec_filename))
+
     # was deleted by Panther, delete if the item was unused by the user
-    if latest_spec is None and not base_item.empty() and not user_spec.enabled():
+    if latest_item is None and not base_item.empty() and not user_spec.enabled():
         user_spec.unlink()
         result.items_deleted[user_spec_id] = MigrationItem(
             analysis_id=user_spec_id,
@@ -372,10 +397,16 @@ def get_migration_item(
             reason="Item was deleted by Panther since your last update and was disabled in your repo.",
         )
 
-    if latest_spec is None:
-        # this happens with custom analysis items
-        # or if the item was removed by Panther
+    # this happens with custom analysis items
+    # or if the item was removed by Panther
+    if latest_item is None:
         return None
+
+    # if the latest spec was not in the cache, we don't have a version number yet,
+    # so we need to get it from the versions file
+    if latest_version is None:
+        versions = versions_file.get_versions()
+        latest_version = versions.versions[latest_item.analysis_id()].version
 
     # load the python file for the user spec from the file system
     user_py: bytes | None = None
@@ -392,13 +423,9 @@ def get_migration_item(
             python_file_contents=user_py,
             python_file_path=str(py_path) if py_path is not None else None,
         ),
-        latest_panther_item=analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml_loader.load(latest_spec.spec),
-            raw_yaml_file_contents=latest_spec.spec,
-            python_file_contents=cache.get_file_for_spec(latest_spec.id or -1, latest_spec.version),
-        ),
+        latest_panther_item=latest_item,
         base_panther_item=base_item,
-        latest_item_version=latest_spec.version,
+        latest_item_version=latest_version,
     )
 
 
@@ -540,3 +567,37 @@ def ensure_python_file_exists(item: merge_item.MergeableItem) -> None:
     # update the merged item with the new stuff
     item.merged_item.python_file_contents = python_file_contents
     item.merged_item.python_file_path = str(abs_python_file_path)
+
+
+def get_latest_item_by_path(spec_path: pathlib.Path) -> analysis_utils.AnalysisItem | None:
+    """
+    Get the latest version of an analysis item from the remote upstream using the
+    spec path of an analysis item in the user's repo. If the spec path is not found
+    in the remote upstream, return None.
+    """
+    git_spec_file_path = spec_path.relative_to(git_helpers.git_root())
+    spec_file_contents = git_helpers.get_file_at_commit(
+        git_helpers.REMOTE_UPSTREAM_NAME, git_spec_file_path
+    )
+    if spec_file_contents is None or spec_file_contents == b"":
+        return None
+
+    yaml_loader = yaml.BlockStyleYAML()
+    spec = yaml_loader.load(spec_file_contents)
+
+    item = analysis_utils.AnalysisItem(
+        yaml_file_contents=spec,
+        raw_yaml_file_contents=spec_file_contents,
+        yaml_file_path=str(spec_path),
+    )
+
+    if "Filename" in spec:
+        py_file_path = git_spec_file_path.parent / spec["Filename"]
+        py_file_contents = git_helpers.get_file_at_commit(
+            git_helpers.REMOTE_UPSTREAM_NAME, py_file_path
+        )
+        if py_file_contents is not None and py_file_contents != b"":
+            item.python_file_contents = py_file_contents
+            item.python_file_path = str(spec_path.parent / spec["Filename"])
+
+    return item
