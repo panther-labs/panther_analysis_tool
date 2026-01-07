@@ -1,0 +1,25 @@
+AnalysisType: rule
+Filename: example_rule_with_unique.py
+DisplayName: Rule with Unique Function
+Description: Example rule demonstrating unique() function for unique value aggregation
+Severity: Medium
+RuleID: Example.Rule.WithUnique
+Enabled: true
+LogTypes:
+  - Custom.LogType
+Tags:
+  - Example
+  - Unique
+Tests:
+  -
+    Name: Test with unique function
+    ExpectedResult: true
+    Log:
+      suspicious: true
+      user_id: "user123"
+  -
+    Name: Test no match
+    ExpectedResult: false
+    Log:
+      suspicious: false
+      user_id: "user456"
