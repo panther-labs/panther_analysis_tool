@@ -196,6 +196,7 @@ class EnrichedEventGenerator:
                         test["Name"],
                         analysis_id,
                     )
+                    continue
 
                 results.append(event_enrichment_result)
 

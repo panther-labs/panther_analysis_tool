@@ -1075,7 +1075,7 @@ def setup_data_models(
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-many-statements
+def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-many-statements,too-many-positional-arguments
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[ClassifiedAnalysis],
     minimum_tests: int,
@@ -1516,7 +1516,7 @@ def check_packs(path: str) -> Tuple[int, str]:
     return 0, "Looks like packs are up to date"
 
 
-def run_tests(  # pylint: disable=too-many-arguments
+def run_tests(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     analysis: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
     detection: Optional[Detection],
@@ -1610,7 +1610,7 @@ def _process_correlation_rule_test_results(
 
 
 # pylint: disable=too-many-statements
-def _run_tests(  # pylint: disable=too-many-arguments
+def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     analysis_data_models: Dict[str, DataModel],
     detection: Optional[Detection],
     tests: List[Dict[str, Any]],
@@ -1847,7 +1847,7 @@ def global_options(
         "panther-analysis-all.sig"
     )
 )
-def release(
+def release(  # pylint: disable=too-many-positional-arguments
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     kms_key: KMSKeyType = "",
@@ -1902,7 +1902,7 @@ def release(
 
 
 @app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
-def test(
+def test(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -1960,7 +1960,7 @@ def test(
     name="debug",
     help="Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.",
 )
-def debug_command(
+def debug_command(  # pylint: disable=too-many-positional-arguments
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
     api_token: APITokenType = None,
@@ -2012,7 +2012,7 @@ def debug_command(
         + "panther-analysis-all.sig"
     ),
 )
-def publish_command(
+def publish_command(  # pylint: disable=too-many-positional-arguments
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
@@ -2079,7 +2079,7 @@ def publish_command(
 
 
 @app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
-def upload(
+def upload(  # pylint: disable=too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2140,7 +2140,7 @@ def upload(
 
 
 @app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
-def delete(
+def delete(  # pylint: disable=too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2226,7 +2226,7 @@ def validate_cmd(
 @app_command_with_config(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
-def zip_cmd(
+def zip_cmd(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2297,7 +2297,7 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
         "is an extension of Data Replay and is subject to the same limitations."
     ),
 )
-def benchmark_command(
+def benchmark_command(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2358,7 +2358,7 @@ def benchmark_command(
     name="enrich-test-data",
     help="Enrich test data with additional enrichments from the Panther API.",
 )
-def enrich_test_data_command(
+def enrich_test_data_command(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
