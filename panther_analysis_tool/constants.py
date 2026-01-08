@@ -95,7 +95,7 @@ CACHE_DIR = pathlib.Path(".cache")
 PANTHER_ANALYSIS_SQLITE_FILE = "panther-analysis.sqlite"
 PANTHER_ANALYSIS_SQLITE_FILE_PATH = CACHE_DIR / PANTHER_ANALYSIS_SQLITE_FILE
 CACHED_VERSIONS_FILE_PATH = CACHE_DIR / ".versions.yml"
-LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH = CACHE_DIR / "latest-panther-analysis.txt"
+LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH = CACHE_DIR / "latest-panther-analysis.json"
 CACHED_MIGRATION_STATUS_FILE_PATH = CACHE_DIR / "migration_status.json"
 MIGRATION_STATUS_FILE_PATH = pathlib.Path("migration_status.md")
 
