@@ -512,6 +512,7 @@ def load_analysis(
     valid_table_names: List[str],
     ignore_files: List[str],
     ignore_extra_keys: bool,
+    backend_client=None,
 ) -> Tuple[Any, List[Any]]:
     """Loads each policy or rule into memory.
 
@@ -520,6 +521,7 @@ def load_analysis(
         ignore_table_names: validate or ignore table names
         valid_table_names: list of valid table names, other will be treated as invalid
         ignore_files: Files that Panther Analysis Tool should not process
+        backend_client: Optional backend client for dynamic log type validation
 
     Returns:
         A tuple of the valid and invalid rules and policies
@@ -545,6 +547,7 @@ def load_analysis(
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
         ignore_extra_keys=ignore_extra_keys,
+        backend_client=backend_client,
     )
 
     return specs, invalid_specs
@@ -556,6 +559,7 @@ def classify_analysis(
     ignore_table_names: bool,
     valid_table_names: List[str],
     ignore_extra_keys: bool,
+    backend_client=None,
 ) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -569,6 +573,11 @@ def classify_analysis(
 
     # Create a json validator and check the schema only once rather than during every loop
     json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)
+
+    # Initialize log type validator with the backend client (if provided)
+    from panther_analysis_tool.schemas import initialize_log_type_validator
+
+    initialize_log_type_validator(backend_client)
 
     # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
@@ -663,7 +672,14 @@ def classify_analysis(
             first_half = err_str.split(":", maxsplit=1)[0]
             second_half = err_str.split(")", maxsplit=1)[-1]
             if "LogTypes" in str(err):
-                error = schema.SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
+                if backend_client:
+                    error = schema.SchemaError(
+                        f"{first_half}: Invalid log type (validated against Panther instance){second_half}"
+                    )
+                else:
+                    error = schema.SchemaError(
+                        f"{first_half}: Invalid log type format. Only Custom.* allowed without API credentials{second_half}"
+                    )
             elif "ResourceTypes" in str(err):
                 error = schema.SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
