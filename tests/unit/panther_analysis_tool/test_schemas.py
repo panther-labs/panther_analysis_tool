@@ -9,7 +9,6 @@ from panther_analysis_tool.schemas import (
     CORRELATION_RULE_SCHEMA,
     DATA_MODEL_SCHEMA,
     DERIVED_SCHEMA,
-    LOG_TYPE_REGEX,
     MOCK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
@@ -19,6 +18,20 @@ from panther_analysis_tool.schemas import (
 
 
 class TestPATSchemas(unittest.TestCase):
+    def setUp(self):
+        """Set up test fixtures - mock the log type validator to accept all log types."""
+        import panther_analysis_tool.schemas as schemas_module
+
+        # Mock the validator to accept all log types for testing
+        schemas_module._log_type_validator = lambda log_type: log_type
+
+    def tearDown(self):
+        """Clean up after tests."""
+        import panther_analysis_tool.schemas as schemas_module
+
+        # Reset the validator
+        schemas_module._log_type_validator = None
+
     def test_known_log_types(self):
         arr = [
             "AWS.ALB",
@@ -217,45 +230,24 @@ class TestPATSchemas(unittest.TestCase):
             "Zoom.Activity",
             "Zoom.Operation",
         ]
-        for log_type in arr:
-            LOG_TYPE_REGEX.validate(log_type)
+        # Note: These log types are now validated dynamically via the Panther API
+        # The static regex tests have been removed in favor of dynamic validation
+        # See test_log_type_validator.py for validator tests
+        pass
 
     def test_logtypes_regex_amazon_eks(self):
-        LOG_TYPE_REGEX.validate("Amazon.EKS.Audit")
-        LOG_TYPE_REGEX.validate("Amazon.EKS.Authenticator")
-
-        with self.assertRaises(SchemaError):
-            LOG_TYPE_REGEX.validate("Amazon.EKS.Foo")
+        # This test has been removed - log types are now validated dynamically
+        # See test_log_type_validator.py for validator tests
+        pass
 
     def test_logtypes_regex_zeek(self):
-        LOG_TYPE_REGEX.validate("Zeek.CaptureLoss")
-        LOG_TYPE_REGEX.validate("Zeek.Conn")
-        LOG_TYPE_REGEX.validate("Zeek.DHCP")
-        LOG_TYPE_REGEX.validate("Zeek.DNS")
-        LOG_TYPE_REGEX.validate("Zeek.DPD")
-        LOG_TYPE_REGEX.validate("Zeek.Files")
-        LOG_TYPE_REGEX.validate("Zeek.HTTP")
-        LOG_TYPE_REGEX.validate("Zeek.Notice")
-        LOG_TYPE_REGEX.validate("Zeek.NTP")
-        LOG_TYPE_REGEX.validate("Zeek.OCSP")
-        LOG_TYPE_REGEX.validate("Zeek.Reporter")
-        LOG_TYPE_REGEX.validate("Zeek.SIP")
-        LOG_TYPE_REGEX.validate("Zeek.Software")
-        LOG_TYPE_REGEX.validate("Zeek.Ssh")
-        LOG_TYPE_REGEX.validate("Zeek.Ssl")
-        LOG_TYPE_REGEX.validate("Zeek.Stats")
-        LOG_TYPE_REGEX.validate("Zeek.Tunnel")
-        LOG_TYPE_REGEX.validate("Zeek.Weird")
-        LOG_TYPE_REGEX.validate("Zeek.X509")
+        # This test has been removed - log types are now validated dynamically
+        # See test_log_type_validator.py for validator tests
+        pass
 
     def test_mocks_are_str(self):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "Testing a string"})
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "False"})
-
-        with self.assertRaises(SchemaError):
-            LOG_TYPE_REGEX.validate(
-                {"objectName": "hello", "returnValue": ["Testing a non-string"]}
-            )
 
     def test_data_model_path(self):
         sample_datamodel = {

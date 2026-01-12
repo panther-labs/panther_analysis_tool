@@ -1,10 +1,47 @@
 import json
 import pkgutil
-from typing import Any, Dict, Set
+from typing import Any, Callable, Dict
+from typing import Optional as TypingOptional
+from typing import Set
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
-from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
+# Module-level validator for dynamic log type validation
+_log_type_validator: TypingOptional[Callable[[str], str]] = None
+
+
+def initialize_log_type_validator(backend) -> None:
+    """
+    Initializes the log type validator with an optional backend client.
+
+    This should be called before any schema validation occurs. The validator
+    will be cached for the session.
+
+    Args:
+        backend: Optional backend client (PublicAPIClient or LambdaClient).
+                 If None, only Custom.* format validation will be performed.
+    """
+    global _log_type_validator
+    from panther_analysis_tool.log_type_validator import create_log_type_validator
+
+    _log_type_validator = create_log_type_validator(backend)
+
+
+def get_log_type_validator() -> Callable[[str], str]:
+    """
+    Returns the current log type validator.
+
+    If the validator has not been initialized, creates a default validator
+    that only validates Custom.* format.
+
+    Returns:
+        A callable that validates log type strings
+    """
+    if _log_type_validator is None:
+        from panther_analysis_tool.log_type_validator import create_log_type_validator
+
+        return create_log_type_validator(None)
+    return _log_type_validator
 
 
 class QueryScheduleSchema(Schema):
@@ -26,6 +63,8 @@ class QueryScheduleSchema(Schema):
 
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
+
+# Resource type validation - hardcoded list of supported AWS resource types
 RESOURCE_TYPE_REGEX = Regex(
     r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
     r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
@@ -66,7 +105,7 @@ DATA_MODEL_SCHEMA = Schema(
         "AnalysisType": Or("datamodel"),
         "DataModelID": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
-        "LogTypes": And([str], [LOG_TYPE_REGEX]),
+        "LogTypes": And([str], [lambda lt: get_log_type_validator()(lt)]),
         "Mappings": [
             {
                 "Name": str,
@@ -145,7 +184,9 @@ RULE_SCHEMA = Schema(
         "Enabled": bool,
         Or("Filename", "Detection", only_one=True): Or(str, object),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
+        Or("LogTypes", "ScheduledQueries", only_one=True): And(
+            [str], [lambda lt: get_log_type_validator()(lt)]
+        ),
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,

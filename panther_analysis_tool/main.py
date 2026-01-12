@@ -877,6 +877,7 @@ def test_analysis(
         args.valid_table_names,
         args.ignore_files,
         args.ignore_extra_keys,
+        backend,
     )
     if specs.empty():
         if invalid_specs:
@@ -1395,7 +1396,7 @@ def check_packs(path: str) -> Tuple[int, str]:
     Checks each existing pack whether it includes all necessary rules and other items. Also checks
     if any detections, queries, etc. are not included in any packs
     """
-    specs, _ = load_analysis(path, True, [], [], False)
+    specs, _ = load_analysis(path, True, [], [], False, None)
 
     dependencies = {}  # Create a mapping of dependencies of each analysis item
     log_types = {}  # Which items depend on which log types
