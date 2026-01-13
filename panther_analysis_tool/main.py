@@ -2468,9 +2468,14 @@ def clone_command(
             autocompletion=complete_id,
         ),
     ] = None,
+    all_: Annotated[bool, typer.Option("--all", help="Clone all analysis items.")] = False,
 ) -> Tuple[int, str]:
     if filters is None:
         filters = []
+    if all_ and analysis_id is not None:
+        return 1, "Cannot use --all and supply an analysis ID"
+    if not all_ and analysis_id is None:
+        return 1, "Must supply an analysis ID or use --all"
     return clone.run(analysis_id, filters)
 
 
