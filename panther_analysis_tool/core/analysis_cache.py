@@ -1,11 +1,14 @@
 import dataclasses
+import json
 import logging
 import os
 import pathlib
 import shutil
 import sqlite3
+from datetime import datetime, timedelta
 from typing import Optional
 
+import pydantic
 from rich.progress import BarColumn, Progress, TextColumn, track
 
 from panther_analysis_tool import analysis_utils
@@ -335,10 +338,18 @@ def update_with_latest_panther_analysis(
     """
     # allows for testing against a different branch or manual override
     release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
-    commit = ""
 
     if release_branch == "":
         release_branch = "main"
+
+    # Check if cache is expired first (without calling git_helpers)
+    if not _cache_is_expired(release_branch):
+        # Cache is still valid, no need to update
+        return
+
+    # Cache is expired, get the latest commit and compare
+    commit = ""
+    if release_branch == "main":
         commit = git_helpers.panther_analysis_latest_release_commit()
         logging.debug("Using Panther Analysis release: %s", commit)
 
@@ -376,9 +387,53 @@ def update_with_latest_panther_analysis(
     git_helpers.delete_cloned_panther_analysis()
 
 
+class LatestCachedCommit(pydantic.BaseModel):
+    commit: str
+    expiration: datetime
+
+    def is_expired(self) -> bool:
+        return self.expiration < datetime.now()
+
+    @staticmethod
+    def load() -> "LatestCachedCommit":
+        file_content = LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip()
+        if not file_content:
+            raise RuntimeError("Latest cached Panther Analysis file is empty")
+
+        cached_json = json.loads(file_content)
+        if "commit" not in cached_json or "expiration" not in cached_json:
+            # the filepath of this changed from `.txt` to `.json`, so we are recommending `.*` to delete whatever version they have
+            raise RuntimeError("Latest cached Panther Analysis file is invalid")
+
+        return LatestCachedCommit(**cached_json)
+
+    def save(self) -> None:
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text(self.model_dump_json())
+
+
+def _cache_is_expired(release_branch: str) -> bool:
+    """
+    Check if the cache has expired (without checking commit).
+    Returns True if cache is expired or doesn't exist, False if cache is still valid.
+    """
+    if release_branch != "main":
+        return True  # not main branch, always need to update
+
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch(exist_ok=True)
+
+    try:
+        latest_cached = LatestCachedCommit.load()
+        return latest_cached.is_expired()
+    except (RuntimeError, json.JSONDecodeError):
+        # File is empty or invalid, cache is expired
+        return True
+
+
 def _cache_is_latest(release_branch: str, commit: str) -> bool:
     """
     Check if the cache is up to date with the latest Panther Analysis content.
+    Returns True if the commit matches, False otherwise. Always updates the cache expiration.
     """
     if release_branch != "main":
         return False  # not main branch, always need to update
@@ -387,16 +442,16 @@ def _cache_is_latest(release_branch: str, commit: str) -> bool:
 
     LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
     LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch(exist_ok=True)
+    new_expiration = datetime.now() + timedelta(hours=1)
 
-    latest_cached_commit = LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip()
-    if latest_cached_commit == commit:
-        return True
-
-    # update the cached commit with the latest commit
-    if commit != "":
-        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text(commit)
-
-    return False
+    try:
+        latest_cached = LatestCachedCommit.load()
+        return latest_cached.commit == commit
+    except (RuntimeError, json.JSONDecodeError):
+        return False
+    finally:
+        if commit != "":
+            LatestCachedCommit(commit=commit, expiration=new_expiration).save()
 
 
 def _clone_panther_analysis(release_branch: str, commit: str) -> None:

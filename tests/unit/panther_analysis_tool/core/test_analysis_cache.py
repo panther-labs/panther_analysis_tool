@@ -1,4 +1,6 @@
+import json
 import pathlib
+from datetime import datetime, timedelta
 
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
@@ -764,33 +766,296 @@ def test_cache_is_latest(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> No
     monkeypatch.chdir(tmp_path)
     assert not LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.exists()
 
+    # First call with empty cache should return False and create cache
     assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
-    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_1"
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_1"
+    assert not cached.is_expired()
+
+    # Same commit should return True (commit matches)
     assert analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+    # Expiration should be refreshed
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_1"
+    assert not cached.is_expired()
 
+    # Different commit should return False and update cache
     assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_2")
-    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_2"
-    assert analysis_cache._cache_is_latest("main", "fake_commit_hash_2")
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_2"
+    assert not cached.is_expired()
 
+    # Same commit should return True again
+    assert analysis_cache._cache_is_latest("main", "fake_commit_hash_2")
+    # Expiration should be refreshed again
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_2"
+    assert not cached.is_expired()
+
+    # Empty commit should return False and not update cache
     assert not analysis_cache._cache_is_latest("main", "")
-    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_2"
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_2"  # Should remain unchanged
 
 
 def test_update_with_latest_panther_analysis_skips_if_cache_is_latest(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    mocker.patch(
+    mock_get_commit = mocker.patch(
         "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
         return_value="fake_commit_hash_1",
     )
     monkeypatch.chdir(tmp_path)
     LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
     LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch()
-    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("fake_commit_hash_1")
+    # Set expiration in the past (cache is expired, but commit will match)
+    expiration = datetime.now() - timedelta(hours=2)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text(
+        analysis_cache.LatestCachedCommit(
+            commit="fake_commit_hash_1", expiration=expiration
+        ).model_dump_json()
+    )
 
     analysis_cache.update_with_latest_panther_analysis()
-    assert LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip() == "fake_commit_hash_1"
+    result = analysis_cache.LatestCachedCommit(
+        **json.loads(LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text())
+    )
+    # Cache commit should match, and expiration should be refreshed
+    assert result.commit == "fake_commit_hash_1"
+    assert not result.is_expired()  # Expiration should be refreshed to 1 hour from now
     assert not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists()
+    # Verify that panther_analysis_latest_release_commit() was called (cache was expired)
+    mock_get_commit.assert_called_once()
+
+
+def test_update_with_latest_panther_analysis_calls_git_when_cache_expired(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that panther_analysis_latest_release_commit() is called when cache is expired.
+    """
+    mock_get_commit = mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+        return_value="fake_commit_hash_2",
+    )
+    mocker.patch("panther_analysis_tool.core.analysis_cache._clone_panther_analysis")
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.delete_cloned_panther_analysis"
+    )
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.analysis_utils.load_analysis_specs_ex",
+        return_value=[],
+    )
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Create versions file (required by update_with_latest_panther_analysis)
+    CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    create_file_with_text(CACHED_VERSIONS_FILE_PATH, _FAKE_VERSIONS_FILE)
+    # Set expiration in the past (cache is expired)
+    expiration = datetime.now() - timedelta(hours=2)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text(
+        analysis_cache.LatestCachedCommit(
+            commit="fake_commit_hash_1", expiration=expiration
+        ).model_dump_json()
+    )
+
+    analysis_cache.update_with_latest_panther_analysis()
+    # Verify that panther_analysis_latest_release_commit() WAS called since cache is expired
+    mock_get_commit.assert_called_once()
+
+
+def test_cache_expiration_logic(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that the cache logic works correctly - expiration is always refreshed, only commit matching matters.
+    """
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+        return_value="fake_commit_hash_1",
+    )
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create a cache that's expired (2 hours ago)
+    expiration = datetime.now() - timedelta(hours=2)
+    analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+
+    # Cache should be considered latest (commit matches, expiration doesn't matter)
+    assert analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+
+    # Verify that the expiration was refreshed to 1 hour from now
+    result = analysis_cache.LatestCachedCommit.load()
+    assert result.commit == "fake_commit_hash_1"
+    # Expiration should be approximately 1 hour from now (allow 1 second tolerance)
+    expected_expiration = datetime.now() + timedelta(hours=1)
+    assert abs((result.expiration - expected_expiration).total_seconds()) < 1
+
+    # Cache should still be considered latest (commit still matches)
+    assert analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+
+    # Test with different commit - should not be latest
+    # Different commit should not be latest
+    assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_2")
+
+    # Verify commit was updated and expiration was refreshed
+    result = analysis_cache.LatestCachedCommit.load()
+    assert result.commit == "fake_commit_hash_2"
+    assert not result.is_expired()
+    # Expiration should be approximately 1 hour from now
+    expected_expiration = datetime.now() + timedelta(hours=1)
+    assert abs((result.expiration - expected_expiration).total_seconds()) < 1
+
+
+def test_cache_is_latest_non_main_branch(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """
+    Test that _cache_is_latest returns False for non-main branches.
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create a valid cache
+    analysis_cache.LatestCachedCommit(
+        commit="fake_commit_hash_1", expiration=datetime.now() + timedelta(hours=1)
+    ).save()
+
+    # Non-main branch should return False regardless of commit
+    assert not analysis_cache._cache_is_latest("develop", "fake_commit_hash_1")
+    assert not analysis_cache._cache_is_latest("feature-branch", "any_commit")
+
+
+def test_cache_is_expired_non_main_branch(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """
+    Test that _cache_is_expired returns True for non-main branches.
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create a valid cache
+    analysis_cache.LatestCachedCommit(
+        commit="fake_commit_hash_1", expiration=datetime.now() + timedelta(hours=1)
+    ).save()
+
+    # Non-main branch should return True (expired) regardless of actual expiration
+    assert analysis_cache._cache_is_expired("develop")
+    assert analysis_cache._cache_is_expired("feature-branch")
+
+
+def test_cache_is_latest_invalid_json(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """
+    Test that _cache_is_latest handles invalid JSON in cache file.
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write invalid JSON to cache file
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("invalid json content")
+
+    # Should return False and create new cache
+    assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+
+    # Verify new cache was created
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_1"
+    assert not cached.is_expired()
+
+
+def test_cache_is_expired_invalid_json(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """
+    Test that _cache_is_expired handles invalid JSON in cache file.
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write invalid JSON to cache file
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("invalid json content")
+
+    # Should return True (expired) for invalid cache
+    assert analysis_cache._cache_is_expired("main")
+
+
+def test_cache_is_latest_missing_keys_in_json(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """
+    Test that _cache_is_latest handles JSON missing required keys (commit or expiration).
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write JSON missing required keys
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text('{"some_other_key": "value"}')
+
+    # Should return False and create new cache
+    assert not analysis_cache._cache_is_latest("main", "fake_commit_hash_1")
+
+    # Verify new cache was created
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == "fake_commit_hash_1"
+    assert not cached.is_expired()
+
+
+def test_cache_is_expired_missing_keys_in_json(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """
+    Test that _cache_is_expired handles JSON missing required keys (commit or expiration).
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write JSON missing required keys
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text('{"some_other_key": "value"}')
+
+    # Should return True (expired) for invalid cache
+    assert analysis_cache._cache_is_expired("main")
+
+
+def test_cache_is_latest_empty_commit_with_existing_cache(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """
+    Test that _cache_is_latest handles empty commit string with existing cache.
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create existing cache
+    original_commit = "fake_commit_hash_1"
+    original_expiration = datetime.now() + timedelta(hours=1)
+    analysis_cache.LatestCachedCommit(commit=original_commit, expiration=original_expiration).save()
+
+    # Call with empty commit - should return False and not update cache
+    assert not analysis_cache._cache_is_latest("main", "")
+
+    # Verify cache was not modified
+    cached = analysis_cache.LatestCachedCommit.load()
+    assert cached.commit == original_commit
+    assert cached.expiration == original_expiration
+
+
+def test_cache_is_expired_with_valid_cache(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """
+    Test that _cache_is_expired correctly identifies expired and non-expired caches.
+    """
+    monkeypatch.chdir(tmp_path)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Test with non-expired cache
+    expiration = datetime.now() + timedelta(hours=1)
+    analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+    assert not analysis_cache._cache_is_expired("main")
+
+    # Test with expired cache
+    expiration = datetime.now() - timedelta(hours=2)
+    analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+    assert analysis_cache._cache_is_expired("main")
+
+    # Test with empty cache file
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("")
+    assert analysis_cache._cache_is_expired("main")
 
 
 def test_populate_skips_packs(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
