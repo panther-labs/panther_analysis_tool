@@ -1,0 +1,15 @@
+AnalysisType: rule
+Filename: deprecated_displayname.py
+DisplayName: DEPRECATED - Rule With Deprecated DisplayName
+Description: This rule has DEPRECATED in DisplayName
+Severity: High
+RuleID: Test.Deprecated.DisplayName.Rule
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      eventName: CreateUser

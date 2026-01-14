@@ -1,0 +1,7 @@
+AnalysisType: pack
+Description: Pack with deprecated displayname item (should fail)
+DisplayName: Test Pack With Deprecated DisplayName
+PackID: Test.Pack.With.Deprecated.DisplayName
+PackDefinition:
+  IDs:
+    - Test.Deprecated.DisplayName.Rule
