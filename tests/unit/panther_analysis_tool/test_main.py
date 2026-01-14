@@ -14,7 +14,8 @@ from panther_core.data_model import _DATAMODEL_FOLDER
 from pyfakefs.fake_filesystem_unittest import Pause, TestCase
 from typer.testing import CliRunner, Result
 
-from panther_analysis_tool import analysis_utils, main
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool import main
 from panther_analysis_tool import main as pat
 from panther_analysis_tool.backend.client import (
     BackendError,
