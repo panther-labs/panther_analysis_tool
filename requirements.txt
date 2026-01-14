@@ -1,5 +1,5 @@
 aiohappyeyeballs==2.6.1 ; python_version >= "3.11" and python_version < "4.0"
-aiohttp==3.13.2 ; python_version >= "3.11" and python_version < "4.0"
+aiohttp==3.13.3 ; python_version >= "3.11" and python_version < "4.0"
 aiosignal==1.4.0 ; python_version >= "3.11" and python_version < "4.0"
 anyio==4.12.0 ; python_version >= "3.11" and python_version < "4.0"
 appdirs==1.4.4 ; python_version >= "3.11" and python_version < "4.0"
