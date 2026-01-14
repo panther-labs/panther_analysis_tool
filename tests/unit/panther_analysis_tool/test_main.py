@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from unittest import mock
 from unittest.mock import patch
@@ -36,7 +36,7 @@ from panther_analysis_tool.constants import (
     LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
-from panther_analysis_tool.core import yaml
+from panther_analysis_tool.core import analysis_cache, yaml
 from panther_analysis_tool.main import app, upload_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
@@ -1573,9 +1573,12 @@ class TestPantherAnalysisTool(TestCase):
             # Set up a git repository
             os.makedirs(".git", exist_ok=True)
 
-            # Create cache
+            # Create cache with proper JSON format
             LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("fake_commit_hash_1")
+            expiration = datetime.now() + timedelta(hours=1)
+            analysis_cache.LatestCachedCommit(
+                commit="fake_commit_hash_1", expiration=expiration
+            ).save()
 
             # Create SQLite cache file
             PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
