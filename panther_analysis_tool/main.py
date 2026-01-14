@@ -126,6 +126,8 @@ from panther_analysis_tool.core.definitions import (
     TestResultsContainer,
 )
 from panther_analysis_tool.core.parse import (
+    DEPRECATED_STATUS,
+    EXPERIMENTAL_STATUS,
     Filter,
     get_filters_with_status_filters,
     parse_filter,
@@ -1402,6 +1404,7 @@ def check_packs(path: str) -> Tuple[int, str]:
     queries = {}  # Which items depend on which queries?
     data_models = {}  # Mapping of log types to corresponding data model
     all_analysis_item_ids = set()  # Record all valid analysis items by ID
+    specs_by_id = {}  # Mapping of analysis item IDs to their specs
     for spec_ in specs.items():
         # _spec is a ClassifiedAnalysis object - the dictionary spec is a property
         spec = spec_.analysis_spec
@@ -1419,8 +1422,9 @@ def check_packs(path: str) -> Tuple[int, str]:
             for log_type in spec["LogTypes"]:
                 data_models[log_type] = id_
 
-        # Record the ID
+        # Record the ID and spec
         all_analysis_item_ids.add(id_)
+        specs_by_id[id_] = spec
 
     # Now we scan through each pack and check if it has all the required items
     missing_pack_items: list[dict[str, Any]] = []
@@ -1490,19 +1494,30 @@ def check_packs(path: str) -> Tuple[int, str]:
         pack_spec = pack.analysis_spec
         all_items_in_packs.update(set(pack_spec["PackDefinition"]["IDs"]))
 
+    excluded_tags = {"no pack", "configuration required", "multi-table query"}
+    allowed_analysis_types = (
+        "rule",
+        "scheduled_rule",
+        "correlation_rule",
+        "datamodel",
+        "lookup_table",
+    )
     all_items_not_in_packs = set()
     for spec_ in specs.items():
         spec = spec_.analysis_spec
         id_ = get_spec_id(spec)
         tags = set(tag.lower() for tag in spec.get("Tags", []))
-        # Only check rules, not luts, policies, queries, etc.
-        if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule"):
+        status = spec.get("Status", "").lower()
+
+        # Only check certain analysis types
+        if spec.get("AnalysisType") not in allowed_analysis_types:
             continue
-        # Ignore rules with DEPRECATED in the title
-        if "deprecated" in spec.get("DisplayName", "").lower():
+        # Ignore items with experimental or deprecated status
+        if status in (EXPERIMENTAL_STATUS, DEPRECATED_STATUS):
             continue
-        # Ignore rules with certain tags
-        if {"deprecated", "no pack", "configuration required", "multi-table query"} & tags:
+
+        # Ignore items with certain tags
+        if excluded_tags & tags:
             continue
 
         if id_ not in all_items_in_packs:
@@ -1511,6 +1526,50 @@ def check_packs(path: str) -> Tuple[int, str]:
     if all_items_not_in_packs:
         err_str = ["The following items are not included in any packs:"]
         err_str += sorted(list(all_items_not_in_packs))
+        return 1, "\n".join(err_str)
+
+    # Check for items that should not be in packs
+    experimental_items_in_packs = []
+    deprecated_items_in_packs = []
+    excluded_tag_items_in_packs = []
+
+    for item_id in all_items_in_packs:
+        if item_id in specs_by_id:
+            spec = specs_by_id[item_id]
+
+            # Only check certain analysis types
+            if spec.get("AnalysisType") not in allowed_analysis_types:
+                continue
+
+            tags = set(tag.lower() for tag in spec.get("Tags", []))
+            status = spec.get("Status", "").lower()
+
+            # Check for experimental status
+            if status == EXPERIMENTAL_STATUS:
+                experimental_items_in_packs.append(item_id)
+            # Check for deprecated status
+            elif status == DEPRECATED_STATUS:
+                deprecated_items_in_packs.append(item_id)
+            # Check for excluded tags
+            elif excluded_tags & tags:
+                excluded_tag_items_in_packs.append(
+                    (item_id, ", ".join(sorted(excluded_tags & tags)))
+                )
+
+    if experimental_items_in_packs:
+        err_str = ["The following experimental items are not allowed in packs:"]
+        err_str += sorted(experimental_items_in_packs)
+        return 1, "\n".join(err_str)
+
+    if deprecated_items_in_packs:
+        err_str = ["The following deprecated items are not allowed in packs:"]
+        err_str += sorted(deprecated_items_in_packs)
+        return 1, "\n".join(err_str)
+
+    if excluded_tag_items_in_packs:
+        err_str = ["The following items with excluded tags are not allowed in packs:"]
+        for item_id, tag_list in sorted(excluded_tag_items_in_packs):
+            err_str.append(f"\t{item_id} (tags: {tag_list})")
         return 1, "\n".join(err_str)
 
     return 0, "Looks like packs are up to date"
