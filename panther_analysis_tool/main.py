@@ -1503,7 +1503,13 @@ def check_packs(path: str) -> Tuple[int, str]:
         status = spec.get("Status", "").lower()
 
         # Only check certain analysis types
-        if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule", "datamodel", "lookup_table"):
+        if spec.get("AnalysisType") not in (
+            "rule",
+            "scheduled_rule",
+            "correlation_rule",
+            "datamodel",
+            "lookup_table",
+        ):
             continue
         # Ignore items with experimental or deprecated status
         if status in (EXPERIMENTAL_STATUS, DEPRECATED_STATUS):
@@ -1525,14 +1531,19 @@ def check_packs(path: str) -> Tuple[int, str]:
     experimental_items_in_packs = []
     deprecated_items_in_packs = []
     excluded_tag_items_in_packs = []
-    
 
     for item_id in all_items_in_packs:
         if item_id in specs_by_id:
             spec = specs_by_id[item_id]
 
             # Only check certain analysis types
-            if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule", "datamodel", "lookup_table"):
+            if spec.get("AnalysisType") not in (
+                "rule",
+                "scheduled_rule",
+                "correlation_rule",
+                "datamodel",
+                "lookup_table",
+            ):
                 continue
 
             tags = set(tag.lower() for tag in spec.get("Tags", []))
