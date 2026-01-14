@@ -4,6 +4,7 @@ DisplayName: DEPRECATED - Rule With Deprecated DisplayName
 Description: This rule has DEPRECATED in DisplayName
 Severity: High
 RuleID: Test.Deprecated.DisplayName.Rule
+Status: deprecated
 Enabled: true
 LogTypes:
   - AWS.CloudTrail
