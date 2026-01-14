@@ -1495,6 +1495,13 @@ def check_packs(path: str) -> Tuple[int, str]:
         all_items_in_packs.update(set(pack_spec["PackDefinition"]["IDs"]))
 
     excluded_tags = {"no pack", "configuration required", "multi-table query"}
+    allowed_analysis_types = (
+        "rule",
+        "scheduled_rule",
+        "correlation_rule",
+        "datamodel",
+        "lookup_table",
+    )
     all_items_not_in_packs = set()
     for spec_ in specs.items():
         spec = spec_.analysis_spec
@@ -1503,13 +1510,7 @@ def check_packs(path: str) -> Tuple[int, str]:
         status = spec.get("Status", "").lower()
 
         # Only check certain analysis types
-        if spec.get("AnalysisType") not in (
-            "rule",
-            "scheduled_rule",
-            "correlation_rule",
-            "datamodel",
-            "lookup_table",
-        ):
+        if spec.get("AnalysisType") not in allowed_analysis_types:
             continue
         # Ignore items with experimental or deprecated status
         if status in (EXPERIMENTAL_STATUS, DEPRECATED_STATUS):
@@ -1537,13 +1538,7 @@ def check_packs(path: str) -> Tuple[int, str]:
             spec = specs_by_id[item_id]
 
             # Only check certain analysis types
-            if spec.get("AnalysisType") not in (
-                "rule",
-                "scheduled_rule",
-                "correlation_rule",
-                "datamodel",
-                "lookup_table",
-            ):
+            if spec.get("AnalysisType") not in allowed_analysis_types:
                 continue
 
             tags = set(tag.lower() for tag in spec.get("Tags", []))
