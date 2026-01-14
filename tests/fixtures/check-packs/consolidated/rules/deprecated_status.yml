@@ -1,0 +1,16 @@
+AnalysisType: rule
+Filename: deprecated_status.py
+DisplayName: Rule With Status Deprecated
+Description: This rule has Status deprecated
+Severity: High
+RuleID: Test.Deprecated.Status.Rule
+Status: deprecated
+Enabled: false
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      eventName: CreateUser

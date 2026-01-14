@@ -1,0 +1,16 @@
+AnalysisType: rule
+Filename: experimental.py
+DisplayName: Experimental Rule
+Description: This is an experimental rule
+Severity: High
+RuleID: Test.Experimental.Rule
+Status: experimental
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      eventName: CreateUser
