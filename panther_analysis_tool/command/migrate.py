@@ -229,12 +229,12 @@ def run(args: MigrateArgs) -> Tuple[int, str]:
         return 0, ""
 
     if not migration_result.empty():
-        completion_message = "Migration complete! Details can be found in: `migration_output.md`."
+        completion_message = "Migration complete! Details can be found in: `migration_status.md`."
         if migration_result.has_conflicts():
             completion_message = (
                 "Migration completed! However, some analysis items had merge conflicts. "
                 "Merge conflicts need to be resolved manually. \n"
-                "  * Details can be found in: `migration_output.md`.\n"
+                "  * Details can be found in: `migration_status.md`.\n"
                 "  * Run `EDITOR=<editor> pat migrate <id>` to resolve each conflict.\n"
                 "  * Run `pat migrate --auto-accept=<panthers|yours>` to automatically accept your changes or Panther's changes for merge conflicts."  # pylint: disable=line-too-long
             )
