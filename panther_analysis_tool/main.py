@@ -2474,8 +2474,10 @@ def clone_command(
         filters = []
     if all_ and analysis_id is not None:
         return 1, "Cannot use --all and supply an analysis ID"
-    if not all_ and analysis_id is None:
-        return 1, "Must supply an analysis ID or use --all"
+    if all_ and len(filters) > 0:
+        return 1, "Cannot use --all with --filter"
+    if not all_ and analysis_id is None and len(filters) == 0:
+        return 1, "Must supply an analysis ID, use --filter, or use --all"
     return clone.run(analysis_id, filters)
 
 
