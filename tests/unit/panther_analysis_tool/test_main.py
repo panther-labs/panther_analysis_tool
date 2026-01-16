@@ -233,6 +233,95 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
+    def test_test_events_runs_rule_against_json(self) -> None:
+        event_file = "/tmp/event.json"
+        self.fs.create_file(event_file, contents=json.dumps({"userAgent": "Max"}))
+
+        result = runner.invoke(
+            app,
+            [
+                "test-events",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/inline-filters",
+                "--filter",
+                "RuleID=basic.python.rule",
+                "--log-type",
+                "Panther.Audit",
+                event_file,
+            ],
+        )
+        if result.exception:
+            raise result.exception
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Event 1 (p_log_type=Panther.Audit)", result.stdout)
+        self.assertIn("[ALERT] basic.python.rule", result.stdout)
+
+    def test_test_events_runs_rule_against_json_array(self) -> None:
+        event_file = "/tmp/events.json"
+        self.fs.create_file(
+            event_file,
+            contents=json.dumps(
+                [
+                    {"userAgent": "Max"},
+                    {"userAgent": "John"},
+                ]
+            ),
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "test-events",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/inline-filters",
+                "--filter",
+                "RuleID=basic.python.rule",
+                "--log-type",
+                "Panther.Audit",
+                "--show-nonmatches",
+                event_file,
+            ],
+        )
+        if result.exception:
+            raise result.exception
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Event 1 (p_log_type=Panther.Audit)", result.stdout)
+        self.assertIn("Event 2 (p_log_type=Panther.Audit)", result.stdout)
+        self.assertIn("[ALERT] basic.python.rule", result.stdout)
+        self.assertIn("[NO_MATCH] basic.python.rule", result.stdout)
+
+    def test_test_events_runs_rule_against_ndjson(self) -> None:
+        event_file = "/tmp/events.jsonl"
+        self.fs.create_file(
+            event_file,
+            contents='{"userAgent": "Max"}\n{"userAgent": "John"}\n',
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "test-events",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/inline-filters",
+                "--filter",
+                "RuleID=basic.python.rule",
+                "--log-type",
+                "Panther.Audit",
+                "--show-nonmatches",
+                event_file,
+            ],
+        )
+        if result.exception:
+            raise result.exception
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Event 1 (p_log_type=Panther.Audit)", result.stdout)
+        self.assertIn("Event 2 (p_log_type=Panther.Audit)", result.stdout)
+        self.assertIn("[ALERT] basic.python.rule", result.stdout)
+        self.assertIn("[NO_MATCH] basic.python.rule", result.stdout)
+
     def test_queries_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis/queries".split()
