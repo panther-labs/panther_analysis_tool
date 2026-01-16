@@ -1604,9 +1604,140 @@ class TestPantherAnalysisTool(TestCase):
             self.assertEqual(result.exit_code, 0)
 
     def test_clone_command_without_all_or_analysis_id_errors(self) -> None:
-        """Test that clone command errors when neither --all nor analysis ID is provided."""
+        """Test that clone command errors when neither --all, analysis ID, nor filters are provided."""
         result = runner.invoke(app, ["clone"])
 
         # Should return error code
         self.assertEqual(result.exit_code, 1)
         # Error message is logged, verify exit code indicates error
+
+    def test_clone_command_with_analysis_id_works(self) -> None:
+        """Test that clone command works with just an analysis ID."""
+        with Pause(self.fs):
+            # Set up a git repository
+            os.makedirs(".git", exist_ok=True)
+
+            # Create cache with proper JSON format
+            LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            expiration = datetime.now() + timedelta(hours=1)
+            analysis_cache.LatestCachedCommit(
+                commit="fake_commit_hash_1", expiration=expiration
+            ).save()
+
+            # Create SQLite cache file
+            PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+            # Create versions file
+            CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            yaml_loader = yaml.BlockStyleYAML()
+            with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+                yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(app, ["clone", "Test.Rule.1"])
+
+            # Should succeed (clone.run is mocked, so it won't actually clone)
+            self.assertEqual(result.exit_code, 0)
+
+    def test_clone_command_with_filters_works(self) -> None:
+        """Test that clone command works with just filters."""
+        with Pause(self.fs):
+            # Set up a git repository
+            os.makedirs(".git", exist_ok=True)
+
+            # Create cache with proper JSON format
+            LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            expiration = datetime.now() + timedelta(hours=1)
+            analysis_cache.LatestCachedCommit(
+                commit="fake_commit_hash_1", expiration=expiration
+            ).save()
+
+            # Create SQLite cache file
+            PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+            # Create versions file
+            CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            yaml_loader = yaml.BlockStyleYAML()
+            with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+                yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(
+                    app, ["clone", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
+                )
+
+            # Should succeed (clone.run is mocked, so it won't actually clone)
+            self.assertEqual(result.exit_code, 0)
+
+    def test_clone_command_all_with_filters_errors(self) -> None:
+        """Test that clone command errors when --all is used with --filter."""
+        result = runner.invoke(app, ["clone", "--all", "--filter", "AnalysisType=rule"])
+
+        # Should return error code
+        self.assertEqual(result.exit_code, 1)
+        # Error message is logged, verify exit code indicates error
+
+    def test_clone_command_all_with_id_and_filters_errors(self) -> None:
+        """Test that clone command errors when --all, ID, and --filter are all used together."""
+        result = runner.invoke(
+            app, ["clone", "--all", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+        )
+
+        # Should return error code (--all with ID should error first)
+        self.assertEqual(result.exit_code, 1)
+        # Error message is logged, verify exit code indicates error
+
+    def test_clone_command_id_with_filters_works(self) -> None:
+        """Test that clone command works with ID and filters together (filters refine the selection)."""
+        with Pause(self.fs):
+            # Set up a git repository
+            os.makedirs(".git", exist_ok=True)
+
+            # Create cache with proper JSON format
+            LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            expiration = datetime.now() + timedelta(hours=1)
+            analysis_cache.LatestCachedCommit(
+                commit="fake_commit_hash_1", expiration=expiration
+            ).save()
+
+            # Create SQLite cache file
+            PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+            # Create versions file
+            CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            yaml_loader = yaml.BlockStyleYAML()
+            with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+                yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(
+                    app, ["clone", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+                )
+
+            # Should succeed (clone.run is mocked, so it won't actually clone)
+            # Filters can be used with an ID to refine the selection
+            self.assertEqual(result.exit_code, 0)
