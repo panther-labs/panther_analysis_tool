@@ -265,6 +265,14 @@ class LoadAnalysisSpecsResult:
 
         return path
 
+    def python_file_contents(self) -> bytes | None:
+        """Returns the contents of the Python file for this analysis spec."""
+        path = self.python_file_path()
+        if path is None:
+            return None
+
+        return path.read_bytes()
+
     def pretty_analysis_type(self) -> str:
         return pretty_analysis_type(self.analysis_type(), plural=False)
 

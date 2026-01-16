@@ -710,6 +710,195 @@ def test_get_migration_item_gets_latest_by_path(
     assert item.base_panther_item.python_file_path == str(tmp_path / "fake_rule_1.py")
 
 
+def test_get_migration_item_standard_gsuite_reports_edge_case(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test the edge case for Standard.GSuite.Reports when base_item is empty."""
+    cache = setup(tmp_path, monkeypatch)
+    data_model_dict = {
+        "AnalysisType": "datamodel",
+        "DataModelID": "Standard.GSuite.Reports",
+        "Filename": "standard_gsuite_reports.py",
+    }
+    data_model_spec = yaml.dump(data_model_dict)
+    data_model_py = "def data_model(event): return {}"
+    new_data_model_dict = data_model_dict | {
+        "DataModelID": "Standard.GSuite.Reports",
+        "New": "field",
+    }
+    new_data_model_spec = yaml.dump(new_data_model_dict)
+    new_data_model_py = "def data_model(event): return {} # updated"
+
+    mock_get_latest_item_by_path = mocker.patch(
+        "panther_analysis_tool.command.migrate.get_latest_item_by_path",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents=new_data_model_dict,
+            raw_yaml_file_contents=new_data_model_spec.encode("utf-8"),
+            yaml_file_path=str(tmp_path / "standard_gsuite_reports.yml"),
+            python_file_contents=new_data_model_py.encode("utf-8"),
+            python_file_path=str(tmp_path / "standard_gsuite_reports.py"),
+        ),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.get_base_item",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents={},
+            raw_yaml_file_contents=b"{}",
+        ),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.versions_file.get_versions",
+        return_value=versions_file.Versions(
+            versions={
+                "Standard.GSuite.Reports": versions_file.AnalysisVersionItem(
+                    version=50,
+                    type="datamodel",
+                    history={},
+                    sha256="fake.sha256",
+                ),
+            },
+        ),
+    )
+
+    (tmp_path / "standard_gsuite_reports.yml").write_text(data_model_spec)
+    (tmp_path / "standard_gsuite_reports.py").write_text(data_model_py)
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    result = migrate.MigrationStatus()
+    item = migrate.get_migration_item(specs[0], None, cache, result)
+    assert item is not None
+    # Should be called once for the Standard.GSuite.Reports edge case
+    assert mock_get_latest_item_by_path.call_count == 1
+
+    assert item.latest_panther_item.yaml_file_contents == new_data_model_dict
+    assert item.latest_panther_item.raw_yaml_file_contents == new_data_model_spec.encode("utf-8")
+    assert item.latest_item_version == 50
+
+
+def test_get_migration_item_box_item_shared_externally_edge_case(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test the edge case for Box.Item.Shared.Externally when disabled and uses panther_box_helpers."""
+    cache = setup(tmp_path, monkeypatch)
+    rule_dict = {
+        "AnalysisType": "rule",
+        "RuleID": "Box.Item.Shared.Externally",
+        "Filename": "box_item_shared_externally.py",
+        "Enabled": False,
+    }
+    rule_spec = yaml.dump(rule_dict)
+    rule_py = "from panther_box_helpers import something\ndef rule(event): return True"
+
+    (tmp_path / "box_item_shared_externally.yml").write_text(rule_spec)
+    (tmp_path / "box_item_shared_externally.py").write_text(rule_py)
+
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.get_base_item",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents={},
+            raw_yaml_file_contents=b"{}",
+        ),
+    )
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    result = migrate.MigrationStatus()
+    item = migrate.get_migration_item(specs[0], None, cache, result)
+    # Should return None because the item was deleted
+    assert item is None
+    # Should be deleted due to the edge case
+    assert "Box.Item.Shared.Externally" in result.items_deleted
+    deleted_item = result.items_deleted["Box.Item.Shared.Externally"]
+    assert deleted_item.analysis_id == "Box.Item.Shared.Externally"
+    assert deleted_item.pretty_analysis_type == "Rule"
+    assert "panther_box_helpers" in deleted_item.reason
+    assert "deleted by Panther" in deleted_item.reason
+    # File should be unlinked
+    assert not (tmp_path / "box_item_shared_externally.yml").exists()
+    assert not (tmp_path / "box_item_shared_externally.py").exists()
+
+
+def test_get_migration_item_box_item_shared_externally_not_deleted_when_enabled(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that Box.Item.Shared.Externally is not deleted when enabled."""
+    cache = setup(tmp_path, monkeypatch)
+    rule_dict = {
+        "AnalysisType": "rule",
+        "RuleID": "Box.Item.Shared.Externally",
+        "Filename": "box_item_shared_externally.py",
+        "Enabled": True,  # Enabled, so should not be deleted
+    }
+    rule_spec = yaml.dump(rule_dict)
+    rule_py = "from panther_box_helpers import something\ndef rule(event): return True"
+
+    (tmp_path / "box_item_shared_externally.yml").write_text(rule_spec)
+    (tmp_path / "box_item_shared_externally.py").write_text(rule_py)
+
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.get_base_item",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents={},
+            raw_yaml_file_contents=b"{}",
+        ),
+    )
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    result = migrate.MigrationStatus()
+    item = migrate.get_migration_item(specs[0], None, cache, result)
+    # Should return None because latest_item is None, but should NOT be deleted
+    assert item is None
+    # Should NOT be deleted because it's enabled
+    assert "Box.Item.Shared.Externally" not in result.items_deleted
+    # File should still exist
+    assert (tmp_path / "box_item_shared_externally.yml").exists()
+    assert (tmp_path / "box_item_shared_externally.py").exists()
+
+
+def test_get_migration_item_box_item_shared_externally_not_deleted_without_helpers(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that Box.Item.Shared.Externally is not deleted when it doesn't use panther_box_helpers."""
+    cache = setup(tmp_path, monkeypatch)
+    rule_dict = {
+        "AnalysisType": "rule",
+        "RuleID": "Box.Item.Shared.Externally",
+        "Filename": "box_item_shared_externally.py",
+        "Enabled": False,
+    }
+    rule_spec = yaml.dump(rule_dict)
+    rule_py = "def rule(event): return True"  # No panther_box_helpers import
+
+    (tmp_path / "box_item_shared_externally.yml").write_text(rule_spec)
+    (tmp_path / "box_item_shared_externally.py").write_text(rule_py)
+
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.get_base_item",
+        return_value=analysis_utils.AnalysisItem(
+            yaml_file_contents={},
+            raw_yaml_file_contents=b"{}",
+        ),
+    )
+
+    specs = list(analysis_utils.load_analysis_specs_ex([str(tmp_path)], [], True))
+    assert len(specs) == 1
+
+    result = migrate.MigrationStatus()
+    item = migrate.get_migration_item(specs[0], None, cache, result)
+    # Should return None because latest_item is None, but should NOT be deleted
+    assert item is None
+    # Should NOT be deleted because it doesn't use panther_box_helpers
+    assert "Box.Item.Shared.Externally" not in result.items_deleted
+    # File should still exist
+    assert (tmp_path / "box_item_shared_externally.yml").exists()
+    assert (tmp_path / "box_item_shared_externally.py").exists()
+
+
 #######################################################################################
 ### Test migrate_items
 #######################################################################################

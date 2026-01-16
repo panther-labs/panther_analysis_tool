@@ -188,24 +188,40 @@ def get_git_protocol() -> str:
 def get_primary_origin_branch() -> str:
     """
     Get the primary origin branch of the repository. Most likely "main" and defaults to "main".
+    Tries to get the branch from the local symbolic ref first, and if that fails, queries the remote directly.
+    Local symbolic ref might not exist if the repo was not cloned but instead made locally and then pushed to a remote.
     """
-    default_branch = "main"
+    # Try local symbolic ref first
     try:
-        ref_output = subprocess.check_output(
-            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
-        )  # nosec:B607 B603
-    except subprocess.CalledProcessError as err:
-        raise RuntimeError(err)
+        ref = subprocess.check_output(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()  # nosec:B607 B603
+        # Parse "refs/remotes/origin/develop" for example
+        branch = ref.split("/")[-1]
+        logging.debug(f"Primary origin branch is: {branch} (from local symbolic ref)")
+        return branch
+    except subprocess.CalledProcessError:
+        pass
 
-    ref = ref_output.strip()  # likely is "refs/remotes/origin/main"
-    if ref == "":
-        return default_branch
+    # Query remote directly
+    try:
+        output = subprocess.check_output(
+            ["git", "ls-remote", "--symref", "origin", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()  # nosec:B607 B603
 
-    spl = ref.split("/")
-    if len(spl) == 0:
-        return default_branch
+        # Parse "ref: refs/heads/main	HEAD" for example
+        for line in output.split("\n"):
+            if line.startswith("ref:"):
+                branch = line.split()[1].split("/")[-1]
+                logging.debug(f"Primary origin branch is: {branch} (from remote direct)")
+                return branch
+    except subprocess.CalledProcessError:
+        pass
 
-    return spl[-1]
+    logging.debug("Failed to get primary origin branch, defaulting to 'main'")
+    return "main"
 
 
 def ensure_upstream_set(git_protocol: str) -> None:
@@ -221,7 +237,7 @@ def ensure_upstream_set(git_protocol: str) -> None:
         capture_output=True,
     )  # nosec:B607 B603
     if proc.returncode == 0:
-        logging.debug(f"Added {REMOTE_UPSTREAM_NAME} remote: {url}")
+        logging.debug(f"Added remote: {REMOTE_UPSTREAM_NAME} -> {url}")
 
 
 def panther_analysis_remote_upstream_branch() -> str:
@@ -241,26 +257,36 @@ def fetch_remotes(primary_origin_branch: str) -> None:
         if operation == "(fetch)":
             if name == "origin":
                 logging.debug(f"Fetching origin {primary_origin_branch}")
-                subprocess.run(
+                proc = subprocess.run(
                     ["git", "fetch", "origin", primary_origin_branch],
                     check=False,
                     capture_output=True,
                 )  # nosec:B607 B603
+                if proc.returncode != 0:
+                    logging.debug(
+                        f"Failed to fetch origin {primary_origin_branch}: {proc.stderr.decode('utf-8')}"
+                    )
 
                 # if primary branch is develop, it is likely it copied it from PA but the user still uses a main branch
                 if primary_origin_branch == "develop":
                     logging.debug("Fetching origin main")
                     # attempt to fetch origin main too just in case
-                    subprocess.run(
+                    proc = subprocess.run(
                         ["git", "fetch", "origin", "main"], check=False, capture_output=True
                     )  # nosec:B607 B603
+                    if proc.returncode != 0:
+                        logging.debug(f"Failed to fetch origin main: {proc.stderr.decode('utf-8')}")
             elif name == REMOTE_UPSTREAM_NAME:
                 logging.debug(f"Fetching {REMOTE_UPSTREAM_NAME} {PANTHER_ANALYSIS_MAIN_BRANCH}")
-                subprocess.run(
+                proc = subprocess.run(
                     ["git", "fetch", REMOTE_UPSTREAM_NAME, PANTHER_ANALYSIS_MAIN_BRANCH],
                     check=False,
                     capture_output=True,
                 )  # nosec:B607 B603
+                if proc.returncode != 0:
+                    logging.debug(
+                        f"Failed to fetch {REMOTE_UPSTREAM_NAME} {PANTHER_ANALYSIS_MAIN_BRANCH}: {proc.stderr.decode('utf-8')}"
+                    )
 
 
 def get_forked_panther_analysis_common_ancestor() -> str:
@@ -270,9 +296,16 @@ def get_forked_panther_analysis_common_ancestor() -> str:
     Returns:
         The merge base commit hash
     """
-    ensure_upstream_set(get_git_protocol())
-    fetch_remotes(get_primary_origin_branch())
+    git_protocol = get_git_protocol()
+    logging.debug(f"Git protocol is: {git_protocol}")
+    ensure_upstream_set(git_protocol)
+
+    primary_origin_branch = get_primary_origin_branch()
+    logging.debug(f"Primary origin branch is: {primary_origin_branch}")
+    fetch_remotes(primary_origin_branch)
+
     remote_branch = panther_analysis_remote_upstream_branch()
+    logging.debug(f"Panther Analysis remote upstream branch is: {remote_branch}")
     ref = "HEAD"
 
     merge_base_output = subprocess.run(  # nosec:B607 B603
@@ -340,6 +373,8 @@ def git_root() -> str:
     if rev_parse.stdout is None:
         raise Exception("Failed to get git root")
     _git_root = rev_parse.stdout.strip()
+
+    logging.debug(f"Git root is: {_git_root}")
     return _git_root
 
 
