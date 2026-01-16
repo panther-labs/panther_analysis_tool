@@ -386,6 +386,26 @@ def get_migration_item(
     # if the latest spec is empty but the base exists, there is a chance panther changed the ID
     # but it is still at the same path, so we can check to see if the latest item is in the remote upstream
     if latest_item is None and not base_item.empty():
+        logging.debug(
+            "Latest item not in cache, but base item exists, checking for latest item in remote upstream by path: %s",
+            user_spec.spec_filename,
+        )
+        latest_item = get_latest_item_by_path(pathlib.Path(user_spec.spec_filename))
+
+    # The above "if" block is there to handle this edge case, where the item changed IDs but is still at the same path.
+    # Sadly, the base_item will not be empty if the user's repo was cloned from a forked repo, because we have an ancestor
+    # commit to use. But base_item will be empty if the user's repo was not cloned from forked PA. In that case, we will just
+    # assume we need to check for the special edge case of the one analysis item that changed IDs. The above "if" block will
+    # be left still to cover anything unexpected, just in case.
+    if (
+        latest_item is None
+        and base_item.empty()
+        and user_spec.analysis_id() == "Standard.GSuite.Reports"
+    ):
+        logging.debug(
+            "Latest item not in cache, base item is empty, and user spec ID is Standard.GSuite.Reports, checking for latest item in remote upstream by path: %s",  # pylint: disable=line-too-long
+            user_spec.spec_filename,
+        )
         latest_item = get_latest_item_by_path(pathlib.Path(user_spec.spec_filename))
 
     # was deleted by Panther, delete if the item was unused by the user
@@ -395,6 +415,30 @@ def get_migration_item(
             analysis_id=user_spec_id,
             pretty_analysis_type=user_spec.pretty_analysis_type(),
             reason="Item was deleted by Panther since your last update and was disabled in your repo.",
+        )
+
+    # The above "if" block is there to handle this edge case, where the item is no longer in PA, but was in PA when the user last updated,
+    # and is disabled in the user's repo. At that point, we assume the user only has it because PA made them have, but they do not actually
+    # use it. So we can just delete it. This covered the edge case for the rule "Box.Item.Shared.Externally", where a global helper it
+    # was using was removed from PA, but the rule was never updated because the rule was removed from PA, too.
+    # Sadly, if the user's repo was not cloned from forked PA, but just a custom repo, we won't have a base_item because we don't have an
+    # ancestor commit. In that case, we will just assume we need to check for the special edge case of the one analysis item we know of that
+    # has this issue, "Box.Item.Shared.Externally". The above "if" block will be left still to cover anything unexpected, just in case.
+    python_file_contents = user_spec.python_file_contents()
+    if (
+        latest_item is None
+        and not user_spec.enabled()
+        and user_spec.analysis_id() == "Box.Item.Shared.Externally"
+        and python_file_contents is not None
+        and "panther_box_helpers" in python_file_contents.decode("utf-8")
+    ):
+        user_spec.unlink()
+        result.items_deleted[user_spec_id] = MigrationItem(
+            analysis_id=user_spec_id,
+            pretty_analysis_type=user_spec.pretty_analysis_type(),
+            reason="Item was deleted by Panther, was disabled in your repo, "
+            "and was using the global helper 'panther_box_helpers' which was significantly changed by Panther. "
+            "This likely would have caused test failures so it was deleted for a smoother migration.",
         )
 
     # this happens with custom analysis items
@@ -553,11 +597,15 @@ def ensure_python_file_exists(item: merge_item.MergeableItem) -> None:
 
     # if the python file does not exist, try to grab it from PA
     python_file_contents = git_helpers.get_file_at_commit(
-        git_helpers.REMOTE_UPSTREAM_NAME, git_python_file_path
+        git_helpers.panther_analysis_remote_upstream_branch(), git_python_file_path
     )
 
     # this is a best attempt effort so it is okay if it does not exist
     if python_file_contents is None or python_file_contents == b"":
+        logging.debug(
+            "Python file did not exist, and did not exist in remote upstream: %s",
+            git_python_file_path,
+        )
         return
 
     # save the remote version of the python file if it does exist
@@ -568,6 +616,11 @@ def ensure_python_file_exists(item: merge_item.MergeableItem) -> None:
     item.merged_item.python_file_contents = python_file_contents
     item.merged_item.python_file_path = str(abs_python_file_path)
 
+    logging.debug(
+        "Python file did not exist, created it from remote upstream: %s",
+        item.merged_item.python_file_path,
+    )
+
 
 def get_latest_item_by_path(spec_path: pathlib.Path) -> analysis_utils.AnalysisItem | None:
     """
@@ -577,9 +630,13 @@ def get_latest_item_by_path(spec_path: pathlib.Path) -> analysis_utils.AnalysisI
     """
     git_spec_file_path = spec_path.relative_to(git_helpers.git_root())
     spec_file_contents = git_helpers.get_file_at_commit(
-        git_helpers.REMOTE_UPSTREAM_NAME, git_spec_file_path
+        git_helpers.panther_analysis_remote_upstream_branch(), git_spec_file_path
     )
     if spec_file_contents is None or spec_file_contents == b"":
+        logging.debug(
+            "Spec file did not exist, and did not exist in remote upstream: %s",
+            git_spec_file_path,
+        )
         return None
 
     yaml_loader = yaml.BlockStyleYAML()
@@ -594,10 +651,12 @@ def get_latest_item_by_path(spec_path: pathlib.Path) -> analysis_utils.AnalysisI
     if "Filename" in spec:
         py_file_path = git_spec_file_path.parent / spec["Filename"]
         py_file_contents = git_helpers.get_file_at_commit(
-            git_helpers.REMOTE_UPSTREAM_NAME, py_file_path
+            git_helpers.panther_analysis_remote_upstream_branch(), py_file_path
         )
         if py_file_contents is not None and py_file_contents != b"":
             item.python_file_contents = py_file_contents
             item.python_file_path = str(spec_path.parent / spec["Filename"])
+
+    logging.debug("Latest item found by path: %s", git_spec_file_path)
 
     return item

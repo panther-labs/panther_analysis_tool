@@ -228,18 +228,81 @@ def test_get_primary_origin_branch(mocker: MockerFixture) -> None:
     )
     assert git_helpers.get_primary_origin_branch() == "main"
     mock_check_output.assert_called_once_with(
-        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
     )
+
+
+def test_get_primary_origin_branch_develop(mocker: MockerFixture) -> None:
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="refs/remotes/origin/develop",
+    )
+    assert git_helpers.get_primary_origin_branch() == "develop"
+    mock_check_output.assert_called_once_with(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def test_get_primary_origin_branch_remote_fallback(mocker: MockerFixture) -> None:
+    """Test that when local symbolic ref fails, it falls back to remote query."""
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        side_effect=[
+            subprocess.CalledProcessError(1, "git", stderr="error"),  # First call fails
+            "ref: refs/heads/main	HEAD\nabc123	HEAD",  # Remote query succeeds
+        ],
+    )
+    assert git_helpers.get_primary_origin_branch() == "main"
+    assert mock_check_output.call_count == 2
+    mock_check_output.assert_any_call(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+    mock_check_output.assert_any_call(
+        ["git", "ls-remote", "--symref", "origin", "HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def test_get_primary_origin_branch_remote_fallback_develop(mocker: MockerFixture) -> None:
+    """Test remote fallback with develop branch."""
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        side_effect=[
+            subprocess.CalledProcessError(1, "git", stderr="error"),  # First call fails
+            "ref: refs/heads/develop	HEAD\nabc123	HEAD",  # Remote query succeeds
+        ],
+    )
+    assert git_helpers.get_primary_origin_branch() == "develop"
+    assert mock_check_output.call_count == 2
 
 
 def test_get_primary_origin_branch_default(mocker: MockerFixture) -> None:
+    """Test that when both local and remote queries fail, it defaults to main."""
     mock_check_output = mocker.patch(
         "panther_analysis_tool.core.git_helpers.subprocess.check_output",
-        return_value="",
+        side_effect=[
+            subprocess.CalledProcessError(1, "git", stderr="error"),  # Local fails
+            subprocess.CalledProcessError(1, "git", stderr="error"),  # Remote fails
+        ],
     )
     assert git_helpers.get_primary_origin_branch() == "main"
-    mock_check_output.assert_called_once_with(
-        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], text=True
+    assert mock_check_output.call_count == 2
+    mock_check_output.assert_any_call(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+    mock_check_output.assert_any_call(
+        ["git", "ls-remote", "--symref", "origin", "HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
     )
 
 
@@ -299,19 +362,105 @@ upstream https://github.com/panther-labs/panther-analysis.git (push)
     mock_run.assert_any_call(["git", "fetch", "upstream", "main"], check=False, capture_output=True)
 
 
-def test_get_forked_panther_analysis_common_ancestor(mocker: MockerFixture) -> None:
-    mocker.patch(
+def test_fetch_remotes_with_develop_branch(mocker: MockerFixture) -> None:
+    """Test that when primary branch is develop, it also attempts to fetch main."""
+    mock_check_output = mocker.patch(
         "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="""
+origin https://github.com/panther-labs/panther-analysis.git (fetch)
+origin https://github.com/panther-labs/panther-analysis.git (push)
+upstream https://github.com/panther-labs/panther-analysis.git (fetch)
+upstream https://github.com/panther-labs/panther-analysis.git (push)
+""",
     )
-    mocker.patch(
+    mock_run = mocker.patch(
         "panther_analysis_tool.core.git_helpers.subprocess.run",
-        return_value=subprocess.CompletedProcess(
-            returncode=0, args=[], stdout="f40e2829304b30eacdb51f6d9023c89fa8f19b58"
-        ),
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    git_helpers.fetch_remotes("develop")
+    mock_check_output.assert_called_once_with(["git", "remote", "-v"], text=True)
+    mock_run.assert_any_call(
+        ["git", "fetch", "origin", "develop"], check=False, capture_output=True
+    )
+    mock_run.assert_any_call(["git", "fetch", "origin", "main"], check=False, capture_output=True)
+    mock_run.assert_any_call(["git", "fetch", "upstream", "main"], check=False, capture_output=True)
+
+
+def test_fetch_remotes_handles_fetch_errors(mocker: MockerFixture) -> None:
+    """Test that fetch errors are handled gracefully without raising exceptions."""
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        return_value="""
+origin https://github.com/panther-labs/panther-analysis.git (fetch)
+origin https://github.com/panther-labs/panther-analysis.git (push)
+upstream https://github.com/panther-labs/panther-analysis.git (fetch)
+upstream https://github.com/panther-labs/panther-analysis.git (push)
+""",
+    )
+    mock_run = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        side_effect=[
+            subprocess.CompletedProcess(
+                returncode=1, args=[], stderr=b"fetch error"
+            ),  # origin fetch fails
+            subprocess.CompletedProcess(returncode=0, args=[]),  # upstream fetch succeeds
+        ],
+    )
+    # Should not raise an exception
+    git_helpers.fetch_remotes("main")
+    mock_check_output.assert_called_once_with(["git", "remote", "-v"], text=True)
+    assert mock_run.call_count == 2
+    mock_run.assert_any_call(["git", "fetch", "origin", "main"], check=False, capture_output=True)
+    mock_run.assert_any_call(["git", "fetch", "upstream", "main"], check=False, capture_output=True)
+
+
+def test_get_forked_panther_analysis_common_ancestor(mocker: MockerFixture) -> None:
+    """Test get_forked_panther_analysis_common_ancestor with proper mocking of all subprocess calls."""
+    # Mock get_git_protocol() calls
+    mock_check_output = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.check_output",
+        side_effect=[
+            "https://github.com/panther-labs/panther-analysis.git",  # get_git_protocol()
+            "refs/remotes/origin/main",  # get_primary_origin_branch() - local symbolic ref
+            """
+origin https://github.com/panther-labs/panther-analysis.git (fetch)
+origin https://github.com/panther-labs/panther-analysis.git (push)
+upstream https://github.com/panther-labs/panther-analysis.git (fetch)
+upstream https://github.com/panther-labs/panther-analysis.git (push)
+""",  # fetch_remotes() - remote list
+        ],
+    )
+    # Mock subprocess.run calls for fetch_remotes and merge-base
+    mock_run = mocker.patch(
+        "panther_analysis_tool.core.git_helpers.subprocess.run",
+        side_effect=[
+            subprocess.CompletedProcess(
+                returncode=0, args=[]
+            ),  # ensure_upstream_set() - remote add (may fail, that's ok)
+            subprocess.CompletedProcess(returncode=0, args=[]),  # fetch_remotes() - fetch origin
+            subprocess.CompletedProcess(returncode=0, args=[]),  # fetch_remotes() - fetch upstream
+            subprocess.CompletedProcess(
+                returncode=0, args=[], stdout="f40e2829304b30eacdb51f6d9023c89fa8f19b58"
+            ),  # merge-base
+        ],
     )
     assert (
         git_helpers.get_forked_panther_analysis_common_ancestor()
         == "f40e2829304b30eacdb51f6d9023c89fa8f19b58"
+    )
+    # Verify that get_git_protocol was called
+    mock_check_output.assert_any_call(["git", "remote", "get-url", "origin"], text=True)
+    # Verify that get_primary_origin_branch was called
+    mock_check_output.assert_any_call(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+    # Verify that merge-base was called
+    mock_run.assert_any_call(
+        ["git", "merge-base", "upstream/main", "HEAD"],
+        capture_output=True,
+        text=True,
     )
 
 
