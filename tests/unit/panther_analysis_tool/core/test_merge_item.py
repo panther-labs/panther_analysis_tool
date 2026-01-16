@@ -410,6 +410,109 @@ def test_merge_item_write_merge_conflicts_and_solve_merge(
 
 
 ################################################################################
+### TEST merge_item_preview
+################################################################################
+
+
+def test_merge_item_preview_no_conflict_with_python(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.core.merge_item.merge_file",
+        side_effect=[(False, b"merged_yaml"), (False, b"merged_python")],
+    )
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+
+    has_conflict = merge_item.merge_item_preview(
+        merge_item.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+    )
+    assert not has_conflict
+    assert mock_merge_file.call_count == 2
+    # Verify files were not modified (preview doesn't write)
+    assert (
+        not pathlib.Path(rule_1.spec_filename).exists()
+        or pathlib.Path(rule_1.spec_filename).read_text() != "merged_yaml"
+    )
+
+
+def test_merge_item_preview_no_conflict_no_python(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.core.merge_item.merge_file",
+        side_effect=[(False, b"merged_yaml")],
+    )
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, False)
+
+    has_conflict = merge_item.merge_item_preview(
+        merge_item.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, None),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, None),
+            base_panther_item=load_spec_to_analysis_item(rule_1, None),
+        ),
+    )
+    assert not has_conflict
+    assert mock_merge_file.call_count == 1
+
+
+def test_merge_item_preview_yaml_conflict(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.core.merge_item.merge_file",
+        side_effect=[(True, b"")],
+    )
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+
+    has_conflict = merge_item.merge_item_preview(
+        merge_item.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+    )
+    assert has_conflict
+    # Should only call merge_file once (for YAML), not for Python since YAML has conflict
+    assert mock_merge_file.call_count == 1
+
+
+def test_merge_item_preview_python_conflict(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+) -> None:
+    mock_merge_file = mocker.patch(
+        "panther_analysis_tool.core.merge_item.merge_file",
+        side_effect=[(False, b"merged_yaml"), (True, b"")],
+    )
+
+    rule_1 = make_load_spec(tmp_path, "rule", "1", 1, True)
+
+    has_conflict = merge_item.merge_item_preview(
+        merge_item.MergeableItem(
+            user_item=load_spec_to_analysis_item(rule_1, b"user_python"),
+            latest_panther_item=load_spec_to_analysis_item(rule_1, b"latest_python"),
+            base_panther_item=load_spec_to_analysis_item(rule_1, b"base_python"),
+        ),
+    )
+    assert has_conflict
+    assert mock_merge_file.call_count == 2
+
+
+################################################################################
 ### TEST merge_file
 ################################################################################
 
