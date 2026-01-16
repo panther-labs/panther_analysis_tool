@@ -437,7 +437,7 @@ def get_migration_item(
             analysis_id=user_spec_id,
             pretty_analysis_type=user_spec.pretty_analysis_type(),
             reason="Item was deleted by Panther, was disabled in your repo, "
-            "and was using the global helper 'panther_box_helpers' which was deleted by Panther. "
+            "and was using the global helper 'panther_box_helpers' which was significantly changed by Panther. "
             "This likely would have caused test failures so it was deleted for a smoother migration.",
         )
 
