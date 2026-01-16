@@ -76,12 +76,10 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
