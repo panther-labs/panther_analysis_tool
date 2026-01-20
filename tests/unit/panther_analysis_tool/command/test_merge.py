@@ -832,7 +832,9 @@ def test_merge_items_preview_with_conflicts(
     mock_merge_item.assert_not_called()
     mock_print.assert_has_calls(
         [
-            call("2 analysis item(s) will have merge conflicts when updated:"),
+            call(
+                "2 analysis item(s) will have merge conflicts when updated to latest Panther version:"
+            ),
             call("  * 1"),
             call("  * 2"),
         ]
@@ -883,7 +885,9 @@ def test_merge_items_preview_some_conflicts(
         [
             call("Will update 1 analysis item(s) to their latest Panther version:"),
             call("  * 1"),
-            call("1 analysis item(s) will have merge conflicts when updated:"),
+            call(
+                "1 analysis item(s) will have merge conflicts when updated to latest Panther version:"
+            ),
             call("  * 2"),
         ]
     )
@@ -966,7 +970,9 @@ def test_merge_items_preview_with_one_item_with_conflict(
     mock_merge_item.assert_not_called()
     mock_print.assert_has_calls(
         [
-            call("1 analysis item(s) will have merge conflicts when updated:"),
+            call(
+                "1 analysis item(s) will have merge conflicts when updated to latest Panther version:"
+            ),
             call("  * 1"),
         ]
     )

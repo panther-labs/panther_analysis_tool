@@ -215,7 +215,7 @@ def merge_items(  # pylint: disable=too-many-arguments,too-many-locals
                 print(f"  * {item_id}")
         if len(merge_conflict_item_ids) > 0:
             print(
-                f"{len(merge_conflict_item_ids)} analysis item(s) will have merge conflicts when updated:"
+                f"{len(merge_conflict_item_ids)} analysis item(s) will have merge conflicts when updated to latest Panther version:"
             )
             for conflict in merge_conflict_item_ids:
                 print(f"  * {conflict}")
