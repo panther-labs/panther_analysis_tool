@@ -2,6 +2,7 @@ import os
 from unittest import TestCase
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from panther_analysis_tool import main as pat
@@ -48,10 +49,13 @@ class TestParser(TestCase):
             self.assertIn(Filter(key="AnalysisType", values=["policy", "global"]), parsed_filters)
             self.assertIn(Filter(key="Severity", values=["Critical"]), parsed_filters)
             self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
-            self.assertIn(Filter(key="RuleID", values=["abc"]), parsed_filters_inverted)
+            self.assertIn(
+                Filter(key="RuleID", values=["abc"], inverted=True), parsed_filters_inverted
+            )
             # by default: experimental and deprecated should always be filtered out
             self.assertIn(
-                Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
+                Filter(key="Status", values=["experimental", "deprecated"], inverted=True),
+                parsed_filters_inverted,
             )
 
     def test_parse_filters_status_can_be_overridden(self) -> None:
@@ -90,7 +94,9 @@ class TestParser(TestCase):
             self.assertIn(Filter(key="AnalysisType", values=["policy", "global"]), parsed_filters)
             self.assertIn(Filter(key="Severity", values=["Critical"]), parsed_filters)
             self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
-            self.assertIn(Filter(key="RuleID", values=["abc"]), parsed_filters_inverted)
+            self.assertIn(
+                Filter(key="RuleID", values=["abc"], inverted=True), parsed_filters_inverted
+            )
             # user explicitly added a filter on status: we should not have added Status != experimental,deprecated
             self.assertNotIn(
                 Filter(key="Status", values=["experimental", "deprecated"]), parsed_filters_inverted
@@ -119,3 +125,207 @@ def test_collect_top_level_imports_empty() -> None:
     """
     imports = parse.collect_top_level_imports(py.encode("utf-8"))
     assert imports == set()
+
+
+@pytest.mark.parametrize(
+    "search_term,expected",
+    [
+        # Empty strings
+        ("", []),
+        ("   ", []),
+        # Simple splitting
+        ("pie apple", ["pie", "apple"]),
+        ("one two three", ["one", "two", "three"]),
+        # Double-quoted strings
+        ('pie apple "two slices"', ["pie", "apple", "two slices"]),
+        ('"quoted string"', ["quoted string"]),
+        ('"one" "two" "three"', ["one", "two", "three"]),
+        # Single-quoted strings
+        ("pie apple 'two slices'", ["pie", "apple", "two slices"]),
+        ("'quoted string'", ["quoted string"]),
+        ("'one' 'two' 'three'", ["one", "two", "three"]),
+        # Nested quotes - double outside
+        ("\"text 'inner' more\"", ["text 'inner' more"]),
+        ("\"outer 'inner' text\"", ["outer 'inner' text"]),
+        # Nested quotes - single outside
+        ("'text \"inner\" more'", ['text "inner" more']),
+        ("'outer \"inner\" text'", ['outer "inner" text']),
+        # Mixed quoted and unquoted
+        ('unquoted "quoted" unquoted', ["unquoted", "quoted", "unquoted"]),
+        ('"first" middle "last"', ["first", "middle", "last"]),
+        # Multiple spaces
+        ("one   two    three", ["one", "two", "three"]),
+        ('  "quoted"   unquoted  ', ["quoted", "unquoted"]),
+        # Spaces inside quotes
+        ('"multiple   spaces   inside"', ["multiple   spaces   inside"]),
+        ("'spaces   preserved'", ["spaces   preserved"]),
+        # Unclosed quotes
+        ('"unclosed quote', ['"unclosed quote']),
+        ("'unclosed quote", ["'unclosed quote"]),
+        # Quotes only
+        ('""', [""]),
+        ("''", [""]),
+        ('" "', [" "]),
+        # Complex nested scenarios
+        (
+            "rule \"AWS.S3.Bucket.PublicRead\" 'enabled'",
+            ["rule", "AWS.S3.Bucket.PublicRead", "enabled"],
+        ),
+        (
+            "\"text 'inner' more\" outside \"another 'nested'\"",
+            ["text 'inner' more", "outside", "another 'nested'"],
+        ),
+        # No spaces
+        ("singleword", ["singleword"]),
+        ('"singlequoted"', ["singlequoted"]),
+        # Escaped quotes - double quotes
+        ('"text \\"inner\\" more"', ['text "inner" more']),
+        ('"escaped \\"quote\\""', ['escaped "quote"']),
+        # Escaped quotes - single quotes
+        ("'text \\'inner\\' more'", ["text 'inner' more"]),
+        ("'escaped \\'quote\\''", ["escaped 'quote'"]),
+        # Escaped quotes mixed with regular quotes
+        ('"text \\"escaped\\" and \'nested\'"', ["text \"escaped\" and 'nested'"]),
+        # Escaped backslash before quote (should not escape)
+        ('"text \\\\"inner"', ['text \\"inner']),
+        # Quotes but attached to something else
+        ('something="something else"', ['something="something else"']),
+    ],
+)
+def test_split_search_term(search_term: str, expected: list[str]) -> None:
+    """Test split_search_term function with various inputs."""
+    assert parse.split_search_term(search_term) == expected
+
+
+@pytest.mark.parametrize(
+    "search_terms,expected",
+    [
+        # Empty cases
+        ([], []),
+        ([""], []),
+        # Valid filters - single values
+        (
+            ["RuleID=AWS.S3.Bucket.PublicRead", "Enabled=true", "Severity=Critical"],
+            [
+                Filter(key="RuleID", values=["AWS.S3.Bucket.PublicRead"]),
+                Filter(key="Enabled", values=[True]),
+                Filter(key="Severity", values=["Critical"]),
+            ],
+        ),
+        # Valid filters - inverted
+        (
+            ["RuleID!=AWS.S3.Bucket.PublicRead", "Enabled=false", "Severity=High"],
+            [
+                Filter(key="RuleID", values=["AWS.S3.Bucket.PublicRead"], inverted=True),
+                Filter(key="Enabled", values=[False]),
+                Filter(key="Severity", values=["High"]),
+            ],
+        ),
+        # Multiple comma-separated values
+        (
+            ["AnalysisType=policy,global,rule", "Severity=Critical,High"],
+            [
+                Filter(key="AnalysisType", values=["policy", "global", "rule"]),
+                Filter(key="Severity", values=["Critical", "High"]),
+            ],
+        ),
+        # Inverted with multiple values
+        (
+            ["RuleID!=rule1,rule2,rule3"],
+            [Filter(key="RuleID", values=["rule1", "rule2", "rule3"], inverted=True)],
+        ),
+        # Boolean field variations
+        (
+            ["Enabled=true", "Enabled=false", "Enabled=1", "Enabled=0"],
+            [
+                Filter(key="Enabled", values=[True]),
+                Filter(key="Enabled", values=[False]),
+                Filter(key="Enabled", values=[True]),
+                Filter(key="Enabled", values=[False]),
+            ],
+        ),
+        # Mixed valid filters and plain text
+        (
+            ["RuleID=test.rule", "plain search term", "Severity=High"],
+            [
+                Filter(key="RuleID", values=["test.rule"]),
+                Filter(key="", values=["plain search term"]),
+                Filter(key="Severity", values=["High"]),
+            ],
+        ),
+        # Plain text (not filters)
+        (["just some text"], [Filter(key="", values=["just some text"])]),
+        (
+            ["multiple", "plain", "terms"],
+            [
+                Filter(key="", values=["multiple"]),
+                Filter(key="", values=["plain"]),
+                Filter(key="", values=["terms"]),
+            ],
+        ),
+        # Invalid filter formats - should fall back to plain text
+        (["ruleid=Something"], [Filter(key="", values=["ruleid=Something"])]),  # Case sensitive
+        (
+            ["this => arrow"],
+            [Filter(key="", values=["this => arrow"])],
+        ),  # Has = but not KEY=VALUE format
+        (
+            ["this!=>arrow"],
+            [Filter(key="", values=["this!=>arrow"])],
+        ),  # Has != but not KEY!=VALUE format
+        (["=value"], [Filter(key="", values=["=value"])]),  # Empty key
+        (["key="], [Filter(key="", values=["key="])]),  # Empty value
+        (["noequals"], [Filter(key="", values=["noequals"])]),  # No equals sign
+        # Invalid boolean values - should fall back to plain text
+        (["Enabled=maybe"], [Filter(key="", values=["Enabled=maybe"])]),
+        (["Enabled=yesno"], [Filter(key="", values=["Enabled=yesno"])]),
+        # Invalid filter keys - should fall back to plain text
+        (["InvalidKey=value"], [Filter(key="", values=["InvalidKey=value"])]),
+        (["NotAKey=something"], [Filter(key="", values=["NotAKey=something"])]),
+        # Edge cases with special characters
+        (["RuleID=test.rule.with.dots"], [Filter(key="RuleID", values=["test.rule.with.dots"])]),
+        (
+            ["RuleID=test-rule-with-dashes"],
+            [Filter(key="RuleID", values=["test-rule-with-dashes"])],
+        ),
+        (
+            ["RuleID=test_rule_with_underscores"],
+            [Filter(key="RuleID", values=["test_rule_with_underscores"])],
+        ),
+        (
+            ["Severity=Critical,High,Medium"],
+            [Filter(key="Severity", values=["Critical", "High", "Medium"])],
+        ),
+        # Multiple filters of same type (should create multiple Filter objects)
+        (
+            ["RuleID=rule1", "RuleID=rule2"],
+            [
+                Filter(key="RuleID", values=["rule1"]),
+                Filter(key="RuleID", values=["rule2"]),
+            ],
+        ),
+        # Mixed inverted and non-inverted of same key
+        (
+            ["RuleID=rule1", "RuleID!=rule2"],
+            [
+                Filter(key="RuleID", values=["rule1"]),
+                Filter(key="RuleID", values=["rule2"], inverted=True),
+            ],
+        ),
+        # Status field
+        (
+            ["Status=stable", "Status!=experimental"],
+            [
+                Filter(key="Status", values=["stable"]),
+                Filter(key="Status", values=["experimental"], inverted=True),
+            ],
+        ),
+        # AnalysisType with multiple values
+        (
+            ["AnalysisType=rule,policy,datamodel"],
+            [Filter(key="AnalysisType", values=["rule", "policy", "datamodel"])],
+        ),
+    ],
+)
+def test_search_terms_to_filters(search_terms: list[str], expected: list[Filter]) -> None:
+    assert parse.search_terms_to_filters(search_terms) == expected

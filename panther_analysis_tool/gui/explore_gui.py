@@ -9,6 +9,7 @@ from textual.widgets import DataTable, Footer, Input, Tree
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.command import clone
+from panther_analysis_tool.core import parse
 from panther_analysis_tool.gui import widgets
 
 
@@ -50,7 +51,7 @@ class ExploreApp(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Footer()
-        yield Input(placeholder="Search by Type, ID, or Description...", id="search-input")
+        yield Input(placeholder="Search by text or by filters...", id="search-input")
 
         yield Horizontal(
             Tree(id="tree", label="Analysis Content"),  # Will be populated in on_mount
@@ -122,9 +123,11 @@ class ExploreApp(App):
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Handle search input changes to filter the table."""
-        search_term = event.value.lower().strip()
+        search_term = event.value.strip()
+        search_terms = parse.split_search_term(search_term)
+        filters = parse.search_terms_to_filters(search_terms)
         table = self.query_one("#table", widgets.AnalysisItemDataTable)
-        table.filter_by_search_term(search_term)
+        table.filter_by_filters(filters)
 
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle tree node selection to filter the table."""
