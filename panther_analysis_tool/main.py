@@ -1790,6 +1790,7 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             test_result.functions.severityFunction = None
             test_result.functions.descriptionFunction = None
             test_result.functions.referenceFunction = None
+            test_result.functions.uniqueFunction = None
 
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored
