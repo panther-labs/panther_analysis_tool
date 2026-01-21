@@ -1574,6 +1574,9 @@
         "Query": {
           "type": "string"
         },
+        "PantherFlowQuery": {
+          "type": "string"
+        },
         "QueryName": {
           "type": "string"
         },
