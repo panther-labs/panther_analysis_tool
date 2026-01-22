@@ -1,0 +1,108 @@
+name: Update Panther Analysis Dependency
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update_dependency:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Extract version from release tag
+      id: get_version
+      run: |
+        # Remove 'v' prefix from tag if present (e.g., v1.2.0 -> 1.2.0)
+        VERSION="${{ github.event.release.tag_name }}"
+        VERSION="${VERSION#v}"
+        echo "Extracted version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Set up Python
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+      with:
+        python-version: '3.11'
+
+    - name: Checkout panther-analysis Repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        repository: panther-labs/panther-analysis
+        token: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
+        path: panther-analysis
+
+    - name: Wait for PyPI availability
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        echo "Waiting for panther-analysis-tool~=$VERSION to be available on PyPI..."
+        
+        # Wait up to 10 minutes for the package to be available on PyPI
+        for i in {1..60}; do
+          if pip index versions panther-analysis-tool | grep -q "$VERSION"; then
+            echo "Package panther-analysis-tool~=$VERSION is available on PyPI"
+            break
+          fi
+          echo "Attempt $i: Package not yet available, waiting 10 seconds..."
+          sleep 10
+          
+          if [ $i -eq 60 ]; then
+            echo "Timeout: Package panther-analysis-tool~=$VERSION not available on PyPI after 10 minutes"
+            exit 1
+          fi
+        done
+
+    - name: Update dependencies
+      run: |
+        pip install pipenv
+        cd panther-analysis
+        
+        if grep -q 'panther-analysis-tool = {file = "..", editable = true}' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = {file = "..", editable = true}/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
+        elif grep -q 'panther-analysis-tool = { file = "..", editable = true }' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = { file = "..", editable = true }/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
+        elif grep -q 'panther-analysis-tool.*file.*editable.*true' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = {[^}]*}/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
+        elif grep -q 'panther-analysis-tool = ' Pipfile; then
+          sed -i.bak 's/panther-analysis-tool = "[^"]*"/panther-analysis-tool = "~=${{ steps.get_version.outputs.version }}"/' Pipfile
+        fi
+        
+        rm -f Pipfile.bak Pipfile.lock
+        pipenv lock
+
+    - name: Import GPG key
+      id: import_gpg
+      uses: crazy-max/ghaction-import-gpg@v6
+      with:
+        gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        workdir: panther-analysis
+
+    - name: Create Pull Request
+      run: |
+        cd panther-analysis
+        git config --global user.email "github-service-account-automation@panther.io"
+        git config --global user.name "panther-bot-automation"
+        git config --global user.signingkey "${{ steps.import_gpg.outputs.keyid }}"
+        git config --global commit.gpgsign true
+        
+        git checkout -b "update-panther-analysis-tool-${{ steps.get_version.outputs.version }}"
+        git add Pipfile Pipfile.lock
+        git diff --cached --quiet && exit 0
+        
+        git commit -S -m "Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}" || \
+        (git config --global commit.gpgsign false && git commit -m "Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}")
+        
+        git push --set-upstream origin "update-panther-analysis-tool-${{ steps.get_version.outputs.version }}"
+        
+        gh pr create \
+          --title "Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}" \
+          --body "Automated dependency update to panther-analysis-tool v${{ steps.get_version.outputs.version }}" \
+          --head "update-panther-analysis-tool-${{ steps.get_version.outputs.version }}" \
+          --base develop
+      env:
+        GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}

@@ -1,8 +1,7 @@
 import copy
 import logging
+from dataclasses import dataclass
 from pprint import pformat
-
-from attr import dataclass
 
 from panther_analysis_tool.analysis_utils import LoadAnalysisSpecsResult
 from panther_analysis_tool.backend.client import Client as BackendClient
@@ -20,10 +19,6 @@ class EventEnrichmentResult:
 
     def was_enriched(self) -> bool:
         return self.original_test != self.enriched_test
-
-    def __init__(self, original_test: dict, enriched_test: dict):
-        self.original_test = original_test
-        self.enriched_test = enriched_test
 
 
 class EnrichedEventGenerator:
@@ -201,6 +196,7 @@ class EnrichedEventGenerator:
                         test["Name"],
                         analysis_id,
                     )
+                    continue
 
                 results.append(event_enrichment_result)
 

@@ -125,7 +125,13 @@ from panther_analysis_tool.core.definitions import (
     TestResultContainer,
     TestResultsContainer,
 )
-from panther_analysis_tool.core.parse import Filter, parse_filter
+from panther_analysis_tool.core.parse import (
+    DEPRECATED_STATUS,
+    EXPERIMENTAL_STATUS,
+    Filter,
+    get_filters_with_status_filters,
+    parse_filter,
+)
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
@@ -1071,7 +1077,7 @@ def setup_data_models(
     return log_type_to_data_model, invalid_specs
 
 
-def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-many-statements
+def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-many-statements,too-many-positional-arguments
     log_type_to_data_model: Dict[str, DataModel],
     analysis: List[ClassifiedAnalysis],
     minimum_tests: int,
@@ -1398,6 +1404,7 @@ def check_packs(path: str) -> Tuple[int, str]:
     queries = {}  # Which items depend on which queries?
     data_models = {}  # Mapping of log types to corresponding data model
     all_analysis_item_ids = set()  # Record all valid analysis items by ID
+    specs_by_id = {}  # Mapping of analysis item IDs to their specs
     for spec_ in specs.items():
         # _spec is a ClassifiedAnalysis object - the dictionary spec is a property
         spec = spec_.analysis_spec
@@ -1415,8 +1422,9 @@ def check_packs(path: str) -> Tuple[int, str]:
             for log_type in spec["LogTypes"]:
                 data_models[log_type] = id_
 
-        # Record the ID
+        # Record the ID and spec
         all_analysis_item_ids.add(id_)
+        specs_by_id[id_] = spec
 
     # Now we scan through each pack and check if it has all the required items
     missing_pack_items: list[dict[str, Any]] = []
@@ -1486,19 +1494,30 @@ def check_packs(path: str) -> Tuple[int, str]:
         pack_spec = pack.analysis_spec
         all_items_in_packs.update(set(pack_spec["PackDefinition"]["IDs"]))
 
+    excluded_tags = {"no pack", "configuration required", "multi-table query"}
+    allowed_analysis_types = (
+        "rule",
+        "scheduled_rule",
+        "correlation_rule",
+        "datamodel",
+        "lookup_table",
+    )
     all_items_not_in_packs = set()
     for spec_ in specs.items():
         spec = spec_.analysis_spec
         id_ = get_spec_id(spec)
         tags = set(tag.lower() for tag in spec.get("Tags", []))
-        # Only check rules, not luts, policies, queries, etc.
-        if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule"):
+        status = spec.get("Status", "").lower()
+
+        # Only check certain analysis types
+        if spec.get("AnalysisType") not in allowed_analysis_types:
             continue
-        # Ignore rules with DEPRECATED in the title
-        if "deprecated" in spec.get("DisplayName", "").lower():
+        # Ignore items with experimental or deprecated status
+        if status in (EXPERIMENTAL_STATUS, DEPRECATED_STATUS):
             continue
-        # Ignore rules with certain tags
-        if {"deprecated", "no pack", "configuration required", "multi-table query"} & tags:
+
+        # Ignore items with certain tags
+        if excluded_tags & tags:
             continue
 
         if id_ not in all_items_in_packs:
@@ -1509,10 +1528,54 @@ def check_packs(path: str) -> Tuple[int, str]:
         err_str += sorted(list(all_items_not_in_packs))
         return 1, "\n".join(err_str)
 
+    # Check for items that should not be in packs
+    experimental_items_in_packs = []
+    deprecated_items_in_packs = []
+    excluded_tag_items_in_packs = []
+
+    for item_id in all_items_in_packs:
+        if item_id in specs_by_id:
+            spec = specs_by_id[item_id]
+
+            # Only check certain analysis types
+            if spec.get("AnalysisType") not in allowed_analysis_types:
+                continue
+
+            tags = set(tag.lower() for tag in spec.get("Tags", []))
+            status = spec.get("Status", "").lower()
+
+            # Check for experimental status
+            if status == EXPERIMENTAL_STATUS:
+                experimental_items_in_packs.append(item_id)
+            # Check for deprecated status
+            elif status == DEPRECATED_STATUS:
+                deprecated_items_in_packs.append(item_id)
+            # Check for excluded tags
+            elif excluded_tags & tags:
+                excluded_tag_items_in_packs.append(
+                    (item_id, ", ".join(sorted(excluded_tags & tags)))
+                )
+
+    if experimental_items_in_packs:
+        err_str = ["The following experimental items are not allowed in packs:"]
+        err_str += sorted(experimental_items_in_packs)
+        return 1, "\n".join(err_str)
+
+    if deprecated_items_in_packs:
+        err_str = ["The following deprecated items are not allowed in packs:"]
+        err_str += sorted(deprecated_items_in_packs)
+        return 1, "\n".join(err_str)
+
+    if excluded_tag_items_in_packs:
+        err_str = ["The following items with excluded tags are not allowed in packs:"]
+        for item_id, tag_list in sorted(excluded_tag_items_in_packs):
+            err_str.append(f"\t{item_id} (tags: {tag_list})")
+        return 1, "\n".join(err_str)
+
     return 0, "Looks like packs are up to date"
 
 
-def run_tests(  # pylint: disable=too-many-arguments
+def run_tests(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     analysis: Dict[str, Any],
     analysis_data_models: Dict[str, DataModel],
     detection: Optional[Detection],
@@ -1606,7 +1669,7 @@ def _process_correlation_rule_test_results(
 
 
 # pylint: disable=too-many-statements
-def _run_tests(  # pylint: disable=too-many-arguments
+def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     analysis_data_models: Dict[str, DataModel],
     detection: Optional[Detection],
     tests: List[Dict[str, Any]],
@@ -1843,7 +1906,7 @@ def global_options(
         "panther-analysis-all.sig"
     )
 )
-def release(
+def release(  # pylint: disable=too-many-positional-arguments
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     kms_key: KMSKeyType = "",
@@ -1868,6 +1931,7 @@ def release(
     if available_destination is None:
         available_destination = []
 
+    # release should parse filter as is, and not filter out Status: deprecated, Status: experimental
     filters, filters_inverted = parse_filter(_filter)
 
     # Forward to your logic function
@@ -1897,7 +1961,7 @@ def release(
 
 
 @app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
-def test(
+def test(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -1930,7 +1994,7 @@ def test(
     if test_names is None:
         test_names = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -1955,7 +2019,7 @@ def test(
     name="debug",
     help="Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.",
 )
-def debug_command(
+def debug_command(  # pylint: disable=too-many-positional-arguments
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
     api_token: APITokenType = None,
@@ -1977,7 +2041,7 @@ def debug_command(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -2007,7 +2071,7 @@ def debug_command(
         + "panther-analysis-all.sig"
     ),
 )
-def publish_command(
+def publish_command(  # pylint: disable=too-many-positional-arguments
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
@@ -2040,7 +2104,7 @@ def publish_command(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = PublishReleaseArgs(
         github_tag=github_tag,
@@ -2074,7 +2138,7 @@ def publish_command(
 
 
 @app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
-def upload(
+def upload(  # pylint: disable=too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2106,7 +2170,7 @@ def upload(
     if valid_table_names is None:
         valid_table_names = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = UploadAnalysisArgs(
         auto_disable_base=auto_disable_base,
@@ -2135,7 +2199,7 @@ def upload(
 
 
 @app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
-def delete(
+def delete(  # pylint: disable=too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2205,7 +2269,7 @@ def validate_cmd(
     if ignore_files is None:
         ignore_files = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = validate.ValidateArgs(
         out=".",
@@ -2221,7 +2285,7 @@ def validate_cmd(
 @app_command_with_config(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
-def zip_cmd(
+def zip_cmd(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2244,7 +2308,7 @@ def zip_cmd(
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = ZipAnalysisArgs(
         skip_tests=skip_tests,
@@ -2292,7 +2356,7 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
         "is an extension of Data Replay and is subject to the same limitations."
     ),
 )
-def benchmark_command(
+def benchmark_command(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2334,7 +2398,7 @@ def benchmark_command(
     if ignore_files is None:
         ignore_files = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     args = benchmark.BenchmarkArgs(
         filters=filters,
@@ -2353,7 +2417,7 @@ def benchmark_command(
     name="enrich-test-data",
     help="Enrich test data with additional enrichments from the Panther API.",
 )
-def enrich_test_data_command(
+def enrich_test_data_command(  # pylint: disable=too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
@@ -2368,7 +2432,7 @@ def enrich_test_data_command(
     if valid_table_names is None:
         valid_table_names = []
 
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
 
     # Call your backend function with the parsed arguments
     args = EnrichTestDataArgs(

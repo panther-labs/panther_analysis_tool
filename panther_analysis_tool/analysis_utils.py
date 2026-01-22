@@ -17,7 +17,9 @@ from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import (
+    BackendError,
+)
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     GetRuleBodyParams,
