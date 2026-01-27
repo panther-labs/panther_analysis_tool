@@ -1,5 +1,6 @@
 import os
 
+from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
 from panther_analysis_tool.core import git_helpers
 
 
@@ -11,7 +12,7 @@ def chdir_to_project_root() -> None:
     """
     git_root = git_helpers.git_root()
     for root, _, files in os.walk(git_root):
-        if ".pat-root" in files:
+        if PAT_ROOT_FILE_NAME in files:
             os.chdir(root)
             return
 

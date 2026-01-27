@@ -68,8 +68,19 @@ def enable_rerere() -> None:
 
 
 def setup_pat_root(working_dir: pathlib.Path) -> bool:
-    git_root = pathlib.Path(git_helpers.git_root())
-    if git_root == working_dir:
+    """
+    `.pat-root` file is used to track the root of the Panther project if the root is not the same as the git root.
+    Create a `.pat-root` file in the working directory if it doesn't already exist.
+    If the working directory is the same as the git root, do not create the `.pat-root` file.
+
+    Args:
+        working_dir (pathlib.Path): The current working directory.
+
+    Returns:
+        bool: True if the `.pat-root` file was created, False otherwise.
+    """
+    git_root = pathlib.Path(git_helpers.git_root()).absolute()
+    if git_root == working_dir.absolute():
         return False
 
     pat_root_file = working_dir / PAT_ROOT_FILE_NAME
