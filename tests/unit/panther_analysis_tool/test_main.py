@@ -1551,7 +1551,7 @@ class TestPantherAnalysisTool(TestCase):
                     "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
                     return_value="fake_commit_hash_1",
                 ),
-                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
             ):
                 # Try to clone a non-existent rule
                 result = runner.invoke(app, ["clone", "NonExistent.Rule.1"])
@@ -1595,7 +1595,7 @@ class TestPantherAnalysisTool(TestCase):
                     "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
                     return_value="fake_commit_hash_1",
                 ),
-                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
             ):
                 result = runner.invoke(app, ["clone", "--all"])
@@ -1639,7 +1639,7 @@ class TestPantherAnalysisTool(TestCase):
                     "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
                     return_value="fake_commit_hash_1",
                 ),
-                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
             ):
                 result = runner.invoke(app, ["clone", "Test.Rule.1"])
@@ -1675,7 +1675,7 @@ class TestPantherAnalysisTool(TestCase):
                     "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
                     return_value="fake_commit_hash_1",
                 ),
-                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
             ):
                 result = runner.invoke(
@@ -1731,7 +1731,7 @@ class TestPantherAnalysisTool(TestCase):
                     "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
                     return_value="fake_commit_hash_1",
                 ),
-                patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
             ):
                 result = runner.invoke(

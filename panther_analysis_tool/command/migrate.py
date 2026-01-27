@@ -27,6 +27,7 @@ from panther_analysis_tool.core import (
     file_editor,
     git_helpers,
     merge_item,
+    root,
     versions_file,
     yaml,
 )
@@ -211,7 +212,7 @@ class MigrationStatus:
 
 
 def run(args: MigrateArgs) -> Tuple[int, str]:
-    git_helpers.chdir_to_git_root()
+    root.chdir_to_project_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 
     try:

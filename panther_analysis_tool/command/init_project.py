@@ -1,22 +1,23 @@
 import logging
+import pathlib
 import subprocess  # nosec:B404
-from pathlib import Path
 from typing import Tuple
 
+from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
 from panther_analysis_tool.core import analysis_cache, git_helpers
 
 
 def run(working_dir: str) -> Tuple[int, str]:
-    git_helpers.chdir_to_git_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
-    setup_git_ignore(Path(working_dir))
+    setup_git_ignore()
     enable_rerere()
-    print_ready_message()
+    pat_root_created = setup_pat_root(pathlib.Path(working_dir))
+    print_ready_message(pat_root_created)
     return 0, ""
 
 
-def setup_git_ignore(working_dir: Path) -> None:
-    gitignore_file = working_dir / ".gitignore"
+def setup_git_ignore() -> None:
+    gitignore_file = git_helpers.git_root() / ".gitignore"
     if not gitignore_file.exists():
         print(".gitignore file created")
         gitignore_file.touch()
@@ -66,8 +67,31 @@ def enable_rerere() -> None:
         logging.error("Failed to enable git rerere: %s", proc.stderr.decode("utf-8"))
 
 
-def print_ready_message() -> None:
+def setup_pat_root(working_dir: pathlib.Path) -> bool:
+    git_root = pathlib.Path(git_helpers.git_root())
+    if git_root == working_dir:
+        return False
+
+    pat_root_file = working_dir / PAT_ROOT_FILE_NAME
+    if pat_root_file.exists():
+        return False
+
+    pat_root_file.touch()
+    pat_root_file.write_text(
+        "# File created by Panther Analysis Tool to track the root of your Panther project. Please commit this file and do not delete it.\n"
+    )
+    return True
+
+
+def print_ready_message(pat_root_created: bool) -> None:
     print("Project is ready to use!\n")
+
+    if pat_root_created:
+        print(
+            "`init` command was not run in the same directory as the git root. "
+            "`.pat-root` file created in current directory and will be used as the root "
+            "of your Panther project for future `pat` commands.\n"
+        )
 
     print("Next, you can start exploring and using Panther out of the box content:")
     print("  * Run `pat explore` to see the available content.")

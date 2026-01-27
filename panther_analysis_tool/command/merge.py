@@ -11,8 +11,8 @@ from panther_analysis_tool.constants import AutoAcceptOption
 from panther_analysis_tool.core import (
     analysis_cache,
     file_editor,
-    git_helpers,
     merge_item,
+    root,
     yaml,
 )
 
@@ -27,7 +27,7 @@ class MergeArgs:
 
 def run(args: MergeArgs) -> Tuple[int, str]:
     try:
-        git_helpers.chdir_to_git_root()
+        root.chdir_to_project_root()
         return merge_analysis(
             args.analysis_id, args.editor, args.auto_accept, args.write_merge_conflicts
         )
