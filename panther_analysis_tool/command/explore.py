@@ -1,12 +1,12 @@
 from rich.progress import track
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.core import analysis_cache, git_helpers, versions_file, yaml
+from panther_analysis_tool.core import analysis_cache, root, versions_file, yaml
 from panther_analysis_tool.gui.explore_gui import ExploreApp
 
 
 def run() -> tuple[int, str]:
-    git_helpers.chdir_to_git_root()
+    root.chdir_to_project_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
     all_specs = load_panther_analysis_specs(show_progress_bar=True)
     user_spec_ids = load_user_specs(show_progress_bar=True)

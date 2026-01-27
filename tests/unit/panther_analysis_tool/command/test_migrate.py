@@ -1674,3 +1674,83 @@ def test_migration_status_load_not_empty(tmp_path: pathlib.Path, monkeypatch: Mo
             reason="Item is dead to me. I deleted it.",
         ),
     }
+
+
+def test_migrate_calls_chdir_to_project_root_monorepo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that migrate command calls chdir_to_project_root which chdirs to project root
+    (not git root) in monorepo scenario.
+    """
+    from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
+
+    git_root = tmp_path
+    project_root = git_root / "pa"
+    subdir = project_root / "some" / "nested" / "directory"
+
+    project_root.mkdir(parents=True, exist_ok=True)
+    subdir.mkdir(parents=True, exist_ok=True)
+    (project_root / PAT_ROOT_FILE_NAME).touch()
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock chdir_to_project_root to verify it's called
+    mock_chdir_to_project_root = mocker.patch(
+        "panther_analysis_tool.command.migrate.root.chdir_to_project_root"
+    )
+
+    # Mock all the migrate operations to avoid actually running them
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.migrate",
+        return_value=migrate.MigrationStatus(),
+    )
+
+    # Run migrate command
+    migrate.run(migrate.MigrateArgs())
+
+    # Verify chdir_to_project_root was called
+    mock_chdir_to_project_root.assert_called_once()
+
+
+def test_migrate_calls_chdir_to_project_root_normal_repo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that migrate command calls chdir_to_project_root which chdirs to git root
+    in normal repo scenario (no .pat-root).
+    """
+    git_root = tmp_path
+    subdir = git_root / "some" / "nested" / "directory"
+    subdir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock chdir_to_project_root to verify it's called
+    mock_chdir_to_project_root = mocker.patch(
+        "panther_analysis_tool.command.migrate.root.chdir_to_project_root"
+    )
+
+    # Mock all the migrate operations to avoid actually running them
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.migrate",
+        return_value=migrate.MigrationStatus(),
+    )
+
+    # Run migrate command
+    migrate.run(migrate.MigrateArgs())
+
+    # Verify chdir_to_project_root was called
+    mock_chdir_to_project_root.assert_called_once()

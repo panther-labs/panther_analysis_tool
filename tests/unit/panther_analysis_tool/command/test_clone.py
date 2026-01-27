@@ -630,7 +630,7 @@ def test_enable_works_with_all_types(
         "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.clone.git_helpers.chdir_to_git_root")
+    mocker.patch("panther_analysis_tool.command.clone.root.chdir_to_project_root")
     set_up_cache(tmp_path, monkeypatch)
 
     for _id in [
@@ -657,7 +657,7 @@ def test_enable_sets_base_version_field(
         "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.clone.git_helpers.chdir_to_git_root")
+    mocker.patch("panther_analysis_tool.command.clone.root.chdir_to_project_root")
     set_up_cache(tmp_path, monkeypatch)
     code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert code == 0
@@ -679,7 +679,7 @@ def test_enable_messaging(
         "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.clone.git_helpers.chdir_to_git_root")
+    mocker.patch("panther_analysis_tool.command.clone.root.chdir_to_project_root")
     set_up_cache(tmp_path, monkeypatch)
     code, err_str = clone.run(analysis_id="bad", filter_args=[])
     assert code == 1
@@ -736,3 +736,210 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
     assert (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
     assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
+
+
+def test_clone_from_subdirectory_creates_files_at_project_root_monorepo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that cloning from a subdirectory in a monorepo creates files at project root,
+    not in the subdirectory where the command was run.
+    """
+    import os
+
+    from panther_analysis_tool.constants import (
+        CACHE_DIR,
+        CACHED_VERSIONS_FILE_PATH,
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+        PAT_ROOT_FILE_NAME,
+    )
+
+    git_root = tmp_path
+    project_root = git_root / "pa"
+    subdir = project_root / "some" / "nested" / "directory"
+
+    project_root.mkdir(parents=True, exist_ok=True)
+    subdir.mkdir(parents=True, exist_ok=True)
+    (project_root / PAT_ROOT_FILE_NAME).touch()
+
+    monkeypatch.chdir(subdir)
+
+    # Mock git_root to return the actual git root
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock the actual chdir to track where we chdir to
+    actual_chdirs = []
+    original_chdir = os.chdir
+
+    def track_chdir(path):
+        actual_chdirs.append(pathlib.Path(path).resolve())
+        return original_chdir(path)
+
+    mocker.patch("os.chdir", side_effect=track_chdir)
+
+    # Set up cache at project root
+    monkeypatch.chdir(project_root)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    pa_clone_path = CACHE_DIR / "panther-analysis"
+    pa_clone_path.mkdir(parents=True, exist_ok=True)
+    _FAKE_VERSIONS_FILE_SIMPLE = yaml.dump(
+        {
+            "versions": {
+                "fake.rule.1": {
+                    "version": 1,
+                    "type": "rule",
+                    "sha256": "fake_sha256_1",
+                    "history": {
+                        "1": {
+                            "version": 1,
+                            "commit_hash": "fake_commit_hash_1",
+                            "yaml_file_path": "rules/fake_rule_1.yaml",
+                            "py_file_path": "rules/fake_rule_1.py",
+                        }
+                    },
+                }
+            }
+        }
+    )
+    CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE_SIMPLE)
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
+
+    # Mock cache operations
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+
+    # Mock AnalysisCache to return our pre-populated cache
+    def mock_analysis_cache(*args, **kwargs):
+        return cache
+
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.AnalysisCache",
+        side_effect=mock_analysis_cache,
+    )
+
+    # Reset versions_file cache to ensure it reads from the file we just created
+    mocker.patch(
+        "panther_analysis_tool.core.versions_file._VERSIONS",
+        None,
+    )
+
+    # Run clone command
+    clone.run(analysis_id="fake.rule.1", filter_args=[])
+
+    # Verify we chdir'd to project root
+    assert len(actual_chdirs) >= 1
+    assert actual_chdirs[0] == project_root.resolve()
+
+    # Verify files were created at project root, not in subdirectory
+    assert (project_root / "rules" / "fake_rule_1.yaml").exists()
+    assert (project_root / "rules" / "fake_rule_1.py").exists()
+    assert not (subdir / "rules" / "fake_rule_1.yaml").exists()
+
+    # Verify cache is at project root
+    assert (project_root / CACHE_DIR).exists()
+    assert not (subdir / CACHE_DIR).exists()
+
+
+def test_clone_from_subdirectory_creates_files_at_git_root_normal_repo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that cloning from a subdirectory in a normal repo (no .pat-root)
+    creates files at git root.
+    """
+    import os
+
+    from panther_analysis_tool.constants import (
+        CACHE_DIR,
+        CACHED_VERSIONS_FILE_PATH,
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+    )
+
+    git_root = tmp_path
+    subdir = git_root / "some" / "nested" / "directory"
+    subdir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Track chdir calls
+    actual_chdirs = []
+    original_chdir = os.chdir
+
+    def track_chdir(path):
+        actual_chdirs.append(pathlib.Path(path).resolve())
+        return original_chdir(path)
+
+    mocker.patch("os.chdir", side_effect=track_chdir)
+
+    # Set up cache at git root
+    monkeypatch.chdir(git_root)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    pa_clone_path = CACHE_DIR / "panther-analysis"
+    pa_clone_path.mkdir(parents=True, exist_ok=True)
+    _FAKE_VERSIONS_FILE_SIMPLE = yaml.dump(
+        {
+            "versions": {
+                "fake.rule.1": {
+                    "version": 1,
+                    "type": "rule",
+                    "sha256": "fake_sha256_1",
+                    "history": {
+                        "1": {
+                            "version": 1,
+                            "commit_hash": "fake_commit_hash_1",
+                            "yaml_file_path": "rules/fake_rule_1.yaml",
+                            "py_file_path": "rules/fake_rule_1.py",
+                        }
+                    },
+                }
+            }
+        }
+    )
+    CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE_SIMPLE)
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
+
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+
+    # Mock AnalysisCache to return our pre-populated cache
+    def mock_analysis_cache(*args, **kwargs):
+        return cache
+
+    mocker.patch(
+        "panther_analysis_tool.command.clone.analysis_cache.AnalysisCache",
+        side_effect=mock_analysis_cache,
+    )
+
+    # Reset versions_file cache to ensure it reads from the file we just created
+    mocker.patch(
+        "panther_analysis_tool.core.versions_file._VERSIONS",
+        None,
+    )
+
+    # Run clone command
+    clone.run(analysis_id="fake.rule.1", filter_args=[])
+
+    # Verify we chdir'd to git root
+    assert len(actual_chdirs) >= 1
+    assert actual_chdirs[0] == git_root.resolve()
+
+    # Verify files were created at git root, not in subdirectory
+    assert (git_root / "rules" / "fake_rule_1.yaml").exists()
+    assert (git_root / "rules" / "fake_rule_1.py").exists()
+    assert not (subdir / "rules" / "fake_rule_1.yaml").exists()
+
+    # Verify cache is at git root
+    assert (git_root / CACHE_DIR).exists()
+    assert not (subdir / CACHE_DIR).exists()
