@@ -1545,15 +1545,15 @@ class TestPantherAnalysisTool(TestCase):
         with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
             yaml_loader.dump({"versions": {}}, f)
 
-        with (
-            patch(
-                "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
-                return_value="fake_commit_hash_1",
-            ),
-            patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
-        ):
-            # Try to clone a non-existent rule
-            result = runner.invoke(app, ["clone", "NonExistent.Rule.1"])
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+            ):
+                # Try to clone a non-existent rule
+                result = runner.invoke(app, ["clone", "NonExistent.Rule.1"])
 
         # Should return error code (error handling is tested in command tests)
         self.assertEqual(result.exit_code, 1)
@@ -1586,15 +1586,15 @@ class TestPantherAnalysisTool(TestCase):
         with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
             yaml_loader.dump({"versions": {}}, f)
 
-        with (
-            patch(
-                "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
-                return_value="fake_commit_hash_1",
-            ),
-            patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
-            patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
-        ):
-            result = runner.invoke(app, ["clone", "--all"])
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(app, ["clone", "--all"])
 
         # Should succeed (clone.run is mocked, so it won't actually clone)
         self.assertEqual(result.exit_code, 0)
@@ -1627,15 +1627,15 @@ class TestPantherAnalysisTool(TestCase):
         with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
             yaml_loader.dump({"versions": {}}, f)
 
-        with (
-            patch(
-                "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
-                return_value="fake_commit_hash_1",
-            ),
-            patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
-            patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
-        ):
-            result = runner.invoke(app, ["clone", "Test.Rule.1"])
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(app, ["clone", "Test.Rule.1"])
 
         # Should succeed (clone.run is mocked, so it won't actually clone)
         self.assertEqual(result.exit_code, 0)
@@ -1660,17 +1660,17 @@ class TestPantherAnalysisTool(TestCase):
         with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
             yaml_loader.dump({"versions": {}}, f)
 
-        with (
-            patch(
-                "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
-                return_value="fake_commit_hash_1",
-            ),
-            patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
-            patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
-        ):
-            result = runner.invoke(
-                app, ["clone", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
-            )
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(
+                    app, ["clone", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
+                )
 
         # Should succeed (clone.run is mocked, so it won't actually clone)
         self.assertEqual(result.exit_code, 0)
@@ -1713,15 +1713,17 @@ class TestPantherAnalysisTool(TestCase):
         with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
             yaml_loader.dump({"versions": {}}, f)
 
-        with (
-            patch(
-                "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
-                return_value="fake_commit_hash_1",
-            ),
-            patch("panther_analysis_tool.core.git_helpers.chdir_to_git_root"),
-            patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
-        ):
-            result = runner.invoke(app, ["clone", "Test.Rule.1", "--filter", "AnalysisType=rule"])
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+            ):
+                result = runner.invoke(
+                    app, ["clone", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+                )
 
         # Should succeed (clone.run is mocked, so it won't actually clone)
         # Filters can be used with an ID to refine the selection

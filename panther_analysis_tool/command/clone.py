@@ -4,8 +4,8 @@ from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.core import (
     analysis_cache,
     clone_item,
-    git_helpers,
     parse,
+    root,
     versions_file,
     yaml,
 )
@@ -13,7 +13,7 @@ from panther_analysis_tool.core import (
 
 def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     try:
-        git_helpers.chdir_to_git_root()
+        root.chdir_to_project_root()
         analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
         clone(analysis_id, filter_args, show_cloned_items=True)
     except (ValueError, analysis_cache.NoCacheException) as err:
