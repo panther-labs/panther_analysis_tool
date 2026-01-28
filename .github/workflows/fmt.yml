@@ -25,6 +25,8 @@ jobs:
         run: make venv
       - name: Format
         run: make fmt
+      - name: Update dependencies
+        run: make reqs
       - name: Import GPG key
         if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
         uses: crazy-max/ghaction-import-gpg@v6
@@ -33,7 +35,7 @@ jobs:
           passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
           git_user_signingkey: true
           git_commit_gpgsign: true
-      - name: Commit formatting
+      - name: Commit formatting and any dependency updates
         if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
         run: |
           git config --global user.name "panther-bot-automation"
@@ -54,7 +56,7 @@ jobs:
           if [[ $REQUIRES_COMMIT -eq 0 ]]; then
             echo "No auto-formatting needed"
           else
-            echo "Committing auto-formatted files"
+            echo "Committing auto-formatted files and any dependency updates"
             git push origin HEAD:$BRANCH
           fi
         env:
