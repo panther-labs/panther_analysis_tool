@@ -16,6 +16,7 @@ from panther_analysis_tool.core import analysis_cache, clone_item, root
 class PullArgs:
     auto_accept: AutoAcceptOption | None = None
     write_merge_conflicts: bool = False
+    preview: bool = False
 
 
 def run(args: PullArgs) -> Tuple[int, str]:
@@ -24,6 +25,7 @@ def run(args: PullArgs) -> Tuple[int, str]:
         show_progress_bar=True,
         auto_accept=args.auto_accept,
         write_merge_conflicts=args.write_merge_conflicts,
+        preview=args.preview,
     )
     return 0, ""
 
@@ -32,6 +34,7 @@ def pull(
     show_progress_bar: bool = False,
     auto_accept: AutoAcceptOption | None = None,
     write_merge_conflicts: bool = False,
+    preview: bool = False,
 ) -> None:
     # load specs
     user_analysis_specs: Dict[str, LoadAnalysisSpecsResult] = {}
@@ -51,7 +54,13 @@ def pull(
     mergeable_items = merge.get_mergeable_items(None, list(user_analysis_specs.values()))
     if len(mergeable_items) > 0:
         merge.merge_items(
-            mergeable_items, None, None, auto_accept, show_progress_bar, write_merge_conflicts
+            mergeable_items=mergeable_items,
+            analysis_id=None,
+            editor=None,
+            auto_accept=auto_accept,
+            show_progress_bar=show_progress_bar,
+            write_merge_conflicts=write_merge_conflicts,
+            preview=preview,
         )
 
     # we need to check if the new merged python includes any

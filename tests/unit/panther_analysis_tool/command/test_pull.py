@@ -130,10 +130,10 @@ def create_file_with_text(path: pathlib.Path, text: str) -> None:
     path.write_text(text)
 
 
-def test_pull_and_merge_works(
+def _setup_pull_test(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    """Common setup for pull tests."""
     mocker.patch(
         "panther_analysis_tool.command.pull.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
         return_value="fake_commit_hash_1",
@@ -145,6 +145,15 @@ def test_pull_and_merge_works(
     mocker.patch("panther_analysis_tool.command.pull.root.chdir_to_project_root")
 
     set_up_cache(tmp_path, monkeypatch)
+
+
+def test_pull_and_merge_with_conflicts(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test pull when merge has conflicts."""
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    _setup_pull_test(tmp_path, monkeypatch, mocker)
+
     pull.run(pull.PullArgs())
 
     mock_print.assert_has_calls(
@@ -155,6 +164,74 @@ def test_pull_and_merge_works(
             call("  * fake.rule.2"),
         ]
     )
+
+
+def test_pull_no_mergeable_items(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test pull when there are no mergeable items (everything is up to date)."""
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    mock_clone_deps = mocker.patch("panther_analysis_tool.command.pull.clone_item.clone_deps")
+    _setup_pull_test(tmp_path, monkeypatch, mocker)
+
+    # Create a user rule that's already at the latest version
+    _FAKE_USER_RULE_2_V2 = yaml.dump(
+        {
+            "AnalysisType": "rule",
+            "Filename": "fake_user_rule_2.py",
+            "RuleID": "fake.rule.2",
+            "Enabled": True,
+            "Description": "Fake user rule 2 v2",
+            "BaseVersion": 2,  # Already at latest version
+        }
+    )
+    pathlib.Path("rules").mkdir(parents=True, exist_ok=True)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.yaml", _FAKE_USER_RULE_2_V2)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.py", _FAKE_PY)
+
+    pull.run(pull.PullArgs())
+
+    # Should not print anything about merging
+    mock_print.assert_not_called()
+    # Should still try to clone deps (but with empty list)
+    mock_clone_deps.assert_called_once_with([])
+
+
+def test_pull_preview_mode(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test pull in preview mode shows what would be updated without actually updating."""
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    mock_clone_deps = mocker.patch("panther_analysis_tool.command.pull.clone_item.clone_deps")
+    _setup_pull_test(tmp_path, monkeypatch, mocker)
+
+    pull.run(pull.PullArgs(preview=True))
+
+    # Preview mode should show conflicts
+    mock_print.assert_has_calls(
+        [
+            call(
+                "1 analysis item(s) will have merge conflicts when updated to latest Panther version:"
+            ),
+            call("  * fake.rule.2"),
+        ]
+    )
+    # Should not clone dependencies in preview mode (no merged items)
+    mock_clone_deps.assert_called_once_with([])
+
+
+def test_pull_clones_dependencies(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that pull clones dependencies from successfully merged items."""
+    mock_clone_deps = mocker.patch("panther_analysis_tool.command.pull.clone_item.clone_deps")
+    _setup_pull_test(tmp_path, monkeypatch, mocker)
+
+    pull.run(pull.PullArgs())
+
+    # Verify clone_deps is always called (with merged items, or empty list if conflicts)
+    mock_clone_deps.assert_called_once()
+    assert isinstance(mock_clone_deps.call_args[0][0], list)
 
 
 def test_pull_calls_chdir_to_project_root_monorepo(

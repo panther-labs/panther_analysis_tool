@@ -2450,8 +2450,15 @@ def init_command() -> Tuple[int, str]:
 def pull_command(
     auto_accept: AutoAcceptType = None,
     write_merge_conflicts: WriteMergeConflictsType = False,
+    preview: Annotated[
+        bool,
+        typer.Option(
+            "--preview",
+            help="Preview a list of IDs for all the analysis items that will be changed.",
+        ),
+    ] = False,
 ) -> Tuple[int, str]:
-    args = pull.PullArgs(auto_accept, write_merge_conflicts)
+    args = pull.PullArgs(auto_accept, write_merge_conflicts, preview)
     return pull.run(args)
 
 

@@ -156,13 +156,14 @@ def get_mergeable_items(
     return mergeable_items
 
 
-def merge_items(  # pylint: disable=too-many-arguments
+def merge_items(  # pylint: disable=too-many-arguments,too-many-locals
     mergeable_items: list[merge_item.MergeableItem],
     analysis_id: str | None,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
     show_progress_bar: bool = False,
     write_merge_conflicts: bool = False,
+    preview: bool = False,
 ) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
@@ -176,6 +177,14 @@ def merge_items(  # pylint: disable=too-many-arguments
     ):
         if analysis_id is not None and analysis_id != mergeable_item.user_item.analysis_id():
             # user specified an analysis id, only merge that one
+            continue
+
+        if preview:
+            has_conflict = merge_item.merge_item_preview(mergeable_item)
+            if has_conflict:
+                merge_conflict_item_ids.append(mergeable_item.user_item.analysis_id())
+            else:
+                updated_item_ids.append(mergeable_item.user_item.analysis_id())
             continue
 
         has_conflict = merge_item.merge_item(
@@ -194,18 +203,35 @@ def merge_items(  # pylint: disable=too-many-arguments
         # consider updated if no conflict with both files
         updated_item_ids.append(mergeable_item.user_item.analysis_id())
 
-    if analysis_id is None:
+    if analysis_id is not None:
+        return
+
+    if preview:
         if len(updated_item_ids) > 0:
-            print(f"Updated {len(updated_item_ids)} analysis item(s) with latest Panther version:")
+            print(
+                f"Will update {len(updated_item_ids)} analysis item(s) to their latest Panther version:"
+            )
             for item_id in updated_item_ids:
                 print(f"  * {item_id}")
         if len(merge_conflict_item_ids) > 0:
             print(
-                f"{len(merge_conflict_item_ids)} merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+                f"{len(merge_conflict_item_ids)} analysis item(s) will have merge conflicts when updated to latest Panther version:"
             )
             for conflict in merge_conflict_item_ids:
                 print(f"  * {conflict}")
-        if len(updated_item_ids) > 0:
-            print(
-                "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
-            )
+        return
+
+    if len(updated_item_ids) > 0:
+        print(f"Updated {len(updated_item_ids)} analysis item(s) with latest Panther version:")
+        for item_id in updated_item_ids:
+            print(f"  * {item_id}")
+    if len(merge_conflict_item_ids) > 0:
+        print(
+            f"{len(merge_conflict_item_ids)} merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+        )
+        for conflict in merge_conflict_item_ids:
+            print(f"  * {conflict}")
+    if len(updated_item_ids) > 0:
+        print(
+            "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
+        )

@@ -107,6 +107,50 @@ def merge_item(
     return False
 
 
+def merge_item_preview(
+    mergeable_item: MergeableItem,
+) -> bool:
+    """
+    Preview merging an analysis item without writing out the merged contents.
+
+    Returns:
+        True if there is a merge conflict, False otherwise.
+    """
+    user_item = mergeable_item.user_item
+    latest_item = mergeable_item.latest_panther_item
+    base_item = mergeable_item.base_panther_item
+
+    # merge yaml
+    yaml_has_conflict, _ = merge_file(
+        solve_merge=False,
+        # or b"" makes typing happy but it should never be None
+        user=user_item.raw_yaml_file_contents or b"",
+        base=base_item.raw_yaml_file_contents or b"",
+        latest=latest_item.raw_yaml_file_contents or b"",
+        user_python=b"",
+        output_path=pathlib.Path(user_item.yaml_file_path or ""),
+        editor=None,
+    )
+    if yaml_has_conflict:
+        return True
+
+    # merge python
+    py_has_conflict = False
+    if user_item.python_file_contents is not None:
+        py_has_conflict, _ = merge_file(
+            solve_merge=False,
+            # or b"" makes typing happy but it should never be None
+            user=user_item.python_file_contents or b"",
+            base=base_item.python_file_contents or b"",
+            latest=latest_item.python_file_contents or b"",
+            user_python=user_item.python_file_contents or b"",
+            output_path=pathlib.Path(user_item.python_file_path or ""),
+            editor=None,
+        )
+
+    return py_has_conflict
+
+
 # pylint: disable=too-many-locals,too-many-arguments
 def merge_file(
     solve_merge: bool,
