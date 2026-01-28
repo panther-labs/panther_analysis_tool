@@ -1,3 +1,4 @@
+import shlex
 import threading
 from collections import defaultdict
 from typing import Any
@@ -124,7 +125,7 @@ class ExploreApp(App):
     def on_input_changed(self, event: Input.Changed) -> None:
         """Handle search input changes to filter the table."""
         search_term = event.value.strip()
-        search_terms = parse.split_search_term(search_term)
+        search_terms = shlex.split(search_term)  # split with same rules as unix shell
         filters = parse.search_terms_to_filters(search_terms)
         table = self.query_one("#table", widgets.AnalysisItemDataTable)
         table.filter_by_filters(filters)
