@@ -37,13 +37,18 @@ def create_fake_versions_file(ids: list[tuple[str, int]]) -> dict:
 
 
 def create_migration_status_markdown(
-    migrated: list[str], conflicts: list[str], deleted: list[tuple[str, str]]
+    migrated: list[str],
+    conflicts: list[str],
+    deleted: list[tuple[str, str]],
+    warnings: list[tuple[str, str]] | None = None,
 ) -> str:
     """
     Testing the output of the migration status markdown can make tests hard to read.
     So this function creates the expected markdown so the tests can be more readable.
     """
-    if len(migrated) == 0 and len(conflicts) == 0 and len(deleted) == 0:
+    if warnings is None:
+        warnings = []
+    if len(migrated) == 0 and len(conflicts) == 0 and len(deleted) == 0 and len(warnings) == 0:
         return ""
 
     markdown = io.StringIO()
@@ -66,6 +71,13 @@ def create_migration_status_markdown(
         markdown.write("## Analysis Items Deleted\n\n")
         markdown.write(f"{len(deleted)} analysis item(s) deleted.\n\n")
         for item in deleted:
+            markdown.write(f"  * {item[0]} - {item[1]}\n")
+        markdown.write("\n")
+
+    if len(warnings) > 0:
+        markdown.write("## Analysis Items with Warnings\n\n")
+        markdown.write(f"{len(warnings)} analysis item(s) with warnings.\n\n")
+        for item in warnings:
             markdown.write(f"  * {item[0]} - {item[1]}\n")
         markdown.write("\n")
 
@@ -1574,6 +1586,7 @@ def test_migration_status_write(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
                 "reason": "Item is dead to me. I deleted it.",
             },
         },
+        "items_with_warnings": {},
     }
 
     migration_status.write_migration_status()
@@ -1602,6 +1615,7 @@ def test_migration_status_load_empty(tmp_path: pathlib.Path, monkeypatch: Monkey
     assert migration_status.items_with_conflicts == {}
     assert migration_status.items_migrated == {}
     assert migration_status.items_deleted == {}
+    assert migration_status.items_with_warnings == {}
 
 
 def test_migration_status_load_not_empty(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
@@ -1674,6 +1688,7 @@ def test_migration_status_load_not_empty(tmp_path: pathlib.Path, monkeypatch: Mo
             reason="Item is dead to me. I deleted it.",
         ),
     }
+    assert migration_status.items_with_warnings == {}
 
 
 def test_migrate_calls_chdir_to_project_root_monorepo(
@@ -1754,3 +1769,447 @@ def test_migrate_calls_chdir_to_project_root_normal_repo(
 
     # Verify chdir_to_project_root was called
     mock_chdir_to_project_root.assert_called_once()
+
+
+#######################################################################################
+### Test load_deprecated_ids
+#######################################################################################
+
+
+def test_load_deprecated_ids_file_not_exists(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Test that load_deprecated_ids returns empty set when file doesn't exist."""
+    monkeypatch.chdir(tmp_path)
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == set()
+
+
+def test_load_deprecated_ids_empty_file(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """Test that load_deprecated_ids handles empty file."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "deprecated.txt").write_text("")
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == set()
+
+
+def test_load_deprecated_ids_single_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """Test that load_deprecated_ids loads a single ID."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "deprecated.txt").write_text("fake.rule.1")
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == {"fake.rule.1"}
+
+
+def test_load_deprecated_ids_multiple_ids(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    """Test that load_deprecated_ids loads multiple IDs."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "deprecated.txt").write_text("fake.rule.1\nfake.rule.2\nfake.policy.1")
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == {"fake.rule.1", "fake.rule.2", "fake.policy.1"}
+
+
+def test_load_deprecated_ids_with_empty_lines(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Test that load_deprecated_ids skips empty lines."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "deprecated.txt").write_text("fake.rule.1\n\nfake.rule.2\n\n")
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == {"fake.rule.1", "fake.rule.2"}
+
+
+def test_load_deprecated_ids_with_comments(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Test that load_deprecated_ids skips comment lines."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "deprecated.txt").write_text(
+        "# This is a comment\nfake.rule.1\n# Another comment\nfake.rule.2"
+    )
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == {"fake.rule.1", "fake.rule.2"}
+
+
+def test_load_deprecated_ids_with_whitespace(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Test that load_deprecated_ids trims whitespace."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "deprecated.txt").write_text("  fake.rule.1  \n  fake.rule.2  ")
+    deprecated_ids = migrate.load_deprecated_ids()
+    assert deprecated_ids == {"fake.rule.1", "fake.rule.2"}
+
+
+#######################################################################################
+### Test deprecated items handling in migrate
+#######################################################################################
+
+
+def test_migrate_deletes_deprecated_disabled_items(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that deprecated disabled items are deleted during migration."""
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
+    )
+    cache = setup(tmp_path, monkeypatch)
+
+    deprecated_rule_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.rule.1",
+        "Filename": "deprecated_rule_1.py",
+        "Enabled": False,
+    }
+    normal_rule_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "normal.rule.1",
+        "Filename": "normal_rule_1.py",
+        "Enabled": True,
+    }
+
+    (tmp_path / "deprecated_rule_1.yml").write_text(yaml.dump(deprecated_rule_spec))
+    (tmp_path / "deprecated_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "normal_rule_1.yml").write_text(yaml.dump(normal_rule_spec))
+    (tmp_path / "normal_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated.txt").write_text("deprecated.rule.1")
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(normal_rule_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="normal.rule.1",
+        ),
+        b"def rule(event): return True",
+    )
+
+    result = migrate.migrate(None, None, None)
+
+    # Deprecated disabled item should be deleted
+    assert "deprecated.rule.1" in result.items_deleted
+    deleted_item = result.items_deleted["deprecated.rule.1"]
+    assert deleted_item.analysis_id == "deprecated.rule.1"
+    assert deleted_item.pretty_analysis_type == "Rule"
+    assert deleted_item.reason == "Item was deprecated by Panther and was disabled in your repo."
+    assert not (tmp_path / "deprecated_rule_1.yml").exists()
+    assert not (tmp_path / "deprecated_rule_1.py").exists()
+
+    # Normal item should still exist
+    assert (tmp_path / "normal_rule_1.yml").exists()
+    assert (tmp_path / "normal_rule_1.py").exists()
+
+
+def test_migrate_warns_on_deprecated_enabled_items(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that deprecated enabled items trigger warnings but are not deleted."""
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
+    )
+    cache = setup(tmp_path, monkeypatch)
+
+    deprecated_rule_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.rule.1",
+        "Filename": "deprecated_rule_1.py",
+        "Enabled": True,  # Enabled, so should warn but not delete
+    }
+    normal_rule_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "normal.rule.1",
+        "Filename": "normal_rule_1.py",
+        "Enabled": True,
+    }
+
+    (tmp_path / "deprecated_rule_1.yml").write_text(yaml.dump(deprecated_rule_spec))
+    (tmp_path / "deprecated_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "normal_rule_1.yml").write_text(yaml.dump(normal_rule_spec))
+    (tmp_path / "normal_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated.txt").write_text("deprecated.rule.1")
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(normal_rule_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="normal.rule.1",
+        ),
+        b"def rule(event): return True",
+    )
+
+    result = migrate.migrate(None, None, None)
+
+    # Deprecated enabled item should NOT be deleted
+    assert "deprecated.rule.1" not in result.items_deleted
+    # But should be added to items_with_warnings
+    assert "deprecated.rule.1" in result.items_with_warnings
+    warning_item = result.items_with_warnings["deprecated.rule.1"]
+    assert warning_item.analysis_id == "deprecated.rule.1"
+    assert warning_item.pretty_analysis_type == "Rule"
+    assert (
+        warning_item.reason
+        == "Item was deprecated by Panther and is enabled in your repo. Please consider deleting it."
+    )
+    # File should still exist
+    assert (tmp_path / "deprecated_rule_1.yml").exists()
+    assert (tmp_path / "deprecated_rule_1.py").exists()
+
+
+def test_migrate_deprecated_items_with_analysis_id_filter(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that deprecated item checking only happens when analysis_id is None."""
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
+    )
+    setup(tmp_path, monkeypatch)
+
+    deprecated_rule_1_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.rule.1",
+        "Filename": "deprecated_rule_1.py",
+        "Enabled": False,
+    }
+    deprecated_rule_2_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.rule.2",
+        "Filename": "deprecated_rule_2.py",
+        "Enabled": False,
+    }
+
+    (tmp_path / "deprecated_rule_1.yml").write_text(yaml.dump(deprecated_rule_1_spec))
+    (tmp_path / "deprecated_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated_rule_2.yml").write_text(yaml.dump(deprecated_rule_2_spec))
+    (tmp_path / "deprecated_rule_2.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated.txt").write_text("deprecated.rule.1\ndeprecated.rule.2")
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    # When analysis_id is specified, deprecated items are NOT checked
+    result = migrate.migrate("deprecated.rule.1", None, None)
+
+    # Deprecated items should NOT be deleted when analysis_id is specified
+    assert "deprecated.rule.1" not in result.items_deleted
+    assert "deprecated.rule.2" not in result.items_deleted
+    # Files should still exist
+    assert (tmp_path / "deprecated_rule_1.yml").exists()
+    assert (tmp_path / "deprecated_rule_1.py").exists()
+    assert (tmp_path / "deprecated_rule_2.yml").exists()
+    assert (tmp_path / "deprecated_rule_2.py").exists()
+
+
+def test_migrate_deprecated_items_multiple_deprecated(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test migration with multiple deprecated items (some disabled, some enabled)."""
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
+    )
+    cache = setup(tmp_path, monkeypatch)
+
+    deprecated_disabled_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.disabled",
+        "Filename": "deprecated_disabled.py",
+        "Enabled": False,
+    }
+    deprecated_enabled_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.enabled",
+        "Filename": "deprecated_enabled.py",
+        "Enabled": True,
+    }
+    normal_rule_spec = {
+        "AnalysisType": "rule",
+        "RuleID": "normal.rule.1",
+        "Filename": "normal_rule_1.py",
+        "Enabled": True,
+    }
+
+    (tmp_path / "deprecated_disabled.yml").write_text(yaml.dump(deprecated_disabled_spec))
+    (tmp_path / "deprecated_disabled.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated_enabled.yml").write_text(yaml.dump(deprecated_enabled_spec))
+    (tmp_path / "deprecated_enabled.py").write_text("def rule(event): return True")
+    (tmp_path / "normal_rule_1.yml").write_text(yaml.dump(normal_rule_spec))
+    (tmp_path / "normal_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated.txt").write_text("deprecated.disabled\ndeprecated.enabled")
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    cache.insert_analysis_spec(
+        analysis_cache.AnalysisSpec(
+            id=None,
+            spec=yaml.dump(normal_rule_spec).encode("utf-8"),
+            version=1,
+            id_field="RuleID",
+            id_value="normal.rule.1",
+        ),
+        b"def rule(event): return True",
+    )
+
+    result = migrate.migrate(None, None, None)
+
+    # Deprecated disabled item should be deleted
+    assert "deprecated.disabled" in result.items_deleted
+    assert not (tmp_path / "deprecated_disabled.yml").exists()
+    assert not (tmp_path / "deprecated_disabled.py").exists()
+
+    # Deprecated enabled item should NOT be deleted but should be in items_with_warnings
+    assert "deprecated.enabled" not in result.items_deleted
+    assert "deprecated.enabled" in result.items_with_warnings
+    warning_item = result.items_with_warnings["deprecated.enabled"]
+    assert warning_item.analysis_id == "deprecated.enabled"
+    assert warning_item.pretty_analysis_type == "Rule"
+    assert (
+        warning_item.reason
+        == "Item was deprecated by Panther and is enabled in your repo. Please consider deleting it."
+    )
+    assert (tmp_path / "deprecated_enabled.yml").exists()
+    assert (tmp_path / "deprecated_enabled.py").exists()
+
+    # Normal item should still exist
+    assert (tmp_path / "normal_rule_1.yml").exists()
+    assert (tmp_path / "normal_rule_1.py").exists()
+
+
+def test_migrate_deprecated_items_without_python_file(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that deprecated items without Python files are handled correctly."""
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
+    )
+    setup(tmp_path, monkeypatch)
+
+    deprecated_spec = {
+        "AnalysisType": "datamodel",
+        "DataModelID": "deprecated.datamodel.1",
+        "Enabled": False,
+        # No Filename field
+    }
+
+    (tmp_path / "deprecated_datamodel_1.yml").write_text(yaml.dump(deprecated_spec))
+    (tmp_path / "deprecated.txt").write_text("deprecated.datamodel.1")
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    result = migrate.migrate(None, None, None)
+
+    # Deprecated disabled item should be deleted
+    assert "deprecated.datamodel.1" in result.items_deleted
+    assert not (tmp_path / "deprecated_datamodel_1.yml").exists()
+
+
+def test_migrate_deprecated_item_removed_from_warnings_when_deleted(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that a deprecated item in items_with_warnings is removed when it gets deleted."""
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.git_root",
+        return_value=str(tmp_path),
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.migrate.git_helpers.get_forked_panther_analysis_common_ancestor",
+        return_value=None,
+    )
+    setup(tmp_path, monkeypatch)
+
+    deprecated_rule_spec_enabled = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.rule.1",
+        "Filename": "deprecated_rule_1.py",
+        "Enabled": True,
+    }
+
+    (tmp_path / "deprecated_rule_1.yml").write_text(yaml.dump(deprecated_rule_spec_enabled))
+    (tmp_path / "deprecated_rule_1.py").write_text("def rule(event): return True")
+    (tmp_path / "deprecated.txt").write_text("deprecated.rule.1")
+    (tmp_path / CACHED_VERSIONS_FILE_PATH).write_text(
+        yaml.dump(
+            {
+                "versions": {},
+            }
+        )
+    )
+
+    # First run: deprecated item is enabled -> should be in items_with_warnings
+    result = migrate.migrate(None, None, None)
+    assert "deprecated.rule.1" in result.items_with_warnings
+    assert "deprecated.rule.1" not in result.items_deleted
+    assert (tmp_path / "deprecated_rule_1.yml").exists()
+
+    # Save the migration status (simulating a previous run)
+    result.write_migration_status()
+
+    # Now disable the item
+    deprecated_rule_spec_disabled = {
+        "AnalysisType": "rule",
+        "RuleID": "deprecated.rule.1",
+        "Filename": "deprecated_rule_1.py",
+        "Enabled": False,
+    }
+    (tmp_path / "deprecated_rule_1.yml").write_text(yaml.dump(deprecated_rule_spec_disabled))
+
+    # Second run: deprecated item is disabled -> should be deleted and removed from items_with_warnings
+    result = migrate.migrate(None, None, None)
+    assert "deprecated.rule.1" in result.items_deleted
+    assert "deprecated.rule.1" not in result.items_with_warnings
+    assert not (tmp_path / "deprecated_rule_1.yml").exists()
+    assert not (tmp_path / "deprecated_rule_1.py").exists()

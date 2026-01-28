@@ -103,15 +103,22 @@ class MigrationStatus:
     items_deleted: dict[str, MigrationItem] = dataclasses.field(default_factory=dict)
     "Items deleted"
 
+    items_with_warnings: dict[str, MigrationItem] = dataclasses.field(default_factory=dict)
+    "Items with warnings"
+
     def empty(self) -> bool:
         return (
             len(self.items_with_conflicts) == 0
             and len(self.items_migrated) == 0
             and len(self.items_deleted) == 0
+            and len(self.items_with_warnings) == 0
         )
 
     def has_conflicts(self) -> bool:
         return len(self.items_with_conflicts) > 0
+
+    def has_warnings(self) -> bool:
+        return len(self.items_with_warnings) > 0
 
     def items_with_conflicts_sorted(self) -> list[MigrationItem]:
         return self._sort_items(self.items_with_conflicts)
@@ -121,6 +128,9 @@ class MigrationStatus:
 
     def items_migrated_sorted(self) -> list[MigrationItem]:
         return self._sort_items(self.items_migrated)
+
+    def items_with_warnings_sorted(self) -> list[MigrationItem]:
+        return self._sort_items(self.items_with_warnings)
 
     def _sort_items(self, items: dict[str, MigrationItem]) -> list[MigrationItem]:
         return sorted(items.values(), key=lambda x: x.pretty_analysis_type + x.analysis_id)
@@ -138,6 +148,7 @@ class MigrationStatus:
             "items_with_conflicts": {k: v.to_dict() for k, v in self.items_with_conflicts.items()},
             "items_migrated": {k: v.to_dict() for k, v in self.items_migrated.items()},
             "items_deleted": {k: v.to_dict() for k, v in self.items_deleted.items()},
+            "items_with_warnings": {k: v.to_dict() for k, v in self.items_with_warnings.items()},
         }
 
     @staticmethod
@@ -153,6 +164,10 @@ class MigrationStatus:
             },
             items_deleted={
                 k: MigrationItem.from_dict(v) for k, v in dict_.get("items_deleted", {}).items()
+            },
+            items_with_warnings={
+                k: MigrationItem.from_dict(v)
+                for k, v in dict_.get("items_with_warnings", {}).items()
             },
         )
 
@@ -186,6 +201,15 @@ class MigrationStatus:
             stream.write("## Analysis Items Deleted\n\n")
             stream.write(f"{len(self.items_deleted)} analysis item(s) deleted.\n\n")
             for item in self.items_deleted_sorted():
+                stream.write(
+                    f"  * ({item.pretty_analysis_type}) {item.analysis_id}{f' - {item.reason}' if item.reason is not None else ''}\n"
+                )
+            stream.write("\n")
+
+        if len(self.items_with_warnings) > 0:
+            stream.write("## Analysis Items with Warnings\n\n")
+            stream.write(f"{len(self.items_with_warnings)} analysis item(s) with warnings.\n\n")
+            for item in self.items_with_warnings_sorted():
                 stream.write(
                     f"  * ({item.pretty_analysis_type}) {item.analysis_id}{f' - {item.reason}' if item.reason is not None else ''}\n"
                 )
@@ -276,6 +300,8 @@ def migrate(  # pylint: disable=too-many-locals
             logging.debug("Failed to get forked panther analysis common ancestor: %s", err)
         progress.update(task, completed=True)
 
+    deprecated_ids = load_deprecated_ids()
+
     # load all user analysis specs
     specs: list[analysis_utils.LoadAnalysisSpecsResult] = []
     for spec in track(
@@ -292,13 +318,31 @@ def migrate(  # pylint: disable=too-many-locals
             continue
 
         if analysis_id is None and spec.analysis_type() == AnalysisTypes.PACK:
-            pathlib.Path(spec.spec_filename).unlink()
+            spec.unlink()
             result.items_deleted[spec.analysis_id()] = MigrationItem(
                 analysis_id=spec.analysis_id(),
                 pretty_analysis_type=spec.pretty_analysis_type(),
                 reason="Packs are managed by Panther and not needed in your repo.",
             )
 
+            continue
+
+        if analysis_id is None and spec.analysis_id() in deprecated_ids and not spec.enabled():
+            spec.unlink()
+            result.items_with_warnings.pop(spec.analysis_id(), None)
+            result.items_deleted[spec.analysis_id()] = MigrationItem(
+                analysis_id=spec.analysis_id(),
+                pretty_analysis_type=spec.pretty_analysis_type(),
+                reason="Item was deprecated by Panther and was disabled in your repo.",
+            )
+            continue
+
+        if analysis_id is None and spec.analysis_id() in deprecated_ids and spec.enabled():
+            result.items_with_warnings[spec.analysis_id()] = MigrationItem(
+                analysis_id=spec.analysis_id(),
+                pretty_analysis_type=spec.pretty_analysis_type(),
+                reason="Item was deprecated by Panther and is enabled in your repo. Please consider deleting it.",
+            )
             continue
 
         specs.append(spec)
@@ -661,3 +705,28 @@ def get_latest_item_by_path(spec_path: pathlib.Path) -> analysis_utils.AnalysisI
     logging.debug("Latest item found by path: %s", git_spec_file_path)
 
     return item
+
+
+def load_deprecated_ids() -> set[str]:
+    """
+    Load deprecated analysis IDs from deprecated.txt file in the project root.
+    Each line in the file should contain a single analysis ID.
+
+    Returns:
+        A list of deprecated analysis IDs, or an empty list if the file doesn't exist.
+    """
+    deprecated_file = pathlib.Path("deprecated.txt")
+    if not deprecated_file.exists():
+        return set()
+
+    deprecated_ids = set()
+    try:
+        content = deprecated_file.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if len(line) > 0 and not line.startswith("#"):  # Skip empty lines and comments
+                deprecated_ids.add(line)
+    except (OSError, IOError):
+        return set()
+
+    return deprecated_ids
