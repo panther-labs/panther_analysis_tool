@@ -579,3 +579,224 @@ async def test_switch_views_without_item() -> None:
         assert app.selected_item is None
         assert app.query_one("#code-windows").styles.display == "none"
         assert app.query_one("#main-content").styles.display != "none"
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji() -> None:
+    """Test that search input handles emojis correctly."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with emoji
+        search_input.value = "test 😀"
+        event = Input.Changed(search_input, "test 😀")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter (may or may not match anything)
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_unicode_emoji_escape() -> None:
+    """Test that search input handles unicode escape sequences for emojis."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with unicode escape sequence (grinning face emoji)
+        emoji_unicode = "\U0001F600"
+        search_input.value = f"test {emoji_unicode}"
+        event = Input.Changed(search_input, f"test {emoji_unicode}")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_multiple_emojis() -> None:
+    """Test that search input handles multiple emojis correctly."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with multiple emojis
+        search_input.value = "test 😀 🎉 🚀"
+        event = Input.Changed(search_input, "test 😀 🎉 🚀")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji_in_quotes() -> None:
+    """Test that search input handles emojis in quoted strings."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with emoji in quotes
+        search_input.value = '"test 😀"'
+        event = Input.Changed(search_input, '"test 😀"')
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji_only() -> None:
+    """Test that search input handles emoji-only search terms."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with only emoji
+        search_input.value = "😀"
+        event = Input.Changed(search_input, "😀")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji_in_filter_expression() -> None:
+    """Test that search input handles emojis in filter expressions."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with emoji in filter expression
+        search_input.value = "Description=test 😀"
+        event = Input.Changed(search_input, "Description=test 😀")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_various_emoji_types() -> None:
+    """Test that search input handles various types of emojis."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        # Test various emoji types
+        emojis = [
+            "😀",  # Grinning face
+            "🎉",  # Party popper
+            "🚀",  # Rocket
+            "❤️",  # Red heart (with variation selector)
+            "👍",  # Thumbs up
+            "🔥",  # Fire
+            "💯",  # Hundred points
+            "✅",  # Check mark
+        ]
+        
+        for emoji in emojis:
+            initial_row_count = len(table.rows)
+            search_input.value = f"test {emoji}"
+            event = Input.Changed(search_input, f"test {emoji}")
+            app.on_input_changed(event)
+            await pilot.pause()
+            
+            # Should not crash
+            assert len(table.rows) <= initial_row_count or len(table.rows) == 0
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji_zwj_sequences() -> None:
+    """Test that search input handles emoji ZWJ (Zero Width Joiner) sequences."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Test ZWJ sequence (family emoji: man + ZWJ + woman + ZWJ + girl)
+        zwj_emoji = "👨\u200d👩\u200d👧"
+        search_input.value = f"test {zwj_emoji}"
+        event = Input.Changed(search_input, f"test {zwj_emoji}")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji_and_special_chars() -> None:
+    """Test that search input handles emojis combined with special characters."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with emoji and special characters
+        search_input.value = "test😀@#$%"
+        event = Input.Changed(search_input, "test😀@#$%")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should not crash and should filter
+        assert len(table.rows) <= initial_row_count
+
+
+@pytest.mark.asyncio
+async def test_search_with_emoji_clears_correctly() -> None:
+    """Test that clearing emoji search returns to showing all items."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+        
+        initial_row_count = len(table.rows)
+        
+        # Search with emoji
+        search_input.value = "test 😀"
+        event = Input.Changed(search_input, "test 😀")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        assert len(table.rows) <= initial_row_count
+        
+        # Clear search
+        search_input.value = ""
+        event = Input.Changed(search_input, "")
+        app.on_input_changed(event)
+        await pilot.pause()
+        
+        # Should show all items again
+        assert len(table.rows) == initial_row_count
