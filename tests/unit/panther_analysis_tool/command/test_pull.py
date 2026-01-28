@@ -142,7 +142,8 @@ def _setup_pull_test(
         "panther_analysis_tool.command.pull.analysis_cache._clone_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.pull.git_helpers.chdir_to_git_root")
+    mocker.patch("panther_analysis_tool.command.pull.root.chdir_to_project_root")
+
     set_up_cache(tmp_path, monkeypatch)
 
 
@@ -231,3 +232,75 @@ def test_pull_clones_dependencies(
     # Verify clone_deps is always called (with merged items, or empty list if conflicts)
     mock_clone_deps.assert_called_once()
     assert isinstance(mock_clone_deps.call_args[0][0], list)
+
+
+def test_pull_calls_chdir_to_project_root_monorepo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that pull command calls chdir_to_project_root which chdirs to project root
+    (not git root) in monorepo scenario.
+    """
+    from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
+
+    git_root = tmp_path
+    project_root = git_root / "pa"
+    subdir = project_root / "some" / "nested" / "directory"
+
+    project_root.mkdir(parents=True, exist_ok=True)
+    subdir.mkdir(parents=True, exist_ok=True)
+    (project_root / PAT_ROOT_FILE_NAME).touch()
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock chdir_to_project_root to verify it's called
+    mock_chdir_to_project_root = mocker.patch(
+        "panther_analysis_tool.command.pull.root.chdir_to_project_root"
+    )
+
+    # Mock all the pull operations to avoid actually running them
+    mocker.patch(
+        "panther_analysis_tool.command.pull.pull",
+        return_value=None,
+    )
+
+    # Run pull command
+    pull.run(pull.PullArgs())
+
+    # Verify chdir_to_project_root was called
+    mock_chdir_to_project_root.assert_called_once()
+
+
+def test_pull_calls_chdir_to_project_root_normal_repo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that pull command calls chdir_to_project_root which chdirs to git root
+    in normal repo scenario (no .pat-root).
+    """
+    git_root = tmp_path
+    subdir = git_root / "some" / "nested" / "directory"
+    subdir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock chdir_to_project_root to verify it's called
+    mock_chdir_to_project_root = mocker.patch(
+        "panther_analysis_tool.command.pull.root.chdir_to_project_root"
+    )
+
+    # Mock all the pull operations to avoid actually running them
+    mocker.patch(
+        "panther_analysis_tool.command.pull.pull",
+        return_value=None,
+    )
+
+    # Run pull command
+    pull.run(pull.PullArgs())
+
+    # Verify chdir_to_project_root was called
+    mock_chdir_to_project_root.assert_called_once()

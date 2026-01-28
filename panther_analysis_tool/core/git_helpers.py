@@ -16,7 +16,7 @@ PANTHER_ANALYSIS_HTTPS_URL = "https://github.com/panther-labs/panther-analysis.g
 REMOTE_UPSTREAM_NAME = "upstream"
 PANTHER_ANALYSIS_MAIN_BRANCH = "main"
 
-_git_root: str | None = None
+_git_root: pathlib.Path | None = None
 
 
 def panther_analysis_release_url(tag: str = "latest") -> str:
@@ -354,7 +354,7 @@ def get_file_at_commit(commit: str, file_path: pathlib.Path) -> bytes | None:
     return proc.stdout.encode("utf-8")
 
 
-def git_root() -> str:
+def git_root() -> pathlib.Path:
     """
     Get the root of the git repo
     """
@@ -372,14 +372,7 @@ def git_root() -> str:
         raise Exception(f"Failed to get git root: {rev_parse.stderr}")
     if rev_parse.stdout is None:
         raise Exception("Failed to get git root")
-    _git_root = rev_parse.stdout.strip()
+    _git_root = pathlib.Path(rev_parse.stdout.strip())
 
     logging.debug(f"Git root is: {_git_root}")
     return _git_root
-
-
-def chdir_to_git_root() -> None:
-    """
-    Change the current working directory to the git root.
-    """
-    os.chdir(git_root())

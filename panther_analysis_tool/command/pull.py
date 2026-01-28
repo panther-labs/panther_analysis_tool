@@ -9,7 +9,7 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.command import merge
 from panther_analysis_tool.constants import AutoAcceptOption
-from panther_analysis_tool.core import analysis_cache, clone_item, git_helpers
+from panther_analysis_tool.core import analysis_cache, clone_item, root
 
 
 @dataclasses.dataclass
@@ -20,7 +20,7 @@ class PullArgs:
 
 
 def run(args: PullArgs) -> Tuple[int, str]:
-    git_helpers.chdir_to_git_root()
+    root.chdir_to_project_root()
     pull(
         show_progress_bar=True,
         auto_accept=args.auto_accept,
