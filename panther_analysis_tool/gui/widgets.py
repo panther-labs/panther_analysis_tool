@@ -9,6 +9,7 @@ from textual.widget import Widget
 from textual.widgets import DataTable, Label, TextArea
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import parse
 
 _EDITOR_THEME = "vscode_dark"
 
@@ -151,28 +152,20 @@ class AnalysisItemDataTable(DataTable):
         for row in rows:
             self.add_row_to_table(row)
 
-    def filter_by_search_term(self, search_term: str) -> None:
+    def filter_by_filters(self, filters: list[parse.Filter]) -> None:
         self.clear()
 
-        if not search_term:
+        if not filters:
             self.reset_table()
+
         else:
             self.add_rows_to_table(
                 [
                     row
                     for row in self.all_table_data
-                    if self.search_matches_item(search_term, row.analysis_item)
+                    if analysis_utils.filters_match_analysis_item(filters, row.analysis_item)
                 ]
             )
-
-    def search_matches_item(self, search_term: str, item: analysis_utils.AnalysisItem) -> bool:
-        """Filter items that match the search term in either ID, type, or Description"""
-        return (
-            search_term in item.analysis_id().lower()
-            or search_term in item.pretty_analysis_type().lower()
-            or search_term in item.analysis_type().lower()
-            or search_term in item.description().lower()
-        )
 
     def filter_by_id(self, _id: str) -> None:
         self.clear()

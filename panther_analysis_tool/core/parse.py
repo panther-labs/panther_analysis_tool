@@ -17,6 +17,7 @@ DEPRECATED_STATUS = "deprecated"
 class Filter:
     key: str
     values: List[Any] | Any
+    inverted: bool = False
 
 
 # Parses the filters, expects a list of strings
@@ -58,7 +59,8 @@ def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], L
 
     filters = [Filter(key=key, values=values) for key, values in parsed_filters.items()]
     filters_inverted = [
-        Filter(key=key, values=values) for key, values in parsed_filters_inverted.items()
+        Filter(key=key, values=values, inverted=True)
+        for key, values in parsed_filters_inverted.items()
     ]
     return filters, filters_inverted
 
@@ -84,7 +86,9 @@ def add_status_filters(
             return filters, filters_inverted
     # otherwise, add an invert filter to filter out any status field
     # with Status: deprecated or Status: experimental
-    filters_inverted.append(Filter(key="Status", values=[EXPERIMENTAL_STATUS, DEPRECATED_STATUS]))
+    filters_inverted.append(
+        Filter(key="Status", values=[EXPERIMENTAL_STATUS, DEPRECATED_STATUS], inverted=True)
+    )
     return filters, filters_inverted
 
 
@@ -136,3 +140,20 @@ def collect_top_level_imports(py: bytes) -> set[str]:
             imports.add(node.module.split(".")[0])
 
     return imports
+
+
+def search_terms_to_filters(search_terms: list[str]) -> list[Filter]:
+    result: list[Filter] = []
+
+    for search_term in search_terms:
+        if search_term.strip() == "":
+            continue
+
+        try:
+            filters, filters_inverted = parse_filter_args([search_term])
+            result.extend(filters)
+            result.extend(filters_inverted)
+        except ValueError:
+            result.append(Filter(key="", values=[search_term]))
+
+    return result

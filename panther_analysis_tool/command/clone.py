@@ -55,7 +55,7 @@ def get_analysis_items(
 
         loaded: dict[str, Any] = yaml_loader.load(analysis_spec.spec)
 
-        if not analysis_utils.filter_analysis_spec(loaded, filters, filters_inverted):
+        if not analysis_utils.filter_analysis_spec(loaded, [*filters, *filters_inverted]):
             continue
 
         all_specs.append(

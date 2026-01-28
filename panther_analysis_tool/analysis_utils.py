@@ -109,16 +109,14 @@ def filter_analysis(
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
 
-        if filter_analysis_spec(analysis_spec, filters, filters_inverted):
+        if filter_analysis_spec(analysis_spec, [*filters, *filters_inverted]):
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
 
     return filtered_analysis
 
 
-def filter_analysis_spec(
-    analysis_spec: Dict[str, Any], filters: List[Filter], filters_inverted: List[Filter]
-) -> bool:
+def filter_analysis_spec(analysis_spec: Dict[str, Any], filters: List[Filter]) -> bool:
     """
     Filters the analysis spec based on the filters and filters_inverted.
     Spec fields that match the filters are included, and spec fields that match the filters_inverted are excluded.
@@ -136,14 +134,14 @@ def filter_analysis_spec(
         key, values = filt.key, filt.values
         spec_value = analysis_spec.get(key, "")
         spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-        if not set(spec_value).intersection(values):
-            return False
-    for filt in filters_inverted:
-        key, values = filt.key, filt.values
-        spec_value = analysis_spec.get(key, "")
-        spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-        if set(spec_value).intersection(values):
-            return False
+
+        if not filt.inverted:
+            if not set(spec_value).intersection(values):
+                return False
+        else:
+            if set(spec_value).intersection(values):
+                return False
+
     return True
 
 
@@ -890,3 +888,53 @@ def analysis_id_field_name(analysis_type: str) -> str:
             return "LookupName"
         case _:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
+
+
+def filters_match_analysis_item(filters: list[parse.Filter], item: AnalysisItem) -> bool:
+    """
+    Check if an analysis item matches all of the provided filters.
+
+    This function handles two types of filters:
+    1. **Regular filters** (with a non-empty key): These are structured filters like
+       `RuleID=AWS.S3.Bucket.PublicRead` or `Severity=Critical`. They are matched
+       against the item's YAML specification using `filter_analysis_spec`.
+    2. **Text filters** (with an empty key): These are plain text search terms that
+       must appear in EITHER the item's YAML content OR Python content.
+
+    An item matches only if it satisfies ALL filters. If any filter
+    fails to match, the function returns False.
+
+    Args:
+        filters: List of Filter objects to match against. Filters with empty keys
+            are treated as text search filters, while filters with keys are treated
+            as structured filters.
+        item: The analysis item to check against the filters.
+
+    Returns:
+        True if the item matches all filters, False otherwise.
+
+    Examples:
+        >>> filters = [
+        ...     Filter(key="RuleID", values=["AWS.S3.Bucket.PublicRead"]),
+        ...     Filter(key="Severity", values=["Critical"]),
+        ...     Filter(key="", values=["def rule"])
+        ... ]
+        >>> # Returns True only if:
+        >>> # - RuleID is "AWS.S3.Bucket.PublicRead" AND
+        >>> # - Severity is "Critical" AND
+        >>> # - "def rule" appears in the YAML OR Python
+    """
+    raw_yaml = item.raw_yaml_file_contents.decode("utf-8") if item.raw_yaml_file_contents else ""
+    python = item.python_file_contents.decode("utf-8") if item.python_file_contents else ""
+
+    reg_filters = [filt for filt in filters if filt.key != ""]
+    text_filters = [filt for filt in filters if filt.key == ""]
+
+    for filt in text_filters:
+        if filt.values[0] not in raw_yaml and filt.values[0] not in python:
+            return False
+
+    if not filter_analysis_spec(item.yaml_file_contents, reg_filters):
+        return False
+
+    return True
