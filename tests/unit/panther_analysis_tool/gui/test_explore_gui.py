@@ -625,7 +625,7 @@ async def test_search_with_unicode_emoji_escape() -> None:
         initial_row_count = len(table.rows)
 
         # Search with unicode escape sequence (grinning face emoji)
-        emoji_unicode = "\U0001F600"
+        emoji_unicode = "\U0001f600"
         search_input.value = f"test {emoji_unicode}"
         event = Input.Changed(search_input, f"test {emoji_unicode}")
         app.on_input_changed(event)
@@ -1010,3 +1010,23 @@ async def test_search_with_text_filter_case_sensitive() -> None:
         assert "test.rule.with.this" not in result_ids_capitalized
         assert "test.rule.python.this" not in result_ids_capitalized
         assert "test.rule.no.match" not in result_ids_capitalized
+
+
+@pytest.mark.asyncio
+async def test_search_with_invalid_syntax() -> None:
+    """Test that search input handles invalid syntax gracefully."""
+    app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
+    async with app.run_test() as pilot:
+        search_input = app.query_one("#search-input", Input)
+        table = app.query_one("#table", widgets.AnalysisItemDataTable)
+
+        initial_row_count = len(table.rows)
+
+        # Search with invalid syntax
+        search_input.value = "'"  # unclosed quote
+        event = Input.Changed(search_input, "'")
+        app.on_input_changed(event)
+        await pilot.pause()
+
+        # Should not crash and should not filter
+        assert len(table.rows) == initial_row_count

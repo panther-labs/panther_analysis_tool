@@ -125,7 +125,12 @@ class ExploreApp(App):
     def on_input_changed(self, event: Input.Changed) -> None:
         """Handle search input changes to filter the table."""
         search_term = event.value.strip()
-        search_terms = shlex.split(search_term)  # split with same rules as unix shell
+        try:
+            search_terms = shlex.split(search_term)  # split with same rules as unix shell
+        except ValueError:
+            # ignore error and just don't search yet. Allows user to type a quote without closing it yet.
+            return
+
         filters = parse.search_terms_to_filters(search_terms)
         table = self.query_one("#table", widgets.AnalysisItemDataTable)
         table.filter_by_filters(filters)
