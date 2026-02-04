@@ -1,16 +1,18 @@
 """
-Dynamic log type validator module.
+Dynamic log type validation module.
 
-This module provides dynamic log type validation that queries supported log types
-from a Panther instance when API credentials are available, or falls back to
-validating Custom.* format only when credentials are not provided.
+This module provides log type validation against a Panther instance's supported
+log types. It fetches the list of supported log types from the API and caches
+them for the session duration.
+
+Log type validation is performed at upload time (not during schema validation)
+to allow tests to run for all rules while skipping unsupported rules during upload.
 """
 
 import logging
 import re
-from typing import TYPE_CHECKING, Callable, Optional, Set
-
-from schema import SchemaError
+import threading
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from panther_analysis_tool.backend.client import Client as BackendClient
@@ -29,50 +31,45 @@ class LogTypeCache:
     Caches log types in-memory for the session (per command invocation).
 
     Note: Resource types are not cached as there's no API endpoint to fetch them.
+
+    Thread-safe implementation using a lock for singleton creation and state access.
     """
 
     _instance: Optional["LogTypeCache"] = None
+    _lock: threading.Lock = threading.Lock()
     _log_types: Optional[Set[str]] = None
-    _warning_shown: bool = False
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            with cls._lock:
+                # Double-check locking pattern
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
         return cls._instance
 
     @classmethod
     def get_log_types(cls) -> Optional[Set[str]]:
         """Returns cached log types, or None if not yet fetched."""
-        instance = cls()
-        return instance._log_types
+        with cls._lock:
+            instance = cls()
+            return instance._log_types
 
     @classmethod
     def set_log_types(cls, log_types: Set[str]) -> None:
         """Caches the provided log types."""
-        instance = cls()
-        instance._log_types = log_types
-
-    @classmethod
-    def has_shown_warning(cls) -> bool:
-        """Returns whether the 'no credentials' warning has been shown."""
-        instance = cls()
-        return instance._warning_shown
-
-    @classmethod
-    def mark_warning_shown(cls) -> None:
-        """Marks that the 'no credentials' warning has been shown."""
-        instance = cls()
-        instance._warning_shown = True
+        with cls._lock:
+            instance = cls()
+            instance._log_types = log_types
 
     @classmethod
     def clear(cls) -> None:
         """Clears the cache (useful for testing)."""
-        instance = cls()
-        instance._log_types = None
-        instance._warning_shown = False
+        with cls._lock:
+            instance = cls()
+            instance._log_types = None
 
 
-def _validate_custom_format(log_type: str) -> bool:
+def is_valid_custom_log_type(log_type: str) -> bool:
     """
     Validates that a log type matches the Custom.* format.
 
@@ -89,7 +86,7 @@ def _validate_custom_format(log_type: str) -> bool:
     return CUSTOM_LOG_TYPE_REGEX.match(log_type) is not None
 
 
-def _fetch_log_types(backend) -> Optional[Set[str]]:
+def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
     """
     Fetches supported log types from the Panther instance.
 
@@ -98,9 +95,6 @@ def _fetch_log_types(backend) -> Optional[Set[str]]:
 
     Returns:
         Set of log type names, or None if fetch fails
-
-    Side Effects:
-        Logs errors if the API call fails
     """
     try:
         # Import here to avoid circular dependencies
@@ -118,103 +112,115 @@ def _fetch_log_types(backend) -> Optional[Set[str]]:
             return None
 
     except Exception as e:  # pylint: disable=broad-except
-        logging.warning(
-            f"Failed to fetch log types from Panther instance: {e}. "
-            "Falling back to Custom.* format validation only."
-        )
+        logging.warning(f"Failed to fetch log types from Panther instance: {e}")
         return None
 
 
-def create_log_type_validator(backend: Optional["BackendClient"]) -> Callable[[str], str]:
+def init_log_type_cache(backend: Optional["BackendClient"]) -> bool:
     """
-    Factory function that creates a log type validator callable.
+    Initializes the log type cache by fetching log types from the Panther instance.
 
-    The returned validator has different behavior based on whether a backend client
-    is provided:
-
-    - With backend: Fetches log types from the Panther instance API, caches them,
-      and validates log types against the fetched list. Falls back to Custom.*
-      validation if the API call fails.
-
-    - Without backend: Only validates Custom.* format and shows a warning once
-      that API credentials are not configured.
+    Should be called once at the start of an upload operation.
 
     Args:
-        backend: Optional backend client (PublicAPIClient or LambdaClient)
+        backend: Optional backend client. If None, no log type validation will occur.
 
     Returns:
-        A callable that validates log type strings and raises SchemaError if invalid
-
-    Examples:
-        >>> validator = create_log_type_validator(None)
-        >>> validator("Custom.MyApp.Events")  # Returns the log type
-        >>> validator("AWS.CloudTrail")  # Raises SchemaError (no API credentials)
-
-        >>> validator = create_log_type_validator(backend_client)
-        >>> validator("AWS.CloudTrail")  # Returns if CloudTrail is in fetched types
+        True if log types were successfully fetched and cached, False otherwise.
     """
+    if backend is None:
+        logging.info(
+            "No backend client provided. Log type validation will be skipped. "
+            "To validate log types, set PANTHER_API_TOKEN and PANTHER_API_HOST."
+        )
+        return False
+
     cache = LogTypeCache()
 
-    # Determine whether to fetch from API
-    should_fetch = backend is not None
-    log_types: Optional[Set[str]] = None
+    # Check if already cached
+    if cache.get_log_types() is not None:
+        return True
 
-    if should_fetch:
-        # Check cache first
-        log_types = cache.get_log_types()
+    # Fetch from API
+    log_types = _fetch_log_types(backend)
+    if log_types is not None:
+        cache.set_log_types(log_types)
+        return True
 
-        if log_types is None:
-            # Not cached, fetch from API
-            log_types = _fetch_log_types(backend)
+    return False
 
-            if log_types is not None:
-                # Cache the fetched log types
-                cache.set_log_types(log_types)
-            else:
-                # API call failed, will fall back to Custom.* validation
-                logging.info("Using Custom.* format validation only due to API error")
 
-    def validator(log_type: str) -> str:
-        """
-        Validates a single log type string.
+def is_log_type_supported(log_type: str) -> bool:
+    """
+    Checks if a log type is supported by the Panther instance.
 
-        Args:
-            log_type: The log type string to validate
+    Must call init_log_type_cache() first to populate the cache.
 
-        Returns:
-            The log type string if valid
+    Args:
+        log_type: The log type to check
 
-        Raises:
-            SchemaError: If the log type is invalid
-        """
-        # If we have fetched log types, validate against them
-        if log_types is not None:
-            if log_type in log_types or _validate_custom_format(log_type):
-                return log_type
-            else:
-                raise SchemaError(
-                    f"Invalid log type '{log_type}'. "
-                    f"Not found in Panther instance and does not match Custom.* format."
-                )
+    Returns:
+        True if the log type is supported (in instance or valid Custom.* format),
+        False otherwise. Returns True if cache is not initialized (no validation).
+    """
+    cache = LogTypeCache()
+    cached_log_types = cache.get_log_types()
 
-        # No API credentials or API call failed - validate Custom.* format only
-        if _validate_custom_format(log_type):
-            return log_type
+    # If no cached log types, skip validation (allow all)
+    if cached_log_types is None:
+        return True
 
-        # Show warning once
-        if not cache.has_shown_warning():
-            logging.warning(
-                "API credentials not configured (PANTHER_API_TOKEN, PANTHER_API_HOST). "
-                "Only Custom.* log type format will be validated. "
-                "To validate against your Panther instance, set the PANTHER_API_TOKEN "
-                "and PANTHER_API_HOST environment variables."
-            )
-            cache.mark_warning_shown()
+    # Check if in instance or valid Custom.* format
+    return log_type in cached_log_types or is_valid_custom_log_type(log_type)
 
-        raise SchemaError(
-            f"Invalid log type '{log_type}'. "
-            f"Only Custom.* format is allowed without API credentials. "
-            f"Example: Custom.MyOrg.MyApp.Events"
-        )
 
-    return validator
+def get_unsupported_log_types(log_types: List[str]) -> List[str]:
+    """
+    Returns log types that are not supported by the Panther instance.
+
+    Must call init_log_type_cache() first to populate the cache.
+
+    Args:
+        log_types: List of log types to check
+
+    Returns:
+        List of unsupported log types. Empty if all are supported or if
+        cache is not initialized (no validation).
+    """
+    return [lt for lt in log_types if not is_log_type_supported(lt)]
+
+
+def filter_rules_by_log_type_support(
+    rules: List[Tuple[str, dict]],
+) -> Tuple[List[Tuple[str, dict]], List[Tuple[str, dict, List[str]]]]:
+    """
+    Filters rules based on log type support.
+
+    Args:
+        rules: List of (filename, rule_spec) tuples
+
+    Returns:
+        Tuple of:
+        - supported_rules: List of (filename, rule_spec) tuples with supported log types
+        - skipped_rules: List of (filename, rule_spec, unsupported_log_types) tuples
+    """
+    supported_rules = []
+    skipped_rules = []
+
+    for filename, rule_spec in rules:
+        # Get log types from the rule (could be LogTypes or ScheduledQueries)
+        log_types = rule_spec.get("LogTypes", rule_spec.get("ScheduledQueries", []))
+
+        if not log_types:
+            # No log types to validate, include the rule
+            supported_rules.append((filename, rule_spec))
+            continue
+
+        unsupported = get_unsupported_log_types(log_types)
+
+        if unsupported:
+            skipped_rules.append((filename, rule_spec, unsupported))
+        else:
+            supported_rules.append((filename, rule_spec))
+
+    return supported_rules, skipped_rules

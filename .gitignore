@@ -69,3 +69,4 @@ coverage.xml
 *.orig
 .panther_settings.yml
 panther-analysis/
+.claude/settings.local.json

@@ -1,17 +1,18 @@
 """Unit tests for log_type_validator module."""
 
 import unittest
-from unittest.mock import MagicMock, Mock, patch
-
-from schema import SchemaError
+from unittest.mock import Mock
 
 from panther_analysis_tool.backend.client import ListSchemasResponse, Schema
 from panther_analysis_tool.log_type_validator import (
     CUSTOM_LOG_TYPE_REGEX,
     LogTypeCache,
     _fetch_log_types,
-    _validate_custom_format,
-    create_log_type_validator,
+    filter_rules_by_log_type_support,
+    get_unsupported_log_types,
+    init_log_type_cache,
+    is_log_type_supported,
+    is_valid_custom_log_type,
 )
 
 
@@ -32,7 +33,7 @@ class TestCustomFormatValidation(unittest.TestCase):
         for log_type in valid_log_types:
             with self.subTest(log_type=log_type):
                 self.assertTrue(
-                    _validate_custom_format(log_type),
+                    is_valid_custom_log_type(log_type),
                     f"Expected {log_type} to be valid",
                 )
 
@@ -53,7 +54,7 @@ class TestCustomFormatValidation(unittest.TestCase):
         for log_type in invalid_log_types:
             with self.subTest(log_type=log_type):
                 self.assertFalse(
-                    _validate_custom_format(log_type),
+                    is_valid_custom_log_type(log_type),
                     f"Expected {log_type} to be invalid",
                 )
 
@@ -103,17 +104,6 @@ class TestFetchLogTypes(unittest.TestCase):
                     updated_at="",
                     field_discovery_enabled=False,
                 ),
-                Schema(
-                    name="Custom.MyApp.Events",
-                    created_at="",
-                    description="",
-                    is_managed=False,
-                    reference_url="",
-                    revision="",
-                    spec="",
-                    updated_at="",
-                    field_discovery_enabled=False,
-                ),
             ]
         )
         mock_backend.list_schemas.return_value = mock_response
@@ -121,7 +111,7 @@ class TestFetchLogTypes(unittest.TestCase):
         log_types = _fetch_log_types(mock_backend)
 
         self.assertIsNotNone(log_types)
-        self.assertEqual(log_types, {"AWS.CloudTrail", "Okta.SystemLog", "Custom.MyApp.Events"})
+        self.assertEqual(log_types, {"AWS.CloudTrail", "Okta.SystemLog"})
 
     def test_fetch_log_types_empty_response(self):
         """Test handling of empty response from backend."""
@@ -144,15 +134,20 @@ class TestFetchLogTypes(unittest.TestCase):
         self.assertIsNone(log_types)
 
 
-class TestValidatorWithBackend(unittest.TestCase):
-    """Tests for validator with backend client."""
+class TestInitLogTypeCache(unittest.TestCase):
+    """Tests for init_log_type_cache function."""
 
     def setUp(self):
         """Clear cache before each test."""
         LogTypeCache.clear()
 
-    def test_validator_with_backend_valid_log_type(self):
-        """Test validator accepts log types from backend."""
+    def test_init_with_no_backend(self):
+        """Test initialization with no backend returns False."""
+        result = init_log_type_cache(None)
+        self.assertFalse(result)
+
+    def test_init_with_backend_success(self):
+        """Test successful initialization with backend."""
         mock_backend = Mock()
         mock_response = Mock()
         mock_response.data = ListSchemasResponse(
@@ -172,43 +167,13 @@ class TestValidatorWithBackend(unittest.TestCase):
         )
         mock_backend.list_schemas.return_value = mock_response
 
-        validator = create_log_type_validator(mock_backend)
+        result = init_log_type_cache(mock_backend)
 
-        # Should accept AWS.CloudTrail (from backend)
-        result = validator("AWS.CloudTrail")
-        self.assertEqual(result, "AWS.CloudTrail")
+        self.assertTrue(result)
+        self.assertEqual(LogTypeCache.get_log_types(), {"AWS.CloudTrail"})
 
-    def test_validator_with_backend_invalid_log_type(self):
-        """Test validator rejects log types not in backend."""
-        mock_backend = Mock()
-        mock_response = Mock()
-        mock_response.data = ListSchemasResponse(schemas=[])
-        mock_backend.list_schemas.return_value = mock_response
-
-        validator = create_log_type_validator(mock_backend)
-
-        # Should reject invalid log type
-        with self.assertRaises(SchemaError) as context:
-            validator("AWS.InvalidService")
-
-        self.assertIn("Invalid log type", str(context.exception))
-        self.assertIn("AWS.InvalidService", str(context.exception))
-
-    def test_validator_with_backend_accepts_custom_format(self):
-        """Test validator accepts Custom.* format even with backend."""
-        mock_backend = Mock()
-        mock_response = Mock()
-        mock_response.data = ListSchemasResponse(schemas=[])
-        mock_backend.list_schemas.return_value = mock_response
-
-        validator = create_log_type_validator(mock_backend)
-
-        # Should accept Custom.* format
-        result = validator("Custom.MyApp.Events")
-        self.assertEqual(result, "Custom.MyApp.Events")
-
-    def test_validator_caches_results(self):
-        """Test that validator caches log types from backend."""
+    def test_init_uses_cache(self):
+        """Test that subsequent calls use cached results."""
         mock_backend = Mock()
         mock_response = Mock()
         mock_response.data = ListSchemasResponse(
@@ -228,117 +193,135 @@ class TestValidatorWithBackend(unittest.TestCase):
         )
         mock_backend.list_schemas.return_value = mock_response
 
-        # First validator should fetch from backend
-        validator1 = create_log_type_validator(mock_backend)
-        validator1("AWS.CloudTrail")
-
-        # Second validator should use cached results
-        validator2 = create_log_type_validator(mock_backend)
-        validator2("AWS.CloudTrail")
+        # First call
+        init_log_type_cache(mock_backend)
+        # Second call
+        init_log_type_cache(mock_backend)
 
         # Backend should only be called once
         self.assertEqual(mock_backend.list_schemas.call_count, 1)
 
 
-class TestValidatorWithoutBackend(unittest.TestCase):
-    """Tests for validator without backend client."""
+class TestIsLogTypeSupported(unittest.TestCase):
+    """Tests for is_log_type_supported function."""
 
     def setUp(self):
         """Clear cache before each test."""
         LogTypeCache.clear()
 
-    def test_validator_without_backend_valid_custom(self):
-        """Test validator accepts valid Custom.* format without backend."""
-        validator = create_log_type_validator(None)
+    def test_no_cache_allows_all(self):
+        """Test that without cache, all log types are allowed."""
+        self.assertTrue(is_log_type_supported("AWS.CloudTrail"))
+        self.assertTrue(is_log_type_supported("FakeVendor.FakeLog"))
+        self.assertTrue(is_log_type_supported("Custom.MyApp"))
 
-        result = validator("Custom.MyApp.Events")
-        self.assertEqual(result, "Custom.MyApp.Events")
+    def test_with_cache_checks_instance(self):
+        """Test that with cache, log types are checked against instance."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail", "Okta.SystemLog"})
 
-    def test_validator_without_backend_invalid_custom(self):
-        """Test validator rejects invalid Custom.* format without backend."""
-        validator = create_log_type_validator(None)
+        # In instance
+        self.assertTrue(is_log_type_supported("AWS.CloudTrail"))
+        self.assertTrue(is_log_type_supported("Okta.SystemLog"))
 
-        with self.assertRaises(SchemaError) as context:
-            validator("Custom.invalid")
+        # Not in instance but valid Custom.*
+        self.assertTrue(is_log_type_supported("Custom.MyApp.Events"))
 
-        self.assertIn("Invalid log type", str(context.exception))
-        self.assertIn("Custom.*", str(context.exception))
-
-    def test_validator_without_backend_rejects_standard_log_types(self):
-        """Test validator rejects standard log types without backend."""
-        validator = create_log_type_validator(None)
-
-        with self.assertRaises(SchemaError) as context:
-            validator("AWS.CloudTrail")
-
-        self.assertIn("Invalid log type", str(context.exception))
-        self.assertIn("Custom.*", str(context.exception))
-
-    @patch("panther_analysis_tool.log_type_validator.logging")
-    def test_validator_shows_warning_once(self, mock_logging):
-        """Test that warning is only shown once without backend."""
-        validator = create_log_type_validator(None)
-
-        # First invalid log type should trigger warning
-        with self.assertRaises(SchemaError):
-            validator("AWS.CloudTrail")
-
-        # Second invalid log type should not trigger warning again
-        with self.assertRaises(SchemaError):
-            validator("AWS.S3")
-
-        # Warning should only be called once
-        warning_calls = [
-            call
-            for call in mock_logging.warning.call_args_list
-            if "API credentials not configured" in str(call)
-        ]
-        self.assertEqual(len(warning_calls), 1)
+        # Not in instance and not Custom.*
+        self.assertFalse(is_log_type_supported("FakeVendor.FakeLog"))
+        self.assertFalse(is_log_type_supported("AWS.NewService"))
 
 
-class TestValidatorFallback(unittest.TestCase):
-    """Tests for validator fallback behavior on API errors."""
+class TestGetUnsupportedLogTypes(unittest.TestCase):
+    """Tests for get_unsupported_log_types function."""
 
     def setUp(self):
         """Clear cache before each test."""
         LogTypeCache.clear()
 
-    def test_validator_falls_back_on_api_error(self):
-        """Test validator falls back to Custom.* validation on API error."""
-        mock_backend = Mock()
-        mock_backend.list_schemas.side_effect = Exception("Network error")
+    def test_no_cache_returns_empty(self):
+        """Test that without cache, no log types are marked unsupported."""
+        result = get_unsupported_log_types(["AWS.CloudTrail", "FakeVendor.FakeLog"])
+        self.assertEqual(result, [])
 
-        validator = create_log_type_validator(mock_backend)
+    def test_with_cache_returns_unsupported(self):
+        """Test that with cache, unsupported log types are returned."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
 
-        # Should fall back to Custom.* validation
-        result = validator("Custom.MyApp.Events")
-        self.assertEqual(result, "Custom.MyApp.Events")
+        result = get_unsupported_log_types(
+            ["AWS.CloudTrail", "Okta.SystemLog", "Custom.MyApp"]
+        )
 
-        # Should reject standard log types
-        with self.assertRaises(SchemaError):
-            validator("AWS.CloudTrail")
+        # Only Okta.SystemLog is unsupported (AWS.CloudTrail is in instance, Custom.MyApp is valid format)
+        self.assertEqual(result, ["Okta.SystemLog"])
 
-    @patch("panther_analysis_tool.log_type_validator.logging")
-    def test_validator_logs_api_error(self, mock_logging):
-        """Test that API errors are logged."""
-        mock_backend = Mock()
-        mock_backend.list_schemas.side_effect = Exception("Network error")
 
-        validator = create_log_type_validator(mock_backend)
+class TestFilterRulesByLogTypeSupport(unittest.TestCase):
+    """Tests for filter_rules_by_log_type_support function."""
 
-        # Trigger fetch
-        try:
-            validator("Custom.MyApp.Events")
-        except SchemaError:
-            pass
+    def setUp(self):
+        """Clear cache before each test."""
+        LogTypeCache.clear()
 
-        # Should log the error
-        warning_calls = [
-            call
-            for call in mock_logging.warning.call_args_list
-            if "Failed to fetch log types" in str(call)
+    def test_no_cache_allows_all(self):
+        """Test that without cache, all rules pass."""
+        rules = [
+            ("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+            ("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["FakeVendor.FakeLog"]}),
         ]
-        self.assertGreaterEqual(len(warning_calls), 1)
+
+        supported, skipped = filter_rules_by_log_type_support(rules)
+
+        self.assertEqual(len(supported), 2)
+        self.assertEqual(len(skipped), 0)
+
+    def test_with_cache_filters_unsupported(self):
+        """Test that with cache, unsupported rules are filtered."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+
+        rules = [
+            ("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+            ("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["Okta.SystemLog"]}),
+            ("rule3.yml", {"RuleID": "Rule3", "LogTypes": ["Custom.MyApp"]}),
+        ]
+
+        supported, skipped = filter_rules_by_log_type_support(rules)
+
+        self.assertEqual(len(supported), 2)  # Rule1 and Rule3
+        self.assertEqual(len(skipped), 1)  # Rule2
+
+        # Check skipped rule details
+        self.assertEqual(skipped[0][0], "rule2.yml")
+        self.assertEqual(skipped[0][2], ["Okta.SystemLog"])
+
+    def test_rules_without_log_types_pass(self):
+        """Test that rules without LogTypes field pass."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+
+        rules = [
+            ("global.yml", {"GlobalID": "MyGlobal"}),  # No LogTypes
+            ("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+        ]
+
+        supported, skipped = filter_rules_by_log_type_support(rules)
+
+        self.assertEqual(len(supported), 2)
+        self.assertEqual(len(skipped), 0)
+
+    def test_scheduled_queries_validated(self):
+        """Test that ScheduledQueries field is also validated."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+
+        rules = [
+            (
+                "scheduled.yml",
+                {"RuleID": "Scheduled1", "ScheduledQueries": ["Okta.SystemLog"]},
+            ),
+        ]
+
+        supported, skipped = filter_rules_by_log_type_support(rules)
+
+        self.assertEqual(len(supported), 0)
+        self.assertEqual(len(skipped), 1)
 
 
 class TestLogTypeCache(unittest.TestCase):
@@ -368,20 +351,10 @@ class TestLogTypeCache(unittest.TestCase):
         """Test clearing the cache."""
         log_types = {"AWS.CloudTrail"}
         LogTypeCache.set_log_types(log_types)
-        LogTypeCache.mark_warning_shown()
 
         LogTypeCache.clear()
 
         self.assertIsNone(LogTypeCache.get_log_types())
-        self.assertFalse(LogTypeCache.has_shown_warning())
-
-    def test_warning_flag(self):
-        """Test warning flag tracking."""
-        self.assertFalse(LogTypeCache.has_shown_warning())
-
-        LogTypeCache.mark_warning_shown()
-
-        self.assertTrue(LogTypeCache.has_shown_warning())
 
 
 if __name__ == "__main__":

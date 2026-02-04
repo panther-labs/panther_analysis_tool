@@ -257,6 +257,7 @@ def zip_analysis_chunks(
     ignore_files: List[str],
     filters: List[Filter],
     filters_inverted: List[Filter],
+    backend: Optional[BackendClient] = None,
 ) -> List[str]:
     logging.info("Zipping analysis items in %s to %s", path, out)
 
@@ -281,7 +282,7 @@ def zip_analysis_chunks(
         filters=filters,
         filters_inverted=filters_inverted,
     )
-    chunks = analysis_chunks(zip_args, zip_chunks)
+    chunks = analysis_chunks(zip_args, zip_chunks, backend=backend)
     batch_id = uuid4()
     for idx, chunk in enumerate(chunks):
         filename = f"panther-analysis-{current_time}-{batch_id}-batch-{idx + 1}.zip"
@@ -350,7 +351,7 @@ def zip_analysis(backend: Optional[BackendClient], args: ZipAnalysisArgs) -> Tup
         filters=args.test_analysis_args.filters,
         filters_inverted=args.test_analysis_args.filters_inverted,
     )
-    chunks = analysis_chunks(typed_args)
+    chunks = analysis_chunks(typed_args, backend=backend)
     if len(chunks) != 1:
         logging.error("something went wrong zipping batches.")
         return 1, ""
@@ -409,6 +410,7 @@ def upload_analysis(backend: BackendClient, args: UploadAnalysisArgs) -> Tuple[i
                 args.analysis_args.ignore_files,
                 args.analysis_args.filters,
                 args.analysis_args.filters_inverted,
+                backend=backend,
             )
         ):
             batch_idx = idx + 1
@@ -877,7 +879,6 @@ def test_analysis(
         args.valid_table_names,
         args.ignore_files,
         args.ignore_extra_keys,
-        backend,
     )
     if specs.empty():
         if invalid_specs:
@@ -1396,7 +1397,7 @@ def check_packs(path: str) -> Tuple[int, str]:
     Checks each existing pack whether it includes all necessary rules and other items. Also checks
     if any detections, queries, etc. are not included in any packs
     """
-    specs, _ = load_analysis(path, True, [], [], False, None)
+    specs, _ = load_analysis(path, True, [], [], False)
 
     dependencies = {}  # Create a mapping of dependencies of each analysis item
     log_types = {}  # Which items depend on which log types

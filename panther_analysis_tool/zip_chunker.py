@@ -1,7 +1,8 @@
+import logging
 import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
-from typing import Any, Dict, Generator, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Set
 
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
@@ -11,6 +12,13 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
 from panther_analysis_tool.core.parse import Filter
+from panther_analysis_tool.log_type_validator import (
+    get_unsupported_log_types,
+    init_log_type_cache,
+)
+
+if TYPE_CHECKING:
+    from panther_analysis_tool.backend.client import Client as BackendClient
 
 
 @dataclass
@@ -115,19 +123,40 @@ def create_additional_chunks_if_needed(chunk_files: List[ChunkFiles]) -> List[Ch
     return results
 
 
-def analysis_chunks(args: ZipArgs, chunks: Optional[List[ZipChunk]] = None) -> List[ChunkFiles]:
+def analysis_chunks(
+    args: ZipArgs,
+    chunks: Optional[List[ZipChunk]] = None,
+    backend: Optional["BackendClient"] = None,
+) -> List[ChunkFiles]:
     """Generates all files that should be added to a zip file. If no chunks are provided
     a single chunk will be returned. Note: a file can be in multiple chunks if both chunks
-    matches the file pattern
-    :param args:
-    :param chunks:
-    :return:
+    matches the file pattern.
+
+    :param args: ZipArgs with path and filter settings
+    :param chunks: Optional list of ZipChunk definitions
+    :param backend: Optional backend client for log type validation
+    :return: List of ChunkFiles ready for zipping
     """
-    analysis = analysis_for_chunks(args)
+    analysis = analysis_for_chunks(args, backend=backend)
     return chunk_analysis(analysis, chunks)
 
 
-def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[ClassifiedAnalysis]:
+def analysis_for_chunks(
+    args: ZipArgs,
+    no_helpers: bool = False,
+    backend: Optional["BackendClient"] = None,
+) -> List[ClassifiedAnalysis]:
+    """Load and filter analysis specs for chunking.
+
+    Args:
+        args: ZipArgs with path and filter settings
+        no_helpers: If True, skip loading helpers
+        backend: Optional backend client for log type validation. If provided,
+                 rules with unsupported log types will be skipped with a warning.
+
+    Returns:
+        List of ClassifiedAnalysis objects ready for chunking
+    """
     analysis = []
     files: Set[str] = set()
 
@@ -140,7 +169,72 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
             files.add(file_name)
             files.add("./" + file_name)
 
-    return filter_analysis(analysis, args.filters, args.filters_inverted)
+    filtered = filter_analysis(analysis, args.filters, args.filters_inverted)
+
+    # Apply log type filtering if backend is provided
+    if backend is not None:
+        filtered = _filter_by_log_type_support(filtered, backend)
+
+    return filtered
+
+
+def _filter_by_log_type_support(
+    analysis: List[ClassifiedAnalysis],
+    backend: "BackendClient",
+) -> List[ClassifiedAnalysis]:
+    """Filter out analysis items with unsupported log types.
+
+    Args:
+        analysis: List of ClassifiedAnalysis to filter
+        backend: Backend client for fetching supported log types
+
+    Returns:
+        Filtered list with unsupported items removed (with warnings logged)
+    """
+    # Initialize the log type cache
+    if not init_log_type_cache(backend):
+        # Cache initialization failed, skip filtering
+        return analysis
+
+    supported = []
+    skipped_count = 0
+
+    for item in analysis:
+        spec = item.analysis_spec
+        if spec is None:
+            supported.append(item)
+            continue
+
+        # Get log types from the spec (could be LogTypes or ScheduledQueries)
+        log_types = spec.get("LogTypes", spec.get("ScheduledQueries", []))
+
+        if not log_types:
+            # No log types to validate
+            supported.append(item)
+            continue
+
+        unsupported = get_unsupported_log_types(log_types)
+
+        if unsupported:
+            rule_id = spec.get("RuleID", spec.get("DataModelID", spec.get("PolicyID", "unknown")))
+            logging.warning(
+                "Skipping %s (%s): log types not supported by Panther instance: %s",
+                item.file_name,
+                rule_id,
+                ", ".join(unsupported),
+            )
+            skipped_count += 1
+        else:
+            supported.append(item)
+
+    if skipped_count > 0:
+        logging.warning(
+            "Skipped %d item(s) due to unsupported log types. "
+            "These log types may not be available in your Panther instance.",
+            skipped_count,
+        )
+
+    return supported
 
 
 def chunk_analysis(
