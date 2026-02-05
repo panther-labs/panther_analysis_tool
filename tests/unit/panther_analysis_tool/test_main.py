@@ -596,7 +596,7 @@ class TestPantherAnalysisTool(TestCase):
         ) as mock_zip_analysis_chunks:
             runner.invoke(
                 app,
-                f"zip --path {STATUS_FIXTURES_PATH}/all_statuses --filter Status!=blah --out tmp/zipped2".split(),
+                f"zip --path {STATUS_FIXTURES_PATH}/all_statuses --filter Status=stable,experimental,deprecated --out tmp/zipped2".split(),
             )
             self.assertEqual(mock_zip_analysis_chunks.call_count, 1)
             zipped_items = os.listdir("/tmp/zipped2")
@@ -605,17 +605,15 @@ class TestPantherAnalysisTool(TestCase):
             zip_file_path = os.path.join("tmp/zipped2", zip_name)
             with zipfile.ZipFile(zip_file_path, "r") as zip_file:
                 file_list = zip_file.namelist()
-                # there should be 8 files in the list: there's 4 detections, and each detection has 2 files
-                # a python and a yaml file
-                self.assertEqual(8, len(file_list))
-                self.assertIn("no_status.yml", file_list[0])
-                self.assertIn("no_status.py", file_list[1])
-                self.assertIn("status_deprecated.yml", file_list[2])
-                self.assertIn("status_deprecated.py", file_list[3])
-                self.assertIn("status_experimental.yml", file_list[4])
-                self.assertIn("status_experimental.py", file_list[5])
-                self.assertIn("status_stable.yml", file_list[6])
-                self.assertIn("status_stable.py", file_list[7])
+                # there should be 6 files in the list: there's 3 detections with Status field, and each detection has 2 files
+                # a python and a yaml file (no_status is excluded because it doesn't have a Status field)
+                self.assertEqual(6, len(file_list))
+                self.assertIn("status_deprecated.yml", file_list[0])
+                self.assertIn("status_deprecated.py", file_list[1])
+                self.assertIn("status_experimental.yml", file_list[2])
+                self.assertIn("status_experimental.py", file_list[3])
+                self.assertIn("status_stable.yml", file_list[4])
+                self.assertIn("status_stable.py", file_list[5])
 
     def test_zip_analysis_chunks(self) -> None:
         # Note: This is a workaround for CI
