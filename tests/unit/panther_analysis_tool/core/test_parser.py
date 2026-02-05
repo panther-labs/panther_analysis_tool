@@ -103,7 +103,9 @@ class TestParser(TestCase):
         filters = [Filter(key="Severity", values=["Critical"])]
         filters_inverted = [Filter(key="RuleID", values=["abc"])]
 
-        result_filters, result_filters_inverted = parse.add_status_filters(filters, filters_inverted)
+        result_filters, result_filters_inverted = parse.add_status_filters(
+            filters, filters_inverted
+        )
 
         # Original filters should be unchanged
         self.assertIn(Filter(key="Severity", values=["Critical"]), result_filters)
@@ -121,7 +123,9 @@ class TestParser(TestCase):
         ]
         filters_inverted = [Filter(key="RuleID", values=["abc"])]
 
-        result_filters, result_filters_inverted = parse.add_status_filters(filters, filters_inverted)
+        result_filters, result_filters_inverted = parse.add_status_filters(
+            filters, filters_inverted
+        )
 
         # Original filters should be unchanged
         self.assertIn(Filter(key="Severity", values=["Critical"]), result_filters)
@@ -140,7 +144,9 @@ class TestParser(TestCase):
             Filter(key="Status", values=["alpha"]),
         ]
 
-        result_filters, result_filters_inverted = parse.add_status_filters(filters, filters_inverted)
+        result_filters, result_filters_inverted = parse.add_status_filters(
+            filters, filters_inverted
+        )
 
         # Original non-Status filters should be unchanged
         self.assertIn(Filter(key="Severity", values=["Critical"]), result_filters)
@@ -158,7 +164,9 @@ class TestParser(TestCase):
         filters = []
         filters_inverted = [Filter(key="Status", values=["alpha", "experimental"])]
 
-        result_filters, result_filters_inverted = parse.add_status_filters(filters, filters_inverted)
+        result_filters, result_filters_inverted = parse.add_status_filters(
+            filters, filters_inverted
+        )
 
         # Status filter should include all values without duplicates
         status_filter = next(f for f in result_filters_inverted if f.key == "Status")
@@ -172,7 +180,9 @@ class TestParser(TestCase):
         filters = []
         filters_inverted = []
 
-        result_filters, result_filters_inverted = parse.add_status_filters(filters, filters_inverted)
+        result_filters, result_filters_inverted = parse.add_status_filters(
+            filters, filters_inverted
+        )
 
         # Filters should be empty
         self.assertEqual(len(result_filters), 0)
@@ -192,7 +202,9 @@ class TestParser(TestCase):
             Filter(key="Status", values=["alpha"]),
         ]
 
-        result_filters, result_filters_inverted = parse.add_status_filters(filters, filters_inverted)
+        result_filters, result_filters_inverted = parse.add_status_filters(
+            filters, filters_inverted
+        )
 
         # Original filters should be unchanged
         self.assertIn(Filter(key="Severity", values=["Critical"]), result_filters)
