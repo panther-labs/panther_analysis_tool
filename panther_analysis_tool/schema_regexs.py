@@ -114,6 +114,7 @@ LOG_TYPE_REGEX = Regex(
     r"IPInfo\.LocationRanges|"
     r"IPInfo\.PrivacyCIDR|"
     r"IPInfo\.PrivacyRanges|"
+    r"Iru\.Audit|"
     r"Jamfpro\.ComplianceReporter|"
     r"Jamfpro\.Login|"
     r"Juniper\.Access|"
