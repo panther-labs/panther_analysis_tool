@@ -297,6 +297,7 @@ LOG_TYPE_REGEX = Regex(
     r"Tracebit\.Alert|"
     r"Tracebit\.HealthCheck|"
     r"TrailDiscover\.CloudTrail|"
+    r"Upwind\.Detections|"
     r"Vercel\.Audit|"
     r"Windows\.EventLogs|"
     r"Wiz\.Audit|"
