@@ -86,13 +86,13 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
-    clone,
     explore,
     fmt,
     init_project,
+    install,
     merge,
     migrate,
-    pull,
+    update,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
@@ -2441,13 +2441,13 @@ def init_command() -> Tuple[int, str]:
 
 
 @app_command_with_config(
-    name="pull",
-    help="Pull and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content. "
+    name="update",
+    help="Update and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content. "
     + "Items with the same ID as a Panther Analysis Item and a BaseVersion field will be merged with the latest Panther Analysis Item. "
     + "Items that have merge conflicts will be skipped to be resolved manually with the `merge` command. "
     + "Use the --write-merge-conflicts flag to write all merge conflicts to their respective files instead of skipping them.",
 )
-def pull_command(
+def update_command(
     auto_accept: AutoAcceptType = None,
     write_merge_conflicts: WriteMergeConflictsType = False,
     preview: Annotated[
@@ -2458,15 +2458,15 @@ def pull_command(
         ),
     ] = False,
 ) -> Tuple[int, str]:
-    args = pull.PullArgs(auto_accept, write_merge_conflicts, preview)
-    return pull.run(args)
+    args = update.UpdateArgs(auto_accept, write_merge_conflicts, preview)
+    return update.run(args)
 
 
 @app_command_with_config(
-    name="clone",
-    help="Clone and enable an analysis item from Panther Analysis into your local repository.",
+    name="install",
+    help="Install and enable an analysis item from Panther Analysis into your local repository.",
 )
-def clone_command(
+def install_command(
     filters: FilterType = None,
     analysis_id: Annotated[
         Optional[str],
@@ -2475,7 +2475,7 @@ def clone_command(
             autocompletion=complete_id,
         ),
     ] = None,
-    all_: Annotated[bool, typer.Option("--all", help="Clone all analysis items.")] = False,
+    all_: Annotated[bool, typer.Option("--all", help="Install all analysis items.")] = False,
 ) -> Tuple[int, str]:
     if filters is None:
         filters = []
@@ -2485,7 +2485,7 @@ def clone_command(
         return 1, "Cannot use --all with --filter"
     if not all_ and analysis_id is None and len(filters) == 0:
         return 1, "Must supply an analysis ID, use --filter, or use --all"
-    return clone.run(analysis_id, filters)
+    return install.run(analysis_id, filters)
 
 
 @app.command(name="explore", help="Explore the latest Panther Analysis content")

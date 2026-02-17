@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Tuple
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.core import (
     analysis_cache,
-    clone_item,
+    install_item,
     parse,
     root,
     versions_file,
@@ -15,28 +15,28 @@ def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
     try:
         root.chdir_to_project_root()
         analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
-        clone(analysis_id, filter_args, show_cloned_items=True)
+        install(analysis_id, filter_args, show_installed_items=True)
     except (ValueError, analysis_cache.NoCacheException) as err:
         return 1, str(err)
 
     return 0, ""
 
 
-def clone(
-    analysis_id: Optional[str], filter_args: List[str], show_cloned_items: bool = False
+def install(
+    analysis_id: Optional[str], filter_args: List[str], show_installed_items: bool = False
 ) -> None:
-    items_to_clone = get_analysis_items(analysis_id, filter_args)
+    items_to_install = get_analysis_items(analysis_id, filter_args)
 
-    if len(items_to_clone) == 0:
+    if len(items_to_install) == 0:
         label = "analysis ID and filters"
         if analysis_id is None and len(filter_args) > 0:
             label = "filters"
         elif analysis_id is not None and len(filter_args) == 0:
             label = "analysis ID"
 
-        raise ValueError(f"No items matched the {label}. Nothing to clone.")
+        raise ValueError(f"No items matched the {label}. Nothing to install.")
 
-    clone_analysis_items(items_to_clone, show_cloned_items=show_cloned_items)
+    install_analysis_items(items_to_install, show_installed_items=show_installed_items)
 
 
 def get_analysis_items(
@@ -72,13 +72,13 @@ def get_analysis_items(
     return all_specs
 
 
-def clone_analysis_items(
-    items_to_clone: List[analysis_utils.AnalysisItem], show_cloned_items: bool = False
+def install_analysis_items(
+    items_to_install: List[analysis_utils.AnalysisItem], show_installed_items: bool = False
 ) -> None:
-    for item in items_to_clone:
+    for item in items_to_install:
         try:
-            clone_item.clone_analysis_item(item, show_cloned_items=show_cloned_items)
+            install_item.install_analysis_item(item, show_installed_items=show_installed_items)
         except FileExistsError:
             continue
 
-    clone_item.clone_deps(items_to_clone, show_cloned_items=show_cloned_items)
+    install_item.install_deps(items_to_install, show_installed_items=show_installed_items)

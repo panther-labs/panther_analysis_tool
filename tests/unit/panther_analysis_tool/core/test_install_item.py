@@ -11,7 +11,7 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
     AnalysisTypes,
 )
-from panther_analysis_tool.core import analysis_cache, clone_item, versions_file, yaml
+from panther_analysis_tool.core import analysis_cache, install_item, versions_file, yaml
 
 _FAKE_PY = """
 def rule(event):
@@ -514,7 +514,7 @@ def test_set_enabled_field() -> None:
         spec = {
             "AnalysisType": analysis_type,
         }
-        clone_item.set_enabled_field(spec)
+        install_item.set_enabled_field(spec)
         assert "Enabled" in spec
         assert spec["Enabled"]
 
@@ -527,7 +527,7 @@ def test_set_enabled_field_for_other_types() -> None:
         spec = {
             "AnalysisType": analysis_type,
         }
-        clone_item.set_enabled_field(spec)
+        install_item.set_enabled_field(spec)
         assert "Enabled" not in spec
 
 
@@ -539,7 +539,7 @@ def test_cached_analysis_spec_to_analysis_item_with_python(
     assert spec is not None
 
     versions = versions_file.get_versions().versions
-    item = clone_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    item = install_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
     assert item.python_file_contents == bytes(_FAKE_PY, "utf-8")
     assert item.python_file_path == "rules/fake_rule_1.py"
     assert item.yaml_file_contents == yaml.load(_FAKE_RULE_1_V1)
@@ -555,7 +555,7 @@ def test_cached_analysis_spec_to_analysis_item_without_python(
     assert spec is not None
 
     versions = versions_file.get_versions().versions
-    item = clone_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
+    item = install_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
     assert item.yaml_file_contents == yaml.load(_FAKE_SAVED_QUERY_1_V1)
     assert item.yaml_file_path == "queries/fake_saved_query_1.yaml"
     assert item.raw_yaml_file_contents == spec.spec
@@ -563,7 +563,7 @@ def test_cached_analysis_spec_to_analysis_item_without_python(
     assert item.python_file_path is None
 
 
-def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
     items = [
         analysis_utils.AnalysisItem(
@@ -573,7 +573,7 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
             python_file_contents=bytes(_FAKE_PY, "utf-8"),
         )
     ]
-    clone_item.clone_deps(items)
+    install_item.install_deps(items)
 
     assert not (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert not (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
@@ -585,7 +585,7 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
     assert not (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
 
-def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
 
     items = [
@@ -596,7 +596,7 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
             python_file_contents=bytes(_FAKE_PY_WITH_HELPERS, "utf-8"),
         )
     ]
-    clone_item.clone_deps(items)
+    install_item.install_deps(items)
 
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
@@ -623,7 +623,7 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
     assert "BaseVersion: 1" in (global_path / "fake_global_helper_4.yaml").read_text()
 
 
-def test_clone_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
     CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE)
@@ -633,7 +633,7 @@ def test_clone_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -
         python_file_path="rules/fake_rule_1.py",
         python_file_contents=bytes(_FAKE_PY, "utf-8"),
     )
-    clone_item.clone_analysis_item(item, show_cloned_items=True)
+    install_item.install_analysis_item(item, show_installed_items=True)
 
     assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
     assert (tmp_path / "rules" / "fake_rule_1.py").exists()

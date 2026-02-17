@@ -7,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.command import clone
+from panther_analysis_tool.command import install
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
@@ -509,12 +509,12 @@ def insert_spec(
 def test_get_analysis_items_no_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(analysis_cache.NoCacheException):
-        clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+        install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
 
 
 def test_get_analysis_items_bad_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="bad_id", filter_args=[])
+    items = install.get_analysis_items(analysis_id="bad_id", filter_args=[])
     assert items == []
 
 
@@ -522,7 +522,7 @@ def test_get_analysis_items_no_filters_and_no_id(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id=None, filter_args=[])
+    items = install.get_analysis_items(analysis_id=None, filter_args=[])
     assert len(items) == 15
 
 
@@ -530,7 +530,7 @@ def test_get_analysis_items_filters_and_no_id(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
+    items = install.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert len(items) == 3
     assert items == [
         analysis_utils.AnalysisItem(
@@ -558,7 +558,7 @@ def test_get_analysis_items_no_filters_and_id(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
     assert items == [
         analysis_utils.AnalysisItem(
@@ -570,11 +570,11 @@ def test_get_analysis_items_no_filters_and_id(
     ]
 
 
-def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id=None, filter_args=[])
+    items = install.get_analysis_items(analysis_id=None, filter_args=[])
     assert len(items) == 15
-    clone.clone_analysis_items(items)
+    install.install_analysis_items(items)
     _dir = tmp_path
     assert (_dir / "rules" / "fake_rule_1.yaml").exists()
     assert (_dir / "rules" / "fake_rule_1.py").exists()
@@ -594,13 +594,13 @@ def test_clone_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) 
     assert (_dir / "queries" / "fake_scheduled_query_1.yaml").exists()
 
 
-def test_clone_analysis_items_already_exists(
+def test_install_analysis_items_already_exists(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
-    clone.clone_analysis_items(items)
+    install.install_analysis_items(items)
 
     rule_yaml = tmp_path / "rules" / "fake_rule_1.yaml"
     rule_py = tmp_path / "rules" / "fake_rule_1.py"
@@ -615,9 +615,9 @@ def test_clone_analysis_items_already_exists(
     assert rule_py.read_text() == "new py"
 
     # do it again and verify it did not change anything since it already existed
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
-    clone.clone_analysis_items(items)
+    install.install_analysis_items(items)
 
     assert rule_yaml.read_text() == "new yaml"
     assert rule_py.read_text() == "new py"
@@ -627,10 +627,10 @@ def test_enable_works_with_all_types(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.clone.root.chdir_to_project_root")
+    mocker.patch("panther_analysis_tool.command.install.root.chdir_to_project_root")
     set_up_cache(tmp_path, monkeypatch)
 
     for _id in [
@@ -645,7 +645,7 @@ def test_enable_works_with_all_types(
         "fake.saved_query.1",
         "fake.scheduled_query.1",
     ]:
-        code, err_str = clone.run(analysis_id=_id, filter_args=[])
+        code, err_str = install.run(analysis_id=_id, filter_args=[])
         assert code == 0
         assert err_str == ""
 
@@ -654,12 +654,12 @@ def test_enable_sets_base_version_field(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.clone.root.chdir_to_project_root")
+    mocker.patch("panther_analysis_tool.command.install.root.chdir_to_project_root")
     set_up_cache(tmp_path, monkeypatch)
-    code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=rule"])
+    code, err_str = install.run(analysis_id=None, filter_args=["AnalysisType=rule"])
     assert code == 0
     assert err_str == ""
 
@@ -676,29 +676,29 @@ def test_enable_messaging(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.clone.root.chdir_to_project_root")
+    mocker.patch("panther_analysis_tool.command.install.root.chdir_to_project_root")
     set_up_cache(tmp_path, monkeypatch)
-    code, err_str = clone.run(analysis_id="bad", filter_args=[])
+    code, err_str = install.run(analysis_id="bad", filter_args=[])
     assert code == 1
-    assert err_str == "No items matched the analysis ID. Nothing to clone."
+    assert err_str == "No items matched the analysis ID. Nothing to install."
 
-    code, err_str = clone.run(analysis_id=None, filter_args=["AnalysisType=bad"])
+    code, err_str = install.run(analysis_id=None, filter_args=["AnalysisType=bad"])
     assert code == 1
-    assert err_str == "No items matched the filters. Nothing to clone."
+    assert err_str == "No items matched the filters. Nothing to install."
 
-    code, err_str = clone.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
+    code, err_str = install.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
     assert code == 1
-    assert err_str == "No items matched the analysis ID and filters. Nothing to clone."
+    assert err_str == "No items matched the analysis ID and filters. Nothing to install."
 
 
-def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
     assert len(items) == 1
-    clone.clone_analysis_items(items)
+    install.install_analysis_items(items)
 
     assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
     assert (tmp_path / "rules" / "fake_rule_1.py").exists()
@@ -712,11 +712,11 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
     assert not (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
 
-def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = clone.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
+    items = install.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
     assert len(items) == 1
-    clone.clone_analysis_items(items)
+    install.install_analysis_items(items)
 
     assert (tmp_path / "rules" / "fake_rule_with_deps.yaml").exists()
     assert (tmp_path / "rules" / "fake_rule_with_deps.py").exists()
@@ -738,7 +738,7 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
     assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
 
 
-def test_clone_from_subdirectory_creates_files_at_project_root_monorepo(
+def test_install_from_subdirectory_creates_files_at_project_root_monorepo(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """
@@ -809,7 +809,7 @@ def test_clone_from_subdirectory_creates_files_at_project_root_monorepo(
 
     # Mock cache operations
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
 
@@ -818,7 +818,7 @@ def test_clone_from_subdirectory_creates_files_at_project_root_monorepo(
         return cache
 
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.AnalysisCache",
+        "panther_analysis_tool.command.install.analysis_cache.AnalysisCache",
         side_effect=mock_analysis_cache,
     )
 
@@ -829,7 +829,7 @@ def test_clone_from_subdirectory_creates_files_at_project_root_monorepo(
     )
 
     # Run clone command
-    clone.run(analysis_id="fake.rule.1", filter_args=[])
+    install.run(analysis_id="fake.rule.1", filter_args=[])
 
     # Verify we chdir'd to project root
     assert len(actual_chdirs) >= 1
@@ -845,7 +845,7 @@ def test_clone_from_subdirectory_creates_files_at_project_root_monorepo(
     assert not (subdir / CACHE_DIR).exists()
 
 
-def test_clone_from_subdirectory_creates_files_at_git_root_normal_repo(
+def test_install_from_subdirectory_creates_files_at_git_root_normal_repo(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """
@@ -909,7 +909,7 @@ def test_clone_from_subdirectory_creates_files_at_git_root_normal_repo(
     insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
 
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.update_with_latest_panther_analysis",
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
         return_value=None,
     )
 
@@ -918,7 +918,7 @@ def test_clone_from_subdirectory_creates_files_at_git_root_normal_repo(
         return cache
 
     mocker.patch(
-        "panther_analysis_tool.command.clone.analysis_cache.AnalysisCache",
+        "panther_analysis_tool.command.install.analysis_cache.AnalysisCache",
         side_effect=mock_analysis_cache,
     )
 
@@ -929,7 +929,7 @@ def test_clone_from_subdirectory_creates_files_at_git_root_normal_repo(
     )
 
     # Run clone command
-    clone.run(analysis_id="fake.rule.1", filter_args=[])
+    install.run(analysis_id="fake.rule.1", filter_args=[])
 
     # Verify we chdir'd to git root
     assert len(actual_chdirs) >= 1

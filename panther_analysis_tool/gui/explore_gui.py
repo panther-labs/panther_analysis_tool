@@ -9,7 +9,7 @@ from textual.containers import Horizontal
 from textual.widgets import DataTable, Footer, Input, Tree
 
 from panther_analysis_tool import analysis_utils
-from panther_analysis_tool.command import clone
+from panther_analysis_tool.command import install
 from panther_analysis_tool.core import parse
 from panther_analysis_tool.gui import widgets
 
@@ -26,8 +26,8 @@ class ExploreApp(App):
         ),
         Binding(
             "ctrl+v",  # ctrl+c displays a warning prompt about quitting
-            "clone_analysis_item",
-            "Clone and enable selected analysis item",
+            "install_analysis_item",
+            "Install and enable selected analysis item",
             show=True,
             priority=True,
         ),
@@ -109,8 +109,8 @@ class ExploreApp(App):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Check if an action should be enabled based on current state."""
-        if action == "close_editors" or action == "clone_analysis_item":
-            # Only show the "Back to explorer" and "Clone" binding when viewing editors
+        if action == "close_editors" or action == "install_analysis_item":
+            # Only show the "Back to explorer" and "Install" binding when viewing editors
             return self.view_editors
         return True
 
@@ -157,27 +157,27 @@ class ExploreApp(App):
         self.switch_views(None)
         self.refresh_bindings()
 
-    def action_clone_analysis_item(self) -> None:
-        """Clone and enable the selected analysis item."""
+    def action_install_analysis_item(self) -> None:
+        """Install and enable the selected analysis item."""
         if self.selected_item is None:
             self.notify("No analysis item selected.", severity="error")
             return
 
         self.notify(
-            f"Cloning {self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()}..."
+            f"Installing {self.selected_item.pretty_analysis_type()} {self.selected_item.analysis_id()}..."
         )
 
-        # Run the clone operation in a background thread so the notification can display immediately
+        # Run the install operation in a background thread so the notification can display immediately
         threading.Thread(
-            target=self._perform_clone_in_thread,
+            target=self._perform_install_in_thread,
             args=(self.selected_item.analysis_id(), self.selected_item.pretty_analysis_type()),
             daemon=True,
         ).start()
 
-    def _perform_clone_in_thread(self, item_id: str, item_type: str) -> None:
-        """Perform the actual clone operation in a background thread."""
+    def _perform_install_in_thread(self, item_id: str, item_type: str) -> None:
+        """Perform the actual install operation in a background thread."""
         try:
-            clone.clone(item_id, [])
+            install.install(item_id, [])
             table = self.query_one("#table", widgets.AnalysisItemDataTable)
             table.mark_user_has_item(item_id)
             # Use call_from_thread to safely update UI from the worker thread
@@ -188,12 +188,12 @@ class ExploreApp(App):
         except Exception as err:
             # Use call_from_thread to safely update UI from the worker thread
             self.call_from_thread(self.notify, str(err), severity="error")
-            self.call_from_thread(self._on_clone_complete)
+            self.call_from_thread(self._on_install_complete)
         finally:
-            self.call_from_thread(self._on_clone_complete)
+            self.call_from_thread(self._on_install_complete)
 
-    def _on_clone_complete(self) -> None:
-        """Handle cleanup after clone operation completes."""
+    def _on_install_complete(self) -> None:
+        """Handle cleanup after install operation completes."""
         self.refresh_bindings()
         self.view_editors = False
         self.switch_views(None)

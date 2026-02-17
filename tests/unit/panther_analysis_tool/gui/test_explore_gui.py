@@ -81,8 +81,8 @@ async def test_explore_gui_starts_with_all_specs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cloned_items_are_marked_in_table() -> None:
-    """Test that items in user_spec_ids are marked as cloned in the table."""
+async def test_installed_items_are_marked_in_table() -> None:
+    """Test that items in user_spec_ids are marked as installed in the table."""
     app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids={"test.rule.1"})
     async with app.run_test():
         table = app.query_one("#table", widgets.AnalysisItemDataTable)
@@ -439,13 +439,13 @@ async def test_check_action_enables_actions_correctly() -> None:
         # Initially not viewing editors
         app.view_editors = False
         assert app.check_action("close_editors", ()) is False
-        assert app.check_action("clone_analysis_item", ()) is False
+        assert app.check_action("install_analysis_item", ()) is False
         assert app.check_action("toggle_dark", ()) is True
 
         # When viewing editors
         app.view_editors = True
         assert app.check_action("close_editors", ()) is True
-        assert app.check_action("clone_analysis_item", ()) is True
+        assert app.check_action("install_analysis_item", ()) is True
         assert app.check_action("toggle_dark", ()) is True
 
 
@@ -464,22 +464,22 @@ async def test_analysis_item_by_id() -> None:
 
 
 @pytest.mark.asyncio
-async def test_clone_analysis_item_with_no_selection() -> None:
-    """Test that clone_analysis_item shows error when no item is selected."""
+async def test_install_analysis_item_with_no_selection() -> None:
+    """Test that install_analysis_item shows error when no item is selected."""
     app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
     async with app.run_test() as pilot:
         app.selected_item = None
 
         with patch.object(app, "notify") as mock_notify:
-            app.action_clone_analysis_item()
+            app.action_install_analysis_item()
             await pilot.pause()
 
             mock_notify.assert_called_once_with("No analysis item selected.", severity="error")
 
 
 @pytest.mark.asyncio
-async def test_clone_analysis_item_with_selection() -> None:
-    """Test that clone_analysis_item starts clone operation when item is selected."""
+async def test_install_analysis_item_with_selection() -> None:
+    """Test that install_analysis_item starts install operation when item is selected."""
     app = explore_gui.ExploreApp(all_specs=_all_test_specs, user_spec_ids=set())
     async with app.run_test() as pilot:
         # Select an item
@@ -498,19 +498,19 @@ async def test_clone_analysis_item_with_selection() -> None:
         assert app.selected_item is not None
 
         with (
-            patch("panther_analysis_tool.gui.explore_gui.clone.clone") as mock_clone,
+            patch("panther_analysis_tool.gui.explore_gui.install.install") as mock_install,
             patch.object(app, "notify") as mock_notify,
             patch.object(app, "call_from_thread") as mock_call_from_thread,
         ):
-            # Mock successful clone
-            mock_clone.return_value = None
+            # Mock successful install
+            mock_install.return_value = None
 
-            app.action_clone_analysis_item()
+            app.action_install_analysis_item()
             await pilot.pause()
 
-            # Should notify about cloning
+            # Should notify about installing
             assert mock_notify.called
-            # Clone should be called in thread
+            # Install should be called in thread
             # Note: threading makes this hard to test directly, but we can verify the notification
 
 

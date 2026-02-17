@@ -106,9 +106,9 @@ def print_ready_message(pat_root_created: bool) -> None:
 
     print("Next, you can start exploring and using Panther out of the box content:")
     print("  * Run `pat explore` to see the available content.")
-    print("  * Run `pat clone <id>` to create a clone of a detection you want to use in your repo.")
+    print("  * Run `pat install <id>` to install a detection you want to use in your repo.")
     print(
-        "  * Run `pat clone --filter LogTypes=<LOG_TYPE>` to create clones of all detections for a given log type you have onboarded."
+        "  * Run `pat install --filter LogTypes=<LOG_TYPE>` to install all detections for a given log type you have onboarded."
     )
     print(
         "  * Run `pat test` to test your content and then run `pat upload` to upload your content to Panther."
