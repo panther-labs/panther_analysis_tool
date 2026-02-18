@@ -419,8 +419,7 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "PrimaryKey",
-        "AssociatedLogTypes"
+        "PrimaryKey"
       ]
     },
     "Mapping": {
@@ -1382,35 +1381,54 @@
       ]
     },
     "Refresh": {
-      "properties": {
-        "PeriodMinutes": {
-          "type": "integer"
-        },
-        "AlarmPeriodMinutes": {
-          "type": "integer"
-        },
-        "ObjectPath": {
-          "type": "string"
-        },
-        "RoleARN": {
-          "type": "string"
-        },
-        "ObjectKMSKey": {
-          "type": "string"
-        },
-        "GCSCredentials": {
-          "type": "string"
-        },
-        "StorageProvider": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
       "type": "object",
-      "required": ["PeriodMinutes", "ObjectPath"],
       "oneOf": [
-        {"required": ["GCSCredentials"]},
-        {"required": ["RoleARN"]}
+        {
+          "properties": {
+            "PeriodMinutes": {
+              "type": "integer"
+            },
+            "AlarmPeriodMinutes": {
+              "type": "integer"
+            },
+            "ObjectPath": {
+              "type": "string"
+            },
+            "RoleARN": {
+              "type": "string"
+            },
+            "ObjectKMSKey": {
+              "type": "string"
+            },
+            "GCSCredentials": {
+              "type": "string"
+            },
+            "StorageProvider": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": ["PeriodMinutes", "ObjectPath"],
+          "oneOf": [
+            {"required": ["GCSCredentials"]},
+            {"required": ["RoleARN"]}
+          ]
+        },
+        {
+          "properties": {
+            "PeriodMinutes": {
+              "type": "integer"
+            },
+            "CronExpression": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "oneOf": [
+            {"required": ["PeriodMinutes"]},
+            {"required": ["CronExpression"]}
+          ]
+        }
       ]
     },
     "ReportItem": {

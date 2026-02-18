@@ -1,0 +1,8 @@
+AnalysisType: lookup_table
+LookupName: SnowflakeMinimal
+Enabled: true
+SnowflakeQuery: "SELECT id, value FROM my_db.my_schema.my_table"
+LogTypeMap:
+  PrimaryKey: id
+Refresh:
+  CronExpression: "0 */6 * * *"

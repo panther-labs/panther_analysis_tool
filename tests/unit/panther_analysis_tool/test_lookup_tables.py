@@ -24,3 +24,21 @@ class TestLookupTable(TestCase):  # pylint: disable=too-many-public-methods
         rc, file_path = pat.test_lookup_table(path)
         self.assertEqual(0, rc)
         self.assertEqual(file_path, "")
+
+    def test_valid_sql_lookup_table_full(self):
+        path = f"{LUTS_FIXTURES_PATH}/valid/lookup-table-sql-1.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(0, rc)
+        self.assertEqual(file_path, "")
+
+    def test_valid_sql_lookup_table_minimal(self):
+        path = f"{LUTS_FIXTURES_PATH}/valid/lookup-table-sql-2.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(0, rc)
+        self.assertEqual(file_path, "")
+
+    def test_invalid_sql_lookup_table_with_schema_field(self):
+        path = f"{LUTS_FIXTURES_PATH}/invalid/lookup-table-sql-invalid-1.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(1, rc)
+        self.assertEqual(file_path, "")

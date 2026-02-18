@@ -54,6 +54,7 @@ from panther_analysis_tool.schemas import (
     DERIVED_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
+    SQL_LOOKUP_TABLE_SCHEMA,
     TYPE_SCHEMA,
 )
 from panther_analysis_tool.util import is_simple_detection
@@ -632,6 +633,8 @@ def classify_analysis(
             analysis_type = analysis_spec["AnalysisType"]
             if analysis_spec.get("BaseDetection"):
                 analysis_schema = SCHEMAS["derived"]
+            elif analysis_type == AnalysisTypes.LOOKUP_TABLE and "SnowflakeQuery" in analysis_spec:
+                analysis_schema = SQL_LOOKUP_TABLE_SCHEMA
             else:
                 analysis_schema = SCHEMAS[analysis_type]
             keys = list(analysis_schema.schema.keys())
