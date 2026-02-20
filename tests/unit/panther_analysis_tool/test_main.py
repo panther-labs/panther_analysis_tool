@@ -1552,7 +1552,7 @@ class TestPantherAnalysisTool(TestCase):
                 ),
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
             ):
-                # Try to clone a non-existent rule
+                # Try to install a non-existent rule
                 result = runner.invoke(app, ["install", "NonExistent.Rule.1"])
 
         # Should return error code (error handling is tested in command tests)
@@ -1594,11 +1594,11 @@ class TestPantherAnalysisTool(TestCase):
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch(
                     "panther_analysis_tool.command.install.install"
-                ),  # Mock to avoid actual cloning
+                ),  # Mock to avoid actual installing
             ):
                 result = runner.invoke(app, ["install", "--all"])
 
-        # Should succeed (install.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         self.assertEqual(result.exit_code, 0)
 
     def test_install_command_without_all_or_analysis_id_errors(self) -> None:
@@ -1637,11 +1637,11 @@ class TestPantherAnalysisTool(TestCase):
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch(
                     "panther_analysis_tool.command.install.install"
-                ),  # Mock to avoid actual cloning
+                ),  # Mock to avoid actual installing
             ):
                 result = runner.invoke(app, ["install", "Test.Rule.1"])
 
-        # Should succeed (install.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         self.assertEqual(result.exit_code, 0)
 
     def test_install_command_with_filters_works(self) -> None:
@@ -1672,13 +1672,13 @@ class TestPantherAnalysisTool(TestCase):
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch(
                     "panther_analysis_tool.command.install.install"
-                ),  # Mock to avoid actual cloning
+                ),  # Mock to avoid actual installing
             ):
                 result = runner.invoke(
                     app, ["install", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
                 )
 
-        # Should succeed (install.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         self.assertEqual(result.exit_code, 0)
 
     def test_install_command_all_with_filters_errors(self) -> None:
@@ -1727,12 +1727,12 @@ class TestPantherAnalysisTool(TestCase):
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
                 patch(
                     "panther_analysis_tool.command.install.install"
-                ),  # Mock to avoid actual cloning
+                ),  # Mock to avoid actual installing
             ):
                 result = runner.invoke(
                     app, ["install", "Test.Rule.1", "--filter", "AnalysisType=rule"]
                 )
 
-        # Should succeed (install.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         # Filters can be used with an ID to refine the selection
         self.assertEqual(result.exit_code, 0)

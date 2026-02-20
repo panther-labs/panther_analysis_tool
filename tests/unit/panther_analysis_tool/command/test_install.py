@@ -742,7 +742,7 @@ def test_install_from_subdirectory_creates_files_at_project_root_monorepo(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """
-    Test that cloning from a subdirectory in a monorepo creates files at project root,
+    Test that installing from a subdirectory in a monorepo creates files at project root,
     not in the subdirectory where the command was run.
     """
     import os
@@ -828,7 +828,7 @@ def test_install_from_subdirectory_creates_files_at_project_root_monorepo(
         None,
     )
 
-    # Run clone command
+    # Run install command
     install.run(analysis_id="fake.rule.1", filter_args=[])
 
     # Verify we chdir'd to project root
@@ -849,7 +849,7 @@ def test_install_from_subdirectory_creates_files_at_git_root_normal_repo(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """
-    Test that cloning from a subdirectory in a normal repo (no .pat-root)
+    Test that installing from a subdirectory in a normal repo (no .pat-root)
     creates files at git root.
     """
     import os
@@ -928,7 +928,7 @@ def test_install_from_subdirectory_creates_files_at_git_root_normal_repo(
         None,
     )
 
-    # Run clone command
+    # Run install command
     install.run(analysis_id="fake.rule.1", filter_args=[])
 
     # Verify we chdir'd to git root

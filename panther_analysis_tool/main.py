@@ -2494,7 +2494,7 @@ def explore_command() -> Tuple[int, str]:
 
 
 @app_command_with_config(
-    name="merge", help="Merge an analysis item with the latest pulled Panther Analysis content"
+    name="merge", help="Merge an analysis item with the latest Panther Analysis content"
 )
 def merge_command(
     analysis_id: Annotated[

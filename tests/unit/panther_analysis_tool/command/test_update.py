@@ -195,7 +195,7 @@ def test_update_no_mergeable_items(
 
     # Should not print anything about merging
     mock_print.assert_not_called()
-    # Should still try to clone deps (but with empty list)
+    # Should still try to install deps (but with empty list)
     mock_install_deps.assert_called_once_with([])
 
 
@@ -220,14 +220,14 @@ def test_update_preview_mode(
             call("  * fake.rule.2"),
         ]
     )
-    # Should not clone dependencies in preview mode (no merged items)
+    # Should not install dependencies in preview mode (no merged items)
     mock_install_deps.assert_called_once_with([])
 
 
-def test_update_clones_dependencies(
+def test_update_installs_dependencies(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """Test that update installs dependencies from successfully merged items."""
+    """Test that update installs dependencies for successfully merged items."""
     mock_install_deps = mocker.patch(
         "panther_analysis_tool.command.update.install_item.install_deps"
     )
@@ -235,7 +235,7 @@ def test_update_clones_dependencies(
 
     update.run(update.UpdateArgs())
 
-    # Verify clone_deps is always called (with merged items, or empty list if conflicts)
+    # Verify install_deps is always called (with merged items, or empty list if conflicts)
     mock_install_deps.assert_called_once()
     assert isinstance(mock_install_deps.call_args[0][0], list)
 
