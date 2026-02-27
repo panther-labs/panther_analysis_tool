@@ -23,9 +23,9 @@ from panther_analysis_tool.constants import (
 )
 from panther_analysis_tool.core import (
     analysis_cache,
-    clone_item,
     file_editor,
     git_helpers,
+    install_item,
     merge_item,
     root,
     versions_file,
@@ -268,9 +268,9 @@ def run(args: MigrateArgs) -> Tuple[int, str]:
         print("Run `git diff` to see any changes made.")
     else:
         print("All analysis items in your repo are already migrated! ")
-        print("  * Run `pat pull` to pull in the latest Panther Analysis items.")
+        print("  * Run `pat update` to update to the latest Panther Analysis items.")
         print("  * Run `pat explore` to explore available analysis items.")
-        print("  * Run `pat clone` to clone and enable analysis items you want to use.")
+        print("  * Run `pat install` to install and enable analysis items you want to use.")
         print()
         print("Run `pat --help` for more information.")
 
@@ -361,16 +361,16 @@ def migrate(  # pylint: disable=too-many-locals
         ensure_python_file_exists(item)
 
     # we need to check if the new migrated python includes any
-    # new global helper imports and clone those so the new python works
+    # new global helper imports and install those so the new python works
     with Progress(
-        TextColumn("Cloning dependencies:"),
+        TextColumn("Installing dependencies:"),
         BarColumn(),
         transient=True,
         disable=analysis_id is not None,
     ) as progress:
-        task = progress.add_task("cloning_dependencies", total=None)
+        task = progress.add_task("installing_dependencies", total=None)
         items = result.migrated_merged_items()
-        clone_item.clone_deps(items)
+        install_item.install_deps(items)
         progress.update(task, completed=True)
 
     with Progress(

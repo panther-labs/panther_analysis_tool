@@ -4,7 +4,7 @@ from unittest.mock import call
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from panther_analysis_tool.command import pull
+from panther_analysis_tool.command import update
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
@@ -130,31 +130,31 @@ def create_file_with_text(path: pathlib.Path, text: str) -> None:
     path.write_text(text)
 
 
-def _setup_pull_test(
+def _setup_update_test(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """Common setup for pull tests."""
+    """Common setup for update tests."""
     mocker.patch(
-        "panther_analysis_tool.command.pull.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+        "panther_analysis_tool.command.update.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
         return_value="fake_commit_hash_1",
     )
     mocker.patch(
-        "panther_analysis_tool.command.pull.analysis_cache._clone_panther_analysis",
+        "panther_analysis_tool.command.update.analysis_cache._clone_panther_analysis",
         return_value=None,
     )
-    mocker.patch("panther_analysis_tool.command.pull.root.chdir_to_project_root")
+    mocker.patch("panther_analysis_tool.command.update.root.chdir_to_project_root")
 
     set_up_cache(tmp_path, monkeypatch)
 
 
-def test_pull_and_merge_with_conflicts(
+def test_update_and_merge_with_conflicts(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """Test pull when merge has conflicts."""
+    """Test update when merge has conflicts."""
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
-    _setup_pull_test(tmp_path, monkeypatch, mocker)
+    _setup_update_test(tmp_path, monkeypatch, mocker)
 
-    pull.run(pull.PullArgs())
+    update.run(update.UpdateArgs())
 
     mock_print.assert_has_calls(
         [
@@ -166,13 +166,15 @@ def test_pull_and_merge_with_conflicts(
     )
 
 
-def test_pull_no_mergeable_items(
+def test_update_no_mergeable_items(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """Test pull when there are no mergeable items (everything is up to date)."""
+    """Test update when there are no mergeable items (everything is up to date)."""
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
-    mock_clone_deps = mocker.patch("panther_analysis_tool.command.pull.clone_item.clone_deps")
-    _setup_pull_test(tmp_path, monkeypatch, mocker)
+    mock_install_deps = mocker.patch(
+        "panther_analysis_tool.command.update.install_item.install_deps"
+    )
+    _setup_update_test(tmp_path, monkeypatch, mocker)
 
     # Create a user rule that's already at the latest version
     _FAKE_USER_RULE_2_V2 = yaml.dump(
@@ -189,23 +191,25 @@ def test_pull_no_mergeable_items(
     create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.yaml", _FAKE_USER_RULE_2_V2)
     create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.py", _FAKE_PY)
 
-    pull.run(pull.PullArgs())
+    update.run(update.UpdateArgs())
 
     # Should not print anything about merging
     mock_print.assert_not_called()
-    # Should still try to clone deps (but with empty list)
-    mock_clone_deps.assert_called_once_with([])
+    # Should still try to install deps (but with empty list)
+    mock_install_deps.assert_called_once_with([])
 
 
-def test_pull_preview_mode(
+def test_update_preview_mode(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """Test pull in preview mode shows what would be updated without actually updating."""
+    """Test update in preview mode shows what would be updated without actually updating."""
     mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
-    mock_clone_deps = mocker.patch("panther_analysis_tool.command.pull.clone_item.clone_deps")
-    _setup_pull_test(tmp_path, monkeypatch, mocker)
+    mock_install_deps = mocker.patch(
+        "panther_analysis_tool.command.update.install_item.install_deps"
+    )
+    _setup_update_test(tmp_path, monkeypatch, mocker)
 
-    pull.run(pull.PullArgs(preview=True))
+    update.run(update.UpdateArgs(preview=True))
 
     # Preview mode should show conflicts
     mock_print.assert_has_calls(
@@ -216,29 +220,31 @@ def test_pull_preview_mode(
             call("  * fake.rule.2"),
         ]
     )
-    # Should not clone dependencies in preview mode (no merged items)
-    mock_clone_deps.assert_called_once_with([])
+    # Should not install dependencies in preview mode (no merged items)
+    mock_install_deps.assert_called_once_with([])
 
 
-def test_pull_clones_dependencies(
+def test_update_installs_dependencies(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    """Test that pull clones dependencies from successfully merged items."""
-    mock_clone_deps = mocker.patch("panther_analysis_tool.command.pull.clone_item.clone_deps")
-    _setup_pull_test(tmp_path, monkeypatch, mocker)
+    """Test that update installs dependencies for successfully merged items."""
+    mock_install_deps = mocker.patch(
+        "panther_analysis_tool.command.update.install_item.install_deps"
+    )
+    _setup_update_test(tmp_path, monkeypatch, mocker)
 
-    pull.run(pull.PullArgs())
+    update.run(update.UpdateArgs())
 
-    # Verify clone_deps is always called (with merged items, or empty list if conflicts)
-    mock_clone_deps.assert_called_once()
-    assert isinstance(mock_clone_deps.call_args[0][0], list)
+    # Verify install_deps is always called (with merged items, or empty list if conflicts)
+    mock_install_deps.assert_called_once()
+    assert isinstance(mock_install_deps.call_args[0][0], list)
 
 
-def test_pull_calls_chdir_to_project_root_monorepo(
+def test_update_calls_chdir_to_project_root_monorepo(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """
-    Test that pull command calls chdir_to_project_root which chdirs to project root
+    Test that update command calls chdir_to_project_root which chdirs to project root
     (not git root) in monorepo scenario.
     """
     from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
@@ -257,27 +263,27 @@ def test_pull_calls_chdir_to_project_root_monorepo(
 
     # Mock chdir_to_project_root to verify it's called
     mock_chdir_to_project_root = mocker.patch(
-        "panther_analysis_tool.command.pull.root.chdir_to_project_root"
+        "panther_analysis_tool.command.update.root.chdir_to_project_root"
     )
 
-    # Mock all the pull operations to avoid actually running them
+    # Mock all the update operations to avoid actually running them
     mocker.patch(
-        "panther_analysis_tool.command.pull.pull",
+        "panther_analysis_tool.command.update.update",
         return_value=None,
     )
 
-    # Run pull command
-    pull.run(pull.PullArgs())
+    # Run update command
+    update.run(update.UpdateArgs())
 
     # Verify chdir_to_project_root was called
     mock_chdir_to_project_root.assert_called_once()
 
 
-def test_pull_calls_chdir_to_project_root_normal_repo(
+def test_update_calls_chdir_to_project_root_normal_repo(
     tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """
-    Test that pull command calls chdir_to_project_root which chdirs to git root
+    Test that update command calls chdir_to_project_root which chdirs to git root
     in normal repo scenario (no .pat-root).
     """
     git_root = tmp_path
@@ -290,17 +296,17 @@ def test_pull_calls_chdir_to_project_root_normal_repo(
 
     # Mock chdir_to_project_root to verify it's called
     mock_chdir_to_project_root = mocker.patch(
-        "panther_analysis_tool.command.pull.root.chdir_to_project_root"
+        "panther_analysis_tool.command.update.root.chdir_to_project_root"
     )
 
-    # Mock all the pull operations to avoid actually running them
+    # Mock all the update operations to avoid actually running them
     mocker.patch(
-        "panther_analysis_tool.command.pull.pull",
+        "panther_analysis_tool.command.update.update",
         return_value=None,
     )
 
-    # Run pull command
-    pull.run(pull.PullArgs())
+    # Run update command
+    update.run(update.UpdateArgs())
 
     # Verify chdir_to_project_root was called
     mock_chdir_to_project_root.assert_called_once()

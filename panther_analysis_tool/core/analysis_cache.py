@@ -61,7 +61,7 @@ class AnalysisCache:
         """
         if not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists():
             raise NoCacheException(
-                "No cache found. Please run `pat pull` to pull the latest Panther Analysis content."
+                "No cache found. Please run `pat update` to update to the latest Panther Analysis content."
             )
 
         self.conn = sqlite3.connect(PANTHER_ANALYSIS_SQLITE_FILE_PATH)
@@ -362,7 +362,7 @@ def update_with_latest_panther_analysis(
 
     # clone panther analysis
     with Progress(
-        TextColumn("Pulling latest from Panther Analysis:"),
+        TextColumn("Updating from Panther Analysis:"),
         BarColumn(),
         transient=True,
         disable=not show_progress_bar,

@@ -14,12 +14,14 @@ class LoadedDataModelSpec:
     log_types: list[str]
 
 
-def clone_analysis_item(item: analysis_utils.AnalysisItem, show_cloned_items: bool = False) -> None:
+def install_analysis_item(
+    item: analysis_utils.AnalysisItem, show_installed_items: bool = False
+) -> None:
     """
-    Clones the analysis item.
+    Installs the analysis item.
 
     Args:
-        item: The analysis item to clone.
+        item: The analysis item to install.
 
     Raises:
         FileExistsError: If the analysis item already exists.
@@ -46,19 +48,19 @@ def clone_analysis_item(item: analysis_utils.AnalysisItem, show_cloned_items: bo
         with open(py_path, "wb") as py_file:
             py_file.write(item.python_file_contents)
 
-    if show_cloned_items:
-        print(f"{item.pretty_analysis_type()} {item.analysis_id()} cloned.")
+    if show_installed_items:
+        print(f"{item.pretty_analysis_type()} {item.analysis_id()} installed.")
 
 
-def clone_deps(
+def install_deps(
     items_with_deps: list[analysis_utils.AnalysisItem],
-    show_cloned_items: bool = False,
+    show_installed_items: bool = False,
 ) -> None:
     """
-    Clones the dependencies of the analysis item.
+    Installs the dependencies of the analysis item.
 
     Args:
-        items_with_deps: The analysis items to clone the dependencies for.
+        items_with_deps: The analysis items to install the dependencies for.
     """
     if len(items_with_deps) == 0:
         return
@@ -92,7 +94,7 @@ def clone_deps(
                 )
             )
 
-    # collect all imports from the items we are cloning
+    # collect all imports from the items we are installing
     for item in items_with_deps:
         imports = parse.collect_top_level_imports(item.python_file_contents or b"")
         all_top_level_imports.update(imports)
@@ -100,7 +102,7 @@ def clone_deps(
             item.yaml_file_contents["LogTypes"] if "LogTypes" in item.yaml_file_contents else []
         )
 
-    # collect all imports from the data models we are cloning
+    # collect all imports from the data models we are installing
     for log_type in all_log_types:
         for data_model in data_models:
             if log_type in data_model.log_types:
@@ -123,7 +125,7 @@ def clone_deps(
                 item = cached_analysis_spec_to_analysis_item(
                     global_helpers[import_], cache, versions
                 )
-                clone_analysis_item(item, show_cloned_items=show_cloned_items)
+                install_analysis_item(item, show_installed_items=show_installed_items)
             except FileExistsError:
                 pass
 
@@ -134,7 +136,7 @@ def clone_deps(
                 item = cached_analysis_spec_to_analysis_item(data_model.spec_item, cache, versions)
                 set_enabled_field(item.yaml_file_contents)
                 try:
-                    clone_analysis_item(item, show_cloned_items=show_cloned_items)
+                    install_analysis_item(item, show_installed_items=show_installed_items)
                 except FileExistsError:
                     pass
                 break

@@ -2,16 +2,18 @@ import os
 import pathlib
 from typing import Optional
 
+import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from pytest_mock import MockerFixture
 
 from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.command import install
 from panther_analysis_tool.constants import (
     CACHE_DIR,
     CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
-    AnalysisTypes,
 )
-from panther_analysis_tool.core import analysis_cache, clone_item, versions_file, yaml
+from panther_analysis_tool.core import analysis_cache, yaml
 
 _FAKE_PY = """
 def rule(event):
@@ -93,6 +95,7 @@ _FAKE_GLOBAL_HELPER_1_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.1",
+        "Enabled": False,
         "Description": "Fake global helper 1 v1",
         "Filename": "fake_global_helper_1.py",
     }
@@ -102,6 +105,7 @@ _FAKE_GLOBAL_HELPER_2_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.2",
+        "Enabled": False,
         "Description": "Fake global helper 2 v1",
         "Filename": "fake_global_helper_2.py",
     }
@@ -111,6 +115,7 @@ _FAKE_GLOBAL_HELPER_3_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.3",
+        "Enabled": False,
         "Description": "Fake global helper 3 v1",
         "Filename": "fake_global_helper_3.py",
     }
@@ -120,6 +125,7 @@ _FAKE_GLOBAL_HELPER_4_V1 = yaml.dump(
     {
         "AnalysisType": "global",
         "GlobalID": "fake.global_helper.4",
+        "Enabled": False,
         "Description": "Fake global helper 4 v1",
         "Filename": "fake_global_helper_4.py",
     }
@@ -500,81 +506,202 @@ def insert_spec(
     )
 
 
-def test_set_enabled_field() -> None:
-    for analysis_type in [
-        AnalysisTypes.RULE,
-        AnalysisTypes.SCHEDULED_RULE,
-        AnalysisTypes.CORRELATION_RULE,
-        AnalysisTypes.POLICY,
-        AnalysisTypes.DATA_MODEL,
-        AnalysisTypes.LOOKUP_TABLE,
-        AnalysisTypes.SAVED_QUERY,
-        AnalysisTypes.SCHEDULED_QUERY,
-    ]:
-        spec = {
-            "AnalysisType": analysis_type,
-        }
-        clone_item.set_enabled_field(spec)
-        assert "Enabled" in spec
-        assert spec["Enabled"]
+def test_get_analysis_items_no_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(analysis_cache.NoCacheException):
+        install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
 
 
-def test_set_enabled_field_for_other_types() -> None:
-    for analysis_type in [
-        AnalysisTypes.PACK,
-        AnalysisTypes.GLOBAL,
-    ]:
-        spec = {
-            "AnalysisType": analysis_type,
-        }
-        clone_item.set_enabled_field(spec)
-        assert "Enabled" not in spec
-
-
-def test_cached_analysis_spec_to_analysis_item_with_python(
-    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
-) -> None:
-    cache = set_up_cache(tmp_path, monkeypatch)
-    spec = cache.get_latest_spec("fake.rule.1")
-    assert spec is not None
-
-    versions = versions_file.get_versions().versions
-    item = clone_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
-    assert item.python_file_contents == bytes(_FAKE_PY, "utf-8")
-    assert item.python_file_path == "rules/fake_rule_1.py"
-    assert item.yaml_file_contents == yaml.load(_FAKE_RULE_1_V1)
-    assert item.yaml_file_path == "rules/fake_rule_1.yaml"
-    assert item.raw_yaml_file_contents == spec.spec
-
-
-def test_cached_analysis_spec_to_analysis_item_without_python(
-    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
-) -> None:
-    cache = set_up_cache(tmp_path, monkeypatch)
-    spec = cache.get_latest_spec("fake.saved_query.1")
-    assert spec is not None
-
-    versions = versions_file.get_versions().versions
-    item = clone_item.cached_analysis_spec_to_analysis_item(spec, cache, versions)
-    assert item.yaml_file_contents == yaml.load(_FAKE_SAVED_QUERY_1_V1)
-    assert item.yaml_file_path == "queries/fake_saved_query_1.yaml"
-    assert item.raw_yaml_file_contents == spec.spec
-    assert item.python_file_contents is None
-    assert item.python_file_path is None
-
-
-def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_get_analysis_items_bad_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
-    items = [
+    items = install.get_analysis_items(analysis_id="bad_id", filter_args=[])
+    assert items == []
+
+
+def test_get_analysis_items_no_filters_and_no_id(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id=None, filter_args=[])
+    assert len(items) == 15
+
+
+def test_get_analysis_items_filters_and_no_id(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id=None, filter_args=["AnalysisType=rule"])
+    assert len(items) == 3
+    assert items == [
         analysis_utils.AnalysisItem(
             yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
             yaml_file_path="rules/fake_rule_1.yaml",
             python_file_path="rules/fake_rule_1.py",
             python_file_contents=bytes(_FAKE_PY, "utf-8"),
-        )
+        ),
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_RULE_2_V2),
+            yaml_file_path="rules/fake_rule_2.yaml",
+            python_file_path="rules/fake_rule_2.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        ),
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_RULE_WITH_DEPS),
+            yaml_file_path="rules/fake_rule_with_deps.yaml",
+            python_file_path="rules/fake_rule_with_deps.py",
+            python_file_contents=bytes(_FAKE_PY_WITH_HELPERS, "utf-8"),
+        ),
     ]
-    clone_item.clone_deps(items)
 
+
+def test_get_analysis_items_no_filters_and_id(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    assert items == [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
+            yaml_file_path="rules/fake_rule_1.yaml",
+            python_file_path="rules/fake_rule_1.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        ),
+    ]
+
+
+def test_install_analysis_items(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id=None, filter_args=[])
+    assert len(items) == 15
+    install.install_analysis_items(items)
+    _dir = tmp_path
+    assert (_dir / "rules" / "fake_rule_1.yaml").exists()
+    assert (_dir / "rules" / "fake_rule_1.py").exists()
+    assert (_dir / "rules" / "fake_rule_2.yaml").exists()
+    assert (_dir / "rules" / "fake_rule_2.py").exists()
+    assert (_dir / "policies" / "fake_policy_1.yaml").exists()
+    assert (_dir / "policies" / "fake_policy_1.py").exists()
+    assert (_dir / "data_models" / "fake_datamodel_1.yaml").exists()
+    assert (_dir / "data_models" / "fake_datamodel_1.py").exists()
+    assert (_dir / "lookup_tables" / "fake_lookup_table_1.yaml").exists()
+    assert (_dir / "global_helpers" / "fake_global_helper_1.yaml").exists()
+    assert (_dir / "global_helpers" / "fake_global_helper_1.py").exists()
+    assert (_dir / "correlation_rules" / "fake_correlation_rule_1.yaml").exists()
+    assert (_dir / "scheduled_rules" / "fake_scheduled_rule_1.yaml").exists()
+    assert (_dir / "scheduled_rules" / "fake_scheduled_rule_1.py").exists()
+    assert (_dir / "queries" / "fake_saved_query_1.yaml").exists()
+    assert (_dir / "queries" / "fake_scheduled_query_1.yaml").exists()
+
+
+def test_install_analysis_items_already_exists(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    install.install_analysis_items(items)
+
+    rule_yaml = tmp_path / "rules" / "fake_rule_1.yaml"
+    rule_py = tmp_path / "rules" / "fake_rule_1.py"
+    assert rule_yaml.exists()
+    assert rule_py.exists()
+    assert rule_yaml.read_text() != "new yaml"
+    assert rule_py.read_text() != "new py"
+
+    rule_yaml.write_text("new yaml")
+    rule_py.write_text("new py")
+    assert rule_yaml.read_text() == "new yaml"
+    assert rule_py.read_text() == "new py"
+
+    # do it again and verify it did not change anything since it already existed
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    install.install_analysis_items(items)
+
+    assert rule_yaml.read_text() == "new yaml"
+    assert rule_py.read_text() == "new py"
+
+
+def test_enable_works_with_all_types(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch("panther_analysis_tool.command.install.root.chdir_to_project_root")
+    set_up_cache(tmp_path, monkeypatch)
+
+    for _id in [
+        "fake.rule.1",
+        "fake.rule.2",
+        "fake.policy.1",
+        "fake.datamodel.1",
+        "fake.lookup_table.1",
+        "fake.global_helper.1",
+        "fake.correlation_rule.1",
+        "fake.scheduled_rule.1",
+        "fake.saved_query.1",
+        "fake.scheduled_query.1",
+    ]:
+        code, err_str = install.run(analysis_id=_id, filter_args=[])
+        assert code == 0
+        assert err_str == ""
+
+
+def test_enable_sets_base_version_field(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch("panther_analysis_tool.command.install.root.chdir_to_project_root")
+    set_up_cache(tmp_path, monkeypatch)
+    code, err_str = install.run(analysis_id=None, filter_args=["AnalysisType=rule"])
+    assert code == 0
+    assert err_str == ""
+
+    rule_path = tmp_path / "rules"
+    assert (rule_path / "fake_rule_1.yaml").exists()
+    assert (rule_path / "fake_rule_1.py").exists()
+    assert (rule_path / "fake_rule_2.yaml").exists()
+    assert (rule_path / "fake_rule_2.py").exists()
+    assert (yaml.load((rule_path / "fake_rule_1.yaml").read_text())["BaseVersion"]) == 1
+    assert (yaml.load((rule_path / "fake_rule_2.yaml").read_text())["BaseVersion"]) == 2
+
+
+def test_enable_messaging(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch("panther_analysis_tool.command.install.root.chdir_to_project_root")
+    set_up_cache(tmp_path, monkeypatch)
+    code, err_str = install.run(analysis_id="bad", filter_args=[])
+    assert code == 1
+    assert err_str == "No items matched the analysis ID. Nothing to install."
+
+    code, err_str = install.run(analysis_id=None, filter_args=["AnalysisType=bad"])
+    assert code == 1
+    assert err_str == "No items matched the filters. Nothing to install."
+
+    code, err_str = install.run(analysis_id="bad", filter_args=["AnalysisType=bad"])
+    assert code == 1
+    assert err_str == "No items matched the analysis ID and filters. Nothing to install."
+
+
+def test_install_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id="fake.rule.1", filter_args=[])
+    assert len(items) == 1
+    install.install_analysis_items(items)
+
+    assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
+    assert (tmp_path / "rules" / "fake_rule_1.py").exists()
     assert not (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert not (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
     assert not (tmp_path / "data_models" / "fake_datamodel_1.yaml").exists()
@@ -585,18 +712,14 @@ def test_clone_analysis_items_no_deps(tmp_path: pathlib.Path, monkeypatch: Monke
     assert not (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
 
-def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
+def test_install_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
     set_up_cache(tmp_path, monkeypatch)
+    items = install.get_analysis_items(analysis_id="fake.rule.with.deps", filter_args=[])
+    assert len(items) == 1
+    install.install_analysis_items(items)
 
-    items = [
-        analysis_utils.AnalysisItem(
-            yaml_file_contents=yaml.load(_FAKE_RULE_WITH_DEPS),
-            yaml_file_path="rules/fake_rule_with_deps.yaml",
-            python_file_path="rules/fake_rule_with_deps.py",
-            python_file_contents=bytes(_FAKE_PY_WITH_HELPERS, "utf-8"),
-        )
-    ]
-    clone_item.clone_deps(items)
+    assert (tmp_path / "rules" / "fake_rule_with_deps.yaml").exists()
+    assert (tmp_path / "rules" / "fake_rule_with_deps.py").exists()
 
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.yaml").exists()
     assert (tmp_path / "global_helpers" / "fake_global_helper_1.py").exists()
@@ -613,30 +736,210 @@ def test_clone_analysis_items_with_deps(tmp_path: pathlib.Path, monkeypatch: Mon
     assert (tmp_path / "data_models" / "fake_datamodel_2.py").exists()
 
     assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
-    assert "BaseVersion: 1" in (tmp_path / "data_models" / "fake_datamodel_1.yaml").read_text()
-    assert "Enabled: true" in (tmp_path / "data_models" / "fake_datamodel_2.yaml").read_text()
-    assert "BaseVersion: 1" in (tmp_path / "data_models" / "fake_datamodel_2.yaml").read_text()
-    global_path = tmp_path / "global_helpers"
-    assert "BaseVersion: 1" in (global_path / "fake_global_helper_1.yaml").read_text()
-    assert "BaseVersion: 1" in (global_path / "fake_global_helper_2.yaml").read_text()
-    assert "BaseVersion: 1" in (global_path / "fake_global_helper_3.yaml").read_text()
-    assert "BaseVersion: 1" in (global_path / "fake_global_helper_4.yaml").read_text()
 
 
-def test_clone_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE)
-    item = analysis_utils.AnalysisItem(
-        yaml_file_contents=yaml.load(_FAKE_RULE_1_V1),
-        yaml_file_path="rules/fake_rule_1.yaml",
-        python_file_path="rules/fake_rule_1.py",
-        python_file_contents=bytes(_FAKE_PY, "utf-8"),
+def test_install_from_subdirectory_creates_files_at_project_root_monorepo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that installing from a subdirectory in a monorepo creates files at project root,
+    not in the subdirectory where the command was run.
+    """
+    import os
+
+    from panther_analysis_tool.constants import (
+        CACHE_DIR,
+        CACHED_VERSIONS_FILE_PATH,
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+        PAT_ROOT_FILE_NAME,
     )
-    clone_item.clone_analysis_item(item, show_cloned_items=True)
 
-    assert (tmp_path / "rules" / "fake_rule_1.yaml").exists()
-    assert (tmp_path / "rules" / "fake_rule_1.py").exists()
+    git_root = tmp_path
+    project_root = git_root / "pa"
+    subdir = project_root / "some" / "nested" / "directory"
 
-    assert "Enabled: true" in (tmp_path / "rules" / "fake_rule_1.yaml").read_text()
-    assert "BaseVersion: 1" in (tmp_path / "rules" / "fake_rule_1.yaml").read_text()
+    project_root.mkdir(parents=True, exist_ok=True)
+    subdir.mkdir(parents=True, exist_ok=True)
+    (project_root / PAT_ROOT_FILE_NAME).touch()
+
+    monkeypatch.chdir(subdir)
+
+    # Mock git_root to return the actual git root
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock the actual chdir to track where we chdir to
+    actual_chdirs = []
+    original_chdir = os.chdir
+
+    def track_chdir(path):
+        actual_chdirs.append(pathlib.Path(path).resolve())
+        return original_chdir(path)
+
+    mocker.patch("os.chdir", side_effect=track_chdir)
+
+    # Set up cache at project root
+    monkeypatch.chdir(project_root)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    pa_clone_path = CACHE_DIR / "panther-analysis"
+    pa_clone_path.mkdir(parents=True, exist_ok=True)
+    _FAKE_VERSIONS_FILE_SIMPLE = yaml.dump(
+        {
+            "versions": {
+                "fake.rule.1": {
+                    "version": 1,
+                    "type": "rule",
+                    "sha256": "fake_sha256_1",
+                    "history": {
+                        "1": {
+                            "version": 1,
+                            "commit_hash": "fake_commit_hash_1",
+                            "yaml_file_path": "rules/fake_rule_1.yaml",
+                            "py_file_path": "rules/fake_rule_1.py",
+                        }
+                    },
+                }
+            }
+        }
+    )
+    CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE_SIMPLE)
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
+
+    # Mock cache operations
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+
+    # Mock AnalysisCache to return our pre-populated cache
+    def mock_analysis_cache(*args, **kwargs):
+        return cache
+
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.AnalysisCache",
+        side_effect=mock_analysis_cache,
+    )
+
+    # Reset versions_file cache to ensure it reads from the file we just created
+    mocker.patch(
+        "panther_analysis_tool.core.versions_file._VERSIONS",
+        None,
+    )
+
+    # Run install command
+    install.run(analysis_id="fake.rule.1", filter_args=[])
+
+    # Verify we chdir'd to project root
+    assert len(actual_chdirs) >= 1
+    assert actual_chdirs[0] == project_root.resolve()
+
+    # Verify files were created at project root, not in subdirectory
+    assert (project_root / "rules" / "fake_rule_1.yaml").exists()
+    assert (project_root / "rules" / "fake_rule_1.py").exists()
+    assert not (subdir / "rules" / "fake_rule_1.yaml").exists()
+
+    # Verify cache is at project root
+    assert (project_root / CACHE_DIR).exists()
+    assert not (subdir / CACHE_DIR).exists()
+
+
+def test_install_from_subdirectory_creates_files_at_git_root_normal_repo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that installing from a subdirectory in a normal repo (no .pat-root)
+    creates files at git root.
+    """
+    import os
+
+    from panther_analysis_tool.constants import (
+        CACHE_DIR,
+        CACHED_VERSIONS_FILE_PATH,
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+    )
+
+    git_root = tmp_path
+    subdir = git_root / "some" / "nested" / "directory"
+    subdir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Track chdir calls
+    actual_chdirs = []
+    original_chdir = os.chdir
+
+    def track_chdir(path):
+        actual_chdirs.append(pathlib.Path(path).resolve())
+        return original_chdir(path)
+
+    mocker.patch("os.chdir", side_effect=track_chdir)
+
+    # Set up cache at git root
+    monkeypatch.chdir(git_root)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+    pa_clone_path = CACHE_DIR / "panther-analysis"
+    pa_clone_path.mkdir(parents=True, exist_ok=True)
+    _FAKE_VERSIONS_FILE_SIMPLE = yaml.dump(
+        {
+            "versions": {
+                "fake.rule.1": {
+                    "version": 1,
+                    "type": "rule",
+                    "sha256": "fake_sha256_1",
+                    "history": {
+                        "1": {
+                            "version": 1,
+                            "commit_hash": "fake_commit_hash_1",
+                            "yaml_file_path": "rules/fake_rule_1.yaml",
+                            "py_file_path": "rules/fake_rule_1.py",
+                        }
+                    },
+                }
+            }
+        }
+    )
+    CACHED_VERSIONS_FILE_PATH.write_text(_FAKE_VERSIONS_FILE_SIMPLE)
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    insert_spec(cache, _FAKE_RULE_1_V1, 1, "RuleID", "fake.rule.1", _FAKE_PY)
+
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+
+    # Mock AnalysisCache to return our pre-populated cache
+    def mock_analysis_cache(*args, **kwargs):
+        return cache
+
+    mocker.patch(
+        "panther_analysis_tool.command.install.analysis_cache.AnalysisCache",
+        side_effect=mock_analysis_cache,
+    )
+
+    # Reset versions_file cache to ensure it reads from the file we just created
+    mocker.patch(
+        "panther_analysis_tool.core.versions_file._VERSIONS",
+        None,
+    )
+
+    # Run install command
+    install.run(analysis_id="fake.rule.1", filter_args=[])
+
+    # Verify we chdir'd to git root
+    assert len(actual_chdirs) >= 1
+    assert actual_chdirs[0] == git_root.resolve()
+
+    # Verify files were created at git root, not in subdirectory
+    assert (git_root / "rules" / "fake_rule_1.yaml").exists()
+    assert (git_root / "rules" / "fake_rule_1.py").exists()
+    assert not (subdir / "rules" / "fake_rule_1.yaml").exists()
+
+    # Verify cache is at git root
+    assert (git_root / CACHE_DIR).exists()
+    assert not (subdir / CACHE_DIR).exists()

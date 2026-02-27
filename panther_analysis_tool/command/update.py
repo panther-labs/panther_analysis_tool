@@ -9,19 +9,19 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.command import merge
 from panther_analysis_tool.constants import AutoAcceptOption
-from panther_analysis_tool.core import analysis_cache, clone_item, root
+from panther_analysis_tool.core import analysis_cache, install_item, root
 
 
 @dataclasses.dataclass
-class PullArgs:
+class UpdateArgs:
     auto_accept: AutoAcceptOption | None = None
     write_merge_conflicts: bool = False
     preview: bool = False
 
 
-def run(args: PullArgs) -> Tuple[int, str]:
+def run(args: UpdateArgs) -> Tuple[int, str]:
     root.chdir_to_project_root()
-    pull(
+    update(
         show_progress_bar=True,
         auto_accept=args.auto_accept,
         write_merge_conflicts=args.write_merge_conflicts,
@@ -30,7 +30,7 @@ def run(args: PullArgs) -> Tuple[int, str]:
     return 0, ""
 
 
-def pull(
+def update(
     show_progress_bar: bool = False,
     auto_accept: AutoAcceptOption | None = None,
     write_merge_conflicts: bool = False,
@@ -64,14 +64,14 @@ def pull(
         )
 
     # we need to check if the new merged python includes any
-    # new global helper imports and clone those so the new python works
+    # new global helper imports and install those so the new python works
     with Progress(
-        TextColumn("Cloning dependencies:"),
+        TextColumn("Installing dependencies:"),
         BarColumn(),
         transient=True,
         disable=not show_progress_bar,
     ) as progress:
-        task = progress.add_task("cloning_dependencies", total=None)
+        task = progress.add_task("installing_dependencies", total=None)
         items = [item.merged_item for item in mergeable_items if item.merged_item is not None]
-        clone_item.clone_deps(items)
+        install_item.install_deps(items)
         progress.update(task, completed=True)

@@ -1526,8 +1526,8 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(derived_analysis.analysis_spec["RuleID"], "Derived.Rule.ID")
         self.assertEqual(derived_analysis.analysis_spec["BaseDetection"], "Base.Rule.ID")
 
-    def test_clone_command_handles_value_error(self) -> None:
-        """Test that clone command handles ValueError (no items matched) properly."""
+    def test_install_command_handles_value_error(self) -> None:
+        """Test that install command handles ValueError (no items matched) properly."""
         # Set up a git repository
         os.makedirs(".git", exist_ok=True)
 
@@ -1552,22 +1552,22 @@ class TestPantherAnalysisTool(TestCase):
                 ),
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
             ):
-                # Try to clone a non-existent rule
-                result = runner.invoke(app, ["clone", "NonExistent.Rule.1"])
+                # Try to install a non-existent rule
+                result = runner.invoke(app, ["install", "NonExistent.Rule.1"])
 
         # Should return error code (error handling is tested in command tests)
         self.assertEqual(result.exit_code, 1)
 
-    def test_clone_command_all_flag_with_analysis_id_errors(self) -> None:
-        """Test that clone command errors when --all is used with an analysis ID."""
-        result = runner.invoke(app, ["clone", "--all", "Test.Rule.1"])
+    def test_install_command_all_flag_with_analysis_id_errors(self) -> None:
+        """Test that install command errors when --all is used with an analysis ID."""
+        result = runner.invoke(app, ["install", "--all", "Test.Rule.1"])
 
         # Should return error code
         self.assertEqual(result.exit_code, 1)
         # Error message is logged, verify exit code indicates error
 
-    def test_clone_command_all_flag_without_analysis_id(self) -> None:
-        """Test that clone command works with --all flag without an analysis ID."""
+    def test_install_command_all_flag_without_analysis_id(self) -> None:
+        """Test that install command works with --all flag without an analysis ID."""
         # Set up a git repository
         os.makedirs(".git", exist_ok=True)
 
@@ -1592,23 +1592,25 @@ class TestPantherAnalysisTool(TestCase):
                     return_value="fake_commit_hash_1",
                 ),
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
-                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
             ):
-                result = runner.invoke(app, ["clone", "--all"])
+                result = runner.invoke(app, ["install", "--all"])
 
-        # Should succeed (clone.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         self.assertEqual(result.exit_code, 0)
 
-    def test_clone_command_without_all_or_analysis_id_errors(self) -> None:
-        """Test that clone command errors when neither --all, analysis ID, nor filters are provided."""
-        result = runner.invoke(app, ["clone"])
+    def test_install_command_without_all_or_analysis_id_errors(self) -> None:
+        """Test that install command errors when neither --all, analysis ID, nor filters are provided."""
+        result = runner.invoke(app, ["install"])
 
         # Should return error code
         self.assertEqual(result.exit_code, 1)
         # Error message is logged, verify exit code indicates error
 
-    def test_clone_command_with_analysis_id_works(self) -> None:
-        """Test that clone command works with just an analysis ID."""
+    def test_install_command_with_analysis_id_works(self) -> None:
+        """Test that install command works with just an analysis ID."""
         # Set up a git repository
         os.makedirs(".git", exist_ok=True)
 
@@ -1633,15 +1635,17 @@ class TestPantherAnalysisTool(TestCase):
                     return_value="fake_commit_hash_1",
                 ),
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
-                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
             ):
-                result = runner.invoke(app, ["clone", "Test.Rule.1"])
+                result = runner.invoke(app, ["install", "Test.Rule.1"])
 
-        # Should succeed (clone.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         self.assertEqual(result.exit_code, 0)
 
-    def test_clone_command_with_filters_works(self) -> None:
-        """Test that clone command works with just filters."""
+    def test_install_command_with_filters_works(self) -> None:
+        """Test that install command works with just filters."""
         # Set up a git repository
         os.makedirs(".git", exist_ok=True)
 
@@ -1666,35 +1670,37 @@ class TestPantherAnalysisTool(TestCase):
                     return_value="fake_commit_hash_1",
                 ),
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
-                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
             ):
                 result = runner.invoke(
-                    app, ["clone", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
+                    app, ["install", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
                 )
 
-        # Should succeed (clone.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         self.assertEqual(result.exit_code, 0)
 
-    def test_clone_command_all_with_filters_errors(self) -> None:
-        """Test that clone command errors when --all is used with --filter."""
-        result = runner.invoke(app, ["clone", "--all", "--filter", "AnalysisType=rule"])
+    def test_install_command_all_with_filters_errors(self) -> None:
+        """Test that install command errors when --all is used with --filter."""
+        result = runner.invoke(app, ["install", "--all", "--filter", "AnalysisType=rule"])
 
         # Should return error code
         self.assertEqual(result.exit_code, 1)
         # Error message is logged, verify exit code indicates error
 
-    def test_clone_command_all_with_id_and_filters_errors(self) -> None:
-        """Test that clone command errors when --all, ID, and --filter are all used together."""
+    def test_install_command_all_with_id_and_filters_errors(self) -> None:
+        """Test that install command errors when --all, ID, and --filter are all used together."""
         result = runner.invoke(
-            app, ["clone", "--all", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+            app, ["install", "--all", "Test.Rule.1", "--filter", "AnalysisType=rule"]
         )
 
         # Should return error code (--all with ID should error first)
         self.assertEqual(result.exit_code, 1)
         # Error message is logged, verify exit code indicates error
 
-    def test_clone_command_id_with_filters_works(self) -> None:
-        """Test that clone command works with ID and filters together (filters refine the selection)."""
+    def test_install_command_id_with_filters_works(self) -> None:
+        """Test that install command works with ID and filters together (filters refine the selection)."""
         # Set up a git repository
         os.makedirs(".git", exist_ok=True)
 
@@ -1719,12 +1725,14 @@ class TestPantherAnalysisTool(TestCase):
                     return_value="fake_commit_hash_1",
                 ),
                 patch("panther_analysis_tool.core.root.chdir_to_project_root"),
-                patch("panther_analysis_tool.command.clone.clone"),  # Mock to avoid actual cloning
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
             ):
                 result = runner.invoke(
-                    app, ["clone", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+                    app, ["install", "Test.Rule.1", "--filter", "AnalysisType=rule"]
                 )
 
-        # Should succeed (clone.run is mocked, so it won't actually clone)
+        # Should succeed (install.run is mocked, so it won't actually install)
         # Filters can be used with an ID to refine the selection
         self.assertEqual(result.exit_code, 0)
