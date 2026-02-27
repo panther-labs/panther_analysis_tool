@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import shutil
@@ -560,19 +561,21 @@ class TestPantherAnalysisTool(TestCase):
                 file_list = zip_file.namelist()
                 # there should only be 4 files in the list: one python and one yml
                 # file for stable. and likewise for the no_status detection.
-                # the experimental and deprecated detections should be
-                # filtered out by default
+                # the experimental and deprecated detections (both lowercase
+                # and capitalized) should be filtered out by default
                 self.assertEqual(4, len(file_list))
+                for name in file_list:
+                    self.assertNotIn("experimental", name.lower())
+                    self.assertNotIn("deprecated", name.lower())
                 self.assertIn("no_status.yml", file_list[0])
                 self.assertIn("no_status.py", file_list[1])
                 self.assertIn("status_stable.yml", file_list[2])
                 self.assertIn("status_stable.py", file_list[3])
 
-    def test_zip_can_include_deprecated_experimental(self) -> None:
+    def test_zip_cannot_include_deprecated_experimental(self) -> None:
         """
-        like the above 'test_zip_excludes_deprecated_experimental' test but
-        we test that users can choose to include experimental/deprecated by explicitly
-        adding a filter on the Status field
+        Even when a user explicitly adds a filter to include experimental/deprecated,
+        those statuses should still be excluded.
         """
         # Note: This is a workaround for CI
         try:
@@ -605,15 +608,14 @@ class TestPantherAnalysisTool(TestCase):
             zip_file_path = os.path.join("tmp/zipped2", zip_name)
             with zipfile.ZipFile(zip_file_path, "r") as zip_file:
                 file_list = zip_file.namelist()
-                # there should be 6 files in the list: there's 3 detections with Status field, and each detection has 2 files
-                # a python and a yaml file (no_status is excluded because it doesn't have a Status field)
-                self.assertEqual(6, len(file_list))
-                self.assertIn("status_deprecated.yml", file_list[0])
-                self.assertIn("status_deprecated.py", file_list[1])
-                self.assertIn("status_experimental.yml", file_list[2])
-                self.assertIn("status_experimental.py", file_list[3])
-                self.assertIn("status_stable.yml", file_list[4])
-                self.assertIn("status_stable.py", file_list[5])
+                # experimental and deprecated should still be excluded even though user requested them
+                # only stable should remain (2 files: .py + .yml)
+                self.assertEqual(2, len(file_list))
+                for name in file_list:
+                    self.assertNotIn("experimental", name.lower())
+                    self.assertNotIn("deprecated", name.lower())
+                self.assertIn("status_stable.yml", file_list[0])
+                self.assertIn("status_stable.py", file_list[1])
 
     def test_zip_analysis_chunks(self) -> None:
         # Note: This is a workaround for CI
@@ -672,17 +674,21 @@ class TestPantherAnalysisTool(TestCase):
         analysis_file = "tmp/release2/panther-analysis-all.zip"
         with zipfile.ZipFile(analysis_file, "r") as zip_file:
             file_list = zip_file.namelist()
-            # there should be 8 files in the release: there's 4 detections, and each detection has 2 files
+            # there should be 12 files in the release: there's 6 detections, and each detection has 2 files
             # a python and a yaml file
-            self.assertEqual(8, len(file_list))
+            self.assertEqual(12, len(file_list))
             self.assertIn("no_status.yml", file_list[0])
             self.assertIn("no_status.py", file_list[1])
             self.assertIn("status_deprecated.yml", file_list[2])
             self.assertIn("status_deprecated.py", file_list[3])
-            self.assertIn("status_experimental.yml", file_list[4])
-            self.assertIn("status_experimental.py", file_list[5])
-            self.assertIn("status_stable.yml", file_list[6])
-            self.assertIn("status_stable.py", file_list[7])
+            self.assertIn("status_deprecated_caps.yml", file_list[4])
+            self.assertIn("status_deprecated_caps.py", file_list[5])
+            self.assertIn("status_experimental.yml", file_list[6])
+            self.assertIn("status_experimental.py", file_list[7])
+            self.assertIn("status_experimental_caps.yml", file_list[8])
+            self.assertIn("status_experimental_caps.py", file_list[9])
+            self.assertIn("status_stable.yml", file_list[10])
+            self.assertIn("status_stable.py", file_list[11])
 
     def test_feature_flags_dont_err_the_upload(self) -> None:
         backend = MockBackend()
@@ -714,6 +720,61 @@ class TestPantherAnalysisTool(TestCase):
                 self, f"--debug upload --path {DETECTIONS_FIXTURES_PATH}/valid_analysis".split()
             )
             self.assertEqual(return_code, 0)
+
+    def test_upload_excludes_experimental(self) -> None:
+        """Verify the upload command does not include detections with Status: Experimental."""
+        backend = MockBackend()
+        captured_params = []
+
+        stats = BulkUploadStatistics(
+            new=1,
+            total=1,
+            modified=0,
+        )
+
+        def capture_upload(params):
+            captured_params.append(params)
+            return BackendResponse(
+                data=BulkUploadResponse(
+                    rules=stats,
+                    queries=stats,
+                    policies=stats,
+                    data_models=stats,
+                    lookup_tables=stats,
+                    global_helpers=stats,
+                    correlation_rules=stats,
+                ),
+                status_code=200,
+            )
+
+        backend.bulk_upload = mock.MagicMock(side_effect=capture_upload)
+
+        with patch("panther_analysis_tool.main.pat_utils.get_backend", return_value=backend):
+            return_code, _ = mock_upload_analysis(
+                self,
+                f"upload --path {STATUS_FIXTURES_PATH}/all_statuses --skip-tests".split(),
+            )
+            self.assertEqual(return_code, 0)
+
+        # Inspect the zip that was uploaded
+        self.assertEqual(len(captured_params), 1)
+        zip_bytes = captured_params[0].zip_bytes
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+            file_list = zf.namelist()
+            # Experimental and deprecated detections should be excluded
+            for name in file_list:
+                self.assertNotIn(
+                    "experimental", name, f"Experimental detection found in upload: {name}"
+                )
+                self.assertNotIn(
+                    "deprecated", name, f"Deprecated detection found in upload: {name}"
+                )
+            # Should contain stable and no_status detections (2 files each: .py + .yml)
+            self.assertEqual(4, len(file_list))
+            self.assertIn("no_status.yml", file_list[0])
+            self.assertIn("no_status.py", file_list[1])
+            self.assertIn("status_stable.yml", file_list[2])
+            self.assertIn("status_stable.py", file_list[3])
 
     def test_retry_uploads(self) -> None:
         import logging

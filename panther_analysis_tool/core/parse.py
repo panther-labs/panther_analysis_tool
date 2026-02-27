@@ -77,31 +77,27 @@ def get_filters_with_status_filters(
 def add_status_filters(
     filters: List[Filter], filters_inverted: List[Filter]
 ) -> Tuple[List[Filter], List[Filter]]:
-    # check if a regular (non-inverted) filter references the status field
-    # if found, return them as-is (user explicitly chose statuses):
-    for filt in filters:
-        if filt.key == "Status":
-            return filters, filters_inverted
+    blocked_statuses = [EXPERIMENTAL_STATUS, DEPRECATED_STATUS]
 
-    # check if an inverted filter references the status field
-    # if found, merge it with the defaults:
+    # strip experimental/deprecated from any positive Status filter the user provided
+    for i, filt in enumerate(filters):
+        if filt.key == "Status":
+            existing_values = filt.values if isinstance(filt.values, list) else [filt.values]
+            cleaned = [v for v in existing_values if v.lower() not in blocked_statuses]
+            filters[i] = Filter(key="Status", values=cleaned)
+
+    # ensure the inverted filter always includes experimental and deprecated
     for i, filt in enumerate(filters_inverted):
         if filt.key == "Status":
-            # Merge the user's inverted values with the defaults
-            default_values = [EXPERIMENTAL_STATUS, DEPRECATED_STATUS]
-            # Ensure values is a list
             existing_values = filt.values if isinstance(filt.values, list) else [filt.values]
-            # Create merged list, avoiding duplicates while preserving order
             merged_values = list(existing_values)
-            for val in default_values:
+            for val in blocked_statuses:
                 if val not in merged_values:
                     merged_values.append(val)
             filters_inverted[i] = Filter(key="Status", values=merged_values)
             return filters, filters_inverted
 
-    # otherwise, add an invert filter to filter out any status field
-    # with Status: deprecated or Status: experimental
-    filters_inverted.append(Filter(key="Status", values=[EXPERIMENTAL_STATUS, DEPRECATED_STATUS]))
+    filters_inverted.append(Filter(key="Status", values=list(blocked_statuses)))
     return filters, filters_inverted
 
 

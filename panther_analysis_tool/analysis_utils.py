@@ -114,14 +114,18 @@ def filter_analysis(
             key, values = filt.key, filt.values
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-            if not set(spec_value).intersection(values):
+            spec_value_normalized = {v.lower() if isinstance(v, str) else v for v in spec_value}
+            values_normalized = {v.lower() if isinstance(v, str) else v for v in values}
+            if not spec_value_normalized.intersection(values_normalized):
                 match = False
                 break
         for filt in filters_inverted:
             key, values = filt.key, filt.values
             spec_value = analysis_spec.get(key, "")
             spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-            if set(spec_value).intersection(values):
+            spec_value_normalized = {v.lower() if isinstance(v, str) else v for v in spec_value}
+            values_normalized = {v.lower() if isinstance(v, str) else v for v in values}
+            if spec_value_normalized.intersection(values_normalized):
                 match = False
                 break
 
