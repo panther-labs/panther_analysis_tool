@@ -1,0 +1,7 @@
+AnalysisType: pack
+Description: Valid pack with only regular items (should pass)
+DisplayName: Test Pack Valid
+PackID: Test.Pack.Valid
+PackDefinition:
+  IDs:
+    - Test.Regular.Rule

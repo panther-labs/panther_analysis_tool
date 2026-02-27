@@ -1,0 +1,9 @@
+AnalysisType: pack
+Description: Pack with experimental items (should fail)
+DisplayName: Test Pack With Experimental
+PackID: Test.Pack.With.Experimental
+PackDefinition:
+  IDs:
+    - Test.Experimental.Rule
+    - Test.Experimental.Rule.Uppercase
+    - Test.Regular.Rule

@@ -156,7 +156,7 @@ def get_mergeable_items(
     return mergeable_items
 
 
-def merge_items(  # pylint: disable=too-many-arguments,too-many-locals
+def merge_items(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     mergeable_items: list[merge_item.MergeableItem],
     analysis_id: str | None,
     editor: str | None,
