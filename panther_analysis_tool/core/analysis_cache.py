@@ -323,7 +323,7 @@ class AnalysisCache:
 
 
 def update_with_latest_panther_analysis(
-    user_analysis_specs: dict[str, analysis_utils.LoadAnalysisSpecsResult] = {},
+    user_analysis_specs: dict[str, analysis_utils.LoadAnalysisSpecsResult] | None = None,
     show_progress_bar: bool = False,
 ) -> None:
     """
@@ -336,6 +336,8 @@ def update_with_latest_panther_analysis(
     Returns:
         None
     """
+    if user_analysis_specs is None:
+        user_analysis_specs = {}
     # allows for testing against a different branch or manual override
     release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
 
@@ -529,6 +531,61 @@ def _populate_sqlite(
         ),
         content,
     )
+
+
+def fetch_and_cache_old_version(
+    cache: AnalysisCache,
+    analysis_id: str,
+    version: int,
+) -> AnalysisSpec | None:
+    """
+    Fetch an old version of an analysis item from GitHub and insert it into the cache.
+
+    This is used when the cache doesn't have the requested base version (e.g., cache was
+    rebuilt after the user's BaseVersion changed, or pat merge is run without pat update).
+
+    Returns:
+        The AnalysisSpec if the version was found and fetched, None otherwise.
+    """
+    try:
+        all_versions = versions_file.get_versions()
+    except FileNotFoundError:
+        return None
+
+    if not all_versions.has_item(analysis_id):
+        return None
+
+    version_item = all_versions.versions[analysis_id]
+    if version not in version_item.history:
+        return None
+
+    spec_history_item = version_item.history[version]
+
+    yaml_content = git_helpers.get_panther_analysis_file_contents(
+        spec_history_item.commit_hash, spec_history_item.yaml_file_path
+    )
+    py_content = None
+    if spec_history_item.py_file_path is not None:
+        py_content = bytes(
+            git_helpers.get_panther_analysis_file_contents(
+                spec_history_item.commit_hash, spec_history_item.py_file_path
+            ),
+            "utf-8",
+        )
+
+    id_field = analysis_utils.analysis_id_field_name(version_item.type)
+
+    spec = AnalysisSpec(
+        id=None,
+        id_field=id_field,
+        id_value=analysis_id,
+        spec=bytes(yaml_content, "utf-8"),
+        version=version,
+    )
+    cache.insert_analysis_spec(spec, py_content)
+
+    # Re-fetch from cache to get the full spec with DB-assigned id
+    return cache.get_spec_for_version(analysis_id, version)
 
 
 def _check_if_old_version_is_needed(

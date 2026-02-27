@@ -976,3 +976,89 @@ def test_merge_items_preview_with_one_item_with_conflict(
             call("  * 1"),
         ]
     )
+
+
+################################################################################
+### TEST get_mergeable_items with on-demand fetch
+################################################################################
+
+
+def test_get_mergeable_items_fetches_old_version_on_cache_miss(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+    make_analysis_spec: make_analysis_spec_type,
+) -> None:
+    """When base_spec is not in cache, fetch_and_cache_old_version is called to fetch it."""
+    specs = [
+        make_load_spec(tmp_path, "rule", "1", 2, True),
+    ]
+
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
+        side_effect=[make_analysis_spec("rule", "1", 3, True)],
+    )
+    # First call returns None (cache miss), triggering on-demand fetch
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_spec_for_version",
+        side_effect=[None],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_file_for_spec",
+        side_effect=[b"latest_python", b"base_python"],
+    )
+    mock_sqlite = tmp_path / ".cache" / "panther-analysis.sqlite"
+    mock_sqlite.parent.mkdir(parents=True, exist_ok=True)
+    mock_sqlite.touch()
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.PANTHER_ANALYSIS_SQLITE_FILE_PATH",
+        mock_sqlite,
+    )
+
+    fetched_spec = make_analysis_spec("rule", "1", 2, True)
+    mock_fetch = mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.fetch_and_cache_old_version",
+        return_value=fetched_spec,
+    )
+
+    mergeable_items = merge.get_mergeable_items(None, specs)
+    assert len(mergeable_items) == 1
+    mock_fetch.assert_called_once()
+
+
+def test_get_mergeable_items_skips_when_fetch_fails(
+    mocker: MockerFixture,
+    tmp_path: pathlib.Path,
+    make_load_spec: make_load_spec_type,
+    make_analysis_spec: make_analysis_spec_type,
+) -> None:
+    """When base_spec is not in cache and fetch also fails, item is skipped with warning."""
+    specs = [
+        make_load_spec(tmp_path, "rule", "1", 2, True),
+    ]
+
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_latest_spec",
+        side_effect=[make_analysis_spec("rule", "1", 3, True)],
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.AnalysisCache.get_spec_for_version",
+        side_effect=[None],
+    )
+    mock_sqlite = tmp_path / ".cache" / "panther-analysis.sqlite"
+    mock_sqlite.parent.mkdir(parents=True, exist_ok=True)
+    mock_sqlite.touch()
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.PANTHER_ANALYSIS_SQLITE_FILE_PATH",
+        mock_sqlite,
+    )
+
+    mocker.patch(
+        "panther_analysis_tool.command.merge.analysis_cache.fetch_and_cache_old_version",
+        return_value=None,
+    )
+    logging_mock = mocker.patch("panther_analysis_tool.command.merge.logging.warning")
+
+    mergeable_items = merge.get_mergeable_items(None, specs)
+    assert len(mergeable_items) == 0
+    logging_mock.assert_called_once()
