@@ -1,0 +1,7 @@
+AnalysisType: pack
+Description: Pack with deprecated status item (should fail)
+DisplayName: Test Pack With Deprecated Status
+PackID: Test.Pack.With.Deprecated.Status
+PackDefinition:
+  IDs:
+    - Test.Deprecated.Status.Rule

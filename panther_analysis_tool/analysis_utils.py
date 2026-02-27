@@ -17,7 +17,9 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import BackendError
+from panther_analysis_tool.backend.client import (
+    BackendError,
+)
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     GetRuleBodyParams,
@@ -134,12 +136,14 @@ def filter_analysis_spec(analysis_spec: Dict[str, Any], filters: List[Filter]) -
         key, values = filt.key, filt.values
         spec_value = analysis_spec.get(key, "")
         spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+        spec_value_normalized = {v.lower() if isinstance(v, str) else v for v in spec_value}
+        values_normalized = {v.lower() if isinstance(v, str) else v for v in values}
 
         if not filt.inverted:
-            if not set(spec_value).intersection(values):
+            if not spec_value_normalized.intersection(values_normalized):
                 return False
         else:
-            if set(spec_value).intersection(values):
+            if spec_value_normalized.intersection(values_normalized):
                 return False
 
     return True

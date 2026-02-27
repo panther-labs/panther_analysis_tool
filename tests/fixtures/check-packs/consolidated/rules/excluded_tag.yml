@@ -1,0 +1,18 @@
+AnalysisType: rule
+Filename: excluded_tag.py
+DisplayName: Rule with No Pack Tag
+Description: This rule has the no pack tag
+Severity: High
+RuleID: Test.ExcludedTag.Rule
+Enabled: true
+Tags:
+  - No Pack
+  - Security
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      eventName: CreateUser

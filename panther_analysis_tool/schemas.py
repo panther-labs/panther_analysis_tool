@@ -9,10 +9,10 @@ from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
 
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
-    def validate(
+    def validate(  # type: ignore
         self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
     ) -> Dict[str, Any]:
-        super().validate(data, _is_query_schedule_schema=False)
+        super().validate(data, _is_query_schedule_schema=False)  # type: ignore
         if _is_query_schedule_schema:
             rate, timeout = data.get("RateMinutes"), data.get("TimeoutMinutes")
             if rate is not None:

@@ -10,7 +10,9 @@ from panther_analysis_tool.backend.client import (
     BulkUploadValidateStatusResponse,
 )
 from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import UnsupportedEndpointError
+from panther_analysis_tool.backend.client import (
+    UnsupportedEndpointError,
+)
 from panther_analysis_tool.core.parse import Filter
 from panther_analysis_tool.zip_chunker import ZipArgs, analysis_chunks
 

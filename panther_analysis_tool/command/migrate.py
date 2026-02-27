@@ -518,7 +518,7 @@ def get_migration_item(
     )
 
 
-def migrate_item(  # pylint: disable=too-many-arguments
+def migrate_item(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     item: merge_item.MergeableItem,
     solve_merge: bool,
     editor: str | None,
