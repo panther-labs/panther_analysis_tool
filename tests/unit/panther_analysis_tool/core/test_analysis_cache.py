@@ -1112,3 +1112,174 @@ def test_populate_skips_experimental_detections(
     )
     analysis_cache._populate_sqlite(spec, cache, {}, {})
     assert cache.list_spec_ids() == []
+
+
+################################################################################
+### TEST fetch_and_cache_old_version
+################################################################################
+
+
+def _make_versions(
+    analysis_id: str,
+    analysis_type: str,
+    version: int,
+    history: dict[int, versions_file.AnalysisVersionHistoryItem],
+) -> versions_file.Versions:
+    return versions_file.Versions(
+        versions={
+            analysis_id: versions_file.AnalysisVersionItem(
+                history=history,
+                sha256="abc123",
+                type=analysis_type,
+                version=version,
+            )
+        }
+    )
+
+
+def test_fetch_and_cache_old_version_success(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Version exists in history -> fetches from GitHub, inserts into cache, returns spec."""
+    cache = get_analysis_cache(tmp_path, monkeypatch)
+    cache.create_tables()
+
+    history = {
+        2: versions_file.AnalysisVersionHistoryItem(
+            commit_hash="abc123",
+            yaml_file_path="rules/my_rule.yml",
+            py_file_path="rules/my_rule.py",
+        ),
+    }
+    mock_versions = _make_versions("my_rule", "rule", 3, history)
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.versions_file.get_versions",
+        return_value=mock_versions,
+    )
+
+    yaml_content = 'AnalysisType: rule\nRuleID: "my_rule"\n'
+    py_content = "def rule(event): return True"
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.get_panther_analysis_file_contents",
+        side_effect=[yaml_content, py_content],
+    )
+
+    result = analysis_cache.fetch_and_cache_old_version(cache, "my_rule", 2)
+
+    assert result is not None
+    assert result.id_value == "my_rule"
+    assert result.version == 2
+    assert result.id_field == "RuleID"
+    assert result.spec == bytes(yaml_content, "utf-8")
+
+    # Verify the python file was also stored
+    py_file = cache.get_file_for_spec(result.id, result.version)
+    assert py_file == bytes(py_content, "utf-8")
+
+
+def test_fetch_and_cache_old_version_no_python(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Version exists in history with no python file -> fetches YAML only."""
+    cache = get_analysis_cache(tmp_path, monkeypatch)
+    cache.create_tables()
+
+    history = {
+        2: versions_file.AnalysisVersionHistoryItem(
+            commit_hash="abc123",
+            yaml_file_path="data_models/my_dm.yml",
+            py_file_path=None,
+        ),
+    }
+    mock_versions = _make_versions("my_dm", "datamodel", 3, history)
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.versions_file.get_versions",
+        return_value=mock_versions,
+    )
+
+    yaml_content = 'AnalysisType: datamodel\nDataModelID: "my_dm"\n'
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.get_panther_analysis_file_contents",
+        side_effect=[yaml_content],
+    )
+
+    result = analysis_cache.fetch_and_cache_old_version(cache, "my_dm", 2)
+
+    assert result is not None
+    assert result.id_value == "my_dm"
+    assert result.version == 2
+    assert result.id_field == "DataModelID"
+
+    # No python file should be stored
+    py_file = cache.get_file_for_spec(result.id, result.version)
+    assert py_file is None
+
+
+def test_fetch_and_cache_old_version_not_in_history(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Version doesn't exist in history -> returns None without fetching."""
+    cache = get_analysis_cache(tmp_path, monkeypatch)
+    cache.create_tables()
+
+    history = {
+        3: versions_file.AnalysisVersionHistoryItem(
+            commit_hash="abc123",
+            yaml_file_path="rules/my_rule.yml",
+            py_file_path=None,
+        ),
+    }
+    mock_versions = _make_versions("my_rule", "rule", 3, history)
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.versions_file.get_versions",
+        return_value=mock_versions,
+    )
+
+    mock_fetch = mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.get_panther_analysis_file_contents",
+    )
+
+    result = analysis_cache.fetch_and_cache_old_version(cache, "my_rule", 2)
+
+    assert result is None
+    mock_fetch.assert_not_called()
+
+
+def test_fetch_and_cache_old_version_analysis_id_not_in_versions(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Analysis ID not in versions file -> returns None."""
+    cache = get_analysis_cache(tmp_path, monkeypatch)
+    cache.create_tables()
+
+    mock_versions = versions_file.Versions(versions={})
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.versions_file.get_versions",
+        return_value=mock_versions,
+    )
+
+    mock_fetch = mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.git_helpers.get_panther_analysis_file_contents",
+    )
+
+    result = analysis_cache.fetch_and_cache_old_version(cache, "unknown_rule", 2)
+
+    assert result is None
+    mock_fetch.assert_not_called()
+
+
+def test_fetch_and_cache_old_version_no_versions_file(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Versions file doesn't exist -> returns None."""
+    cache = get_analysis_cache(tmp_path, monkeypatch)
+    cache.create_tables()
+
+    mocker.patch(
+        "panther_analysis_tool.core.analysis_cache.versions_file.get_versions",
+        side_effect=FileNotFoundError("No versions file"),
+    )
+
+    result = analysis_cache.fetch_and_cache_old_version(cache, "my_rule", 2)
+
+    assert result is None

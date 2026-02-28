@@ -114,10 +114,16 @@ def get_mergeable_items(
         # load the base analysis item from the cache using the user spec's BaseVersion
         base_spec = cache.get_spec_for_version(user_spec_id, user_spec_base_version)
         if base_spec is None:
-            logging.warning(
-                "%s at version %s not found, skipping", user_spec_id, user_spec_base_version
+            base_spec = analysis_cache.fetch_and_cache_old_version(
+                cache, user_spec_id, user_spec_base_version
             )
-            continue
+            if base_spec is None:
+                logging.warning(
+                    "%s at version %s not found, skipping",
+                    user_spec_id,
+                    user_spec_base_version,
+                )
+                continue
 
         # load the python file for the user spec from the file system
         user_py: bytes | None = None
