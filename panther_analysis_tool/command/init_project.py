@@ -50,11 +50,20 @@ def setup_git_ignore() -> None:
         content += "\n"
 
     for ignorable in ignorables:
-        content += f"# {ignorable['name']}\n"
-        for value in ignorable["values"]:
-            if value not in content:
-                content += f"{value}\n"
-        content += "\n"
+        section_comment = f"# {ignorable['name']}\n"
+        section_exists = section_comment in content
+        missing_values = [v for v in ignorable["values"] if v not in content]
+
+        if section_exists:
+            if missing_values:
+                insertion = "".join(f"{v}\n" for v in missing_values)
+                content = content.replace(section_comment, section_comment + insertion, 1)
+        else:
+            content += section_comment
+            for value in ignorable["values"]:
+                if value not in content:
+                    content += f"{value}\n"
+            content += "\n"
 
     gitignore_file.write_text(content)
 

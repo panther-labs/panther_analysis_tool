@@ -96,9 +96,7 @@ def add_status_filters(
             filters_inverted[i] = Filter(key="Status", values=merged_values, inverted=True)
             return filters, filters_inverted
 
-    filters_inverted.append(
-        Filter(key="Status", values=list(blocked_statuses), inverted=True)
-    )
+    filters_inverted.append(Filter(key="Status", values=list(blocked_statuses), inverted=True))
     return filters, filters_inverted
 
 
