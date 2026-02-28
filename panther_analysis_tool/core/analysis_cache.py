@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import pydantic
+from requests import RequestException
 from rich.progress import BarColumn, Progress, TextColumn, track
 
 from panther_analysis_tool import analysis_utils
@@ -533,6 +534,57 @@ def _populate_sqlite(
     )
 
 
+def _fetch_version_from_history_and_insert(
+    cache: AnalysisCache,
+    analysis_id: str,
+    version: int,
+    version_item: versions_file.AnalysisVersionItem,
+) -> AnalysisSpec | None:
+    """
+    Fetch the given version of an analysis item from GitHub using version_item.history
+    and insert it into the cache.
+
+    Returns:
+        The AnalysisSpec from the cache after insert if the version exists in history
+        and was fetched successfully, None otherwise.
+    """
+    if version not in version_item.history:
+        return None
+
+    spec_history_item = version_item.history[version]
+    try:
+        yaml_content = git_helpers.get_panther_analysis_file_contents(
+            spec_history_item.commit_hash, spec_history_item.yaml_file_path
+        )
+        py_content = None
+        if spec_history_item.py_file_path is not None:
+            py_content = bytes(
+                git_helpers.get_panther_analysis_file_contents(
+                    spec_history_item.commit_hash, spec_history_item.py_file_path
+                ),
+                "utf-8",
+            )
+    except RequestException as err:
+        logging.warning(
+            "Failed to fetch %s at version %s from Panther Analysis: %s",
+            analysis_id,
+            version,
+            err,
+        )
+        return None
+
+    id_field = analysis_utils.analysis_id_field_name(version_item.type)
+    spec = AnalysisSpec(
+        id=None,
+        id_field=id_field,
+        id_value=analysis_id,
+        spec=bytes(yaml_content, "utf-8"),
+        version=version,
+    )
+    cache.insert_analysis_spec(spec, py_content)
+    return cache.get_spec_for_version(analysis_id, version)
+
+
 def fetch_and_cache_old_version(
     cache: AnalysisCache,
     analysis_id: str,
@@ -556,36 +608,9 @@ def fetch_and_cache_old_version(
         return None
 
     version_item = all_versions.versions[analysis_id]
-    if version not in version_item.history:
-        return None
-
-    spec_history_item = version_item.history[version]
-
-    yaml_content = git_helpers.get_panther_analysis_file_contents(
-        spec_history_item.commit_hash, spec_history_item.yaml_file_path
+    return _fetch_version_from_history_and_insert(
+        cache, analysis_id, version, version_item
     )
-    py_content = None
-    if spec_history_item.py_file_path is not None:
-        py_content = bytes(
-            git_helpers.get_panther_analysis_file_contents(
-                spec_history_item.commit_hash, spec_history_item.py_file_path
-            ),
-            "utf-8",
-        )
-
-    id_field = analysis_utils.analysis_id_field_name(version_item.type)
-
-    spec = AnalysisSpec(
-        id=None,
-        id_field=id_field,
-        id_value=analysis_id,
-        spec=bytes(yaml_content, "utf-8"),
-        version=version,
-    )
-    cache.insert_analysis_spec(spec, py_content)
-
-    # Re-fetch from cache to get the full spec with DB-assigned id
-    return cache.get_spec_for_version(analysis_id, version)
 
 
 def _check_if_old_version_is_needed(
@@ -611,27 +636,6 @@ def _check_if_old_version_is_needed(
     # We know where to find the old spec because we have the version history in the versions file
     # and we can use the commit hash and file path to get the content from the panther-analysis repository.
     if user_spec_version is not None and user_spec_version < version_item.version:
-        spec_history_item = version_item.history[user_spec_version]
-
-        yaml_content = git_helpers.get_panther_analysis_file_contents(
-            spec_history_item.commit_hash, spec_history_item.yaml_file_path
-        )
-        py_content = None
-        if spec_history_item.py_file_path is not None:
-            py_content = bytes(
-                git_helpers.get_panther_analysis_file_contents(
-                    spec_history_item.commit_hash, spec_history_item.py_file_path
-                ),
-                "utf-8",
-            )
-
-        cache.insert_analysis_spec(
-            AnalysisSpec(
-                id=None,
-                id_field=user_spec.analysis_id_field_name(),
-                id_value=user_spec.analysis_id(),
-                spec=bytes(yaml_content, "utf-8"),
-                version=user_spec_version,
-            ),
-            py_content,
+        _fetch_version_from_history_and_insert(
+            cache, user_spec.analysis_id(), user_spec_version, version_item
         )
