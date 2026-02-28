@@ -608,9 +608,7 @@ def fetch_and_cache_old_version(
         return None
 
     version_item = all_versions.versions[analysis_id]
-    return _fetch_version_from_history_and_insert(
-        cache, analysis_id, version, version_item
-    )
+    return _fetch_version_from_history_and_insert(cache, analysis_id, version, version_item)
 
 
 def _check_if_old_version_is_needed(
