@@ -304,3 +304,222 @@ def test_init_project_updates_existing_gitignore_at_git_root_not_working_dir(
     assert working_dir_content == "# This should not be modified\nlocal_stuff/\n"
     assert ".cache/" not in working_dir_content
     assert "# Panther" not in working_dir_content
+
+
+def test_setup_git_ignore_does_not_duplicate_comments_when_sections_exist(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Re-running init when .gitignore already has all PAT sections must not add
+    duplicate section comments (each section header should appear exactly once).
+    """
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.git_helpers.git_root",
+        return_value=tmp_path,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    gitignore_path = tmp_path / ".gitignore"
+    gitignore_path.write_text(
+        """# Panther settings
+.panther_settings.*
+
+# Python
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+
+# Panther
+panther-analysis-*.zip
+.cache/
+
+# IDEs
+.vscode/
+.idea/
+
+"""
+    )
+
+    init_project.run(str(tmp_path))
+    init_project.run(str(tmp_path))
+
+    content = gitignore_path.read_text()
+    assert content.count("# Panther settings\n") == 1
+    assert content.count("# Python\n") == 1
+    assert content.count("# Panther\n") == 1
+    assert content.count("# IDEs\n") == 1
+
+
+def test_setup_git_ignore_adds_missing_values_to_existing_section(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    When .gitignore already has a PAT section comment but is missing some values,
+    setup_git_ignore should add only the missing values under that section (no duplicate comment).
+    """
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.git_helpers.git_root",
+        return_value=tmp_path,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    gitignore_path = tmp_path / ".gitignore"
+    gitignore_path.write_text(
+        """# Python
+__pycache__/
+*.pyc
+
+"""
+    )
+
+    init_project.run(str(tmp_path))
+
+    content = gitignore_path.read_text()
+    assert content.count("# Python\n") == 1
+    assert "__pycache__/" in content
+    assert "*.pyc" in content
+    assert ".mypy_cache/" in content
+    assert ".pytest_cache/" in content
+    # Other sections should still be added (Panther settings, Panther, IDEs)
+    assert "# Panther settings\n" in content
+    assert "# Panther\n" in content
+    assert "# IDEs\n" in content
+
+
+def test_setup_git_ignore_with_no_trailing_newline(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    When .gitignore has no trailing newline, init should still add sections correctly
+    and produce well-formed output (content normalized to end with two newlines).
+    """
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.git_helpers.git_root",
+        return_value=tmp_path,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    gitignore_path = tmp_path / ".gitignore"
+    gitignore_path.write_text("# existing\nfoo/")  # no trailing newline
+
+    init_project.run(str(tmp_path))
+
+    content = gitignore_path.read_text()
+    assert content.endswith("\n\n")
+    assert "# existing\n" in content
+    assert "foo/" in content
+    assert "# Panther settings\n" in content
+    assert content.count("# Panther settings\n") == 1
+
+
+def test_setup_git_ignore_with_single_trailing_newline(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    When .gitignore ends with exactly one newline (not two), init should normalize
+    and add sections without duplicating on re-run.
+    """
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.git_helpers.git_root",
+        return_value=tmp_path,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    gitignore_path = tmp_path / ".gitignore"
+    gitignore_path.write_text("# existing\nbar/\n")  # one trailing newline
+
+    init_project.run(str(tmp_path))
+    content_after_first = gitignore_path.read_text()
+    assert content_after_first.endswith("\n\n")
+    assert content_after_first.count("# Panther settings\n") == 1
+
+    init_project.run(str(tmp_path))
+    content_after_second = gitignore_path.read_text()
+    assert content_after_second.endswith("\n\n")
+    assert content_after_second.count("# Panther settings\n") == 1
+    assert content_after_second.count("# Python\n") == 1
+
+
+def test_setup_git_ignore_existing_sections_no_trailing_newline_re_run(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    When .gitignore already has PAT sections but trailing newlines were removed,
+    re-running init must not duplicate section comments.
+    """
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.analysis_cache.update_with_latest_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.git_helpers.git_root",
+        return_value=tmp_path,
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.init_project.subprocess.run",
+        return_value=subprocess.CompletedProcess(returncode=0, args=[]),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    gitignore_path = tmp_path / ".gitignore"
+    # Full PAT content but no trailing newline (or only one)
+    gitignore_path.write_text(
+        """# Panther settings
+.panther_settings.*
+
+# Python
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+
+# Panther
+panther-analysis-*.zip
+.cache/
+
+# IDEs
+.vscode/
+.idea/"""
+    )
+
+    init_project.run(str(tmp_path))
+
+    content = gitignore_path.read_text()
+    assert content.endswith("\n\n")
+    assert content.count("# Panther settings\n") == 1
+    assert content.count("# Python\n") == 1
+    assert content.count("# Panther\n") == 1
+    assert content.count("# IDEs\n") == 1
