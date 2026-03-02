@@ -90,9 +90,14 @@ class YAMLConflictResolverApp(App):
         self.next_item()
 
     def update_final_dict(self, val: Any) -> None:
+        key = self.diff_items[self.current_item_index].key
+        if val is None:
+            # Customer had removed this key; "yours" means keep it absent.
+            self.final_dict.pop(key, None)
+            return
         if isinstance(val, str):
             val = val.strip()
-        self.final_dict[self.diff_items[self.current_item_index].key] = val
+        self.final_dict[key] = val
 
     def next_item(self) -> None:
         self.current_item_index += 1

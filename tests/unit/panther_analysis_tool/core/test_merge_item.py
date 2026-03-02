@@ -518,21 +518,22 @@ def test_merge_item_preview_python_conflict(
 
 
 def test_merge_file_yaml_no_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:
+    """No conflict when user and latest agree (e.g. same key values)."""
     output_path = tmp_path / "output.yml"
-    output_path.write_text("user: yaml")
+    output_path.write_text("a: 1\nb: 2")
 
     has_conflict, merged_contents = merge_item.merge_file(
         solve_merge=False,
-        user=b"user: yaml",
-        base=b"base: yaml",
-        latest=b"base: yaml",
+        user=b"a: 1\nb: 2",
+        base=b"a: 1",
+        latest=b"a: 1\nb: 2",
         user_python=b"",
         output_path=output_path,
         editor=None,
     )
     assert not has_conflict
-    assert merged_contents == b"user: yaml\nbase: yaml\n"
-    assert output_path.read_text() == "user: yaml"
+    assert b"a: 1" in merged_contents and b"b: 2" in merged_contents
+    assert output_path.read_text() == "a: 1\nb: 2"
 
 
 def test_merge_file_yaml_conflict(mocker: MockerFixture, tmp_path: pathlib.Path) -> None:

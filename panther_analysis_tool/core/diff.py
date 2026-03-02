@@ -42,13 +42,27 @@ class Dict:
         """
         diff_keys = diff_dict_keys(self.customer_dict, latest_dict)
 
+        diff_items: list[DictMergeConflict] = []
+
         for k, v in latest_dict.items():
             if k not in self.customer_dict:
-                # if the key is in the latest dict but not in the customer dict, add it to the customer dict
-                # with the latest value
-                self.customer_dict[k] = v.strip() if isinstance(v, str) else v
+                if k in base_dict:
+                    # Key existed in base; customer removed it. Treat as conflict so the user
+                    # can choose to keep it removed (yours) or re-add Panther's value (panthers).
+                    if self.auto_accept == AutoAcceptOption.YOURS:
+                        pass  # keep key absent
+                    elif self.auto_accept == AutoAcceptOption.PANTHERS:
+                        self.customer_dict[k] = v.strip() if isinstance(v, str) else v
+                    else:
+                        diff_items.append(
+                            DictMergeConflict(
+                                key=k, cust_val=None, latest_val=v, base_val=base_dict[k]
+                            )
+                        )
+                else:
+                    # New key from Panther; safe to add.
+                    self.customer_dict[k] = v.strip() if isinstance(v, str) else v
 
-        diff_items: list[DictMergeConflict] = []
         for key in diff_keys:
             cust_val = self.customer_dict[key] if key in self.customer_dict else None
             latest_val = latest_dict[key] if key in latest_dict else None
