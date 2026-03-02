@@ -76,18 +76,17 @@ from panther_analysis_tool.backend.client import (
     BackendError,
     BulkUploadMultipartError,
     BulkUploadParams,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
     FeatureFlagsParams,
     FeatureFlagWithDefault,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
     explore,
     fmt,
+    generate,
     init_project,
     install,
     merge,
@@ -2601,6 +2600,14 @@ def migrate_command(
 )
 def fmt_command() -> tuple[int, str]:
     return fmt.run()
+
+
+@app_command_with_config(
+    name="generate",
+    help="Generate analysis items using your main.py file.",
+)
+def generate_command() -> tuple[int, str]:
+    return generate.run()
 
 
 # pylint: disable=too-many-statements
