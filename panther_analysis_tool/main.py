@@ -65,6 +65,7 @@ from typer_config import use_yaml_config
 from typing_extensions import Annotated
 
 from panther_analysis_tool import analysis_utils, cli_output
+from panther_analysis_tool import event_input
 from panther_analysis_tool import util as pat_utils
 from panther_analysis_tool.analysis_utils import (
     classify_analysis,
@@ -312,6 +313,23 @@ class TestAnalysisArgs:
     minimum_tests: int
     skip_disabled_tests: bool
     test_names: List[str]
+
+
+@dataclass
+class TestEventsArgs:
+    path: str
+    ignore_files: List[str]
+    filters: List[Filter]
+    filters_inverted: List[Filter]
+    ignore_extra_keys: bool
+    ignore_table_names: bool
+    valid_table_names: List[str]
+    available_destination: List[str]
+    skip_disabled_tests: bool
+    event_files: List[str]
+    log_type: Optional[str]
+    overwrite_log_type: bool
+    show_nonmatches: bool
 
 
 @dataclass
@@ -854,6 +872,229 @@ def debug_analysis(
     args.sort_test_results = False
     args.show_failures_only = False
     return test_analysis(backend, args, debug_args=debug_args)
+
+
+def _matcher_alert_value(detection: Detection) -> bool:
+    if detection.detection_type.upper() == TYPE_POLICY.upper():
+        return Policy.matcher_alert_value
+    return Rule.matcher_alert_value
+
+
+def test_events(
+    backend: Optional[BackendClient],
+    args: TestEventsArgs,
+) -> Tuple[int, list[Any]]:
+    """Run selected detections against raw event JSON from file(s).
+
+    Events can be provided as:
+    - A single JSON object
+    - A JSON array of objects
+    - NDJSON / JSON Lines (one JSON object per line)
+    """
+    events: List[Dict[str, Any]] = []
+    event_load_errors: List[Any] = []
+    for event_file in args.event_files:
+        try:
+            loaded = event_input.load_events_from_path(event_file)
+            loaded = event_input.apply_log_type(
+                loaded, log_type=args.log_type, overwrite=args.overwrite_log_type
+            )
+            events.extend(loaded)
+        except event_input.EventInputError as err:
+            event_load_errors.append((event_file, str(err)))
+
+    if event_load_errors:
+        return 1, event_load_errors
+    if not events:
+        return 1, [f"No events loaded from {args.event_files}"]
+
+    logging.info("Running detections in %s against %d event(s)", args.path, len(events))
+
+    specs, invalid_specs = load_analysis(
+        args.path,
+        args.ignore_table_names,
+        args.valid_table_names,
+        args.ignore_files,
+        args.ignore_extra_keys,
+    )
+    if specs.empty():
+        if invalid_specs:
+            return 1, invalid_specs
+        return 1, [f"Nothing to run in {args.path}"]
+
+    specs = specs.apply(lambda l: filter_analysis(l, args.filters, args.filters_inverted))
+    if specs.empty():
+        return 1, [
+            f"No analysis in {args.path} matched filters {args.filters} - {args.filters_inverted}"
+        ]
+
+    # Enrich simple detections with transpiled python as necessary.
+    if len(specs.simple_detections) > 0:
+        specs.simple_detections = get_simple_detections_as_python(specs.simple_detections, backend)
+
+    transpile_inline_filters(specs, backend)
+
+    ignore_exception_types: List[Type[Exception]] = []
+    available_destinations: List[str] = []
+    if args.available_destination:
+        available_destinations.extend(args.available_destination)
+    else:
+        ignore_exception_types.append(UnknownDestinationError)
+
+    destinations_by_name = {
+        name: FakeDestination(destination_id=str(uuid4()), destination_display_name=name)
+        for name in available_destinations
+    }
+
+    setup_global_helpers(specs.globals)
+    log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
+    invalid_specs.extend(invalid_data_models)
+
+    # Build detections
+    detections_to_run: List[Tuple[str, Detection]] = []
+    analysis_items = specs.detections + specs.simple_detections
+    for item in analysis_items:
+        analysis_spec_filename = item.file_name
+        dir_name = item.dir_name
+        analysis_spec = item.analysis_spec
+
+        if args.skip_disabled_tests and not analysis_spec.get("Enabled", False):
+            continue
+
+        if is_correlation_rule(analysis_spec):
+            logging.info(
+                "Skipping correlation rule %s (raw-event execution is not supported locally)",
+                analysis_spec.get("RuleID") or analysis_spec_filename,
+            )
+            continue
+
+        analysis_type = analysis_spec["AnalysisType"]
+        detection_args: Dict[str, Any] = {
+            "id": analysis_spec.get("PolicyID") or analysis_spec["RuleID"],
+            "analysisType": analysis_type.upper(),
+            "versionId": "0000-0000-0000",
+            "filters": analysis_spec.get(BACKEND_FILTERS_ANALYSIS_SPEC_KEY) or None,
+        }
+
+        base_id = analysis_spec.get("BaseDetection", "")
+        if base_id != "":
+            found_base_detection = None
+            found_base_path = None
+            for other_item in analysis_items:
+                if other_item.analysis_spec.get("RuleID", "") != base_id:
+                    continue
+                found_base_detection = other_item.analysis_spec
+                found_base_path = other_item.dir_name
+                break
+            if not found_base_detection:
+                base_lookup = lookup_base_detection(base_id, backend)
+                if "body" in base_lookup:
+                    found_base_detection = base_lookup
+            if not found_base_detection:
+                logging.warning(
+                    "Skipping derived detection '%s', could not lookup base detection '%s'",
+                    analysis_spec.get("RuleID"),
+                    base_id,
+                )
+                continue
+            if "body" in found_base_detection:
+                detection_args["body"] = found_base_detection.get("body")
+            else:
+                detection_args["path"] = os.path.join(
+                    found_base_path, found_base_detection["Filename"]  # type: ignore
+                )
+        elif is_simple_detection(analysis_spec):
+            if not analysis_spec.get("body"):
+                continue
+            detection_args["body"] = analysis_spec.get("body")
+        else:
+            detection_args["path"] = os.path.join(dir_name, analysis_spec["Filename"])
+
+        if "CreateAlert" in analysis_spec:
+            detection_args["suppressAlert"] = not bool(analysis_spec["CreateAlert"])
+
+        detection: Detection = (
+            Policy(detection_args) if analysis_type == AnalysisTypes.POLICY else Rule(detection_args)
+        )
+        if detection.setup_exception:
+            invalid_specs.append((analysis_spec_filename, detection.setup_exception))
+            continue
+
+        detections_to_run.append((detection.detection_id, detection))
+
+    try:
+        if invalid_specs:
+            return 1, invalid_specs
+
+        any_errored = False
+        for idx, event in enumerate(events, start=1):
+            log_type = event.get("p_log_type") or ""
+            if log_type:
+                print(f"Event {idx} (p_log_type={log_type})")
+            else:
+                print(f"Event {idx}")
+            for detection_id, detection in detections_to_run:
+                test_case: Mapping = event
+                if detection.detection_type.upper() != TYPE_POLICY.upper():
+                    test_case = PantherEvent(event, log_type_to_data_model.get(log_type))
+
+                test_output_buf: io.StringIO | TextIO = io.StringIO()
+                with (
+                    contextlib.redirect_stdout(test_output_buf),
+                    contextlib.redirect_stderr(test_output_buf),
+                ):
+                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
+
+                if ignore_exception_types:
+                    result.ignore_errors(ignore_exception_types)
+
+                test_output = cast(io.StringIO, test_output_buf).getvalue()
+                if test_output:
+                    print(test_output, end="" if test_output.endswith("\n") else "\n")
+
+                matcher_value = _matcher_alert_value(detection)
+                matched = result.detection_output == matcher_value
+                would_alert = bool(result.trigger_alert)
+
+                if result.errored:
+                    any_errored = True
+
+                if not (args.show_nonmatches or matched or result.errored):
+                    continue
+
+                status = "NO_MATCH"
+                if result.errored:
+                    status = "ERROR"
+                elif would_alert:
+                    status = "ALERT"
+                elif matched:
+                    status = "MATCH_SUPPRESSED"
+
+                extra = ""
+                if result.title_output:
+                    extra = f' title="{result.title_output}"'
+                if result.errored:
+                    err = (
+                        result.input_exception
+                        or result.setup_exception
+                        or result.detection_exception
+                        or result.title_exception
+                        or result.description_exception
+                        or result.reference_exception
+                        or result.severity_exception
+                        or result.runbook_exception
+                        or result.destinations_exception
+                        or result.dedup_exception
+                        or result.alert_context_exception
+                    )
+                    if err is not None:
+                        extra = f"{extra} error={type(err).__name__}: {err}"
+                print(f"  [{status}] {detection_id}{extra}")
+            print("")
+
+        return (1 if any_errored else 0), []
+    finally:
+        cleanup_global_helpers(specs.globals)
 
 
 # pylint: disable=too-many-locals
@@ -2013,6 +2254,76 @@ def test(  # pylint: disable=too-many-positional-arguments
     )
 
     return test_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
+
+
+@app_command_with_config(
+    name="test-events",
+    help=(
+        "Run selected rules/policies against raw event JSON files. "
+        "Each EVENT_FILE may contain a single JSON object, a JSON array of objects, or NDJSON/JSONL."
+    ),
+)
+def test_events_command(  # pylint: disable=too-many-positional-arguments
+    event_files: Annotated[
+        List[str],
+        typer.Argument(
+            ...,
+            metavar="EVENT_FILE",
+            help="Path(s) to event JSON. Use '-' to read from stdin.",
+        ),
+    ],
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    _filter: FilterType = None,
+    path: PathType = ".",
+    ignore_extra_keys: IgnoreExtraKeysType = False,
+    ignore_files: IgnoreFilesType = None,
+    skip_disabled_tests: SkipDisabledTestsType = False,
+    available_destination: AvailableDestinationType = None,
+    ignore_table_names: IgnoreTableNamesType = False,
+    valid_table_names: ValidTableNamesType = None,
+    log_type: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Set 'p_log_type' for events missing it (or overwrite with --overwrite-log-type).",
+        ),
+    ] = None,
+    overwrite_log_type: Annotated[
+        bool,
+        typer.Option(
+            help="When used with --log-type, overwrite any existing 'p_log_type' in the event(s).",
+        ),
+    ] = False,
+    show_nonmatches: Annotated[
+        bool, typer.Option(help="Show NO_MATCH results in addition to matches/errors.")
+    ] = False,
+) -> Tuple[int, list[Any]]:
+    if ignore_files is None:
+        ignore_files = []
+    if valid_table_names is None:
+        valid_table_names = []
+    if available_destination is None:
+        available_destination = []
+
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
+
+    args = TestEventsArgs(
+        path=path,
+        ignore_files=ignore_files,
+        filters=filters,
+        filters_inverted=filters_inverted,
+        ignore_extra_keys=ignore_extra_keys,
+        ignore_table_names=ignore_table_names,
+        valid_table_names=valid_table_names,
+        available_destination=available_destination,
+        skip_disabled_tests=skip_disabled_tests,
+        event_files=event_files,
+        log_type=log_type,
+        overwrite_log_type=overwrite_log_type,
+        show_nonmatches=show_nonmatches,
+    )
+
+    return test_events(pat_utils.get_optional_backend(api_token, api_host), args)
 
 
 @app_command_with_config(

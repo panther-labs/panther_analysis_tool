@@ -41,14 +41,15 @@ Show available commands and their options:
 
 ```bash
 $ panther_analysis_tool -h
-usage: panther_analysis_tool [-h] [--version] [--debug] [--skip-version-check] {release,test,publish,upload,delete,update-custom-schemas,test-lookup-table,validate,zip,check-connection,benchmark,enrich-test-data} ...
+usage: panther_analysis_tool [-h] [--version] [--debug] [--skip-version-check] {release,test,test-events,publish,upload,delete,update-custom-schemas,test-lookup-table,validate,zip,check-connection,benchmark,enrich-test-data} ...
 
 Panther Analysis Tool: A command line tool for managing Panther policies and rules.
 
 positional arguments:
-  {release,test,publish,upload,delete,update-custom-schemas,test-lookup-table,validate,zip,check-connection,benchmark,enrich-test-data}
+  {release,test,test-events,publish,upload,delete,update-custom-schemas,test-lookup-table,validate,zip,check-connection,benchmark,enrich-test-data}
     release             Create release assets for repository containing panther detections. Generates a file called panther-analysis-all.zip and optionally generates panther-analysis-all.sig
     test                Validate analysis specifications and run policy and rule tests.
+    test-events         Run selected rules/policies against raw event JSON files. Each EVENT_FILE may contain a single JSON object, a JSON array of objects, or NDJSON/JSONL.
     debug               Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.
     publish             Publishes a new release, generates the release assets, and uploads them. Generates a file called panther-analysis-all.zip and optionally generates panther-analysis-all.sig
     upload              Upload specified policies and rules to a Panther deployment.
@@ -103,6 +104,16 @@ $ panther_analysis_tool test --filter RuleID=AWS.CloudTrail.Stopped --test-names
         ...
         [PASS] Error Stopping CloudTrail
                 [PASS] [rule] false
+```
+
+### Test Events
+
+Run a rule/policy against one-or-more raw event JSON files (JSON object, JSON array, or NDJSON/JSONL):
+
+```bash
+$ panther_analysis_tool test-events --path path/to/analysis --filter RuleID=My.RuleID --log-type AWS.CloudTrail ./event.json ./more_events.jsonl
+Event 1 (p_log_type=AWS.CloudTrail)
+  [ALERT] My.RuleID
 ```
 
 ### Debug
