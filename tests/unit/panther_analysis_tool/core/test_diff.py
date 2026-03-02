@@ -67,9 +67,9 @@ def test_dict_diff_customer_deleted_key_auto_accept_yours_keeps_absent() -> None
     base_dict = {"RemovedByCustomer": "base_val"}
     customer_dict: dict = {}
     latest_dict = {"RemovedByCustomer": "latest_val"}
-    diff.Dict(
-        customer_dict=customer_dict, auto_accept=AutoAcceptOption.YOURS
-    ).merge_dict(base_dict=base_dict, latest_dict=latest_dict)
+    diff.Dict(customer_dict=customer_dict, auto_accept=AutoAcceptOption.YOURS).merge_dict(
+        base_dict=base_dict, latest_dict=latest_dict
+    )
     assert "RemovedByCustomer" not in customer_dict
 
 
@@ -78,7 +78,7 @@ def test_dict_diff_customer_deleted_key_auto_accept_panthers_adds_key() -> None:
     base_dict = {"RemovedByCustomer": "base_val"}
     customer_dict: dict = {}
     latest_dict = {"RemovedByCustomer": "latest_val"}
-    diff.Dict(
-        customer_dict=customer_dict, auto_accept=AutoAcceptOption.PANTHERS
-    ).merge_dict(base_dict=base_dict, latest_dict=latest_dict)
+    diff.Dict(customer_dict=customer_dict, auto_accept=AutoAcceptOption.PANTHERS).merge_dict(
+        base_dict=base_dict, latest_dict=latest_dict
+    )
     assert customer_dict["RemovedByCustomer"] == "latest_val"

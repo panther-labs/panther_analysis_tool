@@ -83,7 +83,6 @@ def get_mergeable_items(
     Returns:
         A list of MergeableItem objects that contain the user's item, the latest Panther item, and the base Panther item.
     """
-    yaml_loader = yaml.BlockStyleYAML()
     cache = analysis_cache.AnalysisCache()
     mergeable_items: list[merge_item.MergeableItem] = []
 
@@ -91,6 +90,8 @@ def get_mergeable_items(
         return mergeable_items
 
     for user_spec in user_specs:
+        # New loader per spec so roundtrip state is not shared (see load_analysis_specs_ex).
+        yaml_loader = yaml.BlockStyleYAML()
         user_spec_id = user_spec.analysis_id()
         if analysis_id is not None and analysis_id != user_spec_id:
             # user specified an analysis id, only merge that one
@@ -180,7 +181,6 @@ def merge_items(  # pylint: disable=too-many-arguments,too-many-positional-argum
 ) -> None:
     updated_item_ids: list[str] = []
     merge_conflict_item_ids: list[str] = []
-    yaml_loader = yaml.BlockStyleYAML()
 
     for mergeable_item in track(
         mergeable_items,
@@ -188,6 +188,8 @@ def merge_items(  # pylint: disable=too-many-arguments,too-many-positional-argum
         disable=not show_progress_bar,
         transient=True,
     ):
+        # New loader per spec so roundtrip state is not shared (see load_analysis_specs_ex).
+        yaml_loader = yaml.BlockStyleYAML()
         if analysis_id is not None and analysis_id != mergeable_item.user_item.analysis_id():
             # user specified an analysis id, only merge that one
             continue
