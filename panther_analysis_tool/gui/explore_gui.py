@@ -174,13 +174,17 @@ class ExploreApp(App):
             daemon=True,
         ).start()
 
+    def _mark_user_has_item_on_table(self, item_id: str) -> None:
+        """Update the table to show the user has this item (must run on main thread)."""
+        table = self.query_one("#table", widgets.AnalysisItemDataTable)
+        table.mark_user_has_item(item_id)
+
     def _perform_install_in_thread(self, item_id: str, item_type: str) -> None:
         """Perform the actual install operation in a background thread."""
         try:
             install.install(item_id, [])
-            table = self.query_one("#table", widgets.AnalysisItemDataTable)
-            table.mark_user_has_item(item_id)
             # Use call_from_thread to safely update UI from the worker thread
+            self.call_from_thread(self._mark_user_has_item_on_table, item_id)
             self.call_from_thread(
                 self.notify,
                 f"{item_type} {item_id} ready to use!",
@@ -188,7 +192,6 @@ class ExploreApp(App):
         except Exception as err:
             # Use call_from_thread to safely update UI from the worker thread
             self.call_from_thread(self.notify, str(err), severity="error")
-            self.call_from_thread(self._on_install_complete)
         finally:
             self.call_from_thread(self._on_install_complete)
 

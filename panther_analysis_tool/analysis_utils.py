@@ -46,6 +46,7 @@ from panther_analysis_tool.core import parse, yaml
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
+    analysis_id_field_name,
 )
 from panther_analysis_tool.core.parse import Filter
 from panther_analysis_tool.schemas import (
@@ -313,8 +314,10 @@ def load_analysis_specs_ex(
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
-    # Use safe mode when roundtrip is False, rt mode when roundtrip is True
-    yaml_loader = yaml.BlockStyleYAML(typ="rt" if roundtrip_yaml else "safe")
+    # Use safe mode when roundtrip is False, rt mode when roundtrip is True.
+    # Create a fresh loader per file so each result has its own yaml_ctx. In roundtrip
+    # mode a shared loader would accumulate state across loads and could corrupt
+    # serialize_to_file() when multiple specs are loaded then some are written back.
     loaded_specs: List[Any] = []
     for directory in directories:
         for dirpath, dirnames, filenames in os.walk(directory):
@@ -359,8 +362,9 @@ def load_analysis_specs_ex(
                     logging.debug("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
-                # setup yaml object
+                # New loader per file so roundtrip state is isolated (see doc above).
                 if fnmatch(filename, "*.y*ml"):
+                    yaml_loader = yaml.BlockStyleYAML(typ="rt" if roundtrip_yaml else "safe")
                     with open(spec_filename, "rb") as spec_file_obj:
                         try:
                             file_content = spec_file_obj.read()
@@ -745,29 +749,8 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
 
 def lookup_analysis_id(analysis_spec: Any) -> str:
     """Returns the analysis ID for a given analysis spec."""
-    analysis_type = analysis_spec["AnalysisType"]
-    analysis_id = "UNKNOWN_ID"
-    if analysis_type == AnalysisTypes.DATA_MODEL:
-        analysis_id = analysis_spec["DataModelID"]
-    elif analysis_type == AnalysisTypes.GLOBAL:
-        analysis_id = analysis_spec["GlobalID"]
-    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
-        analysis_id = analysis_spec["LookupName"]
-    elif analysis_type == AnalysisTypes.PACK:
-        analysis_id = analysis_spec["PackID"]
-    elif analysis_type == AnalysisTypes.POLICY:
-        analysis_id = analysis_spec["PolicyID"]
-    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type == AnalysisTypes.SAVED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type in [
-        AnalysisTypes.RULE,
-        AnalysisTypes.SCHEDULED_RULE,
-        AnalysisTypes.CORRELATION_RULE,
-    ]:
-        analysis_id = analysis_spec["RuleID"]
-    return analysis_id
+    id_field = analysis_id_field_name(analysis_spec["AnalysisType"])
+    return analysis_spec.get(id_field, "UNKNOWN_ID")
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -868,28 +851,6 @@ def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
             return "Derived Detection" if not plural else "Derived Detections"
         case AnalysisTypes.SIMPLE_DETECTION:
             return "Simple Detection" if not plural else "Simple Detections"
-        case _:
-            raise ValueError(f"Unsupported analysis type: {analysis_type}")
-
-
-# pylint: disable=too-many-return-statements
-def analysis_id_field_name(analysis_type: str) -> str:
-    """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID, etc.)."""
-    match analysis_type:
-        case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
-            return "RuleID"
-        case AnalysisTypes.DATA_MODEL:
-            return "DataModelID"
-        case AnalysisTypes.POLICY:
-            return "PolicyID"
-        case AnalysisTypes.GLOBAL:
-            return "GlobalID"
-        case AnalysisTypes.SCHEDULED_QUERY | AnalysisTypes.SAVED_QUERY:
-            return "QueryName"
-        case AnalysisTypes.PACK:
-            return "PackID"
-        case AnalysisTypes.LOOKUP_TABLE:
-            return "LookupName"
         case _:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
 

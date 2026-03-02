@@ -57,7 +57,14 @@ def merge_analysis(
         print(f"Analysis ID '{analysis_id}' does not need merging.")
         return 0, ""
 
-    merge_items(mergeable_items, analysis_id, editor, auto_accept, write_merge_conflicts)
+    merge_items(
+        mergeable_items,
+        analysis_id,
+        editor,
+        auto_accept,
+        show_progress_bar=False,
+        write_merge_conflicts=write_merge_conflicts,
+    )
 
     return 0, ""
 
