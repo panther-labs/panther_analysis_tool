@@ -1,0 +1,87 @@
+from typing import Any, List, Optional, Tuple
+
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.core import (
+    analysis_cache,
+    install_item,
+    parse,
+    root,
+    versions_file,
+    yaml,
+)
+
+
+def run(analysis_id: Optional[str], filter_args: List[str]) -> Tuple[int, str]:
+    try:
+        root.chdir_to_project_root()
+        analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
+        install(analysis_id, filter_args, show_installed_items=True)
+    except (ValueError, analysis_cache.NoCacheException) as err:
+        return 1, str(err)
+
+    return 0, ""
+
+
+def install(
+    analysis_id: Optional[str], filter_args: List[str], show_installed_items: bool = False
+) -> None:
+    items_to_install = get_analysis_items(analysis_id, filter_args)
+
+    if len(items_to_install) == 0:
+        label = "analysis ID and filters"
+        if analysis_id is None and len(filter_args) > 0:
+            label = "filters"
+        elif analysis_id is not None and len(filter_args) == 0:
+            label = "analysis ID"
+
+        raise ValueError(f"No items matched the {label}. Nothing to install.")
+
+    install_analysis_items(items_to_install, show_installed_items=show_installed_items)
+
+
+def get_analysis_items(
+    analysis_id: Optional[str], filter_args: List[str]
+) -> List[analysis_utils.AnalysisItem]:
+    yaml_loader = yaml.BlockStyleYAML()
+    cache = analysis_cache.AnalysisCache()
+    versions = versions_file.get_versions().versions
+    filters, filters_inverted = parse.parse_filter_args(filter_args)
+
+    all_specs: List[analysis_utils.AnalysisItem] = []
+    for _id in cache.list_spec_ids() if analysis_id is None else [analysis_id]:
+        analysis_spec = cache.get_latest_spec(_id)
+        if analysis_spec is None:
+            continue
+        if _id not in versions:
+            continue
+
+        loaded: dict[str, Any] = yaml_loader.load(analysis_spec.spec)
+
+        if not analysis_utils.filter_analysis_spec(loaded, [*filters, *filters_inverted]):
+            continue
+
+        ver = versions[_id]
+        all_specs.append(
+            analysis_utils.AnalysisItem(
+                yaml_file_contents=loaded,
+                yaml_file_path=ver.history[ver.version].yaml_file_path,
+                python_file_path=ver.history[ver.version].py_file_path,
+                python_file_contents=cache.get_file_for_spec(
+                    analysis_spec.id or -1, analysis_spec.version
+                ),
+            )
+        )
+
+    return all_specs
+
+
+def install_analysis_items(
+    items_to_install: List[analysis_utils.AnalysisItem], show_installed_items: bool = False
+) -> None:
+    for item in items_to_install:
+        try:
+            install_item.install_analysis_item(item, show_installed_items=show_installed_items)
+        except FileExistsError:
+            continue
+
+    install_item.install_deps(items_to_install, show_installed_items=show_installed_items)

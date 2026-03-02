@@ -1,0 +1,312 @@
+import pathlib
+from unittest.mock import call
+
+from _pytest.monkeypatch import MonkeyPatch
+from pytest_mock import MockerFixture
+
+from panther_analysis_tool.command import update
+from panther_analysis_tool.constants import (
+    CACHE_DIR,
+    CACHED_VERSIONS_FILE_PATH,
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+)
+from panther_analysis_tool.core import analysis_cache, yaml
+
+_FAKE_PY = """
+def rule(event):
+    return True
+"""
+
+_FAKE_RULE_1_V1 = yaml.dump(
+    {
+        "AnalysisType": "rule",
+        "Filename": "fake_rule_1.py",
+        "RuleID": "fake.rule.1",
+        "Enabled": True,
+        "Description": "Fake rule 1 v1",
+    }
+)
+
+_FAKE_RULE_2_V1 = yaml.dump(
+    {
+        "AnalysisType": "rule",
+        "Filename": "fake_rule_2.py",
+        "RuleID": "fake.rule.2",
+        "Enabled": True,
+        "Description": "Fake rule 2 v1",
+    }
+)
+
+_FAKE_RULE_2_V2 = yaml.dump(
+    {
+        "AnalysisType": "rule",
+        "Filename": "fake_rule_2.py",
+        "RuleID": "fake.rule.2",
+        "Enabled": True,
+        "Description": "Fake rule 2 v2",
+        "NewField": "fake_rule_2_v2",
+    }
+)
+
+_FAKE_USER_RULE_2_V1 = yaml.dump(
+    {
+        "AnalysisType": "rule",
+        "Filename": "fake_user_rule_2.py",
+        "RuleID": "fake.rule.2",  # matches _FAKE_RULE_2_V2
+        "Enabled": True,
+        "Description": "Fake user rule 2 v1",
+        "BaseVersion": 1,
+    }
+)
+
+_FAKE_VERSIONS_FILE = yaml.dump(
+    {
+        "versions": {
+            "fake.rule.1": {
+                "version": 1,
+                "type": "rule",
+                "sha256": "fake_sha256_1",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_1",
+                        "yaml_file_path": "fake_rule_1.yaml",
+                        "py_file_path": "fake_rule_1.py",
+                    },
+                },
+            },
+            "fake.rule.2": {
+                "version": 2,
+                "type": "rule",
+                "sha256": "fake_sha256_2",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_2_1",
+                        "yaml_file_path": "fake_rule_2.yaml",
+                        "py_file_path": "fake_rule_2.py",
+                    },
+                    "2": {
+                        "version": 2,
+                        "commit_hash": "fake_commit_hash_2_2",
+                        "yaml_file_path": "fake_rule_2.yaml",
+                        "py_file_path": "fake_rule_2.py",
+                    },
+                },
+            },
+        },
+    }
+)
+
+
+def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.AnalysisCache:
+    monkeypatch.chdir(tmp_path)
+    pa_clone_path = CACHE_DIR / "panther-analysis"
+    pa_clone_path.mkdir(parents=True, exist_ok=True)
+
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+    # fake cloning panther-analysis repository
+    create_file_with_text(pa_clone_path / "rules" / "fake_rule_1.yaml", _FAKE_RULE_1_V1)
+    create_file_with_text(pa_clone_path / "rules" / "fake_rule_1.py", _FAKE_PY)
+    create_file_with_text(pa_clone_path / "rules" / "fake_rule_2.yaml", _FAKE_RULE_2_V2)
+    create_file_with_text(pa_clone_path / "rules" / "fake_rule_2.py", _FAKE_PY)
+    create_file_with_text(CACHED_VERSIONS_FILE_PATH, _FAKE_VERSIONS_FILE)
+
+    # fake user's analysis items
+    pathlib.Path("rules").mkdir(parents=True, exist_ok=True)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.yaml", _FAKE_USER_RULE_2_V1)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.py", _FAKE_PY)
+
+    cache = analysis_cache.AnalysisCache()
+    cache.create_tables()
+    return cache
+
+
+def create_file_with_text(path: pathlib.Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    path.write_text(text)
+
+
+def _setup_update_test(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Common setup for update tests."""
+    mocker.patch(
+        "panther_analysis_tool.command.update.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+        return_value="fake_commit_hash_1",
+    )
+    mocker.patch(
+        "panther_analysis_tool.command.update.analysis_cache._clone_panther_analysis",
+        return_value=None,
+    )
+    mocker.patch("panther_analysis_tool.command.update.root.chdir_to_project_root")
+
+    set_up_cache(tmp_path, monkeypatch)
+
+
+def test_update_and_merge_with_conflicts(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test update when merge has conflicts."""
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    _setup_update_test(tmp_path, monkeypatch, mocker)
+
+    update.run(update.UpdateArgs())
+
+    mock_print.assert_has_calls(
+        [
+            call(
+                "1 merge conflict(s) found, run `EDITOR=<editor> pat merge <id>` to resolve each conflict:"
+            ),
+            call("  * fake.rule.2"),
+        ]
+    )
+
+
+def test_update_no_mergeable_items(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test update when there are no mergeable items (everything is up to date)."""
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    mock_install_deps = mocker.patch(
+        "panther_analysis_tool.command.update.install_item.install_deps"
+    )
+    _setup_update_test(tmp_path, monkeypatch, mocker)
+
+    # Create a user rule that's already at the latest version
+    _FAKE_USER_RULE_2_V2 = yaml.dump(
+        {
+            "AnalysisType": "rule",
+            "Filename": "fake_user_rule_2.py",
+            "RuleID": "fake.rule.2",
+            "Enabled": True,
+            "Description": "Fake user rule 2 v2",
+            "BaseVersion": 2,  # Already at latest version
+        }
+    )
+    pathlib.Path("rules").mkdir(parents=True, exist_ok=True)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.yaml", _FAKE_USER_RULE_2_V2)
+    create_file_with_text(pathlib.Path("rules") / "fake_user_rule_2.py", _FAKE_PY)
+
+    update.run(update.UpdateArgs())
+
+    # Should not print anything about merging
+    mock_print.assert_not_called()
+    # Should still try to install deps (but with empty list)
+    mock_install_deps.assert_called_once_with([])
+
+
+def test_update_preview_mode(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test update in preview mode shows what would be updated without actually updating."""
+    mock_print = mocker.patch("panther_analysis_tool.command.merge.print")
+    mock_install_deps = mocker.patch(
+        "panther_analysis_tool.command.update.install_item.install_deps"
+    )
+    _setup_update_test(tmp_path, monkeypatch, mocker)
+
+    update.run(update.UpdateArgs(preview=True))
+
+    # Preview mode should show conflicts
+    mock_print.assert_has_calls(
+        [
+            call(
+                "1 analysis item(s) will have merge conflicts when updated to latest Panther version:"
+            ),
+            call("  * fake.rule.2"),
+        ]
+    )
+    # Should not install dependencies in preview mode (no merged items)
+    mock_install_deps.assert_called_once_with([])
+
+
+def test_update_installs_dependencies(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Test that update installs dependencies for successfully merged items."""
+    mock_install_deps = mocker.patch(
+        "panther_analysis_tool.command.update.install_item.install_deps"
+    )
+    _setup_update_test(tmp_path, monkeypatch, mocker)
+
+    update.run(update.UpdateArgs())
+
+    # Verify install_deps is always called (with merged items, or empty list if conflicts)
+    mock_install_deps.assert_called_once()
+    assert isinstance(mock_install_deps.call_args[0][0], list)
+
+
+def test_update_calls_chdir_to_project_root_monorepo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that update command calls chdir_to_project_root which chdirs to project root
+    (not git root) in monorepo scenario.
+    """
+    from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
+
+    git_root = tmp_path
+    project_root = git_root / "pa"
+    subdir = project_root / "some" / "nested" / "directory"
+
+    project_root.mkdir(parents=True, exist_ok=True)
+    subdir.mkdir(parents=True, exist_ok=True)
+    (project_root / PAT_ROOT_FILE_NAME).touch()
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock chdir_to_project_root to verify it's called
+    mock_chdir_to_project_root = mocker.patch(
+        "panther_analysis_tool.command.update.root.chdir_to_project_root"
+    )
+
+    # Mock all the update operations to avoid actually running them
+    mocker.patch(
+        "panther_analysis_tool.command.update.update",
+        return_value=None,
+    )
+
+    # Run update command
+    update.run(update.UpdateArgs())
+
+    # Verify chdir_to_project_root was called
+    mock_chdir_to_project_root.assert_called_once()
+
+
+def test_update_calls_chdir_to_project_root_normal_repo(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """
+    Test that update command calls chdir_to_project_root which chdirs to git root
+    in normal repo scenario (no .pat-root).
+    """
+    git_root = tmp_path
+    subdir = git_root / "some" / "nested" / "directory"
+    subdir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.chdir(subdir)
+
+    mocker.patch("panther_analysis_tool.core.git_helpers.git_root", return_value=git_root)
+
+    # Mock chdir_to_project_root to verify it's called
+    mock_chdir_to_project_root = mocker.patch(
+        "panther_analysis_tool.command.update.root.chdir_to_project_root"
+    )
+
+    # Mock all the update operations to avoid actually running them
+    mocker.patch(
+        "panther_analysis_tool.command.update.update",
+        return_value=None,
+    )
+
+    # Run update command
+    update.run(update.UpdateArgs())
+
+    # Verify chdir_to_project_root was called
+    mock_chdir_to_project_root.assert_called_once()
