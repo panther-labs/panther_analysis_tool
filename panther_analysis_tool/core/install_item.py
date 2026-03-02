@@ -70,7 +70,6 @@ def install_deps(
     checked_global_helpers: set[str] = set()  # global helpers whose imports have been checked
     cache = analysis_cache.AnalysisCache()
     versions = versions_file.get_versions().versions
-    yaml_loader = yaml.BlockStyleYAML()
     global_helpers: dict[str, analysis_cache.AnalysisSpec] = {}  # filename -> spec
     data_models: list[LoadedDataModelSpec] = []
 
@@ -79,6 +78,8 @@ def install_deps(
         if spec is None:
             continue
 
+        # New loader per spec so roundtrip state is not shared across loads (see load_analysis_specs_ex).
+        yaml_loader = yaml.BlockStyleYAML()
         loaded = yaml_loader.load(spec.spec)
 
         if loaded["AnalysisType"] == AnalysisTypes.GLOBAL:

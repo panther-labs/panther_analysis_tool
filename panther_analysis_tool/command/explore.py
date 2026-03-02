@@ -35,6 +35,8 @@ def load_panther_analysis_specs(
         spec = cache.get_latest_spec(_id)
         if spec is None:
             continue
+        if _id not in versions:
+            continue
 
         yaml_content = yaml_loader.load(spec.spec)
         ver = versions[_id]

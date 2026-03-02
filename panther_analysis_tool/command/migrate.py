@@ -393,8 +393,6 @@ def get_migration_item(
     result: MigrationStatus,
     ancestor_commit: str | None = None,
 ) -> merge_item.MergeableItem | None:
-    yaml_loader = yaml.BlockStyleYAML()
-
     if analysis_id is not None and analysis_id != user_spec.analysis_id():
         # user specified an analysis id, only migrate that one
         return None
@@ -421,6 +419,8 @@ def get_migration_item(
 
     # the latest item is simply the latest spec if it was in the cache
     if latest_spec is not None:
+        # New loader per spec so roundtrip state is not shared across loads (see load_analysis_specs_ex).
+        yaml_loader = yaml.BlockStyleYAML()
         latest_item = analysis_utils.AnalysisItem(
             yaml_file_contents=yaml_loader.load(latest_spec.spec),
             raw_yaml_file_contents=latest_spec.spec,

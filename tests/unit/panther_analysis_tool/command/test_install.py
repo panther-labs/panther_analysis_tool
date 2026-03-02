@@ -13,7 +13,7 @@ from panther_analysis_tool.constants import (
     CACHED_VERSIONS_FILE_PATH,
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
-from panther_analysis_tool.core import analysis_cache, yaml
+from panther_analysis_tool.core import analysis_cache, versions_file, yaml
 
 _FAKE_PY = """
 def rule(event):
@@ -176,6 +176,17 @@ _FAKE_RULE_WITH_DEPS = yaml.dump(
         "Enabled": False,
         "Description": "Fake rule with deps",
         "LogTypes": ["fake.datamodel.1.log.type", "fake.datamodel.2.log.type"],
+    }
+)
+
+# Stale rule: present in cache but not in versions file (simulates stale cache entry).
+_STALE_RULE_V1 = yaml.dump(
+    {
+        "AnalysisType": "rule",
+        "Filename": "stale_rule_1.py",
+        "RuleID": "stale.rule.1",
+        "Enabled": False,
+        "Description": "Stale rule not in versions file",
     }
 )
 
@@ -516,6 +527,19 @@ def test_get_analysis_items_bad_id(tmp_path: pathlib.Path, monkeypatch: MonkeyPa
     set_up_cache(tmp_path, monkeypatch)
     items = install.get_analysis_items(analysis_id="bad_id", filter_args=[])
     assert items == []
+
+
+def test_get_analysis_items_skips_specs_missing_from_versions(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Specs that exist in the cache but not in the versions file are skipped (no KeyError)."""
+    monkeypatch.setattr(versions_file, "_VERSIONS", None)
+    cache = set_up_cache(tmp_path, monkeypatch)
+    insert_spec(cache, _STALE_RULE_V1, 1, "RuleID", "stale.rule.1", _FAKE_PY)
+    items = install.get_analysis_items(analysis_id=None, filter_args=[])
+    assert len(items) == 15
+    ids = [item.analysis_id() for item in items]
+    assert "stale.rule.1" not in ids
 
 
 def test_get_analysis_items_no_filters_and_no_id(

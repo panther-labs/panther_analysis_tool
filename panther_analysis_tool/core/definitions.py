@@ -12,7 +12,13 @@ from panther_analysis_tool.util import is_simple_detection
 def analysis_id_field_name(analysis_type: str) -> str:
     """Returns the name of the field that holds the ID of this analysis item (e.g. RuleID, PolicyID)."""
     match analysis_type:
-        case AnalysisTypes.RULE | AnalysisTypes.SCHEDULED_RULE | AnalysisTypes.CORRELATION_RULE:
+        case (
+            AnalysisTypes.RULE
+            | AnalysisTypes.SCHEDULED_RULE
+            | AnalysisTypes.CORRELATION_RULE
+            | AnalysisTypes.DERIVED
+            | AnalysisTypes.SIMPLE_DETECTION
+        ):
             return "RuleID"
         case AnalysisTypes.DATA_MODEL:
             return "DataModelID"

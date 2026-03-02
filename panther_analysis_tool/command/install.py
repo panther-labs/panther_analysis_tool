@@ -52,17 +52,20 @@ def get_analysis_items(
         analysis_spec = cache.get_latest_spec(_id)
         if analysis_spec is None:
             continue
+        if _id not in versions:
+            continue
 
         loaded: dict[str, Any] = yaml_loader.load(analysis_spec.spec)
 
         if not analysis_utils.filter_analysis_spec(loaded, [*filters, *filters_inverted]):
             continue
 
+        ver = versions[_id]
         all_specs.append(
             analysis_utils.AnalysisItem(
                 yaml_file_contents=loaded,
-                yaml_file_path=versions[_id].history[versions[_id].version].yaml_file_path,
-                python_file_path=versions[_id].history[versions[_id].version].py_file_path,
+                yaml_file_path=ver.history[ver.version].yaml_file_path,
+                python_file_path=ver.history[ver.version].py_file_path,
                 python_file_contents=cache.get_file_for_spec(
                     analysis_spec.id or -1, analysis_spec.version
                 ),
