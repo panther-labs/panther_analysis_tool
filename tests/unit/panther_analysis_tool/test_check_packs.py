@@ -72,3 +72,104 @@ class TestCheckPacks(unittest.TestCase):
 
         assert exit_code == 0
         assert res == "Looks like packs are up to date"
+
+    def test_experimental_in_pack(self) -> None:
+        # Consolidated test: experimental items should not be allowed in packs
+        path = FIXTURES_PATH / "consolidated"
+        # Temporarily rename the with_experimental pack to be the only pack
+        import shutil
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Copy rules
+            shutil.copytree(path / "rules", Path(tmpdir) / "rules")
+            # Copy only the experimental pack
+            (Path(tmpdir) / "packs").mkdir()
+            shutil.copy(path / "packs/with_experimental.yml", Path(tmpdir) / "packs/")
+
+            exit_code, res = check_packs(tmpdir)
+
+            assert exit_code == 1
+            assert "experimental items are not allowed in packs" in res
+            assert "Test.Experimental.Rule" in res
+            # Test case-insensitivity: Status: Experimental should also be caught
+            assert "Test.Experimental.Rule.Uppercase" in res
+
+    def test_experimental_not_in_pack_is_ok(self) -> None:
+        # Consolidated test: experimental items not in packs should not be flagged as missing
+        path = FIXTURES_PATH / "consolidated"
+        import shutil
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Copy rules
+            shutil.copytree(path / "rules", Path(tmpdir) / "rules")
+            # Copy only the valid pack (excludes experimental)
+            (Path(tmpdir) / "packs").mkdir()
+            shutil.copy(path / "packs/valid.yml", Path(tmpdir) / "packs/")
+
+            exit_code, res = check_packs(tmpdir)
+
+            assert exit_code == 0
+            assert res == "Looks like packs are up to date"
+
+    def test_deprecated_displayname_in_pack(self) -> None:
+        # Consolidated test: items with DEPRECATED in DisplayName should not be allowed in packs
+        path = FIXTURES_PATH / "consolidated"
+        import shutil
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "rules").mkdir()
+            (Path(tmpdir) / "packs").mkdir()
+            # Copy only the deprecated displayname rule
+            for ext in [".yml", ".py"]:
+                shutil.copy(path / f"rules/deprecated_displayname{ext}", Path(tmpdir) / "rules/")
+            shutil.copy(path / "packs/with_deprecated_displayname.yml", Path(tmpdir) / "packs/")
+
+            exit_code, res = check_packs(tmpdir)
+
+            assert exit_code == 1
+            assert "deprecated items are not allowed in packs" in res
+            assert "Test.Deprecated.DisplayName.Rule" in res
+
+    def test_deprecated_status_in_pack(self) -> None:
+        # Consolidated test: items with Status: deprecated should not be allowed in packs
+        path = FIXTURES_PATH / "consolidated"
+        import shutil
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "rules").mkdir()
+            (Path(tmpdir) / "packs").mkdir()
+            # Copy only the deprecated status rule
+            for ext in [".yml", ".py"]:
+                shutil.copy(path / f"rules/deprecated_status{ext}", Path(tmpdir) / "rules/")
+            shutil.copy(path / "packs/with_deprecated_status.yml", Path(tmpdir) / "packs/")
+
+            exit_code, res = check_packs(tmpdir)
+
+            assert exit_code == 1
+            assert "deprecated items are not allowed in packs" in res
+            assert "Test.Deprecated.Status.Rule" in res
+
+    def test_excluded_tags_in_pack(self) -> None:
+        # Consolidated test: items with excluded tags should not be allowed in packs
+        path = FIXTURES_PATH / "consolidated"
+        import shutil
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "rules").mkdir()
+            (Path(tmpdir) / "packs").mkdir()
+            # Copy only the excluded tag rule
+            for ext in [".yml", ".py"]:
+                shutil.copy(path / f"rules/excluded_tag{ext}", Path(tmpdir) / "rules/")
+            shutil.copy(path / "packs/with_excluded_tag.yml", Path(tmpdir) / "packs/")
+
+            exit_code, res = check_packs(tmpdir)
+
+            assert exit_code == 1
+            assert "excluded tags are not allowed in packs" in res
+            assert "Test.ExcludedTag.Rule" in res
+            assert "no pack" in res

@@ -25,6 +25,7 @@ deps-update: ## Update dependencies using poetry
 
 .PHONY: reqs
 reqs:
+	poetry lock
 	poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 .PHONY: lint
@@ -43,6 +44,7 @@ fmt: ## Format panther_analysis_tool (black)
 
 .PHONY: install
 install: ## Install dependencies (including dev dependencies) using poetry
+	poetry lock
 	poetry sync
 
 .PHONY: test
