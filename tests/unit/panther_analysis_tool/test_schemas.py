@@ -509,6 +509,76 @@ class TestPATSchemas(unittest.TestCase):
                 }
             )
 
+    def test_status_field(self):
+        RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "rule",
+                "Description": "SomeRule",
+                "DisplayName": "Some Rule",
+                "Enabled": True,
+                "Filename": "rule.py",
+                "Severity": "Low",
+                "LogTypes": ["Panther.Audit"],
+                "RuleID": "'Some.Rule1.CreatedBy'",
+                "Status": "Experimental",
+            }
+        )
+        POLICY_SCHEMA.validate(
+            {
+                "AnalysisType": "policy",
+                "Enabled": False,
+                "Filename": "hmm",
+                "PolicyID": "h",
+                "Severity": "Info",
+                "ResourceTypes": ["AWS.DynamoDB.Table"],
+                "Status": "Experimental",
+            }
+        )
+        CORRELATION_RULE_SCHEMA.validate(
+            {
+                "AnalysisType": "correlation_rule",
+                "DisplayName": "Example Correlation Rule",
+                "Enabled": True,
+                "RuleID": "My.Correlation.Rule",
+                "Severity": "High",
+                "Status": "Experimental",
+                "Detection": [
+                    {
+                        "Sequence": [
+                            {
+                                "ID": "First",
+                                "RuleID": "Okta.Global.MFA.Disabled",
+                                "MinMatchCount": 7,
+                            },
+                            {
+                                "ID": "Second",
+                                "RuleID": "Okta.Support.Access",
+                                "MinMatchCount": 1,
+                            },
+                        ],
+                        "LookbackWindowMinutes": 15,
+                        "Schedule": {
+                            "RateMinutes": 5,
+                            "TimeoutMinutes": 3,
+                        },
+                    }
+                ],
+            }
+        )
+        # test validation works that it must be a string
+        with self.assertRaises(SchemaError):
+            RULE_SCHEMA.validate(
+                {
+                    "AnalysisType": "scheduled_rule",
+                    "Enabled": False,
+                    "Filename": "hmm",
+                    "RuleID": "h",
+                    "Severity": "Info",
+                    "LogTypes": ["AWS.ALB"],
+                    "Status": 123,
+                }
+            )
+
     def test_rba_flag(self):
         RULE_SCHEMA.validate(
             {

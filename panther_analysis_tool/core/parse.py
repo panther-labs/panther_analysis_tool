@@ -9,6 +9,9 @@ from panther_analysis_tool.schemas import (
     extract_keys_schema,
 )
 
+EXPERIMENTAL_STATUS = "experimental"
+DEPRECATED_STATUS = "deprecated"
+
 
 @dataclass
 class Filter:
@@ -60,6 +63,41 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
     filters_inverted = [
         Filter(key=key, values=values) for key, values in parsed_filters_inverted.items()
     ]
+    return filters, filters_inverted
+
+
+def get_filters_with_status_filters(
+    str_filters: Optional[List[str]],
+) -> Tuple[List[Filter], List[Filter]]:
+    filters, filters_inverted = parse_filter(str_filters)
+    filters, filters_inverted = add_status_filters(filters, filters_inverted)
+    return filters, filters_inverted
+
+
+def add_status_filters(
+    filters: List[Filter], filters_inverted: List[Filter]
+) -> Tuple[List[Filter], List[Filter]]:
+    blocked_statuses = [EXPERIMENTAL_STATUS, DEPRECATED_STATUS]
+
+    # strip experimental/deprecated from any positive Status filter the user provided
+    for i, filt in enumerate(filters):
+        if filt.key == "Status":
+            existing_values = filt.values if isinstance(filt.values, list) else [filt.values]
+            cleaned = [v for v in existing_values if v.lower() not in blocked_statuses]
+            filters[i] = Filter(key="Status", values=cleaned)
+
+    # ensure the inverted filter always includes experimental and deprecated
+    for i, filt in enumerate(filters_inverted):
+        if filt.key == "Status":
+            existing_values = filt.values if isinstance(filt.values, list) else [filt.values]
+            merged_values = list(existing_values)
+            for val in blocked_statuses:
+                if val not in merged_values:
+                    merged_values.append(val)
+            filters_inverted[i] = Filter(key="Status", values=merged_values)
+            return filters, filters_inverted
+
+    filters_inverted.append(Filter(key="Status", values=list(blocked_statuses)))
     return filters, filters_inverted
 
 

@@ -1,0 +1,20 @@
+AnalysisType: rule
+Filename: no_status.py
+DisplayName: rule without status
+Description: rule without status description
+Severity: High
+RuleID: No.Status
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      Arn: arn:aws:iam::123456789012:user/root
+      CreateDate: 2019-01-01T00:00:00Z
+      CredentialReport:
+        MfaActive: false
+        PasswordEnabled: true
+      UserName: root

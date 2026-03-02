@@ -9,10 +9,10 @@ from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
 
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
-    def validate(
+    def validate(  # type: ignore
         self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
     ) -> Dict[str, Any]:
-        super().validate(data, _is_query_schedule_schema=False)
+        super().validate(data, _is_query_schedule_schema=False)  # type: ignore
         if _is_query_schedule_schema:
             rate, timeout = data.get("RateMinutes"), data.get("TimeoutMinutes")
             if rate is not None:
@@ -120,6 +120,7 @@ POLICY_SCHEMA = Schema(
         Optional("CreatedBy"): str,
         Optional("Reference"): str,
         Optional("Runbook"): str,
+        Optional("Status"): str,
         Optional("Suppressions"): [str],
         Optional("Tags"): [str],
         Optional("Reports"): {str: list},
@@ -155,6 +156,7 @@ RULE_SCHEMA = Schema(
         Optional("CreatedBy"): str,
         Optional("Reference"): str,
         Optional("Runbook"): str,
+        Optional("Status"): str,
         Optional("SummaryAttributes"): [str],
         Optional("Threshold"): int,
         Optional("Tags"): [str],
@@ -194,6 +196,7 @@ DERIVED_SCHEMA = Schema(
         Optional("OutputIds"): [str],
         Optional("Reference"): str,
         Optional("Runbook"): str,
+        Optional("Status"): str,
         Optional("SummaryAttributes"): [str],
         Optional("Threshold"): int,
         Optional("Tags"): [str],
@@ -222,6 +225,7 @@ CORRELATION_RULE_SCHEMA = Schema(
         Optional("CreatedBy"): str,
         Optional("Reference"): str,
         Optional("Runbook"): str,
+        Optional("Status"): str,
         Optional("SummaryAttributes"): [str],
         Optional("Tags"): [str],
         Optional("Reports"): {str: list},

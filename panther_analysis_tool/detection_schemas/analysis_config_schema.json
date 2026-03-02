@@ -1641,6 +1641,9 @@
         "AnalysisType"
       ]
     },
+    "Status": {
+      "type": "string"
+    },
     "Test": {
       "properties": {
         "Name": {

@@ -1,0 +1,21 @@
+AnalysisType: rule
+Filename: status_stable.py
+DisplayName: stable rule
+Description: stable rule description
+Severity: High
+RuleID: Status.Stable
+Status: stable
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      Arn: arn:aws:iam::123456789012:user/root
+      CreateDate: 2019-01-01T00:00:00Z
+      CredentialReport:
+        MfaActive: false
+        PasswordEnabled: true
+      UserName: root
