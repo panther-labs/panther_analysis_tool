@@ -91,8 +91,9 @@ def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
         # Import here to avoid circular dependencies
         from panther_analysis_tool.backend.client import ListSchemasParams
 
-        # Fetch both managed and custom schemas (is_managed=None means all)
-        response = backend.list_schemas(ListSchemasParams(is_managed=None))
+        # Fetch managed schemas (built-in log types). Custom.* log types are
+        # validated locally via regex, so we only need the managed set here.
+        response = backend.list_schemas(ListSchemasParams(is_managed=True))
 
         if response.data and response.data.schemas:
             log_types = {schema.name for schema in response.data.schemas}
