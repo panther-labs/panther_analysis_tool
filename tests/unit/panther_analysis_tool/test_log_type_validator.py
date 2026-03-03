@@ -3,6 +3,8 @@
 import unittest
 from unittest.mock import Mock
 
+from schema import SchemaError
+
 from panther_analysis_tool.backend.client import ListSchemasResponse, Schema
 from panther_analysis_tool.core.definitions import ClassifiedAnalysis
 from panther_analysis_tool.log_type_validator import (
@@ -296,10 +298,7 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
             _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
             _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["FakeVendor.FakeLog"]}),
         ]
-        mock_backend = _make_mock_backend([])
-        # Pre-populate cache as empty to simulate "no API results" → validation skipped
-        # (cache not initialized means skip; use backend that returns empty)
-        mock_backend.list_schemas.return_value.data = None
+        mock_backend = _make_mock_backend([])  # empty schema list → _fetch_log_types returns None
 
         supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
@@ -353,8 +352,8 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
         self.assertEqual(len(supported), 0)
         self.assertEqual(len(errors), 1)
 
-    def test_error_tuple_is_filename_and_exception(self):
-        """Each error is a (filename, Exception) tuple suitable for invalid_specs."""
+    def test_error_tuple_is_filename_and_schema_error(self):
+        """Each error is a (filename, SchemaError) tuple compatible with invalid_specs."""
         LogTypeCache.set_log_types({"AWS.CloudTrail"})
         items = [_make_item("bad.yml", {"RuleID": "Bad", "LogTypes": ["Unknown.Type"]})]
         mock_backend = Mock()
@@ -364,7 +363,7 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         filename, exc = errors[0]
         self.assertEqual(filename, "bad.yml")
-        self.assertIsInstance(exc, Exception)
+        self.assertIsInstance(exc, SchemaError)
 
 
 class TestFilterAnalysisByLogTypeSupport(unittest.TestCase):

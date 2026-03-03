@@ -14,6 +14,8 @@ import re
 import threading
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
+from schema import SchemaError
+
 if TYPE_CHECKING:
     from panther_analysis_tool.backend.client import Client as BackendClient
     from panther_analysis_tool.core.definitions import ClassifiedAnalysis
@@ -94,14 +96,14 @@ def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
 
         if response.data and response.data.schemas:
             log_types = {schema.name for schema in response.data.schemas}
-            logging.debug(f"Fetched {len(log_types)} log types from Panther instance")
+            logging.debug("Fetched %d log types from Panther instance", len(log_types))
             return log_types
         else:
             logging.warning("No schemas returned from Panther instance")
             return None
 
     except Exception as e:  # pylint: disable=broad-except
-        logging.warning(f"Failed to fetch log types from Panther instance: {e}")
+        logging.warning("Failed to fetch log types from Panther instance: %s", e)
         return None
 
 
@@ -220,7 +222,7 @@ def split_analysis_by_log_type_support(
             errors.append(
                 (
                     item.file_name,
-                    Exception(
+                    SchemaError(
                         f"LogTypes not supported by Panther instance: {', '.join(unsupported)}"
                     ),
                 )
