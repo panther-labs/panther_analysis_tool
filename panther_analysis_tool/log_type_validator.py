@@ -12,7 +12,7 @@ to provide dynamic validation when API credentials are available.
 import logging
 import re
 import threading
-from typing import TYPE_CHECKING, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, FrozenSet, List, Optional, Set, Tuple
 
 from schema import SchemaError
 
@@ -39,19 +39,19 @@ class LogTypeCache:
     """
 
     _lock: threading.Lock = threading.Lock()
-    _log_types: Optional[Set[str]] = None
+    _log_types: Optional[FrozenSet[str]] = None
 
     @classmethod
-    def get_log_types(cls) -> Optional[Set[str]]:
+    def get_log_types(cls) -> Optional[FrozenSet[str]]:
         """Returns cached log types, or None if not yet fetched."""
         with cls._lock:
             return cls._log_types
 
     @classmethod
     def set_log_types(cls, log_types: Set[str]) -> None:
-        """Caches the provided log types."""
+        """Caches the provided log types as a frozenset."""
         with cls._lock:
-            cls._log_types = log_types
+            cls._log_types = frozenset(log_types)
 
     @classmethod
     def clear(cls) -> None:
@@ -210,7 +210,7 @@ def split_analysis_by_log_type_support(
             supported.append(item)
             continue
 
-        log_types = spec.get("LogTypes", spec.get("ScheduledQueries", []))
+        log_types = spec.get("LogTypes", [])
 
         if not log_types:
             supported.append(item)

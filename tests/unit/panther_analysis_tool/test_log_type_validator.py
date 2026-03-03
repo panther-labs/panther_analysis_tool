@@ -336,8 +336,8 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
         self.assertEqual(len(supported), 2)
         self.assertEqual(len(errors), 0)
 
-    def test_scheduled_queries_validated(self):
-        """ScheduledQueries field is also checked against supported log types."""
+    def test_scheduled_queries_not_validated_as_log_types(self):
+        """ScheduledQueries are not log types and should not be validated against the cache."""
         LogTypeCache.set_log_types({"AWS.CloudTrail"})
         items = [
             _make_item(
@@ -349,8 +349,8 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
 
         supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
-        self.assertEqual(len(supported), 0)
-        self.assertEqual(len(errors), 1)
+        self.assertEqual(len(supported), 1)
+        self.assertEqual(len(errors), 0)
 
     def test_error_tuple_is_filename_and_schema_error(self):
         """Each error is a (filename, SchemaError) tuple compatible with invalid_specs."""

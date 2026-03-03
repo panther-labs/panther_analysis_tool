@@ -126,7 +126,6 @@ from panther_analysis_tool.core.definitions import (
     TestResultsContainer,
 )
 from panther_analysis_tool.log_type_validator import (
-    init_log_type_cache,
     split_analysis_by_log_type_support,
 )
 from panther_analysis_tool.core.parse import (
@@ -899,7 +898,7 @@ def test_analysis(
     # Validate log types against the Panther instance when a backend is available.
     # Items with unsupported log types are treated as invalid specs (schema errors),
     # preserving the same behavior as the prior static LOG_TYPE_REGEX validation.
-    if backend is not None and init_log_type_cache(backend):
+    if backend is not None:
         for attr in ("detections", "simple_detections", "data_models"):
             valid, errors = split_analysis_by_log_type_support(getattr(specs, attr), backend)
             setattr(specs, attr, valid)
