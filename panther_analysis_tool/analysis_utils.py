@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import jsonschema
 import schema
+import yaml as pyyaml  # type: ignore[import-untyped]
 from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
@@ -289,6 +290,84 @@ class LoadAnalysisSpecsResult:
         return self.analysis_spec.get("Status", "").lower() == parse.EXPERIMENTAL_STATUS.lower()
 
 
+class _PATSafeLoader(pyyaml.CSafeLoader):
+    """Custom CSafeLoader that preserves ruamel.yaml (YAML 1.2) semantics:
+    - Timestamps returned as strings, not datetime objects
+    - YAML 1.1 boolean words (yes/no/on/off) returned as strings, not booleans
+    - YAML 1.1 octal (0644) parsed as decimal; sexagesimal (1:30:00) as string
+    This ensures switching from ruamel.yaml to PyYAML does not change parsed values."""
+
+    pass
+
+
+# Override timestamp handling to return strings instead of datetime objects
+_PATSafeLoader.add_constructor(
+    "tag:yaml.org,2002:timestamp",
+    lambda loader, node: loader.construct_scalar(node),
+)
+
+# Override boolean handling to match YAML 1.2 / ruamel.yaml behavior.
+# CSafeLoader uses YAML 1.1 where yes/no/on/off are booleans; YAML 1.2 only
+# treats true/false as booleans. We keep true/false as bool and return
+# everything else (yes/no/on/off and their case variants) as plain strings.
+_YAML_1_2_BOOLS = {"true", "false", "True", "False", "TRUE", "FALSE"}
+
+
+def _construct_yaml_bool(loader: Any, node: Any) -> Any:
+    value = loader.construct_scalar(node)
+    if value in _YAML_1_2_BOOLS:
+        return value.lower() == "true"
+    # yes/no/on/off — return as string to match YAML 1.2 behavior
+    return value
+
+
+_PATSafeLoader.add_constructor(
+    "tag:yaml.org,2002:bool",
+    _construct_yaml_bool,
+)
+
+
+# Override integer handling to match YAML 1.2 / ruamel.yaml behavior.
+# YAML 1.1 (CSafeLoader) treats leading-zero numbers as octal (0644 -> 420)
+# and colon-separated numbers as sexagesimal (1:30:00 -> 5400).
+# YAML 1.2 treats leading-zero as decimal (0644 -> 644) and doesn't
+# support sexagesimal (1:30:00 remains a string).
+def _construct_yaml_int(loader: Any, node: Any) -> Any:
+    value_s = loader.construct_scalar(node)
+    # Sexagesimal (e.g. 1:30:00) — not an integer in YAML 1.2
+    if ":" in value_s:
+        return value_s
+    # Strip underscores (YAML allows _ as digit separator)
+    value_s = value_s.replace("_", "")
+    sign = 1
+    if value_s.startswith("-"):
+        sign = -1
+        value_s = value_s[1:]
+    elif value_s.startswith("+"):
+        value_s = value_s[1:]
+    if value_s.startswith(("0x", "0X")):
+        return sign * int(value_s[2:], 16)
+    if value_s.startswith(("0b", "0B")):
+        return sign * int(value_s[2:], 2)
+    # Decimal — including leading-zero numbers (YAML 1.2 treats as decimal, not octal)
+    return sign * int(value_s, 10)
+
+
+_PATSafeLoader.add_constructor(
+    "tag:yaml.org,2002:int",
+    _construct_yaml_int,
+)
+
+
+class _PyYAMLFastLoader:
+    """A thin wrapper around PyYAML's CSafeLoader that matches the .load(stream) interface
+    expected by load_analysis_specs_ex(). CSafeLoader is a C extension and significantly
+    faster than ruamel.yaml's pure-Python safe loader."""
+
+    def load(self, stream: Any) -> Any:
+        return pyyaml.load(stream, Loader=_PATSafeLoader)
+
+
 # pylint: disable=too-many-locals
 def load_analysis_specs_ex(
     directories: List[str], ignore_files: List[str], roundtrip_yaml: bool
@@ -363,8 +442,13 @@ def load_analysis_specs_ex(
                     continue
                 loaded_specs.append(spec_filename)
                 # New loader per file so roundtrip state is isolated (see doc above).
+                # For non-roundtrip loading, use PyYAML's CSafeLoader (C extension)
+                # which is significantly faster than ruamel.yaml's pure-Python safe loader.
                 if fnmatch(filename, "*.y*ml"):
-                    yaml_loader = yaml.BlockStyleYAML(typ="rt" if roundtrip_yaml else "safe")
+                    if roundtrip_yaml:
+                        yaml_loader = yaml.BlockStyleYAML(typ="rt")
+                    else:
+                        yaml_loader = _PyYAMLFastLoader()
                     with open(spec_filename, "rb") as spec_file_obj:
                         try:
                             file_content = spec_file_obj.read()
@@ -382,7 +466,11 @@ def load_analysis_specs_ex(
                                 error=None,
                                 raw_spec_file_content=file_content,
                             )
-                        except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
+                        except (
+                            YAMLParser.ParserError,
+                            YAMLScanner.ScannerError,
+                            pyyaml.YAMLError,
+                        ) as err:
                             # recreate the yaml object and yield the error
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
@@ -560,6 +648,7 @@ def load_analysis(
     valid_table_names: List[str],
     ignore_files: List[str],
     ignore_extra_keys: bool,
+    workers: int = 1,
 ) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     """Loads each policy or rule into memory.
 
@@ -568,6 +657,7 @@ def load_analysis(
         ignore_table_names: validate or ignore table names
         valid_table_names: list of valid table names, other will be treated as invalid
         ignore_files: Files that Panther Analysis Tool should not process
+        workers: Number of parallel workers for table name validation. Default 1 (sequential).
 
     Returns:
         A tuple of the valid and invalid rules and policies
@@ -588,11 +678,13 @@ def load_analysis(
             search_directories.append(absolute_helper_path)
 
     # First classify each file, always include globals and data models location
+    raw_specs = list(load_analysis_specs(search_directories, ignore_files))
     specs, invalid_specs = classify_analysis(
-        list(load_analysis_specs(search_directories, ignore_files)),
+        raw_specs,
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
         ignore_extra_keys=ignore_extra_keys,
+        workers=workers,
     )
 
     return specs, invalid_specs
@@ -604,6 +696,7 @@ def classify_analysis(
     ignore_table_names: bool,
     valid_table_names: List[str],
     ignore_extra_keys: bool,
+    workers: int = 1,
 ) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     # First setup return dict containing different
     # types of detections, meta types that can be zipped
@@ -613,10 +706,13 @@ def classify_analysis(
     invalid_specs: List[Tuple[str, Exception]] = []
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
-    analysis_ids: List[str] = []
+    analysis_ids: set = set()
 
     # Create a json validator and check the schema only once rather than during every loop
     json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)
+
+    # Collect scheduled queries for deferred table name validation (sqlfluff is expensive)
+    pending_table_validations: List[Tuple[str, Any, str]] = []
 
     # pylint: disable=too-many-nested-blocks
     for analysis_spec_filename, dir_name, analysis_spec, error in specs:
@@ -659,15 +755,7 @@ def classify_analysis(
             invalid_fields = contains_invalid_field_set(analysis_spec)
             if invalid_fields:
                 raise AnalysisContainsDuplicatesException(analysis_id, invalid_fields)
-            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
-                invalid_table_names = contains_invalid_table_names(
-                    analysis_spec, analysis_id, valid_table_names
-                )
-                if invalid_table_names:
-                    raise AnalysisContainsInvalidTableNamesException(
-                        analysis_id, invalid_table_names
-                    )
-            analysis_ids.append(analysis_id)
+            analysis_ids.add(analysis_id)
 
             # Raise warnings for dedup minutes
             if "DedupPeriodMinutes" in analysis_spec:
@@ -694,6 +782,14 @@ def classify_analysis(
             json_validator.validate(analysis_spec)
 
             all_specs.add_classified_analysis(analysis_type, classified_analysis)
+
+            # Defer table name validation to batch step (sqlfluff parsing is expensive).
+            # This must be after json_validator.validate() so we don't validate queries
+            # that already failed schema validation.
+            if analysis_type == AnalysisTypes.SCHEDULED_QUERY and not ignore_table_names:
+                pending_table_validations.append(
+                    (analysis_spec_filename, analysis_spec, analysis_id)
+                )
 
         except schema.SchemaWrongKeyError as err:
             invalid_specs.append((analysis_spec_filename, handle_wrong_key_error(err, keys)))
@@ -732,7 +828,82 @@ def classify_analysis(
             if tmp_logtypes and tmp_logtypes_key:
                 analysis_schema.schema[tmp_logtypes_key] = tmp_logtypes
 
+    # Batch table name validation for scheduled queries (sqlfluff parsing is expensive)
+    if not ignore_table_names and pending_table_validations:
+        _validate_table_names_batch(
+            pending_table_validations, valid_table_names, invalid_specs, all_specs, workers
+        )
+
     return all_specs, invalid_specs
+
+
+def _validate_table_names_batch(
+    pending: List[Tuple[str, Any, str]],
+    valid_table_names: List[str],
+    invalid_specs: List[Any],
+    all_specs: ClassifiedAnalysisContainer,
+    workers: int,
+) -> None:
+    """Validate table names for scheduled queries, optionally in parallel.
+
+    When workers > 1 and there are multiple queries, uses ProcessPoolExecutor
+    to parallelize the expensive sqlfluff.parse() calls.
+    """
+    if workers <= 1 or len(pending) <= 1:
+        # Sequential validation
+        for spec_filename, analysis_spec, analysis_id in pending:
+            try:
+                invalid_table_names = contains_invalid_table_names(
+                    analysis_spec, analysis_id, valid_table_names
+                )
+            except Exception:  # pylint: disable=broad-except
+                logging.warning("Failed table name validation for %s", analysis_id)
+                _remove_query_by_filename(all_specs, spec_filename)
+                continue
+            if invalid_table_names:
+                invalid_specs.append((
+                    spec_filename,
+                    AnalysisContainsInvalidTableNamesException(analysis_id, invalid_table_names),
+                ))
+                _remove_query_by_filename(all_specs, spec_filename)
+    else:
+        # Parallel validation using ProcessPoolExecutor
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        num_workers = min(workers, len(pending))
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            future_to_item = {
+                executor.submit(
+                    contains_invalid_table_names,
+                    analysis_spec,
+                    analysis_id,
+                    valid_table_names,
+                ): (spec_filename, analysis_id)
+                for spec_filename, analysis_spec, analysis_id in pending
+            }
+            for future in as_completed(future_to_item):
+                spec_filename, analysis_id = future_to_item[future]
+                try:
+                    invalid_table_names = future.result()
+                except Exception:  # pylint: disable=broad-except
+                    logging.warning("Failed parallel table name validation for %s", analysis_id)
+                    _remove_query_by_filename(all_specs, spec_filename)
+                    continue
+                if invalid_table_names:
+                    invalid_specs.append((
+                        spec_filename,
+                        AnalysisContainsInvalidTableNamesException(
+                            analysis_id, invalid_table_names
+                        ),
+                    ))
+                    _remove_query_by_filename(all_specs, spec_filename)
+
+
+def _remove_query_by_filename(
+    all_specs: ClassifiedAnalysisContainer, spec_filename: str
+) -> None:
+    """Remove a query from the classified analysis container by filename."""
+    all_specs.queries = [q for q in all_specs.queries if q.file_name != spec_filename]
 
 
 def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Exception:

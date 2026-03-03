@@ -1,14 +1,18 @@
 # This file was generated in whole or in part by GitHub Copilot.
 
+import io
 import json
 from typing import Any
 from unittest import TestCase, mock
 
 import schema
+import yaml as pyyaml
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.analysis_utils import (
     AnalysisItem,
+    _PATSafeLoader,
+    _validate_table_names_batch,
     filters_match_analysis_item,
     get_simple_detections_as_python,
     load_analysis_specs,
@@ -513,3 +517,194 @@ def test_text_filter_no_yaml_or_python_content() -> None:
     )
     filters = [Filter(key="", values=["def rule"])]
     assert not filters_match_analysis_item(filters, item)
+
+
+class TestPATSafeLoader(TestCase):
+    """Tests that _PATSafeLoader preserves ruamel.yaml (YAML 1.2) semantics:
+    timestamps as strings, YAML 1.1-only booleans (yes/no/on/off) as strings,
+    and YAML 1.1 octal/sexagesimal integers as decimal/strings."""
+
+    def test_timestamp_returned_as_string(self) -> None:
+        yaml_content = "created: 2024-01-15\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertIsInstance(result["created"], str)
+        self.assertEqual(result["created"], "2024-01-15")
+
+    def test_datetime_timestamp_returned_as_string(self) -> None:
+        yaml_content = "updated: 2024-01-15T10:30:00Z\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertIsInstance(result["updated"], str)
+        self.assertEqual(result["updated"], "2024-01-15T10:30:00Z")
+
+    def test_non_timestamp_values_unaffected(self) -> None:
+        yaml_content = "name: test\ncount: 42\nenabled: true\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertEqual(result["name"], "test")
+        self.assertEqual(result["count"], 42)
+        self.assertEqual(result["enabled"], True)
+
+    def test_yaml_1_2_booleans_remain_bool(self) -> None:
+        """true/false (YAML 1.2 booleans) should still parse as Python bools."""
+        yaml_content = "a: true\nb: false\nc: True\nd: False\ne: TRUE\nf: FALSE\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertIs(result["a"], True)
+        self.assertIs(result["b"], False)
+        self.assertIs(result["c"], True)
+        self.assertIs(result["d"], False)
+        self.assertIs(result["e"], True)
+        self.assertIs(result["f"], False)
+
+    def test_yaml_1_1_booleans_returned_as_string(self) -> None:
+        """yes/no/on/off are booleans in YAML 1.1 but strings in YAML 1.2.
+        _PATSafeLoader must return them as strings to match ruamel.yaml."""
+        yaml_content = "a: yes\nb: no\nc: on\nd: off\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        for key in ("a", "b", "c", "d"):
+            self.assertIsInstance(result[key], str, f"key '{key}' should be str")
+        self.assertEqual(result["a"], "yes")
+        self.assertEqual(result["b"], "no")
+        self.assertEqual(result["c"], "on")
+        self.assertEqual(result["d"], "off")
+
+    def test_yaml_1_1_booleans_case_variants_returned_as_string(self) -> None:
+        """Case variants of yes/no/on/off should also remain strings."""
+        yaml_content = "a: Yes\nb: No\nc: On\nd: Off\ne: YES\nf: NO\ng: ON\nh: OFF\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        for key in ("a", "b", "c", "d", "e", "f", "g", "h"):
+            self.assertIsInstance(result[key], str, f"key '{key}' should be str")
+
+    def test_leading_zero_parsed_as_decimal(self) -> None:
+        """YAML 1.1 treats 0644 as octal (420). YAML 1.2 treats as decimal (644)."""
+        yaml_content = "a: 0644\nb: 010\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertEqual(result["a"], 644)
+        self.assertEqual(result["b"], 10)
+
+    def test_sexagesimal_returned_as_string(self) -> None:
+        """YAML 1.1 treats 1:30:00 as sexagesimal (5400). YAML 1.2 returns string."""
+        yaml_content = "duration: 1:30:00\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertIsInstance(result["duration"], str)
+        self.assertEqual(result["duration"], "1:30:00")
+
+    def test_hex_and_binary_integers_unaffected(self) -> None:
+        """0x and 0b prefixes are the same in YAML 1.1 and 1.2."""
+        yaml_content = "a: 0x1A\nb: 0b1010\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertEqual(result["a"], 26)
+        self.assertEqual(result["b"], 10)
+
+    def test_plain_integers_unaffected(self) -> None:
+        """Regular integers should parse normally."""
+        yaml_content = "a: 42\nb: 0\nc: -7\nd: 1000\n"
+        result = pyyaml.load(yaml_content, Loader=_PATSafeLoader)
+        self.assertEqual(result["a"], 42)
+        self.assertEqual(result["b"], 0)
+        self.assertEqual(result["c"], -7)
+        self.assertEqual(result["d"], 1000)
+
+
+class TestValidateTableNamesBatch(TestCase):
+    """Tests for the _validate_table_names_batch function which handles
+    both sequential and parallel (ProcessPoolExecutor) sqlfluff validation."""
+
+    def _make_query_spec(self, query_name: str, query: str) -> tuple:
+        return (
+            f"{query_name}.yml",
+            {
+                "AnalysisType": "scheduled_query",
+                "QueryName": query_name,
+                "Enabled": True,
+                "Query": query,
+                "Schedule": {"RateMinutes": 60, "TimeoutMinutes": 5},
+            },
+            query_name,
+        )
+
+    def test_sequential_valid_query(self) -> None:
+        pending = [self._make_query_spec(
+            "Valid.Query",
+            "SELECT * FROM snowflake.account_usage.login_history",
+        )]
+        invalid_specs: list = []
+        all_specs = ClassifiedAnalysisContainer()
+        all_specs.queries.append(ClassifiedAnalysis(
+            "Valid.Query.yml", "/test", pending[0][1],
+        ))
+
+        _validate_table_names_batch(pending, [], invalid_specs, all_specs, workers=1)
+
+        self.assertEqual(len(invalid_specs), 0)
+        self.assertEqual(len(all_specs.queries), 1)
+
+    def test_sequential_invalid_query(self) -> None:
+        pending = [self._make_query_spec(
+            "Invalid.Query",
+            "SELECT * FROM bad_table",
+        )]
+        invalid_specs: list = []
+        all_specs = ClassifiedAnalysisContainer()
+        all_specs.queries.append(ClassifiedAnalysis(
+            "Invalid.Query.yml", "/test", pending[0][1],
+        ))
+
+        _validate_table_names_batch(pending, [], invalid_specs, all_specs, workers=1)
+
+        self.assertEqual(len(invalid_specs), 1)
+        self.assertEqual(invalid_specs[0][0], "Invalid.Query.yml")
+        # Invalid query should be removed from all_specs
+        self.assertEqual(len(all_specs.queries), 0)
+
+    def test_sequential_exception_removes_query(self) -> None:
+        """When contains_invalid_table_names raises, the query should be removed (fail-closed)."""
+        pending = [self._make_query_spec(
+            "Error.Query",
+            "SELECT * FROM snowflake.account_usage.login_history",
+        )]
+        invalid_specs: list = []
+        all_specs = ClassifiedAnalysisContainer()
+        all_specs.queries.append(ClassifiedAnalysis(
+            "Error.Query.yml", "/test", pending[0][1],
+        ))
+
+        with mock.patch(
+            "panther_analysis_tool.analysis_utils.contains_invalid_table_names",
+            side_effect=RuntimeError("sqlfluff crash"),
+        ):
+            _validate_table_names_batch(pending, [], invalid_specs, all_specs, workers=1)
+
+        # Query should be removed even though it wasn't proven invalid
+        self.assertEqual(len(all_specs.queries), 0)
+        # But it shouldn't appear in invalid_specs (we don't know it's invalid, just errored)
+        self.assertEqual(len(invalid_specs), 0)
+
+    def test_parallel_produces_same_results_as_sequential(self) -> None:
+        valid_spec = self._make_query_spec(
+            "Valid.Query",
+            "SELECT * FROM snowflake.account_usage.login_history",
+        )
+        invalid_spec = self._make_query_spec(
+            "Invalid.Query",
+            "SELECT * FROM bad_table",
+        )
+        pending = [valid_spec, invalid_spec]
+
+        # Run sequential
+        invalid_seq: list = []
+        specs_seq = ClassifiedAnalysisContainer()
+        specs_seq.queries.append(ClassifiedAnalysis("Valid.Query.yml", "/test", valid_spec[1]))
+        specs_seq.queries.append(ClassifiedAnalysis("Invalid.Query.yml", "/test", invalid_spec[1]))
+        _validate_table_names_batch(pending, [], invalid_seq, specs_seq, workers=1)
+
+        # Run parallel
+        invalid_par: list = []
+        specs_par = ClassifiedAnalysisContainer()
+        specs_par.queries.append(ClassifiedAnalysis("Valid.Query.yml", "/test", valid_spec[1]))
+        specs_par.queries.append(ClassifiedAnalysis("Invalid.Query.yml", "/test", invalid_spec[1]))
+        _validate_table_names_batch(pending, [], invalid_par, specs_par, workers=2)
+
+        # Same invalid specs detected
+        self.assertEqual(len(invalid_seq), len(invalid_par))
+        self.assertEqual(invalid_seq[0][0], invalid_par[0][0])
+        # Same valid queries remaining
+        self.assertEqual(len(specs_seq.queries), len(specs_par.queries))
