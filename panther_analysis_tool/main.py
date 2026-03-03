@@ -558,7 +558,7 @@ def parse_lookup_table(path: str) -> dict:
             logging.error(err)
             return {}
         try:
-            if "SnowflakeQuery" in lookup_spec:
+            if "SnowflakeQuery" in lookup_spec or "Query" in lookup_spec:
                 SQL_LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             else:
                 LOOKUP_TABLE_SCHEMA.validate(lookup_spec)

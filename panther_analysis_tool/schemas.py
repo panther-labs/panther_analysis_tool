@@ -327,7 +327,7 @@ SQL_LOOKUP_TABLE_SCHEMA = Schema(
         "AnalysisType": Or("lookup_table"),
         "LookupName": str,
         "Enabled": bool,
-        "SnowflakeQuery": str,
+        Or("SnowflakeQuery", "Query", only_one=True): str,
         "LogTypeMap": {
             "PrimaryKey": str,
             Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
