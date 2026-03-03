@@ -1,4 +1,4 @@
-import logging
+import ast
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,10 +17,11 @@ DEPRECATED_STATUS = "deprecated"
 class Filter:
     key: str
     values: List[Any] | Any
+    inverted: bool = False
 
 
 # Parses the filters, expects a list of strings
-def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
+def parse_filter_args(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[Filter]]:
     parsed_filters: Dict[str, Any] = {}
     parsed_filters_inverted: Dict[str, Any] = {}
     if str_filters is None:
@@ -28,8 +29,7 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
     for filt in str_filters:
         split = filt.split("=")
         if len(split) != 2 or split[0] == "" or split[1] == "":
-            logging.error("Filter %s is not in format KEY=VALUE", filt)
-            exit(1)
+            raise ValueError(f"Filter {filt} is not in format KEY=VALUE")
         # Check for "!="
         invert_filter = split[0].endswith("!")
         if invert_filter:
@@ -41,8 +41,7 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
             | extract_keys_schema(RULE_SCHEMA)
         )
         if key not in valid_keys:
-            logging.error("Filter key %s is not a valid filter field", key)
-            exit(1)
+            raise ValueError(f"Filter key {key} is not a valid filter field")
         if invert_filter:
             parsed_filters_inverted[key] = split[1].split(",")
         else:
@@ -52,8 +51,7 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
             try:
                 bool_value = bool(strtobool(split[1]))
             except ValueError:
-                logging.error("Filter key %s should have either true or false", key)
-                exit(1)
+                raise ValueError(f"Filter key {key} should have either true or false")
             if invert_filter:
                 parsed_filters_inverted[key] = [bool_value]
             else:
@@ -61,7 +59,8 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
 
     filters = [Filter(key=key, values=values) for key, values in parsed_filters.items()]
     filters_inverted = [
-        Filter(key=key, values=values) for key, values in parsed_filters_inverted.items()
+        Filter(key=key, values=values, inverted=True)
+        for key, values in parsed_filters_inverted.items()
     ]
     return filters, filters_inverted
 
@@ -69,7 +68,7 @@ def parse_filter(str_filters: Optional[List[str]]) -> Tuple[List[Filter], List[F
 def get_filters_with_status_filters(
     str_filters: Optional[List[str]],
 ) -> Tuple[List[Filter], List[Filter]]:
-    filters, filters_inverted = parse_filter(str_filters)
+    filters, filters_inverted = parse_filter_args(str_filters)
     filters, filters_inverted = add_status_filters(filters, filters_inverted)
     return filters, filters_inverted
 
@@ -94,10 +93,10 @@ def add_status_filters(
             for val in blocked_statuses:
                 if val not in merged_values:
                     merged_values.append(val)
-            filters_inverted[i] = Filter(key="Status", values=merged_values)
+            filters_inverted[i] = Filter(key="Status", values=merged_values, inverted=True)
             return filters, filters_inverted
 
-    filters_inverted.append(Filter(key="Status", values=list(blocked_statuses)))
+    filters_inverted.append(Filter(key="Status", values=list(blocked_statuses), inverted=True))
     return filters, filters_inverted
 
 
@@ -109,3 +108,60 @@ def strtobool(val: str) -> int:
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+def collect_top_level_imports(py: bytes) -> set[str]:
+    """
+    Collects all imports from a Python file by parsing the file is an AST
+    and extracting the top level imports.
+
+    Example:
+    ```python
+        from top import foo
+        import bar
+        import baz.qux
+        from baz.qux import quux
+        from scoob.qux import quux as quuux
+    ```
+
+    Outputs:
+    ```python
+        {"top", "bar", "baz", "scoob"}
+    ```
+
+    Args:
+        py: The Python file to parse.
+
+    Returns:
+        A set of top level imports.
+    """
+    try:
+        tree = ast.parse(py.decode("utf-8"))
+    except (UnicodeDecodeError, SyntaxError):
+        return set()
+
+    imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.add(node.module.split(".")[0])
+
+    return imports
+
+
+def search_terms_to_filters(search_terms: list[str]) -> list[Filter]:
+    result: list[Filter] = []
+
+    for search_term in search_terms:
+        if search_term.strip() == "":
+            continue
+
+        try:
+            filters, filters_inverted = parse_filter_args([search_term])
+            result.extend(filters)
+            result.extend(filters_inverted)
+        except ValueError:
+            result.append(Filter(key="", values=[search_term]))
+
+    return result

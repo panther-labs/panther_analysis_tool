@@ -1,9 +1,11 @@
 import io
 import json
+import logging
 import os
 import shutil
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -30,6 +32,12 @@ from panther_analysis_tool.backend.client import (
     UnsupportedEndpointError,
 )
 from panther_analysis_tool.backend.mocks import MockBackend
+from panther_analysis_tool.constants import (
+    CACHED_VERSIONS_FILE_PATH,
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH,
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+)
+from panther_analysis_tool.core import analysis_cache, yaml
 from panther_analysis_tool.main import app, upload_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
@@ -49,9 +57,9 @@ def mock_test_analysis_results(tc: TestCase, args: list[str]) -> tuple[int, list
     from panther_analysis_tool.main import test_analysis
 
     return_code = -1
-    invalid_specs = None
+    invalid_specs: list[str] = []
 
-    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, list[str]]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = test_analysis(*args, **kwargs)
         return return_code, invalid_specs
@@ -69,11 +77,11 @@ def mock_test_analysis_results(tc: TestCase, args: list[str]) -> tuple[int, list
     return return_code, invalid_specs, result
 
 
-def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, str]:
     return_code = -1
-    invalid_specs = None
+    invalid_specs: str = ""
 
-    def check_result(*args, **kwargs) -> tuple[int, list[str]]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, str]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = upload_analysis(*args, **kwargs)
         return return_code, invalid_specs
@@ -91,13 +99,13 @@ def mock_upload_analysis(tc: TestCase, args: list[str]) -> tuple[int, list[str]]
     return return_code, invalid_specs
 
 
-def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
+def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, str]:
     from panther_analysis_tool.command.validate import run as validate_run
 
     return_code = -1
-    invalid_specs = None
+    invalid_specs: str = ""
 
-    def check_result(*args, **kwargs) -> tuple[int, str]:
+    def check_result(*args: Any, **kwargs: Any) -> tuple[int, str]:
         nonlocal return_code, invalid_specs
         return_code, invalid_specs = validate_run(*args, **kwargs)
         return return_code, invalid_specs
@@ -112,7 +120,7 @@ def mock_validate(tc: TestCase, args: list[str]) -> tuple[int, list[str]]:
                 raise result.exception
         tc.assertEqual(mock_upload_analysis.call_count, 1)
 
-    return return_code, invalid_specs
+    return return_code, str(invalid_specs)
 
 
 class TestPantherAnalysisTool(TestCase):
@@ -210,15 +218,59 @@ class TestPantherAnalysisTool(TestCase):
         test_date_string = pat.datetime_converted(test_date)
         self.assertIsInstance(test_date_string, str)
 
-    def test_load_policy_specs_from_folder(self) -> None:
+    def test_invalid_detections_are_marked_invaled(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, ["test", "--path", DETECTIONS_FIXTURES_PATH]
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(
-            invalid_specs[0][0], f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml"
+
+        logging.warning("__file__: %s", __file__)
+        logging.warning("DETECTIONS_FIXTURES_PATH: %s", DETECTIONS_FIXTURES_PATH)
+        logging.warning("FIXTURES_PATH: %s", FIXTURES_PATH)
+        logging.warning(
+            "os.path.abspath(DETECTIONS_FIXTURES_PATH): %s",
+            os.path.abspath(DETECTIONS_FIXTURES_PATH),
         )
-        self.assertEqual(len(invalid_specs), 13)
+        logging.warning("os.path.abspath(FIXTURES_PATH): %s", os.path.abspath(FIXTURES_PATH))
+
+        names = []
+        for invalid_spec in invalid_specs:
+            names.append(invalid_spec[0])
+        names.sort()
+
+        # Expected invalid specs - one of the conflicting files will be present depending on processing order
+        expected_base = [
+            f"{DETECTIONS_FIXTURES_PATH}/example_invalid_pack.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_malformed_policy.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_malformed_yaml.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_bad_resource_type.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_import.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_invalid_characters.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_missing_policy_file.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_policy_set_duplicates.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_rule_bad_log_type.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_rule_set_duplicates.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/example_strict_invalid_yaml.yml",
+            f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/data_models/example_data_model.yml",
+        ]
+
+        # Check that one of the conflicting files is in the invalid specs
+        conflict_file_1 = f"{DETECTIONS_FIXTURES_PATH}/disabled_rule/example_rule.yml"
+        conflict_file_2 = f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/rules/example_rule.yml"
+        conflict_found = conflict_file_1 in names or conflict_file_2 in names
+        self.assertTrue(
+            conflict_found,
+            f"Expected one of [{conflict_file_1}, {conflict_file_2}] to be in invalid specs, but got: {names}",
+        )
+
+        # Build expected list with the conflict file that's actually present
+        if conflict_file_1 in names:
+            expected = [conflict_file_1] + expected_base
+        else:
+            expected = [conflict_file_2] + expected_base
+        expected.sort()
+
+        self.assertEqual(names, expected)
 
     def test_policies_from_folder(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -447,7 +499,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_test_names_filter_nonexistent_test(self):
+    def test_with_test_names_filter_nonexistent_test(self) -> None:
         # Test with a test name that doesn't exist
         return_code, invalid_specs = mock_test_analysis(
             self,
@@ -463,7 +515,7 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_with_minimum_tests(self):
+    def test_with_minimum_tests(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {DETECTIONS_FIXTURES_PATH}/valid_analysis --minimum-tests 1".split()
         )
@@ -501,7 +553,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split(),
         )
         self.assertEqual(return_code, 1)
-        self.equal = self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_zip_analysis(self) -> None:
         # Note: This is a workaround for CI
@@ -512,8 +564,8 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
-            results = zip_analysis(*args, **kwargs)
+        def check_result(*args: Any, **kwargs: Any) -> None:
+            _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
                 statinfo = os.stat(out_filename)
@@ -538,8 +590,8 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
-            results = zip_analysis(*args, **kwargs)
+        def check_result(*args: Any, **kwargs: Any) -> None:
+            _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
                 statinfo = os.stat(out_filename)
@@ -586,8 +638,8 @@ class TestPantherAnalysisTool(TestCase):
 
         from panther_analysis_tool.main import zip_analysis
 
-        def check_result(*args, **kwargs):
-            results = zip_analysis(*args, **kwargs)
+        def check_result(*args: Any, **kwargs: Any) -> None:
+            _, results = zip_analysis(*args, **kwargs)
             for out_filename in results:
                 self.assertTrue(out_filename.startswith("tmp/"))
                 statinfo = os.stat(out_filename)
@@ -625,7 +677,7 @@ class TestPantherAnalysisTool(TestCase):
             pass
 
         results = pat.zip_analysis_chunks(
-            "tmp/", f"{DETECTIONS_FIXTURES_PATH}/valid_analysis", {}, {}, {}
+            "tmp/", f"{DETECTIONS_FIXTURES_PATH}/valid_analysis", [], [], []
         )
         for out_filename in results:
             self.assertTrue(out_filename.startswith("tmp/"))
@@ -777,7 +829,6 @@ class TestPantherAnalysisTool(TestCase):
             self.assertIn("status_stable.py", file_list[3])
 
     def test_retry_uploads(self) -> None:
-        import logging
 
         backend = MockBackend()
         backend.bulk_upload = mock.MagicMock(
@@ -827,6 +878,11 @@ class TestPantherAnalysisTool(TestCase):
             )
             self.assertEqual(return_code, 1)
             self.assertEqual(time_mock.call_count, 10)
+
+    def test_test_analysis_command_no_args(self) -> None:
+        return_code, invalid_specs = mock_test_analysis(self, ["test"])
+        self.assertEqual(return_code, 1)
+        self.assertEqual(len(invalid_specs), 26)
 
     def test_available_destination_names_invalid_name_returned(self) -> None:
         """When an available destination is given but does not match the returned names"""
@@ -990,7 +1046,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_correlation_rules_skipped_if_feature_not_enabled(self) -> None:
-        import logging
 
         file_path = f"{FIXTURES_PATH}/correlation-unit-tests/passes"
         backend = MockBackend()
@@ -1078,7 +1133,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(stdout_str.count("Skipped: 2"), 1)
 
     def test_can_retrieve_base_detection_for_test(self) -> None:
-        import logging
 
         with Pause(self.fs):
             file_path = f"{FIXTURES_PATH}/derived_without_base"
@@ -1107,7 +1161,6 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_logs_warning_if_cannot_retrieve_base(self) -> None:
-        import logging
 
         file_path = f"{FIXTURES_PATH}/derived_without_base"
         backend = MockBackend()
@@ -1445,7 +1498,6 @@ class TestPantherAnalysisTool(TestCase):
 
     def test_classify_analysis_dedup_warnings(self) -> None:
         """Test classify_analysis with DedupPeriodMinutes warnings"""
-        import logging
 
         # Rule spec with DedupPeriodMinutes = 0
         rule_spec_zero_dedup = {
@@ -1532,3 +1584,214 @@ class TestPantherAnalysisTool(TestCase):
         derived_analysis = all_specs.detections[0]
         self.assertEqual(derived_analysis.analysis_spec["RuleID"], "Derived.Rule.ID")
         self.assertEqual(derived_analysis.analysis_spec["BaseDetection"], "Base.Rule.ID")
+
+    def test_install_command_handles_value_error(self) -> None:
+        """Test that install command handles ValueError (no items matched) properly."""
+        # Set up a git repository
+        os.makedirs(".git", exist_ok=True)
+
+        # Create cache
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text("fake_commit_hash_1")
+
+        # Create SQLite cache file
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+        # Create versions file
+        CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        yaml_loader = yaml.BlockStyleYAML()
+        with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+            yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+            ):
+                # Try to install a non-existent rule
+                result = runner.invoke(app, ["install", "NonExistent.Rule.1"])
+
+        # Should return error code (error handling is tested in command tests)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_install_command_all_flag_with_analysis_id_errors(self) -> None:
+        """Test that install command errors when --all is used with an analysis ID."""
+        result = runner.invoke(app, ["install", "--all", "Test.Rule.1"])
+
+        # Should return error code
+        self.assertEqual(result.exit_code, 1)
+        # Error message is logged, verify exit code indicates error
+
+    def test_install_command_all_flag_without_analysis_id(self) -> None:
+        """Test that install command works with --all flag without an analysis ID."""
+        # Set up a git repository
+        os.makedirs(".git", exist_ok=True)
+
+        # Create cache with proper JSON format
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        expiration = datetime.now() + timedelta(hours=1)
+        analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+
+        # Create SQLite cache file
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+        # Create versions file
+        CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        yaml_loader = yaml.BlockStyleYAML()
+        with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+            yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
+            ):
+                result = runner.invoke(app, ["install", "--all"])
+
+        # Should succeed (install.run is mocked, so it won't actually install)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_install_command_without_all_or_analysis_id_errors(self) -> None:
+        """Test that install command errors when neither --all, analysis ID, nor filters are provided."""
+        result = runner.invoke(app, ["install"])
+
+        # Should return error code
+        self.assertEqual(result.exit_code, 1)
+        # Error message is logged, verify exit code indicates error
+
+    def test_install_command_with_analysis_id_works(self) -> None:
+        """Test that install command works with just an analysis ID."""
+        # Set up a git repository
+        os.makedirs(".git", exist_ok=True)
+
+        # Create cache with proper JSON format
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        expiration = datetime.now() + timedelta(hours=1)
+        analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+
+        # Create SQLite cache file
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+        # Create versions file
+        CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        yaml_loader = yaml.BlockStyleYAML()
+        with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+            yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
+            ):
+                result = runner.invoke(app, ["install", "Test.Rule.1"])
+
+        # Should succeed (install.run is mocked, so it won't actually install)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_install_command_with_filters_works(self) -> None:
+        """Test that install command works with just filters."""
+        # Set up a git repository
+        os.makedirs(".git", exist_ok=True)
+
+        # Create cache with proper JSON format
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        expiration = datetime.now() + timedelta(hours=1)
+        analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+
+        # Create SQLite cache file
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+        # Create versions file
+        CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        yaml_loader = yaml.BlockStyleYAML()
+        with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+            yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
+            ):
+                result = runner.invoke(
+                    app, ["install", "--filter", "AnalysisType=rule", "--filter", "Severity=High"]
+                )
+
+        # Should succeed (install.run is mocked, so it won't actually install)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_install_command_all_with_filters_errors(self) -> None:
+        """Test that install command errors when --all is used with --filter."""
+        result = runner.invoke(app, ["install", "--all", "--filter", "AnalysisType=rule"])
+
+        # Should return error code
+        self.assertEqual(result.exit_code, 1)
+        # Error message is logged, verify exit code indicates error
+
+    def test_install_command_all_with_id_and_filters_errors(self) -> None:
+        """Test that install command errors when --all, ID, and --filter are all used together."""
+        result = runner.invoke(
+            app, ["install", "--all", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+        )
+
+        # Should return error code (--all with ID should error first)
+        self.assertEqual(result.exit_code, 1)
+        # Error message is logged, verify exit code indicates error
+
+    def test_install_command_id_with_filters_works(self) -> None:
+        """Test that install command works with ID and filters together (filters refine the selection)."""
+        # Set up a git repository
+        os.makedirs(".git", exist_ok=True)
+
+        # Create cache with proper JSON format
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        expiration = datetime.now() + timedelta(hours=1)
+        analysis_cache.LatestCachedCommit(commit="fake_commit_hash_1", expiration=expiration).save()
+
+        # Create SQLite cache file
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
+
+        # Create versions file
+        CACHED_VERSIONS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        yaml_loader = yaml.BlockStyleYAML()
+        with open(CACHED_VERSIONS_FILE_PATH, "wb") as f:
+            yaml_loader.dump({"versions": {}}, f)
+
+            with (
+                patch(
+                    "panther_analysis_tool.core.analysis_cache.git_helpers.panther_analysis_latest_release_commit",
+                    return_value="fake_commit_hash_1",
+                ),
+                patch("panther_analysis_tool.core.root.chdir_to_project_root"),
+                patch(
+                    "panther_analysis_tool.command.install.install"
+                ),  # Mock to avoid actual installing
+            ):
+                result = runner.invoke(
+                    app, ["install", "Test.Rule.1", "--filter", "AnalysisType=rule"]
+                )
+
+        # Should succeed (install.run is mocked, so it won't actually install)
+        # Filters can be used with an ID to refine the selection
+        self.assertEqual(result.exit_code, 0)
