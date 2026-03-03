@@ -1,0 +1,16 @@
+AnalysisType: rule
+Filename: experimental_uppercase.py
+DisplayName: Experimental Rule Uppercase
+Description: This is an experimental rule with uppercase Status
+Severity: High
+RuleID: Test.Experimental.Rule.Uppercase
+Status: Experimental
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Example Test
+    ExpectedResult: true
+    Log:
+      eventName: CreateUser

@@ -2,7 +2,7 @@ import unittest
 
 from panther_core.detection import DetectionResult
 from panther_core.policy import TYPE_POLICY
-from panther_core.rule import TYPE_RULE, Rule
+from panther_core.rule import TYPE_RULE
 
 from panther_analysis_tool.testing import (
     FunctionTestResult,
@@ -43,7 +43,9 @@ class TestFunctionTestResult(unittest.TestCase):
             matched=False, output="some output", raw_exception=exception
         )
         expected = FunctionTestResult(
-            matched=False, output="some output", error=TestError(message="TypeError: wrong type")
+            matched=False,
+            output="some output",
+            error=TestError(message="TypeError: wrong type"),
         )
         self.assertEqual(result, expected)
 
@@ -178,7 +180,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(
-                    output=None, error=TestError(message="TypeError: wrong type"), matched=False
+                    output=None,
+                    error=TestError(message="TypeError: wrong type"),
+                    matched=False,
                 ),
                 titleFunction=None,
                 dedupFunction=None,
@@ -221,7 +225,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(output="true", error=None, matched=True),
                 titleFunction=FunctionTestResult(
-                    output=None, error=TestError(message="TypeError: wrong type"), matched=False
+                    output=None,
+                    error=TestError(message="TypeError: wrong type"),
+                    matched=False,
                 ),
                 dedupFunction=None,
                 alertContextFunction=None,
@@ -261,7 +267,9 @@ class TestTestCaseEvaluator(unittest.TestCase):
             trigger_alert=False,
             functions=TestResultsPerFunction(
                 detectionFunction=FunctionTestResult(
-                    output=None, error=TestError(message="TypeError: wrong type"), matched=False
+                    output=None,
+                    error=TestError(message="TypeError: wrong type"),
+                    matched=False,
                 ),
                 titleFunction=None,
                 dedupFunction=None,

@@ -1,0 +1,7 @@
+AnalysisType: pack
+Description: Pack with excluded tag item (should fail)
+DisplayName: Test Pack With Excluded Tag
+PackID: Test.Pack.With.ExcludedTag
+PackDefinition:
+  IDs:
+    - Test.ExcludedTag.Rule

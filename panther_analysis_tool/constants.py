@@ -1,4 +1,6 @@
+import enum
 import importlib.metadata
+import pathlib
 from typing import Dict, Final
 
 from schema import Schema
@@ -88,3 +90,19 @@ class ReplayStatus:
 
 
 ENABLE_CORRELATION_RULES_FLAG = "EnableCorrelationRules"
+
+CACHE_DIR: Final = pathlib.Path(".cache")
+PANTHER_ANALYSIS_SQLITE_FILE: Final = "panther-analysis.sqlite"
+PANTHER_ANALYSIS_SQLITE_FILE_PATH: Final = CACHE_DIR / PANTHER_ANALYSIS_SQLITE_FILE
+CACHED_VERSIONS_FILE_PATH: Final = CACHE_DIR / ".versions.yml"
+LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH: Final = CACHE_DIR / "latest-panther-analysis.json"
+CACHED_MIGRATION_STATUS_FILE_PATH: Final = CACHE_DIR / "migration_status.json"
+MIGRATION_STATUS_FILE_PATH: Final = pathlib.Path("migration_status.md")
+PAT_ROOT_FILE_NAME: Final = ".pat-root"
+
+DEFAULT_EDITOR: Final = "vi"
+
+
+class AutoAcceptOption(str, enum.Enum):
+    YOURS = "yours"
+    PANTHERS = "panthers"

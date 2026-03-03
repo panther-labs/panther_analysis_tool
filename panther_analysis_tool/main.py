@@ -1,4 +1,3 @@
-# pylint: disable=wrong-import-order, wrong-import-position, ungrouped-imports, too-many-arguments
 import base64
 import contextlib
 import hashlib
@@ -20,10 +19,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import wraps
 from inspect import signature
-
-# Comment below disabling pylint checks is due to a bug in the CircleCi image with Pylint
-# It seems to be unable to import the distutils module, however the module is present and importable
-# in the Python Repl.
 from typing import (
     Any,
     Callable,
@@ -91,11 +86,19 @@ from panther_analysis_tool.command import (
     benchmark,
     bulk_delete,
     check_connection,
+    explore,
+    fmt,
+    init_project,
+    install,
+    merge,
+    migrate,
+    update,
     validate,
 )
 from panther_analysis_tool.command.standard_args import (
     APIHostType,
     APITokenType,
+    AutoAcceptType,
     AvailableDestinationType,
     AWSProfileType,
     FilterType,
@@ -111,6 +114,7 @@ from panther_analysis_tool.command.standard_args import (
     SkipTestsType,
     SortTestResultsType,
     ValidTableNamesType,
+    WriteMergeConflictsType,
 )
 from panther_analysis_tool.constants import (
     BACKEND_FILTERS_ANALYSIS_SPEC_KEY,
@@ -120,6 +124,7 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.core import analysis_cache
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     TestResultContainer,
@@ -129,9 +134,11 @@ from panther_analysis_tool.log_type_validator import (
     split_analysis_by_log_type_support,
 )
 from panther_analysis_tool.core.parse import (
+    DEPRECATED_STATUS,
+    EXPERIMENTAL_STATUS,
     Filter,
     get_filters_with_status_filters,
-    parse_filter,
+    parse_filter_args,
 )
 from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
@@ -998,6 +1005,7 @@ def test_analysis(
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
     helper_location = analysis_utils.get_tmp_helper_module_location()
+    logging.debug("Setting up global helpers in %s", helper_location)
     # ensure the directory does not exist, else clear it
     cleanup_global_helpers(global_analysis)
     os.makedirs(helper_location)
@@ -1006,6 +1014,12 @@ def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
         sys.path.append(helper_location)
     # place globals in temp dir
     for item in global_analysis:
+        logging.debug(
+            "Setting up global helper: %s %s %s",
+            item.file_name,
+            item.analysis_type(),
+            item.analysis_id(),
+        )
         dir_name = item.dir_name
         analysis_spec = item.analysis_spec
         analysis_id = analysis_spec["GlobalID"]
@@ -1416,6 +1430,7 @@ def check_packs(path: str) -> Tuple[int, str]:
     queries = {}  # Which items depend on which queries?
     data_models = {}  # Mapping of log types to corresponding data model
     all_analysis_item_ids = set()  # Record all valid analysis items by ID
+    specs_by_id = {}  # Mapping of analysis item IDs to their specs
     for spec_ in specs.items():
         # _spec is a ClassifiedAnalysis object - the dictionary spec is a property
         spec = spec_.analysis_spec
@@ -1433,8 +1448,9 @@ def check_packs(path: str) -> Tuple[int, str]:
             for log_type in spec["LogTypes"]:
                 data_models[log_type] = id_
 
-        # Record the ID
+        # Record the ID and spec
         all_analysis_item_ids.add(id_)
+        specs_by_id[id_] = spec
 
     # Now we scan through each pack and check if it has all the required items
     missing_pack_items: list[dict[str, Any]] = []
@@ -1504,19 +1520,30 @@ def check_packs(path: str) -> Tuple[int, str]:
         pack_spec = pack.analysis_spec
         all_items_in_packs.update(set(pack_spec["PackDefinition"]["IDs"]))
 
+    excluded_tags = {"no pack", "configuration required", "multi-table query"}
+    allowed_analysis_types = (
+        "rule",
+        "scheduled_rule",
+        "correlation_rule",
+        "datamodel",
+        "lookup_table",
+    )
     all_items_not_in_packs = set()
     for spec_ in specs.items():
         spec = spec_.analysis_spec
         id_ = get_spec_id(spec)
         tags = set(tag.lower() for tag in spec.get("Tags", []))
-        # Only check rules, not luts, policies, queries, etc.
-        if spec.get("AnalysisType") not in ("rule", "scheduled_rule", "correlation_rule"):
+        status = spec.get("Status", "").lower()
+
+        # Only check certain analysis types
+        if spec.get("AnalysisType") not in allowed_analysis_types:
             continue
-        # Ignore rules with DEPRECATED in the title
-        if "deprecated" in spec.get("DisplayName", "").lower():
+        # Ignore items with experimental or deprecated status
+        if status in (EXPERIMENTAL_STATUS, DEPRECATED_STATUS):
             continue
-        # Ignore rules with certain tags
-        if {"deprecated", "no pack", "configuration required", "multi-table query"} & tags:
+
+        # Ignore items with certain tags
+        if excluded_tags & tags:
             continue
 
         if id_ not in all_items_in_packs:
@@ -1525,6 +1552,50 @@ def check_packs(path: str) -> Tuple[int, str]:
     if all_items_not_in_packs:
         err_str = ["The following items are not included in any packs:"]
         err_str += sorted(list(all_items_not_in_packs))
+        return 1, "\n".join(err_str)
+
+    # Check for items that should not be in packs
+    experimental_items_in_packs = []
+    deprecated_items_in_packs = []
+    excluded_tag_items_in_packs = []
+
+    for item_id in all_items_in_packs:
+        if item_id in specs_by_id:
+            spec = specs_by_id[item_id]
+
+            # Only check certain analysis types
+            if spec.get("AnalysisType") not in allowed_analysis_types:
+                continue
+
+            tags = set(tag.lower() for tag in spec.get("Tags", []))
+            status = spec.get("Status", "").lower()
+
+            # Check for experimental status
+            if status == EXPERIMENTAL_STATUS:
+                experimental_items_in_packs.append(item_id)
+            # Check for deprecated status
+            elif status == DEPRECATED_STATUS:
+                deprecated_items_in_packs.append(item_id)
+            # Check for excluded tags
+            elif excluded_tags & tags:
+                excluded_tag_items_in_packs.append(
+                    (item_id, ", ".join(sorted(excluded_tags & tags)))
+                )
+
+    if experimental_items_in_packs:
+        err_str = ["The following experimental items are not allowed in packs:"]
+        err_str += sorted(experimental_items_in_packs)
+        return 1, "\n".join(err_str)
+
+    if deprecated_items_in_packs:
+        err_str = ["The following deprecated items are not allowed in packs:"]
+        err_str += sorted(deprecated_items_in_packs)
+        return 1, "\n".join(err_str)
+
+    if excluded_tag_items_in_packs:
+        err_str = ["The following items with excluded tags are not allowed in packs:"]
+        for item_id, tag_list in sorted(excluded_tag_items_in_packs):
+            err_str.append(f"\t{item_id} (tags: {tag_list})")
         return 1, "\n".join(err_str)
 
     return 0, "Looks like packs are up to date"
@@ -1660,9 +1731,9 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
 
         test_output = ""
         try:
-            entry = unit_test.get("Resource") or unit_test["Log"]
-            log_type = entry.get("p_log_type", "")
-            mocks = unit_test.get("Mocks")
+            entry: dict = unit_test["Resource"] if "Resource" in unit_test else unit_test["Log"]
+            log_type: str = entry.get("p_log_type", "") or ""
+            mocks: list[dict] = unit_test.get("Mocks") or []
             mock_methods: Dict[str, Any] = {}
             if mocks:
                 mock_methods = {
@@ -1709,7 +1780,12 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                     traceback.print_tb(err_tb)
 
         except (AttributeError, KeyError) as err:
-            logging.warning("AttributeError: {%s}", err)
+            logging.warning(
+                "AttributeError: {%s} for [%s] in test [%s]",
+                err,
+                detection.detection_id,
+                unit_test["Name"],
+            )
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
             continue
@@ -1728,7 +1804,7 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
         spec = TestSpecification(
             id=unit_test["Name"],
             name=unit_test["Name"],
-            data=unit_test.get("Resource") or unit_test["Log"],
+            data=unit_test["Resource"] if "Resource" in unit_test else unit_test["Log"],
             mocks=unit_test.get("Mocks", {}),
             expectations=TestExpectations(detection=unit_test["ExpectedResult"]),
         )
@@ -1745,6 +1821,7 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             test_result.functions.severityFunction = None
             test_result.functions.descriptionFunction = None
             test_result.functions.referenceFunction = None
+            test_result.functions.uniqueFunction = None
 
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored
@@ -1814,6 +1891,28 @@ def print_and_exit(message: str) -> None:
     raise typer.Exit(code=0)
 
 
+def complete_id(_ctx: typer.Context, _args: List[str], incomplete: str) -> List[str]:
+    """
+    Complete the ID of the analysis item to help with tab completion as a user is typing.
+    Returns an empty list on error.
+
+    Args:
+        _ctx: The context of the typer command. Unused within the function.
+        _args: The arguments of the typer command. Unused within the function.
+        incomplete: The incomplete ID of the analysis item. Used to filter the list of completion candidates.
+
+    Returns:
+        A list of completion candidates.
+    """
+    try:
+        cache = analysis_cache.AnalysisCache()
+        return [
+            spec_id for spec_id in cache.list_spec_ids() if incomplete.lower() in spec_id.lower()
+        ]
+    except Exception:  # pylint: disable=broad-except
+        return []
+
+
 @app.callback()
 def global_options(
     # pylint: disable=unused-argument
@@ -1861,7 +1960,7 @@ def global_options(
         "panther-analysis-all.sig"
     )
 )
-def release(  # pylint: disable=too-many-positional-arguments
+def release(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     _filter: FilterType = None,
     ignore_files: IgnoreFilesType = None,
     kms_key: KMSKeyType = "",
@@ -1887,7 +1986,7 @@ def release(  # pylint: disable=too-many-positional-arguments
         available_destination = []
 
     # release should parse filter as is, and not filter out Status: deprecated, Status: experimental
-    filters, filters_inverted = parse_filter(_filter)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     # Forward to your logic function
     return generate_release_assets(
@@ -1916,7 +2015,7 @@ def release(  # pylint: disable=too-many-positional-arguments
 
 
 @app_command_with_config(help="Validate analysis specifications and run policy and rule tests.")
-def test(  # pylint: disable=too-many-positional-arguments
+def test(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -1974,7 +2073,7 @@ def test(  # pylint: disable=too-many-positional-arguments
     name="debug",
     help="Run a single rule test in a debug environment, which allows you to see print statements and use breakpoints.",
 )
-def debug_command(  # pylint: disable=too-many-positional-arguments
+def debug_command(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     ruleid: Annotated[str, typer.Argument(..., help="The rule ID to debug")],
     testname: Annotated[str, typer.Argument(..., help="The test name to debug")],
     api_token: APITokenType = None,
@@ -2026,7 +2125,7 @@ def debug_command(  # pylint: disable=too-many-positional-arguments
         + "panther-analysis-all.sig"
     ),
 )
-def publish_command(  # pylint: disable=too-many-positional-arguments
+def publish_command(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     github_tag: Annotated[
         str, typer.Option(envvar="PANTHER_GITHUB_TAG", help="The tag name for this release")
     ],
@@ -2093,7 +2192,7 @@ def publish_command(  # pylint: disable=too-many-positional-arguments
 
 
 @app_command_with_config(help="Upload specified policies and rules to a Panther deployment.")
-def upload(  # pylint: disable=too-many-positional-arguments
+def upload(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2154,7 +2253,7 @@ def upload(  # pylint: disable=too-many-positional-arguments
 
 
 @app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
-def delete(  # pylint: disable=too-many-positional-arguments
+def delete(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
     api_host: APIHostType = "",
@@ -2240,7 +2339,7 @@ def validate_cmd(
 @app_command_with_config(
     name="zip", help="Create an archive of local policies and rules for uploading to Panther."
 )
-def zip_cmd(  # pylint: disable=too-many-positional-arguments
+def zip_cmd(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2311,7 +2410,7 @@ def parse_date(text: Optional[str]) -> Optional[datetime]:
         "is an extension of Data Replay and is subject to the same limitations."
     ),
 )
-def benchmark_command(  # pylint: disable=too-many-positional-arguments
+def benchmark_command(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     _filter: FilterType = None,
@@ -2372,7 +2471,7 @@ def benchmark_command(  # pylint: disable=too-many-positional-arguments
     name="enrich-test-data",
     help="Enrich test data with additional enrichments from the Panther API.",
 )
-def enrich_test_data_command(  # pylint: disable=too-many-positional-arguments
+def enrich_test_data_command(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     api_token: APITokenType = None,
     api_host: APIHostType = "",
     aws_profile: AWSProfileType = None,
@@ -2408,6 +2507,115 @@ def check_packs_command(
     path: PathType = ".",
 ) -> Tuple[int, str]:
     return check_packs(path)
+
+
+@app_command_with_config(name="init", help="Initialize a new panther project")
+def init_command() -> Tuple[int, str]:
+    return init_project.run(working_dir=".")
+
+
+@app_command_with_config(
+    name="update",
+    help="Update and merge the latest content from Panther Analysis with your own. Rerun this every time you want to update your content. "
+    + "Items with the same ID as a Panther Analysis Item and a BaseVersion field will be merged with the latest Panther Analysis Item. "
+    + "Items that have merge conflicts will be skipped to be resolved manually with the `merge` command. "
+    + "Use the --write-merge-conflicts flag to write all merge conflicts to their respective files instead of skipping them.",
+)
+def update_command(
+    auto_accept: AutoAcceptType = None,
+    write_merge_conflicts: WriteMergeConflictsType = False,
+    preview: Annotated[
+        bool,
+        typer.Option(
+            "--preview",
+            help="Preview a list of IDs for all the analysis items that will be changed.",
+        ),
+    ] = False,
+) -> Tuple[int, str]:
+    args = update.UpdateArgs(auto_accept, write_merge_conflicts, preview)
+    return update.run(args)
+
+
+@app_command_with_config(
+    name="install",
+    help="Install and enable an analysis item from Panther Analysis into your local repository.",
+)
+def install_command(
+    filters: FilterType = None,
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="The ID of the analysis item to enable.",
+            autocompletion=complete_id,
+        ),
+    ] = None,
+    all_: Annotated[bool, typer.Option("--all", help="Install all analysis items.")] = False,
+) -> Tuple[int, str]:
+    if filters is None:
+        filters = []
+    if all_ and analysis_id is not None:
+        return 1, "Cannot use --all and supply an analysis ID"
+    if all_ and len(filters) > 0:
+        return 1, "Cannot use --all with --filter"
+    if not all_ and analysis_id is None and len(filters) == 0:
+        return 1, "Must supply an analysis ID, use --filter, or use --all"
+    return install.run(analysis_id, filters)
+
+
+@app.command(name="explore", help="Explore the latest Panther Analysis content")
+def explore_command() -> Tuple[int, str]:
+    return explore.run()
+
+
+@app_command_with_config(
+    name="merge", help="Merge an analysis item with the latest Panther Analysis content"
+)
+def merge_command(
+    analysis_id: Annotated[
+        str,
+        typer.Argument(help="The ID of the analysis item to merge.", autocompletion=complete_id),
+    ],
+    editor: Annotated[
+        Optional[str],
+        typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
+    ] = None,
+    auto_accept: AutoAcceptType = None,
+    write_merge_conflicts: WriteMergeConflictsType = False,
+) -> Tuple[int, str]:
+    args = merge.MergeArgs(analysis_id, editor, auto_accept, write_merge_conflicts)
+    return merge.run(args)
+
+
+@app_command_with_config(
+    name="migrate",
+    help="Migrate all analysis items that are based off Panther Analysis content "
+    + "by adding a BaseVersion field and getting them up to date.",
+)
+def migrate_command(
+    analysis_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="The ID of the analysis item to migrate with merge conflicts to resolve.",
+            autocompletion=complete_id,
+        ),
+    ] = None,
+    editor: Annotated[
+        Optional[str],
+        typer.Option(envvar="EDITOR", help="The editor to use to merge the analysis item."),
+    ] = None,
+    auto_accept: AutoAcceptType = None,
+    write_merge_conflicts: WriteMergeConflictsType = False,
+) -> Tuple[int, str]:
+    args = migrate.MigrateArgs(analysis_id, editor, auto_accept, write_merge_conflicts)
+    return migrate.run(args)
+
+
+@app_command_with_config(
+    name="fmt",
+    help="Format and standardize the code in the current directory to help with making less changes in other commands.",
+)
+def fmt_command() -> tuple[int, str]:
+    return fmt.run()
 
 
 # pylint: disable=too-many-statements
