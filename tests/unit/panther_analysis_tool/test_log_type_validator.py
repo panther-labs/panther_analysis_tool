@@ -251,9 +251,7 @@ class TestGetUnsupportedLogTypes(unittest.TestCase):
         """Test that with cache, unsupported log types are returned."""
         LogTypeCache.set_log_types({"AWS.CloudTrail"})
 
-        result = get_unsupported_log_types(
-            ["AWS.CloudTrail", "Okta.SystemLog", "Custom.MyApp"]
-        )
+        result = get_unsupported_log_types(["AWS.CloudTrail", "Okta.SystemLog", "Custom.MyApp"])
 
         # Only Okta.SystemLog is unsupported (AWS.CloudTrail is in instance, Custom.MyApp is valid format)
         self.assertEqual(result, ["Okta.SystemLog"])

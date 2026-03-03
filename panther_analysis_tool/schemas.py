@@ -151,7 +151,9 @@ RULE_SCHEMA = Schema(
         "Enabled": bool,
         Or("Filename", "Detection", only_one=True): Or(str, object),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("LogTypes", "ScheduledQueries", only_one=True): [str],  # Log type validation at upload time
+        Or("LogTypes", "ScheduledQueries", only_one=True): [
+            str
+        ],  # Log type validation at upload time
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
