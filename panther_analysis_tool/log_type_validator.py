@@ -160,7 +160,9 @@ def is_log_type_supported(log_type: str) -> bool:
         return True
 
     # Check if in instance or valid Custom.* format
-    return log_type in cached_log_types or is_valid_custom_log_type(log_type)  # pylint: disable=unsupported-membership-test
+    return log_type in cached_log_types or is_valid_custom_log_type(
+        log_type
+    )  # pylint: disable=unsupported-membership-test
 
 
 def get_unsupported_log_types(log_types: List[str]) -> List[str]:
