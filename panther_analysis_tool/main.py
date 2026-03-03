@@ -260,7 +260,7 @@ def datetime_converted(obj: Any) -> Any:
     return obj
 
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
 def zip_analysis_chunks(
     out: str,
     path: str,

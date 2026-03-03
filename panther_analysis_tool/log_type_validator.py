@@ -88,7 +88,7 @@ def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
         Set of log type names, or None if fetch fails
     """
     try:
-        # Import here to avoid circular dependencies
+        # pylint: disable=import-outside-toplevel
         from panther_analysis_tool.backend.client import ListSchemasParams
 
         # Fetch managed schemas (built-in log types). Custom.* log types are
@@ -99,9 +99,9 @@ def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
             log_types = {schema.name for schema in response.data.schemas}
             logging.debug("Fetched %d log types from Panther instance", len(log_types))
             return log_types
-        else:
-            logging.warning("No schemas returned from Panther instance")
-            return None
+
+        logging.warning("No schemas returned from Panther instance")
+        return None
 
     except Exception as e:  # pylint: disable=broad-except
         logging.warning("Failed to fetch log types from Panther instance: %s", e)
@@ -160,7 +160,7 @@ def is_log_type_supported(log_type: str) -> bool:
         return True
 
     # Check if in instance or valid Custom.* format
-    return log_type in cached_log_types or is_valid_custom_log_type(log_type)
+    return log_type in cached_log_types or is_valid_custom_log_type(log_type)  # pylint: disable=unsupported-membership-test
 
 
 def get_unsupported_log_types(log_types: List[str]) -> List[str]:
