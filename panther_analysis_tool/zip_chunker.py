@@ -1,4 +1,3 @@
-import logging
 import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
@@ -12,10 +11,7 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
 from panther_analysis_tool.core.parse import Filter
-from panther_analysis_tool.log_type_validator import (
-    get_unsupported_log_types,
-    init_log_type_cache,
-)
+from panther_analysis_tool.log_type_validator import filter_analysis_by_log_type_support
 
 if TYPE_CHECKING:
     from panther_analysis_tool.backend.client import Client as BackendClient
@@ -173,68 +169,9 @@ def analysis_for_chunks(
 
     # Apply log type filtering if backend is provided
     if backend is not None:
-        filtered = _filter_by_log_type_support(filtered, backend)
+        filtered = filter_analysis_by_log_type_support(filtered, backend)
 
     return filtered
-
-
-def _filter_by_log_type_support(
-    analysis: List[ClassifiedAnalysis],
-    backend: "BackendClient",
-) -> List[ClassifiedAnalysis]:
-    """Filter out analysis items with unsupported log types.
-
-    Args:
-        analysis: List of ClassifiedAnalysis to filter
-        backend: Backend client for fetching supported log types
-
-    Returns:
-        Filtered list with unsupported items removed (with warnings logged)
-    """
-    # Initialize the log type cache
-    if not init_log_type_cache(backend):
-        # Cache initialization failed, skip filtering
-        return analysis
-
-    supported = []
-    skipped_count = 0
-
-    for item in analysis:
-        spec = item.analysis_spec
-        if spec is None:
-            supported.append(item)
-            continue
-
-        # Get log types from the spec (could be LogTypes or ScheduledQueries)
-        log_types = spec.get("LogTypes", spec.get("ScheduledQueries", []))
-
-        if not log_types:
-            # No log types to validate
-            supported.append(item)
-            continue
-
-        unsupported = get_unsupported_log_types(log_types)
-
-        if unsupported:
-            rule_id = spec.get("RuleID", spec.get("DataModelID", spec.get("PolicyID", "unknown")))
-            logging.warning(
-                "Skipping %s (%s): log types not supported by Panther instance: %s",
-                item.file_name,
-                rule_id,
-                ", ".join(unsupported),
-            )
-            skipped_count += 1
-        else:
-            supported.append(item)
-
-    if skipped_count > 0:
-        logging.warning(
-            "Skipped %d item(s) due to unsupported log types. "
-            "These log types may not be available in your Panther instance.",
-            skipped_count,
-        )
-
-    return supported
 
 
 def chunk_analysis(

@@ -5,8 +5,8 @@ This module provides log type validation against a Panther instance's supported
 log types. It fetches the list of supported log types from the API and caches
 them for the session duration.
 
-Log type validation is performed at upload time (not during schema validation)
-to allow tests to run for all rules while skipping unsupported rules during upload.
+Log type validation is performed at test/upload time (not during schema validation)
+to provide dynamic validation when API credentials are available.
 """
 
 import logging
@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from panther_analysis_tool.backend.client import Client as BackendClient
+    from panther_analysis_tool.core.definitions import ClassifiedAnalysis
 
 # Custom log type format: Custom.SegmentName.SegmentName...
 # - Must start with "Custom."
@@ -32,41 +33,29 @@ class LogTypeCache:
 
     Note: Resource types are not cached as there's no API endpoint to fetch them.
 
-    Thread-safe implementation using a lock for singleton creation and state access.
+    Thread-safe implementation using a lock for state access.
     """
 
-    _instance: Optional["LogTypeCache"] = None
     _lock: threading.Lock = threading.Lock()
     _log_types: Optional[Set[str]] = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                # Double-check locking pattern
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
 
     @classmethod
     def get_log_types(cls) -> Optional[Set[str]]:
         """Returns cached log types, or None if not yet fetched."""
         with cls._lock:
-            instance = cls()
-            return instance._log_types
+            return cls._log_types
 
     @classmethod
     def set_log_types(cls, log_types: Set[str]) -> None:
         """Caches the provided log types."""
         with cls._lock:
-            instance = cls()
-            instance._log_types = log_types
+            cls._log_types = log_types
 
     @classmethod
     def clear(cls) -> None:
         """Clears the cache (useful for testing)."""
         with cls._lock:
-            instance = cls()
-            instance._log_types = None
+            cls._log_types = None
 
 
 def is_valid_custom_log_type(log_type: str) -> bool:
@@ -120,7 +109,7 @@ def init_log_type_cache(backend: Optional["BackendClient"]) -> bool:
     """
     Initializes the log type cache by fetching log types from the Panther instance.
 
-    Should be called once at the start of an upload operation.
+    Should be called once at the start of a test/upload operation.
 
     Args:
         backend: Optional backend client. If None, no log type validation will occur.
@@ -135,16 +124,14 @@ def init_log_type_cache(backend: Optional["BackendClient"]) -> bool:
         )
         return False
 
-    cache = LogTypeCache()
-
     # Check if already cached
-    if cache.get_log_types() is not None:
+    if LogTypeCache.get_log_types() is not None:
         return True
 
     # Fetch from API
     log_types = _fetch_log_types(backend)
     if log_types is not None:
-        cache.set_log_types(log_types)
+        LogTypeCache.set_log_types(log_types)
         return True
 
     return False
@@ -163,8 +150,7 @@ def is_log_type_supported(log_type: str) -> bool:
         True if the log type is supported (in instance or valid Custom.* format),
         False otherwise. Returns True if cache is not initialized (no validation).
     """
-    cache = LogTypeCache()
-    cached_log_types = cache.get_log_types()
+    cached_log_types = LogTypeCache.get_log_types()
 
     # If no cached log types, skip validation (allow all)
     if cached_log_types is None:
@@ -190,37 +176,88 @@ def get_unsupported_log_types(log_types: List[str]) -> List[str]:
     return [lt for lt in log_types if not is_log_type_supported(lt)]
 
 
-def filter_rules_by_log_type_support(
-    rules: List[Tuple[str, dict]],
-) -> Tuple[List[Tuple[str, dict]], List[Tuple[str, dict, List[str]]]]:
+def split_analysis_by_log_type_support(
+    analysis: List["ClassifiedAnalysis"],
+    backend: "BackendClient",
+) -> Tuple[List["ClassifiedAnalysis"], List[Tuple[str, Exception]]]:
     """
-    Filters rules based on log type support.
+    Split analysis items into supported and unsupported based on log types.
+
+    Initializes the log type cache if needed. Items whose log types are not
+    supported by the Panther instance are returned as (filename, error) pairs.
 
     Args:
-        rules: List of (filename, rule_spec) tuples
+        analysis: List of ClassifiedAnalysis to validate
+        backend: Backend client for fetching supported log types
 
     Returns:
         Tuple of:
-        - supported_rules: List of (filename, rule_spec) tuples with supported log types
-        - skipped_rules: List of (filename, rule_spec, unsupported_log_types) tuples
+        - supported: items whose log types are all supported (or unvalidated)
+        - errors: (filename, Exception) pairs for items with unsupported log types,
+                  suitable for appending to invalid_specs
     """
-    supported_rules = []
-    skipped_rules = []
+    if not init_log_type_cache(backend):
+        return analysis, []
 
-    for filename, rule_spec in rules:
-        # Get log types from the rule (could be LogTypes or ScheduledQueries)
-        log_types = rule_spec.get("LogTypes", rule_spec.get("ScheduledQueries", []))
+    supported = []
+    errors: List[Tuple[str, Exception]] = []
+
+    for item in analysis:
+        spec = item.analysis_spec
+        if spec is None:
+            supported.append(item)
+            continue
+
+        log_types = spec.get("LogTypes", spec.get("ScheduledQueries", []))
 
         if not log_types:
-            # No log types to validate, include the rule
-            supported_rules.append((filename, rule_spec))
+            supported.append(item)
             continue
 
         unsupported = get_unsupported_log_types(log_types)
 
         if unsupported:
-            skipped_rules.append((filename, rule_spec, unsupported))
+            errors.append(
+                (
+                    item.file_name,
+                    Exception(
+                        f"LogTypes not supported by Panther instance: {', '.join(unsupported)}"
+                    ),
+                )
+            )
         else:
-            supported_rules.append((filename, rule_spec))
+            supported.append(item)
 
-    return supported_rules, skipped_rules
+    return supported, errors
+
+
+def filter_analysis_by_log_type_support(
+    analysis: List["ClassifiedAnalysis"],
+    backend: "BackendClient",
+) -> List["ClassifiedAnalysis"]:
+    """
+    Filter out analysis items with unsupported log types (with warnings logged).
+
+    Used by zip/upload paths where unsupported items should be silently skipped.
+    For test paths where errors should be surfaced, use split_analysis_by_log_type_support.
+
+    Args:
+        analysis: List of ClassifiedAnalysis to filter
+        backend: Backend client for fetching supported log types
+
+    Returns:
+        Filtered list with unsupported items removed
+    """
+    supported, errors = split_analysis_by_log_type_support(analysis, backend)
+
+    for filename, err in errors:
+        logging.warning("Skipping %s: %s", filename, err)
+
+    if errors:
+        logging.warning(
+            "Skipped %d item(s) due to unsupported log types. "
+            "These log types may not be available in your Panther instance.",
+            len(errors),
+        )
+
+    return supported

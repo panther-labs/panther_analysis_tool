@@ -4,15 +4,17 @@ import unittest
 from unittest.mock import Mock
 
 from panther_analysis_tool.backend.client import ListSchemasResponse, Schema
+from panther_analysis_tool.core.definitions import ClassifiedAnalysis
 from panther_analysis_tool.log_type_validator import (
     CUSTOM_LOG_TYPE_REGEX,
     LogTypeCache,
     _fetch_log_types,
-    filter_rules_by_log_type_support,
+    filter_analysis_by_log_type_support,
     get_unsupported_log_types,
     init_log_type_cache,
     is_log_type_supported,
     is_valid_custom_log_type,
+    split_analysis_by_log_type_support,
 )
 
 
@@ -255,88 +257,167 @@ class TestGetUnsupportedLogTypes(unittest.TestCase):
         self.assertEqual(result, ["Okta.SystemLog"])
 
 
-class TestFilterRulesByLogTypeSupport(unittest.TestCase):
-    """Tests for filter_rules_by_log_type_support function."""
+def _make_item(filename: str, spec: dict) -> ClassifiedAnalysis:
+    return ClassifiedAnalysis(filename, "/some/dir", spec)
+
+
+def _make_mock_backend(log_type_names: list) -> Mock:
+    mock_backend = Mock()
+    mock_response = Mock()
+    mock_response.data = ListSchemasResponse(
+        schemas=[
+            Schema(
+                name=name,
+                created_at="",
+                description="",
+                is_managed=True,
+                reference_url="",
+                revision="",
+                spec="",
+                updated_at="",
+                field_discovery_enabled=False,
+            )
+            for name in log_type_names
+        ]
+    )
+    mock_backend.list_schemas.return_value = mock_response
+    return mock_backend
+
+
+class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
+    """Tests for split_analysis_by_log_type_support function."""
 
     def setUp(self):
-        """Clear cache before each test."""
         LogTypeCache.clear()
 
-    def test_no_cache_allows_all(self):
-        """Test that without cache, all rules pass."""
-        rules = [
-            ("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
-            ("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["FakeVendor.FakeLog"]}),
+    def test_no_cache_returns_all_supported_no_errors(self):
+        """Without a backend cache, all items are valid and no errors returned."""
+        items = [
+            _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+            _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["FakeVendor.FakeLog"]}),
         ]
+        mock_backend = _make_mock_backend([])
+        # Pre-populate cache as empty to simulate "no API results" → validation skipped
+        # (cache not initialized means skip; use backend that returns empty)
+        mock_backend.list_schemas.return_value.data = None
 
-        supported, skipped = filter_rules_by_log_type_support(rules)
+        supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
         self.assertEqual(len(supported), 2)
-        self.assertEqual(len(skipped), 0)
+        self.assertEqual(len(errors), 0)
 
-    def test_with_cache_filters_unsupported(self):
-        """Test that with cache, unsupported rules are filtered."""
+    def test_with_cache_splits_supported_and_errors(self):
+        """With cache populated, unsupported log types produce errors."""
         LogTypeCache.set_log_types({"AWS.CloudTrail"})
-
-        rules = [
-            ("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
-            ("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["Okta.SystemLog"]}),
-            ("rule3.yml", {"RuleID": "Rule3", "LogTypes": ["Custom.MyApp"]}),
+        items = [
+            _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+            _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["Okta.SystemLog"]}),
+            _make_item("rule3.yml", {"RuleID": "Rule3", "LogTypes": ["Custom.MyApp"]}),
         ]
+        mock_backend = Mock()
 
-        supported, skipped = filter_rules_by_log_type_support(rules)
-
-        self.assertEqual(len(supported), 2)  # Rule1 and Rule3
-        self.assertEqual(len(skipped), 1)  # Rule2
-
-        # Check skipped rule details
-        self.assertEqual(skipped[0][0], "rule2.yml")
-        self.assertEqual(skipped[0][2], ["Okta.SystemLog"])
-
-    def test_rules_without_log_types_pass(self):
-        """Test that rules without LogTypes field pass."""
-        LogTypeCache.set_log_types({"AWS.CloudTrail"})
-
-        rules = [
-            ("global.yml", {"GlobalID": "MyGlobal"}),  # No LogTypes
-            ("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
-        ]
-
-        supported, skipped = filter_rules_by_log_type_support(rules)
+        supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
         self.assertEqual(len(supported), 2)
-        self.assertEqual(len(skipped), 0)
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0][0], "rule2.yml")
+        self.assertIn("Okta.SystemLog", str(errors[0][1]))
+
+    def test_items_without_log_types_are_supported(self):
+        """Items with no LogTypes field pass through as supported."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+        items = [
+            _make_item("global.yml", {"GlobalID": "MyGlobal"}),
+            _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+        ]
+        mock_backend = Mock()
+
+        supported, errors = split_analysis_by_log_type_support(items, mock_backend)
+
+        self.assertEqual(len(supported), 2)
+        self.assertEqual(len(errors), 0)
 
     def test_scheduled_queries_validated(self):
-        """Test that ScheduledQueries field is also validated."""
+        """ScheduledQueries field is also checked against supported log types."""
         LogTypeCache.set_log_types({"AWS.CloudTrail"})
-
-        rules = [
-            (
+        items = [
+            _make_item(
                 "scheduled.yml",
                 {"RuleID": "Scheduled1", "ScheduledQueries": ["Okta.SystemLog"]},
             ),
         ]
+        mock_backend = Mock()
 
-        supported, skipped = filter_rules_by_log_type_support(rules)
+        supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
         self.assertEqual(len(supported), 0)
-        self.assertEqual(len(skipped), 1)
+        self.assertEqual(len(errors), 1)
+
+    def test_error_tuple_is_filename_and_exception(self):
+        """Each error is a (filename, Exception) tuple suitable for invalid_specs."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+        items = [_make_item("bad.yml", {"RuleID": "Bad", "LogTypes": ["Unknown.Type"]})]
+        mock_backend = Mock()
+
+        _, errors = split_analysis_by_log_type_support(items, mock_backend)
+
+        self.assertEqual(len(errors), 1)
+        filename, exc = errors[0]
+        self.assertEqual(filename, "bad.yml")
+        self.assertIsInstance(exc, Exception)
+
+
+class TestFilterAnalysisByLogTypeSupport(unittest.TestCase):
+    """Tests for filter_analysis_by_log_type_support function."""
+
+    def setUp(self):
+        LogTypeCache.clear()
+
+    def test_filters_unsupported_returns_only_supported(self):
+        """Unsupported items are excluded from return value."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+        items = [
+            _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+            _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["Okta.SystemLog"]}),
+        ]
+        mock_backend = Mock()
+
+        result = filter_analysis_by_log_type_support(items, mock_backend)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].file_name, "rule1.yml")
+
+    def test_cache_init_failure_returns_all(self):
+        """If cache cannot be initialised (no backend schemas), all items pass through."""
+        mock_backend = Mock()
+        mock_backend.list_schemas.side_effect = Exception("Network error")
+        items = [
+            _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["Anything.Goes"]}),
+        ]
+
+        result = filter_analysis_by_log_type_support(items, mock_backend)
+
+        self.assertEqual(len(result), 1)
+
+    def test_custom_log_types_always_pass(self):
+        """Custom.* log types pass even when not in the instance schema list."""
+        LogTypeCache.set_log_types({"AWS.CloudTrail"})
+        items = [
+            _make_item("custom.yml", {"RuleID": "Custom1", "LogTypes": ["Custom.MyOrg.Events"]}),
+        ]
+        mock_backend = Mock()
+
+        result = filter_analysis_by_log_type_support(items, mock_backend)
+
+        self.assertEqual(len(result), 1)
 
 
 class TestLogTypeCache(unittest.TestCase):
-    """Tests for LogTypeCache singleton."""
+    """Tests for LogTypeCache class methods."""
 
     def setUp(self):
         """Clear cache before each test."""
         LogTypeCache.clear()
-
-    def test_cache_singleton(self):
-        """Test that LogTypeCache is a singleton."""
-        cache1 = LogTypeCache()
-        cache2 = LogTypeCache()
-
-        self.assertIs(cache1, cache2)
 
     def test_cache_set_and_get(self):
         """Test setting and getting cached log types."""
@@ -355,6 +436,30 @@ class TestLogTypeCache(unittest.TestCase):
         LogTypeCache.clear()
 
         self.assertIsNone(LogTypeCache.get_log_types())
+
+    def test_cache_thread_safety(self):
+        """Test that cache operations are thread-safe."""
+        import threading
+
+        results = []
+        errors = []
+
+        def set_and_get():
+            try:
+                LogTypeCache.set_log_types({"AWS.CloudTrail"})
+                result = LogTypeCache.get_log_types()
+                results.append(result)
+            except Exception as e:  # pylint: disable=broad-except
+                errors.append(e)
+
+        threads = [threading.Thread(target=set_and_get) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(len(errors), 0)
+        self.assertEqual(len(results), 10)
 
 
 if __name__ == "__main__":
