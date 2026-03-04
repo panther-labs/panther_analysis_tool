@@ -193,6 +193,17 @@ _FAKE_SCHEDULED_RULE_WITH_MULTIPLE_QUERIES = yaml.dump(
     }
 )
 
+_FAKE_SCHEDULED_RULE_WITH_MISSING_QUERY = yaml.dump(
+    {
+        "AnalysisType": "scheduled_rule",
+        "Filename": "fake_scheduled_rule_with_missing_query.py",
+        "RuleID": "fake.scheduled_rule.with.missing.query",
+        "Enabled": False,
+        "Description": "Fake scheduled rule depending on query not in cache",
+        "ScheduledQueries": ["fake.scheduled_query.missing"],
+    }
+)
+
 _FAKE_RULE_WITH_DEPS = yaml.dump(
     {
         "AnalysisType": "rule",
@@ -796,3 +807,23 @@ def test_install_deps_does_not_reinstall_existing_scheduled_query(
 
     # The file should not have been overwritten
     assert (query_dir / "fake_scheduled_query_1.yaml").read_text() == existing_content
+
+
+def test_install_deps_when_scheduled_query_not_in_cache(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """When a scheduled rule depends on a scheduled query that is not in the cache, install_deps skips it and does not install any file for that query."""
+    set_up_cache(tmp_path, monkeypatch)
+
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_SCHEDULED_RULE_WITH_MISSING_QUERY),
+            yaml_file_path="scheduled_rules/fake_scheduled_rule_with_missing_query.yaml",
+            python_file_path="scheduled_rules/fake_scheduled_rule_with_missing_query.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        )
+    ]
+    install_item.install_deps(items)
+
+    # The missing query is not in the cache, so no file should be created for it
+    assert not (tmp_path / "queries" / "fake_scheduled_query_missing.yaml").exists()
