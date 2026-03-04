@@ -641,7 +641,7 @@ def transpile_inline_filters(
         logging.info("No backend client provided, skipping InlineFilters during testing")
 
 
-def load_analysis(  # pylint: disable=too-many-arguments
+def load_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     path: str,
     ignore_table_names: bool,
     valid_table_names: List[str],
