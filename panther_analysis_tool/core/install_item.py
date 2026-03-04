@@ -67,11 +67,13 @@ def install_deps(
 
     all_log_types: set[str] = set()
     all_top_level_imports: set[str] = set()
+    all_scheduled_queries: set[str] = set()
     checked_global_helpers: set[str] = set()  # global helpers whose imports have been checked
     cache = analysis_cache.AnalysisCache()
     versions = versions_file.get_versions().versions
     global_helpers: dict[str, analysis_cache.AnalysisSpec] = {}  # filename -> spec
     data_models: list[LoadedDataModelSpec] = []
+    scheduled_queries: dict[str, analysis_cache.AnalysisSpec] = {}  # QueryName -> spec
 
     for spec_id in cache.list_spec_ids():
         spec = cache.get_latest_spec(spec_id)
@@ -94,6 +96,9 @@ def install_deps(
                     log_types=loaded["LogTypes"] if "LogTypes" in loaded else [],
                 )
             )
+        elif loaded["AnalysisType"] == AnalysisTypes.SCHEDULED_QUERY:
+            if "QueryName" in loaded:
+                scheduled_queries[loaded["QueryName"]] = spec
 
     # collect all imports from the items we are installing
     for item in items_with_deps:
@@ -101,6 +106,11 @@ def install_deps(
         all_top_level_imports.update(imports)
         all_log_types.update(
             item.yaml_file_contents["LogTypes"] if "LogTypes" in item.yaml_file_contents else []
+        )
+        all_scheduled_queries.update(
+            item.yaml_file_contents["ScheduledQueries"]
+            if "ScheduledQueries" in item.yaml_file_contents
+            else []
         )
 
     # collect all imports from the data models we are installing
@@ -125,6 +135,16 @@ def install_deps(
             try:
                 item = cached_analysis_spec_to_analysis_item(
                     global_helpers[import_], cache, versions
+                )
+                install_analysis_item(item, show_installed_items=show_installed_items)
+            except FileExistsError:
+                pass
+
+    for query_name in all_scheduled_queries:
+        if query_name in scheduled_queries:
+            try:
+                item = cached_analysis_spec_to_analysis_item(
+                    scheduled_queries[query_name], cache, versions
                 )
                 install_analysis_item(item, show_installed_items=show_installed_items)
             except FileExistsError:

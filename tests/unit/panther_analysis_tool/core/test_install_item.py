@@ -162,6 +162,48 @@ _FAKE_SCHEDULED_QUERY_1_V1 = yaml.dump(
     }
 )
 
+_FAKE_SCHEDULED_QUERY_2_V1 = yaml.dump(
+    {
+        "AnalysisType": "scheduled_query",
+        "QueryName": "fake.scheduled_query.2",
+        "Enabled": False,
+        "Description": "Fake scheduled query 2 v1",
+    }
+)
+
+_FAKE_SCHEDULED_RULE_WITH_QUERIES = yaml.dump(
+    {
+        "AnalysisType": "scheduled_rule",
+        "Filename": "fake_scheduled_rule_with_queries.py",
+        "RuleID": "fake.scheduled_rule.with.queries",
+        "Enabled": False,
+        "Description": "Fake scheduled rule with queries",
+        "ScheduledQueries": ["fake.scheduled_query.1"],
+    }
+)
+
+_FAKE_SCHEDULED_RULE_WITH_MULTIPLE_QUERIES = yaml.dump(
+    {
+        "AnalysisType": "scheduled_rule",
+        "Filename": "fake_scheduled_rule_with_multiple_queries.py",
+        "RuleID": "fake.scheduled_rule.with.multiple.queries",
+        "Enabled": False,
+        "Description": "Fake scheduled rule with multiple queries",
+        "ScheduledQueries": ["fake.scheduled_query.1", "fake.scheduled_query.2"],
+    }
+)
+
+_FAKE_SCHEDULED_RULE_WITH_MISSING_QUERY = yaml.dump(
+    {
+        "AnalysisType": "scheduled_rule",
+        "Filename": "fake_scheduled_rule_with_missing_query.py",
+        "RuleID": "fake.scheduled_rule.with.missing.query",
+        "Enabled": False,
+        "Description": "Fake scheduled rule depending on query not in cache",
+        "ScheduledQueries": ["fake.scheduled_query.missing"],
+    }
+)
+
 _FAKE_RULE_WITH_DEPS = yaml.dump(
     {
         "AnalysisType": "rule",
@@ -395,6 +437,44 @@ _FAKE_VERSIONS_FILE = yaml.dump(
                     },
                 },
             },
+            "fake.scheduled_query.2": {
+                "version": 1,
+                "type": "scheduled_query",
+                "sha256": "fake_sha256_scheduled_query_2",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_scheduled_query_2",
+                        "yaml_file_path": "queries/fake_scheduled_query_2.yaml",
+                    },
+                },
+            },
+            "fake.scheduled_rule.with.queries": {
+                "version": 1,
+                "type": "scheduled_rule",
+                "sha256": "fake_sha256_scheduled_rule_with_queries",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_scheduled_rule_with_queries",
+                        "yaml_file_path": "scheduled_rules/fake_scheduled_rule_with_queries.yaml",
+                        "py_file_path": "scheduled_rules/fake_scheduled_rule_with_queries.py",
+                    },
+                },
+            },
+            "fake.scheduled_rule.with.multiple.queries": {
+                "version": 1,
+                "type": "scheduled_rule",
+                "sha256": "fake_sha256_scheduled_rule_with_multiple_queries",
+                "history": {
+                    "1": {
+                        "version": 1,
+                        "commit_hash": "fake_commit_hash_scheduled_rule_with_multiple_queries",
+                        "yaml_file_path": "scheduled_rules/fake_scheduled_rule_with_multiple_queries.yaml",
+                        "py_file_path": "scheduled_rules/fake_scheduled_rule_with_multiple_queries.py",
+                    },
+                },
+            },
             "fake.rule.with.deps": {
                 "version": 1,
                 "type": "rule",
@@ -415,6 +495,7 @@ _FAKE_VERSIONS_FILE = yaml.dump(
 
 def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.AnalysisCache:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(versions_file, "_VERSIONS", None)
 
     PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
     PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
@@ -474,8 +555,25 @@ def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_c
         cache, _FAKE_CORRELATION_RULE_1_V1, 1, "RuleID", "fake.correlation_rule.1", _FAKE_PY
     )
     insert_spec(cache, _FAKE_SCHEDULED_RULE_1_V1, 1, "RuleID", "fake.scheduled_rule.1", _FAKE_PY)
+    insert_spec(
+        cache,
+        _FAKE_SCHEDULED_RULE_WITH_QUERIES,
+        1,
+        "RuleID",
+        "fake.scheduled_rule.with.queries",
+        _FAKE_PY,
+    )
+    insert_spec(
+        cache,
+        _FAKE_SCHEDULED_RULE_WITH_MULTIPLE_QUERIES,
+        1,
+        "RuleID",
+        "fake.scheduled_rule.with.multiple.queries",
+        _FAKE_PY,
+    )
     insert_spec(cache, _FAKE_SAVED_QUERY_1_V1, 1, "QueryName", "fake.saved_query.1")
     insert_spec(cache, _FAKE_SCHEDULED_QUERY_1_V1, 1, "QueryName", "fake.scheduled_query.1")
+    insert_spec(cache, _FAKE_SCHEDULED_QUERY_2_V1, 1, "QueryName", "fake.scheduled_query.2")
 
     return cache
 
@@ -640,3 +738,92 @@ def test_install_analysis_item(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch)
 
     assert "Enabled: true" in (tmp_path / "rules" / "fake_rule_1.yaml").read_text()
     assert "BaseVersion: 1" in (tmp_path / "rules" / "fake_rule_1.yaml").read_text()
+
+
+def test_install_deps_with_scheduled_queries(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_SCHEDULED_RULE_WITH_QUERIES),
+            yaml_file_path="scheduled_rules/fake_scheduled_rule_with_queries.yaml",
+            python_file_path="scheduled_rules/fake_scheduled_rule_with_queries.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        )
+    ]
+    install_item.install_deps(items)
+
+    assert (tmp_path / "queries" / "fake_scheduled_query_1.yaml").exists()
+    assert "Enabled: true" in (tmp_path / "queries" / "fake_scheduled_query_1.yaml").read_text()
+    assert "BaseVersion: 1" in (tmp_path / "queries" / "fake_scheduled_query_1.yaml").read_text()
+
+
+def test_install_deps_with_multiple_scheduled_queries(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_SCHEDULED_RULE_WITH_MULTIPLE_QUERIES),
+            yaml_file_path="scheduled_rules/fake_scheduled_rule_with_multiple_queries.yaml",
+            python_file_path="scheduled_rules/fake_scheduled_rule_with_multiple_queries.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        )
+    ]
+    install_item.install_deps(items)
+
+    assert (tmp_path / "queries" / "fake_scheduled_query_1.yaml").exists()
+    assert "Enabled: true" in (tmp_path / "queries" / "fake_scheduled_query_1.yaml").read_text()
+    assert "BaseVersion: 1" in (tmp_path / "queries" / "fake_scheduled_query_1.yaml").read_text()
+
+    assert (tmp_path / "queries" / "fake_scheduled_query_2.yaml").exists()
+    assert "Enabled: true" in (tmp_path / "queries" / "fake_scheduled_query_2.yaml").read_text()
+    assert "BaseVersion: 1" in (tmp_path / "queries" / "fake_scheduled_query_2.yaml").read_text()
+
+
+def test_install_deps_does_not_reinstall_existing_scheduled_query(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    set_up_cache(tmp_path, monkeypatch)
+
+    # Pre-install the scheduled query
+    query_dir = tmp_path / "queries"
+    query_dir.mkdir(parents=True, exist_ok=True)
+    existing_content = "existing content"
+    (query_dir / "fake_scheduled_query_1.yaml").write_text(existing_content)
+
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_SCHEDULED_RULE_WITH_QUERIES),
+            yaml_file_path="scheduled_rules/fake_scheduled_rule_with_queries.yaml",
+            python_file_path="scheduled_rules/fake_scheduled_rule_with_queries.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        )
+    ]
+    install_item.install_deps(items)
+
+    # The file should not have been overwritten
+    assert (query_dir / "fake_scheduled_query_1.yaml").read_text() == existing_content
+
+
+def test_install_deps_when_scheduled_query_not_in_cache(
+    tmp_path: pathlib.Path, monkeypatch: MonkeyPatch
+) -> None:
+    """When a scheduled rule depends on a scheduled query that is not in the cache, install_deps skips it and does not install any file for that query."""
+    set_up_cache(tmp_path, monkeypatch)
+
+    items = [
+        analysis_utils.AnalysisItem(
+            yaml_file_contents=yaml.load(_FAKE_SCHEDULED_RULE_WITH_MISSING_QUERY),
+            yaml_file_path="scheduled_rules/fake_scheduled_rule_with_missing_query.yaml",
+            python_file_path="scheduled_rules/fake_scheduled_rule_with_missing_query.py",
+            python_file_contents=bytes(_FAKE_PY, "utf-8"),
+        )
+    ]
+    install_item.install_deps(items)
+
+    # The missing query is not in the cache, so no file should be created for it
+    assert not (tmp_path / "queries" / "fake_scheduled_query_missing.yaml").exists()
