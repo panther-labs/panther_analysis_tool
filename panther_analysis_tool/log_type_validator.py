@@ -95,7 +95,7 @@ def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
         # validated locally via regex, so we only need the managed set here.
         response = backend.list_schemas(ListSchemasParams(is_managed=True))
 
-        if response.data and response.data.schemas:
+        if response.data is not None and response.data.schemas is not None:
             log_types = {schema.name for schema in response.data.schemas}
             logging.debug("Fetched %d log types from Panther instance", len(log_types))
             return log_types

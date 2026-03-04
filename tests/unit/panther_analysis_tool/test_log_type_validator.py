@@ -117,8 +117,8 @@ class TestFetchLogTypes(unittest.TestCase):
         self.assertIsNotNone(log_types)
         self.assertEqual(log_types, {"AWS.CloudTrail", "Okta.SystemLog"})
 
-    def test_fetch_log_types_empty_response(self):
-        """Test handling of empty response from backend."""
+    def test_fetch_log_types_none_data_response(self):
+        """Test handling of None data from backend."""
         mock_backend = Mock()
         mock_response = Mock()
         mock_response.data = None
@@ -127,6 +127,18 @@ class TestFetchLogTypes(unittest.TestCase):
         log_types = _fetch_log_types(mock_backend)
 
         self.assertIsNone(log_types)
+
+    def test_fetch_log_types_empty_schemas_list(self):
+        """Test that empty schemas list returns empty set, not None."""
+        mock_backend = Mock()
+        mock_response = Mock()
+        mock_response.data = ListSchemasResponse(schemas=[])
+        mock_backend.list_schemas.return_value = mock_response
+
+        log_types = _fetch_log_types(mock_backend)
+
+        self.assertIsNotNone(log_types)
+        self.assertEqual(log_types, set())
 
     def test_fetch_log_types_exception(self):
         """Test handling of exceptions during fetch."""
@@ -290,18 +302,35 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
     def setUp(self):
         LogTypeCache.clear()
 
-    def test_no_cache_returns_all_supported_no_errors(self):
-        """Without a backend cache, all items are valid and no errors returned."""
+    def test_fetch_failure_returns_all_supported_no_errors(self):
+        """When fetch fails, all items are valid and no errors returned (no validation)."""
         items = [
             _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
             _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["FakeVendor.FakeLog"]}),
         ]
-        mock_backend = _make_mock_backend([])  # empty schema list → _fetch_log_types returns None
+        mock_backend = Mock()
+        mock_backend.list_schemas.side_effect = Exception("Network error")
 
         supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
         self.assertEqual(len(supported), 2)
         self.assertEqual(len(errors), 0)
+
+    def test_empty_schema_list_validates_against_empty_cache(self):
+        """When API returns empty schema list, only Custom.* log types are valid."""
+        items = [
+            _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
+            _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["Custom.MyApp"]}),
+        ]
+        mock_backend = _make_mock_backend([])  # empty schema list → cache is empty set
+
+        supported, errors = split_analysis_by_log_type_support(items, mock_backend)
+
+        # Only Custom.MyApp is valid (Custom.* format), AWS.CloudTrail is not in empty cache
+        self.assertEqual(len(supported), 1)
+        self.assertEqual(supported[0].file_name, "rule2.yml")
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0][0], "rule1.yml")
 
     def test_with_cache_splits_supported_and_errors(self):
         """With cache populated, unsupported log types produce errors."""
