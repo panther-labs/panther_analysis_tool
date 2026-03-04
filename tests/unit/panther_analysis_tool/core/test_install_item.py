@@ -484,6 +484,7 @@ _FAKE_VERSIONS_FILE = yaml.dump(
 
 def set_up_cache(tmp_path: pathlib.Path, monkeypatch: MonkeyPatch) -> analysis_cache.AnalysisCache:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(versions_file, "_VERSIONS", None)
 
     PANTHER_ANALYSIS_SQLITE_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
     PANTHER_ANALYSIS_SQLITE_FILE_PATH.touch()
