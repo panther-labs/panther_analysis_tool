@@ -622,15 +622,21 @@ class TestValidateTableNamesBatch(TestCase):
         )
 
     def test_sequential_valid_query(self) -> None:
-        pending = [self._make_query_spec(
-            "Valid.Query",
-            "SELECT * FROM snowflake.account_usage.login_history",
-        )]
+        pending = [
+            self._make_query_spec(
+                "Valid.Query",
+                "SELECT * FROM snowflake.account_usage.login_history",
+            )
+        ]
         invalid_specs: list = []
         all_specs = ClassifiedAnalysisContainer()
-        all_specs.queries.append(ClassifiedAnalysis(
-            "Valid.Query.yml", "/test", pending[0][1],
-        ))
+        all_specs.queries.append(
+            ClassifiedAnalysis(
+                "Valid.Query.yml",
+                "/test",
+                pending[0][1],
+            )
+        )
 
         _validate_table_names_batch(pending, [], invalid_specs, all_specs, workers=1)
 
@@ -638,15 +644,21 @@ class TestValidateTableNamesBatch(TestCase):
         self.assertEqual(len(all_specs.queries), 1)
 
     def test_sequential_invalid_query(self) -> None:
-        pending = [self._make_query_spec(
-            "Invalid.Query",
-            "SELECT * FROM bad_table",
-        )]
+        pending = [
+            self._make_query_spec(
+                "Invalid.Query",
+                "SELECT * FROM bad_table",
+            )
+        ]
         invalid_specs: list = []
         all_specs = ClassifiedAnalysisContainer()
-        all_specs.queries.append(ClassifiedAnalysis(
-            "Invalid.Query.yml", "/test", pending[0][1],
-        ))
+        all_specs.queries.append(
+            ClassifiedAnalysis(
+                "Invalid.Query.yml",
+                "/test",
+                pending[0][1],
+            )
+        )
 
         _validate_table_names_batch(pending, [], invalid_specs, all_specs, workers=1)
 
@@ -657,15 +669,21 @@ class TestValidateTableNamesBatch(TestCase):
 
     def test_sequential_exception_removes_query(self) -> None:
         """When contains_invalid_table_names raises, the query should be removed (fail-closed)."""
-        pending = [self._make_query_spec(
-            "Error.Query",
-            "SELECT * FROM snowflake.account_usage.login_history",
-        )]
+        pending = [
+            self._make_query_spec(
+                "Error.Query",
+                "SELECT * FROM snowflake.account_usage.login_history",
+            )
+        ]
         invalid_specs: list = []
         all_specs = ClassifiedAnalysisContainer()
-        all_specs.queries.append(ClassifiedAnalysis(
-            "Error.Query.yml", "/test", pending[0][1],
-        ))
+        all_specs.queries.append(
+            ClassifiedAnalysis(
+                "Error.Query.yml",
+                "/test",
+                pending[0][1],
+            )
+        )
 
         with mock.patch(
             "panther_analysis_tool.analysis_utils.contains_invalid_table_names",

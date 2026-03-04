@@ -13,14 +13,12 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import jsonschema
 import schema
-import yaml as pyyaml  # type: ignore[import-untyped]
+import yaml as pyyaml
 from jsonschema import Draft202012Validator
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
-from panther_analysis_tool.backend.client import (
-    BackendError,
-)
+from panther_analysis_tool.backend.client import BackendError
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     GetRuleBodyParams,
@@ -297,13 +295,11 @@ class _PATSafeLoader(pyyaml.CSafeLoader):
     - YAML 1.1 octal (0644) parsed as decimal; sexagesimal (1:30:00) as string
     This ensures switching from ruamel.yaml to PyYAML does not change parsed values."""
 
-    pass
-
 
 # Override timestamp handling to return strings instead of datetime objects
 _PATSafeLoader.add_constructor(
     "tag:yaml.org,2002:timestamp",
-    lambda loader, node: loader.construct_scalar(node),
+    lambda loader, node: loader.construct_scalar(node),  # type: ignore[arg-type]
 )
 
 # Override boolean handling to match YAML 1.2 / ruamel.yaml behavior.
@@ -365,7 +361,9 @@ class _PyYAMLFastLoader:
     faster than ruamel.yaml's pure-Python safe loader."""
 
     def load(self, stream: Any) -> Any:
-        return pyyaml.load(stream, Loader=_PATSafeLoader)
+        return pyyaml.load(
+            stream, Loader=_PATSafeLoader
+        )  # nosec B506 - _PATSafeLoader extends CSafeLoader
 
 
 # pylint: disable=too-many-locals
@@ -445,6 +443,7 @@ def load_analysis_specs_ex(
                 # For non-roundtrip loading, use PyYAML's CSafeLoader (C extension)
                 # which is significantly faster than ruamel.yaml's pure-Python safe loader.
                 if fnmatch(filename, "*.y*ml"):
+                    yaml_loader: Any
                     if roundtrip_yaml:
                         yaml_loader = yaml.BlockStyleYAML(typ="rt")
                     else:
@@ -642,7 +641,7 @@ def transpile_inline_filters(
         logging.info("No backend client provided, skipping InlineFilters during testing")
 
 
-def load_analysis(
+def load_analysis(  # pylint: disable=too-many-arguments
     path: str,
     ignore_table_names: bool,
     valid_table_names: List[str],
@@ -861,14 +860,21 @@ def _validate_table_names_batch(
                 _remove_query_by_filename(all_specs, spec_filename)
                 continue
             if invalid_table_names:
-                invalid_specs.append((
-                    spec_filename,
-                    AnalysisContainsInvalidTableNamesException(analysis_id, invalid_table_names),
-                ))
+                invalid_specs.append(
+                    (
+                        spec_filename,
+                        AnalysisContainsInvalidTableNamesException(
+                            analysis_id, invalid_table_names
+                        ),
+                    )
+                )
                 _remove_query_by_filename(all_specs, spec_filename)
     else:
         # Parallel validation using ProcessPoolExecutor
-        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from concurrent.futures import (  # pylint: disable=import-outside-toplevel
+            ProcessPoolExecutor,
+            as_completed,
+        )
 
         num_workers = min(workers, len(pending))
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
@@ -890,18 +896,18 @@ def _validate_table_names_batch(
                     _remove_query_by_filename(all_specs, spec_filename)
                     continue
                 if invalid_table_names:
-                    invalid_specs.append((
-                        spec_filename,
-                        AnalysisContainsInvalidTableNamesException(
-                            analysis_id, invalid_table_names
-                        ),
-                    ))
+                    invalid_specs.append(
+                        (
+                            spec_filename,
+                            AnalysisContainsInvalidTableNamesException(
+                                analysis_id, invalid_table_names
+                            ),
+                        )
+                    )
                     _remove_query_by_filename(all_specs, spec_filename)
 
 
-def _remove_query_by_filename(
-    all_specs: ClassifiedAnalysisContainer, spec_filename: str
-) -> None:
+def _remove_query_by_filename(all_specs: ClassifiedAnalysisContainer, spec_filename: str) -> None:
     """Remove a query from the classified analysis container by filename."""
     all_specs.queries = [q for q in all_specs.queries if q.file_name != spec_filename]
 
