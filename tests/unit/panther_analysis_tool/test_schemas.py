@@ -432,6 +432,17 @@ class TestPATSchemas(unittest.TestCase):
             }
         )
 
+    def test_policy_route53_resource_types(self):
+        sample_policy = {
+            "AnalysisType": "policy",
+            "Enabled": False,
+            "Filename": "hmm",
+            "PolicyID": "h",
+            "Severity": "Info",
+        }
+        POLICY_SCHEMA.validate({**sample_policy, "ResourceTypes": ["AWS.Route53.HostedZone"]})
+        POLICY_SCHEMA.validate({**sample_policy, "ResourceTypes": ["AWS.Route53Domains"]})
+
     def test_correlation_rule_unit_tests(self):
         # works without unit tests
         CORRELATION_RULE_SCHEMA.validate(

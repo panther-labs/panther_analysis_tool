@@ -35,7 +35,8 @@ RESOURCE_TYPE_REGEX = Regex(
     r"|EC2\.NetworkACL|EC2\.SecurityGroup|EC2\.Volume|EC2\.VPC|ECS\.Cluster|EKS\.Cluster|ELBV2"
     r"\.ApplicationLoadBalancer|GuardDuty\.Detector\.Meta|GuardDuty\.Detector|IAM\.Group|IAM"
     r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
-    r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
+    r"\.Instance|Redshift\.Cluster|Route53\.HostedZone|Route53Domains|S3\.Bucket|WAF\.Regional"
+    r"\.WebACL|WAF\.WebACL)$"
 )
 
 TYPE_SCHEMA = Schema(
