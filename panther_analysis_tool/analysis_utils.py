@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import pathlib
 import re
 import tempfile
 from fnmatch import fnmatch
@@ -13,7 +14,6 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import jsonschema
 import schema
 from jsonschema import Draft202012Validator
-from ruamel.yaml import YAML
 from ruamel.yaml import parser as YAMLParser
 from ruamel.yaml import scanner as YAMLScanner
 
@@ -42,9 +42,11 @@ from panther_analysis_tool.constants import (
     VERSION_STRING,
     AnalysisTypes,
 )
+from panther_analysis_tool.core import parse, yaml
 from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysis,
     ClassifiedAnalysisContainer,
+    analysis_id_field_name,
 )
 from panther_analysis_tool.core.parse import Filter
 from panther_analysis_tool.schemas import (
@@ -109,26 +111,43 @@ def filter_analysis(
             logging.debug("auto-adding data model file %s", os.path.join(file_name))
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
             continue
-        match = True
-        for filt in filters:
-            key, values = filt.key, filt.values
-            spec_value = analysis_spec.get(key, "")
-            spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-            if not set(spec_value).intersection(values):
-                match = False
-                break
-        for filt in filters_inverted:
-            key, values = filt.key, filt.values
-            spec_value = analysis_spec.get(key, "")
-            spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
-            if set(spec_value).intersection(values):
-                match = False
-                break
 
-        if match:
+        if filter_analysis_spec(analysis_spec, [*filters, *filters_inverted]):
             filtered_analysis.append(ClassifiedAnalysis(file_name, dir_name, analysis_spec))
+            continue
 
     return filtered_analysis
+
+
+def filter_analysis_spec(analysis_spec: Dict[str, Any], filters: List[Filter]) -> bool:
+    """
+    Filters the analysis spec based on the filters and filters_inverted.
+    Spec fields that match the filters are included, and spec fields that match the filters_inverted are excluded.
+    Multiple filters are ANDed together, and multiple filter values in the same filter are ORed together.
+
+    Args:
+        analysis_spec: The analysis spec to filter.
+        filters: The filters to apply.
+        filters_inverted: The inverted filters to apply.
+
+    Returns:
+        True if the analysis spec matches the filters and filters_inverted, False otherwise.
+    """
+    for filt in filters:
+        key, values = filt.key, filt.values
+        spec_value = analysis_spec.get(key, "")
+        spec_value = spec_value if isinstance(spec_value, list) else [spec_value]
+        spec_value_normalized = {v.lower() if isinstance(v, str) else v for v in spec_value}
+        values_normalized = {v.lower() if isinstance(v, str) else v for v in values}
+
+        if not filt.inverted:
+            if not spec_value_normalized.intersection(values_normalized):
+                return False
+        else:
+            if spec_value_normalized.intersection(values_normalized):
+                return False
+
+    return True
 
 
 def load_analysis_specs(
@@ -174,13 +193,24 @@ def disable_all_base_detections(paths: List[str], ignore_files: List[str]) -> No
 
 @dataclasses.dataclass
 class LoadAnalysisSpecsResult:
-    """The result of loading analysis specifications from a file."""
+    """
+    The result of loading analysis specifications from a file.
 
-    spec_filename: str
+    Attributes:
+        spec_filename (str): Absolute path to the spec file.
+        relative_path (str): Relative path to the spec file from the current working directory.
+        analysis_spec (dict): The analysis specification.
+        yaml_ctx (yaml.BlockStyleYAML): The YAML loader used to load the spec file.
+        error (Exception | None): An error that occurred while loading the spec file.
+        raw_spec_file_content (bytes | None): The raw content of the spec file.
+    """
+
+    spec_filename: str  # absolute path to the spec file
     relative_path: str
     analysis_spec: Any
-    yaml_ctx: YAML
-    error: Optional[Exception]
+    yaml_ctx: yaml.BlockStyleYAML
+    error: Exception | None
+    raw_spec_file_content: bytes | None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LoadAnalysisSpecsResult):
@@ -205,21 +235,18 @@ class LoadAnalysisSpecsResult:
     # pylint: disable=no-else-return
     def analysis_id(self) -> str:
         """Returns the analysis ID for this analysis spec."""
-        analysis_type = self.analysis_spec["AnalysisType"]
-        if analysis_type in [
-            AnalysisTypes.RULE,
-            AnalysisTypes.SCHEDULED_RULE,
-            AnalysisTypes.CORRELATION_RULE,
-        ]:
-            return self.analysis_spec["RuleID"]
-        elif analysis_type == AnalysisTypes.POLICY:
-            return self.analysis_spec["PolicyID"]
-
-        raise ValueError(f"Unknown analysis type '{analysis_type}'")
+        return self.analysis_spec[self.analysis_id_field_name()]
 
     def analysis_type(self) -> str:
         """Returns the analysis type for this analysis spec."""
         return self.analysis_spec["AnalysisType"]
+
+    def enabled(self) -> bool:
+        """Returns True if the analysis spec is enabled, defaulting to True if no enabled field exists."""
+        return self.analysis_spec.get("Enabled", True)
+
+    def analysis_id_field_name(self) -> str:
+        return analysis_id_field_name(self.analysis_type())
 
     # pylint: disable=line-too-long
     def __str__(self) -> str:
@@ -230,27 +257,36 @@ class LoadAnalysisSpecsResult:
         with open(self.spec_filename, "w", encoding="utf-8") as file:
             self.yaml_ctx.dump(self.analysis_spec, file)
 
+    def python_file_path(self) -> pathlib.Path | None:
+        """Returns the absolute path to the Python file for this analysis spec."""
+        if "Filename" not in self.analysis_spec:
+            return None
 
-def get_yaml_loader(roundtrip: bool) -> YAML:
-    """Returns a YAML object with the correct settings for loading analysis specifications.
+        path = pathlib.Path(self.spec_filename).parent / self.analysis_spec["Filename"]
+        if not path.exists():
+            return None
 
-    Args:
-        roundtrip: Whether or not the YAML parser should be roundtrip safe. Roundtrip safe YAML
-            parser is not compatible with many PAT functions.
-    """
-    if not roundtrip:
-        return YAML(typ="safe")
+        return path
 
-    # If we need to roundtrip, we have different requirements. Most use cases will not need
-    # round-tripping. We only need a roundtrip safe YAML parser if we are going to update
-    # the YAML files.
-    yaml = YAML(typ="rt")
-    yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.preserve_quotes = True
-    yaml.default_flow_style = False
-    # allow very long lines to avoid unnecessary line changes
-    yaml.width = 4096
-    return yaml
+    def python_file_contents(self) -> bytes | None:
+        """Returns the contents of the Python file for this analysis spec."""
+        path = self.python_file_path()
+        if path is None:
+            return None
+
+        return path.read_bytes()
+
+    def pretty_analysis_type(self) -> str:
+        return pretty_analysis_type(self.analysis_type(), plural=False)
+
+    def unlink(self) -> None:
+        pathlib.Path(self.spec_filename).unlink()
+        py_file_path = self.python_file_path()
+        if py_file_path is not None:
+            pathlib.Path(py_file_path).unlink()
+
+    def is_experimental(self) -> bool:
+        return self.analysis_spec.get("Status", "").lower() == parse.EXPERIMENTAL_STATUS.lower()
 
 
 # pylint: disable=too-many-locals
@@ -278,25 +314,27 @@ def load_analysis_specs_ex(
     for file in ignore_files:
         ignored_normalized.append(os.path.normpath(file))
 
+    # Use safe mode when roundtrip is False, rt mode when roundtrip is True.
+    # Create a fresh loader per file so each result has its own yaml_ctx. In roundtrip
+    # mode a shared loader would accumulate state across loads and could corrupt
+    # serialize_to_file() when multiple specs are loaded then some are written back.
     loaded_specs: List[Any] = []
     for directory in directories:
-        for relative_path, _, file_list in os.walk(directory):
-            # Skip hidden folders
-            if (
-                relative_path.split("/")[-1].startswith(".")
-                and relative_path != "./"
-                and relative_path != "."
-            ):
-                continue
+        for dirpath, dirnames, filenames in os.walk(directory):
+            dirnames[:] = [
+                dirname
+                for dirname in dirnames
+                if not dirname.startswith(".") and dirname != "__pycache__"
+            ]
 
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration
             # when relative_path is the current dir
-            if directory in [".", "./"] and relative_path not in [".", "./"]:
+            if directory in [".", "./"] and dirpath not in [".", "./"]:
                 if not any(
                     (
-                        fnmatch(relative_path, path_pattern)
+                        fnmatch(dirpath, path_pattern)
                         for path_pattern in (
                             DATA_MODEL_PATH_PATTERN,
                             HELPERS_PATH_PATTERN,
@@ -308,42 +346,51 @@ def load_analysis_specs_ex(
                         )
                     )
                 ):
-                    logging.debug("Skipping path %s", relative_path)
+                    logging.debug("Skipping path %s", dirpath)
                     continue
-            for filename in sorted(file_list):
+            for filename in sorted(filenames):
                 # Skip hidden files
                 if filename.startswith("."):
                     continue
-                spec_filename = os.path.abspath(os.path.join(relative_path, filename))
+                spec_filename = os.path.abspath(os.path.join(dirpath, filename))
                 # skip loading files that have already been imported
                 if spec_filename in loaded_specs:
                     continue
                 # Dont load files that are explictly ignored
-                relative_name = os.path.normpath(os.path.join(relative_path, filename))
+                relative_name = os.path.normpath(os.path.join(dirpath, filename))
                 if relative_name in ignored_normalized:
-                    logging.info("ignoring file %s", relative_name)
+                    logging.debug("ignoring file %s", relative_name)
                     continue
                 loaded_specs.append(spec_filename)
-                # setup yaml object
-                yaml = get_yaml_loader(roundtrip=roundtrip_yaml)
+                # New loader per file so roundtrip state is isolated (see doc above).
                 if fnmatch(filename, "*.y*ml"):
-                    with open(spec_filename, "r", encoding="utf-8") as spec_file_obj:
+                    yaml_loader = yaml.BlockStyleYAML(typ="rt" if roundtrip_yaml else "safe")
+                    with open(spec_filename, "rb") as spec_file_obj:
                         try:
+                            file_content = spec_file_obj.read()
+                            yaml_content: dict[str, Any] | None = yaml_loader.load(
+                                io.BytesIO(file_content)
+                            )
+
+                            if yaml_content is None or "AnalysisType" not in yaml_content:
+                                continue  # skip files that aren't analysis items
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
-                                relative_path=relative_path,
-                                analysis_spec=yaml.load(spec_file_obj),
-                                yaml_ctx=yaml,
+                                relative_path=dirpath,
+                                analysis_spec=yaml_content,
+                                yaml_ctx=yaml_loader,
                                 error=None,
+                                raw_spec_file_content=file_content,
                             )
                         except (YAMLParser.ParserError, YAMLScanner.ScannerError) as err:
                             # recreate the yaml object and yield the error
                             yield LoadAnalysisSpecsResult(
                                 spec_filename=spec_filename,
-                                relative_path=relative_path,
+                                relative_path=dirpath,
                                 analysis_spec=None,
-                                yaml_ctx=yaml,
+                                yaml_ctx=yaml_loader,
                                 error=err,
+                                raw_spec_file_content=None,
                             )
 
 
@@ -395,7 +442,8 @@ def lookup_base_detection(the_id: str, backend: Optional[BackendClient] = None) 
                 out["tests"] = response.data.tests
             else:
                 logging.warning(
-                    "Unexpected error getting base detection, status code %s", response.status_code
+                    "Unexpected error getting base detection, status code %s",
+                    response.status_code,
                 )
         except (BackendError, BaseException) as be_err:  # pylint: disable=broad-except
             logging.warning(
@@ -422,9 +470,9 @@ def test_correlation_rule(
             tests = [t for t in tests if t["Name"] in test_names]
             spec["Tests"] = tests
 
-        yaml = get_yaml_loader(roundtrip=True)
+        yaml_loader = yaml.BlockStyleYAML()
         string_io = io.StringIO()
-        yaml.dump(spec, stream=string_io)
+        yaml_loader.dump(spec, stream=string_io)
         output_str = string_io.getvalue()
         string_io.close()
         resp = backend.test_correlation_rule(
@@ -512,7 +560,7 @@ def load_analysis(
     valid_table_names: List[str],
     ignore_files: List[str],
     ignore_extra_keys: bool,
-) -> Tuple[Any, List[Any]]:
+) -> Tuple[ClassifiedAnalysisContainer, List[Any]]:
     """Loads each policy or rule into memory.
 
     Args:
@@ -562,10 +610,10 @@ def classify_analysis(
     # or uploaded
     all_specs = ClassifiedAnalysisContainer()
 
-    invalid_specs = []
+    invalid_specs: List[Tuple[str, Exception]] = []
     # each analysis type must have a unique id, track used ids and
     # add any duplicates to the invalid_specs
-    analysis_ids: List[Any] = []
+    analysis_ids: List[str] = []
 
     # Create a json validator and check the schema only once rather than during every loop
     json_validator = Draft202012Validator(ANALYSIS_CONFIG_SCHEMA)
@@ -604,7 +652,7 @@ def classify_analysis(
             analysis_schema.validate(analysis_spec)
 
             # lookup the analysis type id and validate there aren't any conflicts
-            analysis_id = lookup_analysis_id(analysis_spec, analysis_type)
+            analysis_id = lookup_analysis_id(analysis_spec)
             if analysis_id in analysis_ids:
                 raise AnalysisIDConflictException(analysis_id)
             # check for duplicates where panther expects a unique set
@@ -699,29 +747,10 @@ def handle_wrong_key_error(err: schema.SchemaWrongKeyError, keys: list) -> Excep
         return exc
 
 
-def lookup_analysis_id(analysis_spec: Any, analysis_type: str) -> str:
-    analysis_id = "UNKNOWN_ID"
-    if analysis_type == AnalysisTypes.DATA_MODEL:
-        analysis_id = analysis_spec["DataModelID"]
-    elif analysis_type == AnalysisTypes.GLOBAL:
-        analysis_id = analysis_spec["GlobalID"]
-    elif analysis_type == AnalysisTypes.LOOKUP_TABLE:
-        analysis_id = analysis_spec["LookupName"]
-    elif analysis_type == AnalysisTypes.PACK:
-        analysis_id = analysis_spec["PackID"]
-    elif analysis_type == AnalysisTypes.POLICY:
-        analysis_id = analysis_spec["PolicyID"]
-    elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type == AnalysisTypes.SAVED_QUERY:
-        analysis_id = analysis_spec["QueryName"]
-    elif analysis_type in [
-        AnalysisTypes.RULE,
-        AnalysisTypes.SCHEDULED_RULE,
-        AnalysisTypes.CORRELATION_RULE,
-    ]:
-        analysis_id = analysis_spec["RuleID"]
-    return analysis_id
+def lookup_analysis_id(analysis_spec: Any) -> str:
+    """Returns the analysis ID for a given analysis spec."""
+    id_field = analysis_id_field_name(analysis_spec["AnalysisType"])
+    return analysis_spec.get(id_field, "UNKNOWN_ID")
 
 
 def load_module(filename: str) -> Tuple[Any, Any]:
@@ -751,3 +780,126 @@ def load_module(filename: str) -> Tuple[Any, Any]:
 
 def get_tmp_helper_module_location() -> str:
     return os.path.join(tempfile.gettempdir(), "panther-path", "globals")
+
+
+@dataclasses.dataclass
+class AnalysisItem:
+    yaml_file_contents: dict[str, Any]
+    raw_yaml_file_contents: Optional[bytes] = None
+    yaml_file_path: Optional[str] = None
+    python_file_contents: Optional[bytes] = None
+    python_file_path: Optional[str] = None
+
+    def __eq__(self, value: object) -> bool:
+        return (
+            isinstance(value, AnalysisItem)
+            and self.yaml_file_contents == value.yaml_file_contents
+            and self.yaml_file_path == value.yaml_file_path
+            and self.python_file_path == value.python_file_path
+            and self.python_file_contents == value.python_file_contents
+            # not including raw_yaml_file_contents because whitespace differences and such don't matter
+            # and yaml_file_contents is the only thing that matters for equality
+        )
+
+    def analysis_type(self) -> str:
+        return self.yaml_file_contents["AnalysisType"]
+
+    def analysis_id(self) -> str:
+        return lookup_analysis_id(self.yaml_file_contents)
+
+    def description(self) -> str:
+        return self.yaml_file_contents.get("Description", "")
+
+    def pretty_analysis_type(self, plural: bool = False) -> str:
+        return pretty_analysis_type(self.analysis_type(), plural)
+
+    def empty(self) -> bool:
+        return (
+            self.yaml_file_contents == {}
+            and (self.raw_yaml_file_contents is None or self.raw_yaml_file_contents == b"{}")
+            and (self.python_file_contents is None or self.python_file_contents == b"")
+        )
+
+    def analysis_id_field_name(self) -> str:
+        return analysis_id_field_name(self.analysis_type())
+
+
+# pylint: disable=too-many-return-statements
+def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
+    match analysis_type:
+        case AnalysisTypes.RULE:
+            return "Rule" if not plural else "Rules"
+        case AnalysisTypes.CORRELATION_RULE:
+            return "Correlation Rule" if not plural else "Correlation Rules"
+        case AnalysisTypes.SCHEDULED_RULE:
+            return "Scheduled Rule" if not plural else "Scheduled Rules"
+        case AnalysisTypes.DATA_MODEL:
+            return "Data Model" if not plural else "Data Models"
+        case AnalysisTypes.POLICY:
+            return "Policy" if not plural else "Policies"
+        case AnalysisTypes.GLOBAL:
+            return "Global Helper" if not plural else "Global Helpers"
+        case AnalysisTypes.SCHEDULED_QUERY:
+            return "Scheduled Query" if not plural else "Scheduled Queries"
+        case AnalysisTypes.SAVED_QUERY:
+            return "Saved Query" if not plural else "Saved Queries"
+        case AnalysisTypes.PACK:
+            return "Pack" if not plural else "Packs"
+        case AnalysisTypes.LOOKUP_TABLE:
+            return "Lookup Table" if not plural else "Lookup Tables"
+        case AnalysisTypes.DERIVED:
+            return "Derived Detection" if not plural else "Derived Detections"
+        case AnalysisTypes.SIMPLE_DETECTION:
+            return "Simple Detection" if not plural else "Simple Detections"
+        case _:
+            raise ValueError(f"Unsupported analysis type: {analysis_type}")
+
+
+def filters_match_analysis_item(filters: list[parse.Filter], item: AnalysisItem) -> bool:
+    """
+    Check if an analysis item matches all of the provided filters.
+
+    This function handles two types of filters:
+    1. **Regular filters** (with a non-empty key): These are structured filters like
+       `RuleID=AWS.S3.Bucket.PublicRead` or `Severity=Critical`. They are matched
+       against the item's YAML specification using `filter_analysis_spec`.
+    2. **Text filters** (with an empty key): These are plain text search terms that
+       must appear in EITHER the item's YAML content OR Python content.
+
+    An item matches only if it satisfies ALL filters. If any filter
+    fails to match, the function returns False.
+
+    Args:
+        filters: List of Filter objects to match against. Filters with empty keys
+            are treated as text search filters, while filters with keys are treated
+            as structured filters.
+        item: The analysis item to check against the filters.
+
+    Returns:
+        True if the item matches all filters, False otherwise.
+
+    Examples:
+        >>> filters = [
+        ...     Filter(key="RuleID", values=["AWS.S3.Bucket.PublicRead"]),
+        ...     Filter(key="Severity", values=["Critical"]),
+        ...     Filter(key="", values=["def rule"])
+        ... ]
+        >>> # Returns True only if:
+        >>> # - RuleID is "AWS.S3.Bucket.PublicRead" AND
+        >>> # - Severity is "Critical" AND
+        >>> # - "def rule" appears in the YAML OR Python
+    """
+    raw_yaml = item.raw_yaml_file_contents.decode("utf-8") if item.raw_yaml_file_contents else ""
+    python = item.python_file_contents.decode("utf-8") if item.python_file_contents else ""
+
+    reg_filters = [filt for filt in filters if filt.key != ""]
+    text_filters = [filt for filt in filters if filt.key == ""]
+
+    for filt in text_filters:
+        if filt.values[0] not in raw_yaml and filt.values[0] not in python:
+            return False
+
+    if not filter_analysis_spec(item.yaml_file_contents, reg_filters):
+        return False
+
+    return True

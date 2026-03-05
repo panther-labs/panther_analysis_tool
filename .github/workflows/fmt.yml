@@ -25,16 +25,35 @@ jobs:
         run: make venv
       - name: Format
         run: make fmt
+      - name: Update dependencies
+        run: make reqs
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add -A .
+          if git diff --cached --quiet; then
+            echo "No formatting changes needed"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Formatting changes detected"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            git reset  # Unstage so the commit step can handle it
+          fi
+      - name: Fail if fork PR needs formatting
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.event.pull_request.head.repo.fork == true }}
+        run: |
+          echo "::error::This PR requires formatting changes but was opened from a fork, so auto-formatting cannot be applied. Please run 'make fmt' and 'make reqs' locally and push the changes."
+          exit 1
       - name: Import GPG key
-        if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
           git_user_signingkey: true
           git_commit_gpgsign: true
-      - name: Commit formatting
-        if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
+      - name: Commit formatting and any dependency updates
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
         run: |
           git config --global user.name "panther-bot-automation"
           git config --global user.email "github-service-account-automation@panther.io"
@@ -54,7 +73,7 @@ jobs:
           if [[ $REQUIRES_COMMIT -eq 0 ]]; then
             echo "No auto-formatting needed"
           else
-            echo "Committing auto-formatted files"
+            echo "Committing auto-formatted files and any dependency updates"
             git push origin HEAD:$BRANCH
           fi
         env:

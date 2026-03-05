@@ -1,0 +1,639 @@
+import dataclasses
+import json
+import logging
+import os
+import pathlib
+import shutil
+import sqlite3
+from datetime import datetime, timedelta
+from typing import Optional
+
+import pydantic
+from requests import RequestException
+from rich.progress import BarColumn, Progress, TextColumn, track
+
+from panther_analysis_tool import analysis_utils
+from panther_analysis_tool.constants import (
+    CACHE_DIR,
+    CACHED_VERSIONS_FILE_PATH,
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH,
+    PANTHER_ANALYSIS_SQLITE_FILE_PATH,
+    AnalysisTypes,
+)
+from panther_analysis_tool.core import git_helpers, versions_file
+
+
+class NoCacheException(Exception):
+    """
+    Exception raised when no cache is found.
+    """
+
+    pass
+
+
+@dataclasses.dataclass
+class AnalysisSpec:
+    """
+    A dataclass representing an analysis item from Panther Analysis.
+
+    Attributes:
+        id (int): The unique identifier for the analysis spec.
+        spec (bytes): The YAML configuration of the analysis spec.
+        version (int): The version number of the analysis spec.
+        id_field (str): The field used as the identifier for the analysis spec (e.g. RuleID, PolicyID, etc.).
+        id_value (str): The ID of the analysis item.
+    """
+
+    id: Optional[int]
+    spec: bytes
+    version: int
+    id_field: str
+    id_value: str
+
+
+class AnalysisCache:
+    """
+    A class for managing the analysis cache database.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the AnalysisCache by connecting to the cache database and creating a cursor.
+        """
+        if not PANTHER_ANALYSIS_SQLITE_FILE_PATH.exists():
+            raise NoCacheException(
+                "No cache found. Please run `pat update` to update to the latest Panther Analysis content."
+            )
+
+        self.conn = sqlite3.connect(PANTHER_ANALYSIS_SQLITE_FILE_PATH)
+        self.cursor = self.conn.cursor()
+
+    def create_tables(self) -> None:
+        """
+        Create the necessary tables and indexes in the cache database if they don't exist.
+
+        Creates 3 tables:
+            - analysis_specs: Stores the YAML configuration of the analysis spec.
+            - files: Stores the associated Python file for the analysis spec.
+            - file_mappings: Stores the mapping between a spec and a file.
+
+        Creates 2 indexes:
+            - idx_analysis_specs_unique: Unique index on id_field, id_value and version.
+            - idx_file_mappings_unique: Unique index on spec_id and file_id.
+        """
+        # get all tables
+        self.cursor.execute(
+            "CREATE TABLE IF NOT EXISTS analysis_specs (id INTEGER PRIMARY KEY AUTOINCREMENT, id_field TEXT, id_value TEXT, spec BLOB, version INTEGER);"
+        )
+        # unique constrain on id_field, id_value and version
+        self.cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_specs_unique ON analysis_specs (id_field, id_value, version);"
+        )
+
+        self.cursor.execute(
+            "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, content BLOB UNIQUE);"
+        )
+
+        self.cursor.execute(
+            "CREATE TABLE IF NOT EXISTS file_mappings (id INTEGER PRIMARY KEY AUTOINCREMENT, spec_id INTEGER, version INTEGER, file_id INTEGER, FOREIGN KEY (spec_id) REFERENCES analysis_specs(id), FOREIGN KEY (file_id) REFERENCES files(id));"
+        )
+        self.cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_mappings_unique ON file_mappings (spec_id, version, file_id);"
+        )
+
+    def list_spec_ids(self) -> list[str]:
+        """
+        List all unique analysis spec IDs in the cache.
+
+        Returns:
+            list[str]: A list of unique ID values for all analysis specs in the cache.
+        """
+        self.cursor.execute("SELECT DISTINCT id_value FROM analysis_specs")
+        return [row[0] for row in self.cursor.fetchall()]
+
+    def get_file_for_spec(self, analysis_spec_id: int, version: int) -> Optional[bytes]:
+        """
+        Get the file content associated with a specific analysis spec.
+
+        Args:
+            analysis_spec_id (int): The ID of the analysis spec.
+            version (int): The version of the analysis spec.
+
+        Returns:
+            Optional[bytes]: The file content as bytes if found, None otherwise.
+        """
+        row = self.cursor.execute(
+            "SELECT file_id FROM file_mappings WHERE spec_id = ? AND version = ?",
+            (analysis_spec_id, version),
+        ).fetchone()
+        if row is None:
+            return None
+        return self.get_file_by_id(row[0])
+
+    def get_file_by_id(self, file_id: int) -> Optional[bytes]:
+        """
+        Get the file content by its ID in the cache.
+
+        Args:
+            file_id (int): The ID of the file in the cache.
+
+        Returns:
+            Optional[bytes]: The file content as bytes if found, None otherwise.
+        """
+        row = self.cursor.execute("SELECT content FROM files WHERE id = ?", (file_id,)).fetchone()
+        if row is None:
+            return None
+        return row[0]
+
+    def get_spec_for_version(self, analysis_id: str, base_version: int) -> Optional[AnalysisSpec]:
+        """
+        Get the analysis spec for a specific version.
+
+        Args:
+            analysis_id (str): The ID of the analysis spec.
+            base_version (int): The version number to retrieve.
+
+        Returns:
+            Optional[AnalysisSpec]: The AnalysisSpec if found, None otherwise.
+        """
+        self.cursor.execute(
+            "SELECT id, spec, version, id_field, id_value FROM analysis_specs WHERE id_value = ? AND version = ?",
+            (analysis_id, base_version),
+        )
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
+        return AnalysisSpec(
+            id=row[0],
+            spec=row[1],
+            version=row[2],
+            id_field=row[3],
+            id_value=row[4],
+        )
+
+    def get_latest_spec(self, analysis_id: str) -> Optional[AnalysisSpec]:
+        """
+        Get the latest version of an analysis spec.
+
+        Args:
+            analysis_id (str): The ID of the analysis spec.
+
+        Returns:
+            Optional[AnalysisSpec]: The latest AnalysisSpec if found, None otherwise.
+        """
+        self.cursor.execute(
+            "SELECT id, spec, version, id_field, id_value FROM analysis_specs WHERE id_value = ? ORDER BY version DESC LIMIT 1",
+            (analysis_id,),
+        )
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
+        return AnalysisSpec(
+            id=row[0],
+            spec=row[1],
+            version=row[2],
+            id_field=row[3],
+            id_value=row[4],
+        )
+
+    def _insert_file(self, content: bytes) -> int:
+        """
+        Insert a file into the cache or retrieve its ID if it already exists.
+
+        Args:
+            content (bytes): The content of the file to insert.
+
+        Returns:
+            int: The ID of the inserted or existing file.
+        """
+        try:
+            file_id = self.cursor.execute(
+                "INSERT INTO files (content) VALUES (?);", (content,)
+            ).lastrowid
+        except sqlite3.IntegrityError:
+            file_id = self.cursor.execute(
+                "SELECT id FROM files WHERE content = ?;", (content,)
+            ).fetchone()[0]
+        if file_id is None:
+            raise ValueError("Failed to insert file, file_id is None")
+        return file_id
+
+    def _insert_spec(
+        self,
+        id_field: str,
+        id_value: str,
+        spec_content: Optional[bytes],
+        spec_version: int,
+    ) -> int:
+        """
+        Insert a new analysis spec into the cache.
+
+        Args:
+            id_field (str): The field used as the identifier for the spec.
+            id_value (str): The value of the identifier field.
+            spec_content (Optional[bytes]): The binary content of the spec.
+            spec_version (int): The version number of the spec.
+
+        Returns:
+            int: The ID of the newly inserted spec.
+        """
+        spec_id = self.cursor.execute(
+            "INSERT INTO analysis_specs (id_field, id_value, spec, version) VALUES (?, ?, ?, ?);",
+            (id_field, id_value, spec_content, spec_version),
+        ).lastrowid
+        # make typechecker happy
+        assert spec_id is not None  # nosec: B101
+        return spec_id
+
+    def _insert_file_mapping(self, spec_id: int, version: int, file_id: int) -> None:
+        """
+        Insert a mapping between a spec and a file in the cache.
+
+        Args:
+            spec_id (int): The ID of the analysis spec.
+            file_id (int): The ID of the associated file.
+        """
+        self.cursor.execute(
+            "INSERT INTO file_mappings (spec_id, version, file_id) VALUES (?, ?, ?);",
+            (spec_id, version, file_id),
+        )
+
+    def insert_analysis_spec(
+        self, analysis_spec: AnalysisSpec, pyFileContents: Optional[bytes]
+    ) -> None:
+        """
+        Insert an analysis spec into the cache.
+
+        Args:
+            analysis_spec (AnalysisSpec): The analysis spec to insert.
+            pyFileContents (bytes): The contents of the Python file associated with the analysis spec.
+
+        Returns:
+            None
+        """
+
+        try:
+            spec_id = self._insert_spec(
+                analysis_spec.id_field,
+                analysis_spec.id_value,
+                analysis_spec.spec,
+                analysis_spec.version,
+            )
+            if pyFileContents is not None:
+                file_id = self._insert_file(pyFileContents)
+                self._insert_file_mapping(spec_id, analysis_spec.version, file_id)
+
+            self.conn.commit()
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed" not in str(e):
+                raise e  # simply skip duplicates
+        except Exception as e:
+            self.conn.rollback()
+            raise e
+
+    def delete_analysis_spec(self, analysis_id: str, version: int) -> None:
+        """
+        Delete an analysis spec from the cache by its ID and version.
+
+        Args:
+            analysis_id (str): The ID of the analysis spec to delete.
+            version (int): The version of the analysis spec to delete.
+        """
+        spec = self.get_spec_for_version(analysis_id, version)
+        if spec is None:
+            raise ValueError(f"Analysis spec {analysis_id} at version {version} not found in cache")
+
+        self.cursor.execute(
+            "DELETE FROM analysis_specs WHERE id_value = ? AND version = ?", (analysis_id, version)
+        )
+
+        row = self.cursor.execute(
+            "SELECT file_id FROM file_mappings WHERE spec_id = ? AND version = ?",
+            (analysis_id, version),
+        ).fetchone()
+        if row is None:
+            return None
+
+        file_id = row[0]
+        self.cursor.execute(
+            "DELETE FROM file_mappings WHERE spec_id = ? AND version = ?", (spec.id or -1, version)
+        )
+        self.cursor.execute("DELETE FROM files WHERE id = ?", (file_id,))
+
+        self.conn.commit()
+
+
+def update_with_latest_panther_analysis(
+    user_analysis_specs: dict[str, analysis_utils.LoadAnalysisSpecsResult] | None = None,
+    show_progress_bar: bool = False,
+) -> None:
+    """
+    Update the analysis cache with the latest Panther Analysis content.
+
+    Args:
+        user_analysis_specs (dict[str, analysis_utils.LoadAnalysisSpecsResult]): The user analysis specs used to determine if older item versions are needed in the cache with.
+        show_progress_bar (bool): Whether to show a progress bar in the terminal.
+
+    Returns:
+        None
+    """
+    if user_analysis_specs is None:
+        user_analysis_specs = {}
+    # allows for testing against a different branch or manual override
+    release_branch = os.environ.get("PANTHER_ANALYSIS_RELEASE_BRANCH") or ""
+
+    if release_branch == "":
+        release_branch = "main"
+
+    # Check if cache is expired first (without calling git_helpers)
+    if not _cache_is_expired(release_branch):
+        # Cache is still valid, no need to update
+        return
+
+    # Cache is expired, get the latest commit and compare
+    commit = ""
+    if release_branch == "main":
+        commit = git_helpers.panther_analysis_latest_release_commit()
+        logging.debug("Using Panther Analysis release: %s", commit)
+
+    if _cache_is_latest(release_branch, commit):
+        return
+
+    sqlite_file = PANTHER_ANALYSIS_SQLITE_FILE_PATH
+    sqlite_file.parent.mkdir(parents=True, exist_ok=True)
+    sqlite_file.touch(exist_ok=True)
+
+    # clone panther analysis
+    with Progress(
+        TextColumn("Updating from Panther Analysis:"),
+        BarColumn(),
+        transient=True,
+        disable=not show_progress_bar,
+    ) as progress:
+        task = progress.add_task("cloning_panther_analysis", total=None)
+        _clone_panther_analysis(release_branch, commit)
+        progress.update(task, completed=True)
+
+    # populate cache
+    cache = AnalysisCache()
+    cache.create_tables()
+    versions = versions_file.get_versions().versions
+
+    for spec in track(
+        analysis_utils.load_analysis_specs_ex([str(CACHE_DIR)], [], True),
+        description="Populating cache:",
+        disable=not show_progress_bar,
+        transient=True,
+    ):
+        _populate_sqlite(spec, cache, user_analysis_specs, versions)
+
+    git_helpers.delete_cloned_panther_analysis()
+
+
+class LatestCachedCommit(pydantic.BaseModel):
+    commit: str
+    expiration: datetime
+
+    def is_expired(self) -> bool:
+        return self.expiration < datetime.now()
+
+    @staticmethod
+    def load() -> "LatestCachedCommit":
+        file_content = LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.read_text().strip()
+        if not file_content:
+            raise RuntimeError("Latest cached Panther Analysis file is empty")
+
+        cached_json = json.loads(file_content)
+        if "commit" not in cached_json or "expiration" not in cached_json:
+            # the filepath of this changed from `.txt` to `.json`, so we are recommending `.*` to delete whatever version they have
+            raise RuntimeError("Latest cached Panther Analysis file is invalid")
+
+        return LatestCachedCommit(**cached_json)
+
+    def save(self) -> None:
+        LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.write_text(self.model_dump_json())
+
+
+def _cache_is_expired(release_branch: str) -> bool:
+    """
+    Check if the cache has expired (without checking commit).
+    Returns True if cache is expired or doesn't exist, False if cache is still valid.
+    """
+    if release_branch != "main":
+        return True  # not main branch, always need to update
+
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch(exist_ok=True)
+
+    try:
+        latest_cached = LatestCachedCommit.load()
+        return latest_cached.is_expired()
+    except (RuntimeError, json.JSONDecodeError):
+        # File is empty or invalid, cache is expired
+        return True
+
+
+def _cache_is_latest(release_branch: str, commit: str) -> bool:
+    """
+    Check if the cache is up to date with the latest Panther Analysis content.
+    Returns True if the commit matches, False otherwise. Always updates the cache expiration.
+    """
+    if release_branch != "main":
+        return False  # not main branch, always need to update
+
+    commit = commit.strip()
+
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_CACHED_PANTHER_ANALYSIS_FILE_PATH.touch(exist_ok=True)
+    new_expiration = datetime.now() + timedelta(hours=1)
+
+    try:
+        latest_cached = LatestCachedCommit.load()
+        return latest_cached.commit == commit
+    except (RuntimeError, json.JSONDecodeError):
+        return False
+    finally:
+        if commit != "":
+            LatestCachedCommit(commit=commit, expiration=new_expiration).save()
+
+
+def _clone_panther_analysis(release_branch: str, commit: str) -> None:
+    """
+    Clone the Panther Analysis repository to the cache directory.
+
+    Args:
+        release_branch (str): The branch of Panther Analysis to clone.
+        commit (str): The commit of Panther Analysis to clone.
+
+    Returns:
+        None
+    """
+    git_helpers.clone_panther_analysis(release_branch, commit)
+    shutil.move(
+        git_helpers.CLONED_VERSIONS_FILE_PATH,
+        CACHED_VERSIONS_FILE_PATH,
+    )  # move versions file so PA can be deleted
+
+
+def _populate_sqlite(
+    spec: analysis_utils.LoadAnalysisSpecsResult,
+    cache: AnalysisCache,
+    user_analysis_specs: dict[str, analysis_utils.LoadAnalysisSpecsResult],
+    versions: dict[str, versions_file.AnalysisVersionItem],
+) -> None:
+    """
+    Populate the analysis cache with the latest Panther Analysis content.
+    Skips experimental items and packs.
+
+    Args:
+        spec (analysis_utils.LoadAnalysisSpecsResult): The analysis spec to populate the cache with.
+        cache (AnalysisCache): The cache to populate.
+        user_analysis_specs (dict[str, analysis_utils.LoadAnalysisSpecsResult]): The user analysis specs to populate the cache with.
+        versions (dict[str, versions_file.AnalysisVersionItem]): The versions to populate the cache with.
+
+    Returns:
+        None
+    """
+    if spec.error is not None:
+        return
+
+    if spec.analysis_type() == AnalysisTypes.PACK:
+        return
+
+    if spec.is_experimental():
+        return
+
+    id_value = spec.analysis_id()
+
+    if id_value not in versions:
+        logging.debug(
+            "Analysis item %s not found in versions file, not loading it into cache", id_value
+        )
+        return
+
+    if id_value in user_analysis_specs:
+        _check_if_old_version_is_needed(cache, user_analysis_specs[id_value], versions[id_value])
+
+    content = None
+    filename = spec.analysis_spec.get("Filename")
+    if spec.analysis_spec.get("Filename") is not None:
+        file_path = pathlib.Path(spec.spec_filename).parent / filename
+        with open(file_path, "rb") as spec_file:
+            content = spec_file.read()
+
+    cache.insert_analysis_spec(
+        AnalysisSpec(
+            id=None,
+            id_field=spec.analysis_id_field_name(),
+            id_value=id_value,
+            spec=spec.raw_spec_file_content
+            or bytes(),  # is only none if error which is handled above
+            version=versions[id_value].version,
+        ),
+        content,
+    )
+
+
+def _fetch_version_from_history_and_insert(
+    cache: AnalysisCache,
+    analysis_id: str,
+    version: int,
+    version_item: versions_file.AnalysisVersionItem,
+) -> AnalysisSpec | None:
+    """
+    Fetch the given version of an analysis item from GitHub using version_item.history
+    and insert it into the cache.
+
+    Returns:
+        The AnalysisSpec from the cache after insert if the version exists in history
+        and was fetched successfully, None otherwise.
+    """
+    if version not in version_item.history:
+        return None
+
+    spec_history_item = version_item.history[version]
+    try:
+        yaml_content = git_helpers.get_panther_analysis_file_contents(
+            spec_history_item.commit_hash, spec_history_item.yaml_file_path
+        )
+        py_content = None
+        if spec_history_item.py_file_path is not None:
+            py_content = bytes(
+                git_helpers.get_panther_analysis_file_contents(
+                    spec_history_item.commit_hash, spec_history_item.py_file_path
+                ),
+                "utf-8",
+            )
+    except RequestException as err:
+        logging.warning(
+            "Failed to fetch %s at version %s from Panther Analysis: %s",
+            analysis_id,
+            version,
+            err,
+        )
+        return None
+
+    id_field = analysis_utils.analysis_id_field_name(version_item.type)
+    spec = AnalysisSpec(
+        id=None,
+        id_field=id_field,
+        id_value=analysis_id,
+        spec=bytes(yaml_content, "utf-8"),
+        version=version,
+    )
+    cache.insert_analysis_spec(spec, py_content)
+    return cache.get_spec_for_version(analysis_id, version)
+
+
+def fetch_and_cache_old_version(
+    cache: AnalysisCache,
+    analysis_id: str,
+    version: int,
+) -> AnalysisSpec | None:
+    """
+    Fetch an old version of an analysis item from GitHub and insert it into the cache.
+
+    This is used when the cache doesn't have the requested base version (e.g., cache was
+    rebuilt after the user's BaseVersion changed, or pat merge is run without pat update).
+
+    Returns:
+        The AnalysisSpec if the version was found and fetched, None otherwise.
+    """
+    try:
+        all_versions = versions_file.get_versions()
+    except FileNotFoundError:
+        return None
+
+    if not all_versions.has_item(analysis_id):
+        return None
+
+    version_item = all_versions.versions[analysis_id]
+    return _fetch_version_from_history_and_insert(cache, analysis_id, version, version_item)
+
+
+def _check_if_old_version_is_needed(
+    cache: AnalysisCache,
+    user_spec: analysis_utils.LoadAnalysisSpecsResult,
+    version_item: versions_file.AnalysisVersionItem,
+) -> None:
+    """
+    Check if the user spec is older than the latest version, and if so, insert the old spec into the cache.
+    Having the old version will allows us to perform a 3-way merge between the user spec, the old spec, and the latest spec.
+
+    Returns:
+        None
+
+    Args:
+        cache (analysis_cache.AnalysisCache): The cache to insert the old spec into.
+        user_spec (LoadAnalysisSpecsResult): The user spec to check.
+        version_item (versions_file.AnalysisVersionItem): The version item to check.
+    """
+    user_spec_version = user_spec.analysis_spec.get("BaseVersion", None)
+
+    # if the user spec is older than the latest version, we need to insert the old spec too.
+    # We know where to find the old spec because we have the version history in the versions file
+    # and we can use the commit hash and file path to get the content from the panther-analysis repository.
+    if user_spec_version is not None and user_spec_version < version_item.version:
+        _fetch_version_from_history_and_insert(
+            cache, user_spec.analysis_id(), user_spec_version, version_item
+        )
