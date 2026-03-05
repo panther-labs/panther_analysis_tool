@@ -340,6 +340,7 @@ SQL_LOOKUP_TABLE_SCHEMA = Schema(
         Optional("Validations"): [{"Field": str, "Validations": [str]}],
         Optional("Description"): str,
         Optional("Reference"): str,
+        Optional("BaseVersion"): int,
     },
     ignore_extra_keys=False,
 )
