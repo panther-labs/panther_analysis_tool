@@ -1,0 +1,8 @@
+AnalysisType: lookup_table
+LookupName: InvalidPeriodMinutesType
+Enabled: true
+SnowflakeQuery: "SELECT id, value FROM my_db.my_schema.my_table"
+LogTypeMap:
+  PrimaryKey: id
+Refresh:
+  PeriodMinutes: "not_a_number"

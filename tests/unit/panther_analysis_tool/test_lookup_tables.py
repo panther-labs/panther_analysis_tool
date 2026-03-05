@@ -60,3 +60,15 @@ class TestLookupTable(TestCase):  # pylint: disable=too-many-public-methods
         rc, file_path = pat.test_lookup_table(path)
         self.assertEqual(1, rc)
         self.assertEqual(file_path, "")
+
+    def test_invalid_sql_lookup_table_period_minutes_string(self):
+        path = f"{LUTS_FIXTURES_PATH}/invalid/lookup-table-sql-invalid-3.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(1, rc)
+        self.assertEqual(file_path, "")
+
+    def test_invalid_sql_lookup_table_cron_expression_int(self):
+        path = f"{LUTS_FIXTURES_PATH}/invalid/lookup-table-sql-invalid-4.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(1, rc)
+        self.assertEqual(file_path, "")

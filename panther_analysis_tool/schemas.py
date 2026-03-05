@@ -332,9 +332,10 @@ SQL_LOOKUP_TABLE_SCHEMA = Schema(
             "PrimaryKey": str,
             Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
         },
-        "Refresh": {
-            Or("PeriodMinutes", "CronExpression", only_one=True): Or(int, str),
-        },
+        "Refresh": Or(
+            {"PeriodMinutes": int},
+            {"CronExpression": str},
+        ),
         Optional("Indicators"): [{"Field": str, "Indicators": [str]}],
         Optional("Validations"): [{"Field": str, "Validations": [str]}],
         Optional("Description"): str,
