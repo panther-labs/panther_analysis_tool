@@ -313,7 +313,7 @@ LOOKUP_TABLE_SCHEMA = Schema(
         "Schema": str,
         "LogTypeMap": {
             "PrimaryKey": str,
-            "AssociatedLogTypes": [{"LogType": str, Optional("Selectors"): [str]}],
+            Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
         },
         Optional("Description"): str,
         Optional("Reference"): str,
