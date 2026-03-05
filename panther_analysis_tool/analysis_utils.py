@@ -633,7 +633,9 @@ def classify_analysis(
             analysis_type = analysis_spec["AnalysisType"]
             if analysis_spec.get("BaseDetection"):
                 analysis_schema = SCHEMAS["derived"]
-            elif analysis_type == AnalysisTypes.LOOKUP_TABLE and ("SnowflakeQuery" in analysis_spec or "Query" in analysis_spec):
+            elif analysis_type == AnalysisTypes.LOOKUP_TABLE and (
+                "SnowflakeQuery" in analysis_spec or "Query" in analysis_spec
+            ):
                 analysis_schema = SQL_LOOKUP_TABLE_SCHEMA
             else:
                 analysis_schema = SCHEMAS[analysis_type]
