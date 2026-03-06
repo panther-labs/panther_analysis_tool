@@ -132,6 +132,12 @@ def _fetch_log_types(backend: "BackendClient") -> Optional[Set[str]]:
         if response.data and response.data.schemas is not None:
             log_types = {schema.name for schema in response.data.schemas}
             logging.debug("Fetched %d log types from Panther instance", len(log_types))
+            if not log_types:
+                logging.warning(
+                    "Panther instance returned 0 managed schemas. This may indicate a "
+                    "permissions issue or misconfiguration. Skipping log type validation."
+                )
+                return None
             return log_types
 
         logging.warning("No schemas returned from Panther instance")

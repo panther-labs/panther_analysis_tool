@@ -128,6 +128,17 @@ class TestFetchLogTypes(unittest.TestCase):
 
         self.assertIsNone(log_types)
 
+    def test_fetch_log_types_empty_schema_list(self):
+        """Test that an empty schema list returns None (skip validation)."""
+        mock_backend = Mock()
+        mock_response = Mock()
+        mock_response.data = ListSchemasResponse(schemas=[])
+        mock_backend.list_schemas.return_value = mock_response
+
+        log_types = _fetch_log_types(mock_backend)
+
+        self.assertIsNone(log_types)
+
     def test_fetch_log_types_exception(self):
         """Test handling of exceptions during fetch."""
         mock_backend = Mock()
@@ -193,7 +204,7 @@ class TestInitLogTypeCache(unittest.TestCase):
         self.assertEqual(mock_backend.list_schemas.call_count, 1)
 
     def test_init_empty_schema_list(self):
-        """Test that an empty schema list is cached (not treated as failure)."""
+        """Test that an empty schema list skips validation (treats as failure)."""
         mock_backend = Mock()
         mock_response = Mock()
         mock_response.data = ListSchemasResponse(schemas=[])
@@ -201,8 +212,8 @@ class TestInitLogTypeCache(unittest.TestCase):
 
         result = init_log_type_cache(mock_backend)
 
-        self.assertTrue(result)
-        self.assertEqual(LogTypeCache.get_log_types(), frozenset())
+        self.assertFalse(result)
+        self.assertIsNone(LogTypeCache.get_log_types())
 
     def test_init_uses_cache(self):
         """Test that subsequent calls use cached results."""
@@ -332,21 +343,19 @@ class TestSplitAnalysisByLogTypeSupport(unittest.TestCase):
         self.assertEqual(len(supported), 2)
         self.assertEqual(len(errors), 0)
 
-    def test_empty_schema_list_validates_against_empty_set(self):
-        """An empty schema list is a valid response; non-custom log types are unsupported."""
+    def test_empty_schema_list_skips_validation(self):
+        """An empty schema list is treated as suspicious; all items pass through."""
         items = [
             _make_item("rule1.yml", {"RuleID": "Rule1", "LogTypes": ["AWS.CloudTrail"]}),
             _make_item("rule2.yml", {"RuleID": "Rule2", "LogTypes": ["Custom.MyApp"]}),
         ]
-        mock_backend = _make_mock_backend([])  # empty schema list → empty set cached
+        mock_backend = _make_mock_backend([])  # empty schema list → skip validation
 
         supported, errors = split_analysis_by_log_type_support(items, mock_backend)
 
-        # AWS.CloudTrail is not in the empty set, so it's unsupported
-        self.assertEqual(len(supported), 1)
-        self.assertEqual(supported[0].file_name, "rule2.yml")
-        self.assertEqual(len(errors), 1)
-        self.assertEqual(errors[0][0], "rule1.yml")
+        # Empty schema list skips validation, so all items pass through
+        self.assertEqual(len(supported), 2)
+        self.assertEqual(len(errors), 0)
 
     def test_with_cache_splits_supported_and_errors(self):
         """With cache populated, unsupported log types produce errors."""
