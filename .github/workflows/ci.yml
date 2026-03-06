@@ -101,20 +101,17 @@ jobs:
         run: poetry run panther_analysis_tool test --path tests/fixtures/detections/valid_analysis
       - name: Shallow clone panther-analysis
         run: git clone --depth 1 https://github.com/panther-labs/panther-analysis.git
+      - name: Install pipenv
+        run: pip install pipenv
       - name: Cache pipenv dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.local/share/virtualenvs
           key: pipenv-${{ hashFiles('panther-analysis/Pipfile.lock') }}
-      - name: Install pipenv
-        run: pip install pipenv
       - name: Run panther-analysis integration tests
         run: |
           cd panther-analysis
-          pipenv lock
-          pipenv requirements | grep -v 'panther-analysis-tool==' > requirements.ci.txt
-          pipenv run pip install -r requirements.ci.txt
+          pipenv install
           pipenv run pip install -e ..
-          pipenv run pip install schema==0.7.5
           pipenv run panther_analysis_tool --version
           pipenv run panther_analysis_tool test --path .
