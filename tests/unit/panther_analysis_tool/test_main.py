@@ -38,6 +38,7 @@ from panther_analysis_tool.constants import (
     PANTHER_ANALYSIS_SQLITE_FILE_PATH,
 )
 from panther_analysis_tool.core import analysis_cache, yaml
+from panther_analysis_tool.log_type_validator import LogTypeCache
 from panther_analysis_tool.main import app, upload_analysis
 
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
@@ -166,12 +167,26 @@ class TestPantherAnalysisTool(TestCase):
         # sqlfluff needs to be able to access its package metadata to work
         self.fs.add_package_metadata("sqlfluff")
 
+        # Unit tests should not depend on ambient CI/API credentials.
+        self._prev_api_token = os.environ.pop("PANTHER_API_TOKEN", None)
+        self._prev_api_host = os.environ.pop("PANTHER_API_HOST", None)
+        LogTypeCache.clear()
+
         main._DISABLE_PANTHER_EXCEPTION_HANDLER = True
         # skip the http check
         main._SKIP_HTTP_VERSION_CHECK = True
 
     def tearDown(self) -> None:
         main._DISABLE_PANTHER_EXCEPTION_HANDLER = False
+        LogTypeCache.clear()
+        if self._prev_api_token is not None:
+            os.environ["PANTHER_API_TOKEN"] = self._prev_api_token
+        else:
+            os.environ.pop("PANTHER_API_TOKEN", None)
+        if self._prev_api_host is not None:
+            os.environ["PANTHER_API_HOST"] = self._prev_api_host
+        else:
+            os.environ.pop("PANTHER_API_HOST", None)
         with Pause(self.fs):
             for data_model_module in self.data_model_modules:
                 file_path = os.path.join(_DATAMODEL_FOLDER, os.path.split(data_model_module)[-1])
@@ -248,7 +263,6 @@ class TestPantherAnalysisTool(TestCase):
             f"{DETECTIONS_FIXTURES_PATH}/example_policy_invalid_characters.yml",
             f"{DETECTIONS_FIXTURES_PATH}/example_policy_missing_policy_file.yml",
             f"{DETECTIONS_FIXTURES_PATH}/example_policy_set_duplicates.yml",
-            f"{DETECTIONS_FIXTURES_PATH}/example_rule_bad_log_type.yml",
             f"{DETECTIONS_FIXTURES_PATH}/example_rule_set_duplicates.yml",
             f"{DETECTIONS_FIXTURES_PATH}/example_strict_invalid_yaml.yml",
             f"{DETECTIONS_FIXTURES_PATH}/valid_analysis/data_models/example_data_model.yml",
@@ -413,7 +427,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=AWS.CloudTrail.MFAEnabled".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_invalid_rule_test(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -421,7 +435,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Invalid.Test".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_invalid_characters(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -429,7 +443,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=High --filter ResourceTypes=AWS.IAM.User".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 10)
+        self.assertEqual(len(invalid_specs), 9)
 
     def test_unknown_exception(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -437,7 +451,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Rule.Unknown.Exception".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_with_invalid_mocks(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -445,7 +459,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter Severity=Critical --filter RuleID=Example.Rule.Invalid.Mock".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_with_tag_filters(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -537,7 +551,7 @@ class TestPantherAnalysisTool(TestCase):
         )
         # Failing, because while there are two unit tests they both have expected result False
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_invalid_resource_type(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -545,7 +559,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter PolicyID=Example.Bad.Resource.Type".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_invalid_log_type(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -553,7 +567,7 @@ class TestPantherAnalysisTool(TestCase):
             f"test --path {DETECTIONS_FIXTURES_PATH} --filter RuleID=Example.Bad.Log.Type".split(),
         )
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 9)
+        self.assertEqual(len(invalid_specs), 8)
 
     def test_zip_analysis(self) -> None:
         # Note: This is a workaround for CI
@@ -1156,7 +1170,10 @@ class TestPantherAnalysisTool(TestCase):
                     )
                 warning_logs = logging_mocks["warning"].call_args.args
                 # assert that we were able to look up the base of this derived detection
-                self.assertTrue(all("Skipping Derived Detection" not in s for s in warning_logs))
+                warning_messages = [s for s in warning_logs if isinstance(s, str)]
+                self.assertTrue(
+                    all("Skipping Derived Detection" not in message for message in warning_messages)
+                )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 

@@ -9,7 +9,6 @@ from panther_analysis_tool.schemas import (
     CORRELATION_RULE_SCHEMA,
     DATA_MODEL_SCHEMA,
     DERIVED_SCHEMA,
-    LOG_TYPE_REGEX,
     MOCK_SCHEMA,
     POLICY_SCHEMA,
     RULE_SCHEMA,
@@ -19,243 +18,9 @@ from panther_analysis_tool.schemas import (
 
 
 class TestPATSchemas(unittest.TestCase):
-    def test_known_log_types(self):
-        arr = [
-            "AWS.ALB",
-            "AWS.AuroraMySQLAudit",
-            "AWS.CloudTrail",
-            "AWS.CloudTrailDigest",
-            "AWS.CloudTrailInsight",
-            "AWS.CloudWatchEvents",
-            "AWS.Config",
-            "AWS.GuardDuty",
-            "AWS.S3ServerAccess",
-            "AWS.TransitGatewayFlow",
-            "AWS.VPCDns",
-            "AWS.VPCFlow",
-            "AWS.WAFWebACL",
-            "AlphaSOC.Alert",
-            "Amazon.EKS.Audit",
-            "Amazon.EKS.Authenticator",
-            "Apache.AccessCombined",
-            "Apache.AccessCommon",
-            "Asana.Audit",
-            "Atlassian.Audit",
-            "Auth0.Events",
-            "Azure.Audit",
-            "Bitwarden.Events",
-            "Box.Event",
-            "CarbonBlack.Audit",
-            "CiscoUmbrella.CloudFirewall",
-            "CiscoUmbrella.DNS",
-            "CiscoUmbrella.IP",
-            "CiscoUmbrella.Proxy",
-            "Cloudflare.Audit",
-            "Cloudflare.Firewall",
-            "Cloudflare.HttpRequest",
-            "Cloudflare.Spectrum",
-            "Crowdstrike.AIDMaster",
-            "Crowdstrike.ActivityAudit",
-            "Crowdstrike.AppInfo",
-            "Crowdstrike.CriticalFile",
-            "Crowdstrike.DNSRequest",
-            "Crowdstrike.DetectionSummary",
-            "Crowdstrike.FDREvent",
-            "Crowdstrike.GroupIdentity",
-            "Crowdstrike.ManagedAssets",
-            "Crowdstrike.NetworkConnect",
-            "Crowdstrike.NetworkListen",
-            "Crowdstrike.NotManagedAssets",
-            "Crowdstrike.ProcessRollup2",
-            "Crowdstrike.ProcessRollup2Stats",
-            "Crowdstrike.SyntheticProcessRollup2",
-            "Crowdstrike.Unknown",
-            "Crowdstrike.UserIdentity",
-            "Crowdstrike.UserInfo",
-            "Crowdstrike.UserLogonLogoff",
-            "Docker.Events",
-            "Dropbox.TeamEvent",
-            "Duo.Administrator",
-            "Duo.Authentication",
-            "Duo.OfflineEnrollment",
-            "Duo.Telephony",
-            "Fastly.Access",
-            "Fluentd.Syslog3164",
-            "Fluentd.Syslog5424",
-            "GCP.AuditLog",
-            "GCP.HTTPLoadBalancer",
-            "GSuite.ActivityEvent",
-            "GSuite.DirectoryUsers",
-            "GSuite.Reports",
-            "GitHub.Audit",
-            "GitLab.API",
-            "GitLab.Audit",
-            "GitLab.Exceptions",
-            "GitLab.Git",
-            "GitLab.Integrations",
-            "GitLab.Production",
-            "Gravitational.TeleportAudit",
-            "GreyNoise.Noise",
-            "GreyNoise.RIOT",
-            "Heroku.Runtime",
-            "IPInfo.ASNCIDR",
-            "IPInfo.ASNRanges",
-            "IPInfo.LocationCIDR",
-            "IPInfo.LocationRanges",
-            "IPInfo.PrivacyCIDR",
-            "IPInfo.PrivacyRanges",
-            "Jamfpro.Login",
-            "Juniper.Access",
-            "Juniper.Audit",
-            "Juniper.Firewall",
-            "Juniper.MWS",
-            "Juniper.Postgres",
-            "Juniper.Security",
-            "Lacework.AgentManagement",
-            "Lacework.AlertDetails",
-            "Lacework.AllFiles",
-            "Lacework.Applications",
-            "Lacework.ChangeFiles",
-            "Lacework.CloudCompliance",
-            "Lacework.CloudConfiguration",
-            "Lacework.Cmdline",
-            "Lacework.Connections",
-            "Lacework.ContainerSummary",
-            "Lacework.ContainerVulnDetails",
-            "Lacework.DNSQuery",
-            "Lacework.Events",
-            "Lacework.HostVulnDetails",
-            "Lacework.Image",
-            "Lacework.Interfaces",
-            "Lacework.InternalIPA",
-            "Lacework.MachineDetails",
-            "Lacework.MachineSummary",
-            "Lacework.NewHashes",
-            "Lacework.Package",
-            "Lacework.PodSummary",
-            "Lacework.ProcessSummary",
-            "Lacework.UserDetails",
-            "Lacework.UserLogin",
-            "Linux.Auditd",
-            "Microsoft365.Audit.AzureActiveDirectory",
-            "Microsoft365.Audit.Exchange",
-            "Microsoft365.Audit.General",
-            "Microsoft365.Audit.SharePoint",
-            "Microsoft365.DLP.All",
-            "MicrosoftGraph.SecurityAlert",
-            "MongoDB.OrganizationEvent",
-            "MongoDB.ProjectEvent",
-            "Netskope.Audit",
-            "Nginx.Access",
-            "Notion.AuditLogs",
-            "OSSEC.EventInfo",
-            "Okta.Devices",
-            "Okta.SystemLog",
-            "Okta.Users",
-            "OneLogin.Events",
-            "OnePassword.AuditEvent",
-            "OnePassword.ItemUsage",
-            "OnePassword.SignInAttempt",
-            "Osquery.Batch",
-            "Osquery.Differential",
-            "Osquery.Snapshot",
-            "Osquery.Status",
-            "Panther.Audit",
-            "Salesforce.Login",
-            "Salesforce.LoginAs",
-            "Salesforce.Logout",
-            "Salesforce.URI",
-            "SentinelOne.Activity",
-            "SentinelOne.DeepVisibility",
-            "SentinelOne.DeepVisibilityV2",
-            "Slack.AccessLogs",
-            "Slack.AuditLogs",
-            "Slack.IntegrationLogs",
-            "Snyk.GroupAudit",
-            "Snyk.OrgAudit",
-            "Sophos.Central",
-            "Suricata.Alert",
-            "Suricata.Anomaly",
-            "Suricata.DHCP",
-            "Suricata.DNS",
-            "Suricata.FileInfo",
-            "Suricata.Flow",
-            "Suricata.HTTP",
-            "Suricata.SSH",
-            "Suricata.TLS",
-            "Sysdig.Audit",
-            "Syslog.RFC3164",
-            "Syslog.RFC5424",
-            "Tailscale.Audit",
-            "Tailscale.Network",
-            "Tenable.Vulnerability",
-            "Tines.Audit",
-            "Tor.ExitNode",
-            "Windows.EventLogs",
-            "Workday.Activity",
-            "Workday.SignOnAttempt",
-            "Zeek.CaptureLoss",
-            "Zeek.Conn",
-            "Zeek.DHCP",
-            "Zeek.DNS",
-            "Zeek.DPD",
-            "Zeek.Files",
-            "Zeek.HTTP",
-            "Zeek.NTP",
-            "Zeek.Notice",
-            "Zeek.OCSP",
-            "Zeek.Reporter",
-            "Zeek.SIP",
-            "Zeek.Software",
-            "Zeek.Ssh",
-            "Zeek.Ssl",
-            "Zeek.Stats",
-            "Zeek.Tunnel",
-            "Zeek.Weird",
-            "Zeek.X509",
-            "Zendesk.Audit",
-            "Zoom.Activity",
-            "Zoom.Operation",
-        ]
-        for log_type in arr:
-            LOG_TYPE_REGEX.validate(log_type)
-
-    def test_logtypes_regex_amazon_eks(self):
-        LOG_TYPE_REGEX.validate("Amazon.EKS.Audit")
-        LOG_TYPE_REGEX.validate("Amazon.EKS.Authenticator")
-
-        with self.assertRaises(SchemaError):
-            LOG_TYPE_REGEX.validate("Amazon.EKS.Foo")
-
-    def test_logtypes_regex_zeek(self):
-        LOG_TYPE_REGEX.validate("Zeek.CaptureLoss")
-        LOG_TYPE_REGEX.validate("Zeek.Conn")
-        LOG_TYPE_REGEX.validate("Zeek.DHCP")
-        LOG_TYPE_REGEX.validate("Zeek.DNS")
-        LOG_TYPE_REGEX.validate("Zeek.DPD")
-        LOG_TYPE_REGEX.validate("Zeek.Files")
-        LOG_TYPE_REGEX.validate("Zeek.HTTP")
-        LOG_TYPE_REGEX.validate("Zeek.Notice")
-        LOG_TYPE_REGEX.validate("Zeek.NTP")
-        LOG_TYPE_REGEX.validate("Zeek.OCSP")
-        LOG_TYPE_REGEX.validate("Zeek.Reporter")
-        LOG_TYPE_REGEX.validate("Zeek.SIP")
-        LOG_TYPE_REGEX.validate("Zeek.Software")
-        LOG_TYPE_REGEX.validate("Zeek.Ssh")
-        LOG_TYPE_REGEX.validate("Zeek.Ssl")
-        LOG_TYPE_REGEX.validate("Zeek.Stats")
-        LOG_TYPE_REGEX.validate("Zeek.Tunnel")
-        LOG_TYPE_REGEX.validate("Zeek.Weird")
-        LOG_TYPE_REGEX.validate("Zeek.X509")
-
     def test_mocks_are_str(self):
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "Testing a string"})
         MOCK_SCHEMA.validate({"objectName": "hello", "returnValue": "False"})
-
-        with self.assertRaises(SchemaError):
-            LOG_TYPE_REGEX.validate(
-                {"objectName": "hello", "returnValue": ["Testing a non-string"]}
-            )
 
     def test_data_model_path(self):
         sample_datamodel = {
@@ -666,6 +431,17 @@ class TestPATSchemas(unittest.TestCase):
                 "Severity": "Info",
             }
         )
+
+    def test_policy_route53_resource_types(self):
+        sample_policy = {
+            "AnalysisType": "policy",
+            "Enabled": False,
+            "Filename": "hmm",
+            "PolicyID": "h",
+            "Severity": "Info",
+        }
+        POLICY_SCHEMA.validate({**sample_policy, "ResourceTypes": ["AWS.Route53.HostedZone"]})
+        POLICY_SCHEMA.validate({**sample_policy, "ResourceTypes": ["AWS.Route53Domains"]})
 
     def test_correlation_rule_unit_tests(self):
         # works without unit tests
