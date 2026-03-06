@@ -1,7 +1,7 @@
 AnalysisType: lookup_table
 LookupName: SnowflakeWithForbiddenSchema
 Enabled: true
-SnowflakeQuery: "SELECT id, value FROM my_db.my_schema.my_table"
+Query: "SELECT id, value FROM my_db.my_schema.my_table"
 Schema: Custom.ShouldNotBeHere
 LogTypeMap:
   PrimaryKey: id

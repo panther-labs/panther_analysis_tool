@@ -560,7 +560,7 @@ def parse_lookup_table(path: str) -> dict:
         try:
             if lookup_spec is None:
                 raise schema.SchemaError("Lookup Table spec is empty")
-            if "SnowflakeQuery" in lookup_spec or "Query" in lookup_spec:
+            if "Query" in lookup_spec:
                 SQL_LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             else:
                 LOOKUP_TABLE_SCHEMA.validate(lookup_spec)

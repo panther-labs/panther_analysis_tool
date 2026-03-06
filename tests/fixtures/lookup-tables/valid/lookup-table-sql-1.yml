@@ -3,7 +3,7 @@ LookupName: SnowflakeFullExample
 Enabled: true
 Description: Full SQL enrichment with all optional fields
 Reference: https://example.com/docs
-SnowflakeQuery: "SELECT id, name, ips FROM my_db.my_schema.my_table"
+Query: "SELECT id, name, ips FROM my_db.my_schema.my_table"
 LogTypeMap:
   PrimaryKey: id
   AssociatedLogTypes:

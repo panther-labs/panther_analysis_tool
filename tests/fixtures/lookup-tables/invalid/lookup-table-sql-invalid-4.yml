@@ -1,7 +1,7 @@
 AnalysisType: lookup_table
 LookupName: InvalidCronExpressionType
 Enabled: true
-SnowflakeQuery: "SELECT id, value FROM my_db.my_schema.my_table"
+Query: "SELECT id, value FROM my_db.my_schema.my_table"
 LogTypeMap:
   PrimaryKey: id
 Refresh:
