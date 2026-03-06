@@ -44,7 +44,6 @@ fmt: ## Format panther_analysis_tool (black)
 
 .PHONY: install
 install: ## Install dependencies (including dev dependencies) using poetry
-	poetry lock
 	poetry sync
 
 .PHONY: test
