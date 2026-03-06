@@ -66,3 +66,9 @@ class TestLookupTable(TestCase):  # pylint: disable=too-many-public-methods
         rc, file_path = pat.test_lookup_table(path)
         self.assertEqual(1, rc)
         self.assertEqual(file_path, "")
+
+    def test_invalid_sql_lookup_table_both_refresh_keys(self):
+        path = f"{LUTS_FIXTURES_PATH}/invalid/lookup-table-sql-invalid-5.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(1, rc)
+        self.assertEqual(file_path, "")
