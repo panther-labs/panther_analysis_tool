@@ -150,3 +150,11 @@ WriteMergeConflictsType: TypeAlias = Annotated[
         + "Use this to bypass the YAML conflict resolver GUI or to avoid solving merge conflicts one at a time.",
     ),
 ]
+
+WorkersType: TypeAlias = Annotated[
+    int,
+    typer.Option(
+        envvar="PANTHER_WORKERS",
+        help="Number of parallel workers for schema validation. Default 1 (sequential).",
+    ),
+]
