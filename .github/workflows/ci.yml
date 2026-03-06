@@ -4,7 +4,7 @@ on:
       - main
   pull_request:
     branches:
-      - "*"
+      - "**"
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
-          cache: 'poetry'
+          cache: "poetry"
       - name: Install dependencies
         run: poetry sync
       - name: Run mypy
@@ -40,7 +40,7 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
-          cache: 'poetry'
+          cache: "poetry"
       - name: Install dependencies
         run: poetry sync
       - name: Run bandit
@@ -58,7 +58,7 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
-          cache: 'poetry'
+          cache: "poetry"
       - name: Install dependencies
         run: poetry sync
       - name: Run pylint
@@ -76,7 +76,7 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
-          cache: 'poetry'
+          cache: "poetry"
       - name: Install dependencies
         run: poetry sync
       - name: Run tests
@@ -94,7 +94,7 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: 3.11
-          cache: 'poetry'
+          cache: "poetry"
       - name: Install dependencies
         run: poetry sync
       - name: Run fixture integration test
