@@ -114,6 +114,7 @@ from panther_analysis_tool.command.standard_args import (
     SkipTestsType,
     SortTestResultsType,
     ValidTableNamesType,
+    WorkersType,
     WriteMergeConflictsType,
 )
 from panther_analysis_tool.constants import (
@@ -317,6 +318,7 @@ class TestAnalysisArgs:
     minimum_tests: int
     skip_disabled_tests: bool
     test_names: List[str]
+    workers: int = 1
 
 
 @dataclass
@@ -884,6 +886,7 @@ def test_analysis(
         args.valid_table_names,
         args.ignore_files,
         args.ignore_extra_keys,
+        workers=args.workers,
     )
     if specs.empty():
         if invalid_specs:
@@ -1104,6 +1107,14 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     invalid_specs = []
     failed_tests: DefaultDict[str, list] = defaultdict(list)
     skipped_tests: List[Tuple[str, dict]] = []
+
+    # Build an index for O(1) base detection lookups instead of O(n) linear scans
+    rule_id_index: Dict[str, ClassifiedAnalysis] = {}
+    for item in analysis:
+        rule_id = item.analysis_spec.get("RuleID", "")
+        if rule_id:
+            rule_id_index[rule_id] = item
+
     for item in analysis:
         analysis_spec_filename = item.file_name
         dir_name = item.dir_name
@@ -1144,13 +1155,11 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
             found_base_detection = None
             found_base_path = None
             found_base_tests = None
-            for other_item in analysis:
-                if other_item.analysis_spec.get("RuleID", "") != base_id:
-                    continue
-                found_base_detection = other_item.analysis_spec
-                found_base_path = other_item.dir_name
-                found_base_tests = other_item.analysis_spec.get("Tests")
-                break
+            base_item = rule_id_index.get(base_id)
+            if base_item is not None:
+                found_base_detection = base_item.analysis_spec
+                found_base_path = base_item.dir_name
+                found_base_tests = base_item.analysis_spec.get("Tests")
             # inherit the tests from the base if we dont have any
             if "Tests" not in analysis_spec and found_base_tests:
                 analysis_spec["Tests"] = found_base_tests
@@ -2023,6 +2032,7 @@ def test(  # pylint: disable=too-many-arguments,too-many-positional-arguments
             help="Only run tests with these names. Can be used with --filter to run specific tests for specific rules.",
         ),
     ] = None,
+    workers: WorkersType = 1,
 ) -> Tuple[int, list[Any]]:
     if ignore_files is None:
         ignore_files = []
@@ -2050,6 +2060,7 @@ def test(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         ignore_table_names=ignore_table_names,
         valid_table_names=valid_table_names,
         test_names=test_names,
+        workers=workers,
     )
 
     return test_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
