@@ -142,7 +142,7 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA
+from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA, SQL_LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
     add_path_to_filename,
@@ -560,14 +560,19 @@ def parse_lookup_table(path: str) -> dict:
             logging.error(err)
             return {}
         try:
-            LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
-            if "Refresh" in lookup_spec:
-                if "AlarmPeriodMinutes" in lookup_spec["Refresh"]:
-                    if lookup_spec["Refresh"]["AlarmPeriodMinutes"] > 1440:
-                        logging.error(
-                            "AlarmPeriodMinutes must not greater than 1 day (1440 minutes)"
-                        )
-                        return {}
+            if lookup_spec is None:
+                raise schema.SchemaError("Lookup Table spec is empty")
+            if "Query" in lookup_spec:
+                SQL_LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
+            else:
+                LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
+                if "Refresh" in lookup_spec:
+                    if "AlarmPeriodMinutes" in lookup_spec["Refresh"]:
+                        if lookup_spec["Refresh"]["AlarmPeriodMinutes"] > 1440:
+                            logging.error(
+                                "AlarmPeriodMinutes must not greater than 1 day (1440 minutes)"
+                            )
+                            return {}
             logging.info("Successfully validated the Lookup Table file %s", path)
         except (
             schema.SchemaError,

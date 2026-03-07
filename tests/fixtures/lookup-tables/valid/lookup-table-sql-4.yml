@@ -1,0 +1,22 @@
+AnalysisType: lookup_table
+LookupName: QueryFullExample
+Enabled: true
+Description: Full SQL enrichment using Query field
+Reference: https://example.com/docs
+Query: "SELECT id, name, ips FROM my_db.my_schema.my_table"
+LogTypeMap:
+  PrimaryKey: id
+  AssociatedLogTypes:
+    - LogType: AWS.CloudTrail
+      Selectors:
+        - "recipientAccountId"
+Refresh:
+  PeriodMinutes: 60
+Indicators:
+  - Field: name
+    Indicators:
+      - username
+Validations:
+  - Field: ips
+    Validations:
+      - cidr

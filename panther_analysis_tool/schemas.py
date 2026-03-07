@@ -313,7 +313,7 @@ LOOKUP_TABLE_SCHEMA = Schema(
         "Schema": str,
         "LogTypeMap": {
             "PrimaryKey": str,
-            "AssociatedLogTypes": [{"LogType": str, Optional("Selectors"): [str]}],
+            Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
         },
         Optional("Description"): str,
         Optional("Reference"): str,
@@ -321,6 +321,29 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+SQL_LOOKUP_TABLE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("lookup_table"),
+        "LookupName": str,
+        "Enabled": bool,
+        "Query": str,
+        "LogTypeMap": {
+            "PrimaryKey": str,
+            Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
+        },
+        "Refresh": Or(
+            {"PeriodMinutes": int},
+            {"CronExpression": str},
+        ),
+        Optional("Indicators"): [{"Field": str, "Indicators": [str]}],
+        Optional("Validations"): [{"Field": str, "Validations": [str]}],
+        Optional("Description"): str,
+        Optional("Reference"): str,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)
 
 # load jsonschema files
 raw_simple_detection_schema = pkgutil.get_data(
