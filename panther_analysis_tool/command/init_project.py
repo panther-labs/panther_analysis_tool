@@ -1,3 +1,6 @@
+import contextlib
+import io
+import json
 import logging
 import pathlib
 import subprocess  # nosec:B404
@@ -8,10 +11,40 @@ from panther_analysis_tool.core import analysis_cache, git_helpers
 
 
 def run(working_dir: str) -> Tuple[int, str]:
-    analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
-    setup_git_ignore()
-    enable_rerere()
-    pat_root_created = setup_pat_root(pathlib.Path(working_dir))
+    """Initialize a new Panther project.
+
+    Args:
+        working_dir: Directory to initialize in.
+
+    Returns:
+        Tuple of (return_code, message_string).
+    """
+    from panther_analysis_tool.main import is_json_mode
+
+    json_mode = is_json_mode()
+
+    # In JSON mode, suppress stdout from helpers so only our JSON goes to stdout.
+    # Progress bars and informational prints go to a discarded buffer.
+    ctx = contextlib.redirect_stdout(io.StringIO()) if json_mode else contextlib.nullcontext()
+
+    with ctx:
+        analysis_cache.update_with_latest_panther_analysis(show_progress_bar=not json_mode)
+        setup_git_ignore()
+        enable_rerere()
+        pat_root_created = setup_pat_root(pathlib.Path(working_dir))
+
+    if json_mode:
+        print(
+            json.dumps(
+                {
+                    "command": "init",
+                    "return_code": 0,
+                    "status": "success",
+                    "data": {"pat_root_created": pat_root_created},
+                }
+            )
+        )
+        return 0, ""
     print_ready_message(pat_root_created)
     return 0, ""
 

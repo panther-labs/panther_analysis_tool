@@ -20,6 +20,9 @@ from panther_analysis_tool.zip_chunker import (
     chunk_analysis,
 )
 
+_HIGHLY_PERFORMANT_MINUTES = 1
+_AT_RISK_TIMEOUT_MINUTES = 10
+
 
 class PerformanceTestIteration:
     def __init__(self, read_time_nanos: int, processing_time_nanos: int) -> None:
@@ -49,6 +52,8 @@ class BenchmarkArgs:
 def run(  # pylint: disable=too-many-locals
     backend: BackendClient, args: BenchmarkArgs
 ) -> Tuple[int, str]:
+    from panther_analysis_tool.main import is_json_mode
+
     if backend is None or not backend.supports_perf_test():
         return 1, "Invalid backend. `benchmark` is only supported via API token"
 
@@ -119,7 +124,58 @@ def run(  # pylint: disable=too-many-locals
     if not logged:
         log_output(args.out, hour_or_err, iterations, rule_or_err, now)
 
+    if is_json_mode():
+        _emit_benchmark_json(iterations, rule_or_err, hour_or_err, logged)
+        return 0, ""
+
     return 0, ""
+
+
+def _emit_benchmark_json(
+    iterations: List["PerformanceTestIteration"],
+    rule: ClassifiedAnalysis,
+    hour: datetime.datetime,
+    had_error: bool,
+) -> None:
+    """Emit structured JSON for the benchmark command."""
+    envelope: Dict[str, Any] = {
+        "command": "benchmark",
+        "return_code": 0,
+        "status": "success",
+        "data": {
+            "rule": rule.file_name,
+            "hour": hour.isoformat(),
+            "iterations_completed": len(iterations),
+            "had_error": had_error,
+        },
+    }
+    if iterations:
+        read_times = [i.read_time_nanos for i in iterations]
+        proc_times = [i.processing_time_nanos for i in iterations]
+        envelope["data"]["read_time_seconds"] = {
+            "mean": nanos_to_seconds(mean(read_times)),
+            "median": nanos_to_seconds(median(read_times)),
+            "max": nanos_to_seconds(max(read_times)),
+            "min": nanos_to_seconds(min(read_times)),
+        }
+        envelope["data"]["processing_time_seconds"] = {
+            "mean": nanos_to_seconds(mean(proc_times)),
+            "median": nanos_to_seconds(median(proc_times)),
+            "max": nanos_to_seconds(max(proc_times)),
+            "min": nanos_to_seconds(min(proc_times)),
+        }
+        total_median_minutes = nanos_to_seconds(median(read_times) + median(proc_times)) / 60
+        if total_median_minutes < _HIGHLY_PERFORMANT_MINUTES:
+            envelope["data"]["performance_rating"] = "highly_performant"
+        elif total_median_minutes >= _AT_RISK_TIMEOUT_MINUTES:
+            envelope["data"]["performance_rating"] = "at_risk_of_timeout"
+        else:
+            envelope["data"]["performance_rating"] = "less_performant"
+        envelope["data"]["iterations"] = [
+            {"read_time_nanos": i.read_time_nanos, "processing_time_nanos": i.processing_time_nanos}
+            for i in iterations
+        ]
+    print(json.dumps(envelope, default=str))
 
 
 def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> Union[ClassifiedAnalysis, str]:
@@ -151,13 +207,12 @@ def validate_log_type(
                 f" --log-type arg to specify one.",
             )
         log_type = rule_log_types[0]
-    else:
-        if not str(log_type).casefold() in map(str.casefold, rule_log_types):
-            return (
-                log_type,
-                f"Provided log type {log_type} was not found in log types for {rule.file_name}:"
-                f" {rule_log_types}",
-            )
+    elif str(log_type).casefold() not in map(str.casefold, rule_log_types):
+        return (
+            log_type,
+            f"Provided log type {log_type} was not found in log types for {rule.file_name}:"
+            f" {rule_log_types}",
+        )
     return log_type, None
 
 
@@ -209,7 +264,9 @@ def validate_hour(
         )
 
     max_data_hour = max(
-        data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None  # type: ignore
+        data_for_log_type.breakdown,
+        key=data_for_log_type.breakdown.get,
+        default=None,  # type: ignore
     )
     if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
         return err_msg

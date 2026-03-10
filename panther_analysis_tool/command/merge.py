@@ -1,7 +1,8 @@
 import dataclasses
+import json
 import logging
 import pathlib
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 from rich.progress import track
 
@@ -41,18 +42,39 @@ def merge_analysis(
     auto_accept: AutoAcceptOption | None = None,
     write_merge_conflicts: bool = False,
 ) -> Tuple[int, str]:
-    # load all user analysis specs
+    """Merge analysis items with latest Panther content.
+
+    Args:
+        analysis_id: Optional specific analysis item to merge.
+        editor: Editor command for conflict resolution.
+        auto_accept: Auto-accept strategy for conflicts.
+        write_merge_conflicts: Whether to write merge conflict markers.
+
+    Returns:
+        Tuple of (return_code, message_string).
+    """
+    from panther_analysis_tool.main import is_json_mode
+
     user_specs = list(load_analysis_specs_ex(["."], [], True))
 
     mergeable_items = get_mergeable_items(analysis_id, user_specs)
     if not mergeable_items and analysis_id is None:
+        if is_json_mode():
+            _emit_merge_json([], [])
+            return 0, ""
         print("Nothing to merge.")
         return 0, ""
 
     if not mergeable_items and analysis_id is not None:
         spec_ids = [spec.analysis_id() for spec in user_specs]
         if analysis_id not in spec_ids:
+            if is_json_mode():
+                _emit_merge_json([], [], message=f"Analysis ID '{analysis_id}' not found")
+                return 0, ""
             print(f"Analysis ID '{analysis_id}' not found in user analysis items.")
+            return 0, ""
+        if is_json_mode():
+            _emit_merge_json([], [], message=f"Analysis ID '{analysis_id}' does not need merging")
             return 0, ""
         print(f"Analysis ID '{analysis_id}' does not need merging.")
         return 0, ""
@@ -218,7 +240,15 @@ def merge_items(  # pylint: disable=too-many-arguments,too-many-positional-argum
         # consider updated if no conflict with both files
         updated_item_ids.append(mergeable_item.user_item.analysis_id())
 
+    from panther_analysis_tool.main import is_json_mode
+
     if analysis_id is not None:
+        if is_json_mode():
+            _emit_merge_json(updated_item_ids, merge_conflict_item_ids)
+        return
+
+    if is_json_mode():
+        _emit_merge_json(updated_item_ids, merge_conflict_item_ids, preview=preview)
         return
 
     if preview:
@@ -250,3 +280,25 @@ def merge_items(  # pylint: disable=too-many-arguments,too-many-positional-argum
         print(
             "Run `git diff` to see the changes. Run `pat test` to test the changes and `pat upload` to upload them."
         )
+
+
+def _emit_merge_json(
+    updated: list[str],
+    conflicts: list[str],
+    preview: bool = False,
+    message: str | None = None,
+) -> None:
+    """Emit structured JSON for the merge command."""
+    envelope: Dict[str, Any] = {
+        "command": "merge",
+        "return_code": 0,
+        "status": "success",
+        "data": {
+            "preview": preview,
+            "updated_items": updated,
+            "merge_conflicts": conflicts,
+        },
+    }
+    if message:
+        envelope["data"]["message"] = message
+    print(json.dumps(envelope, default=str))

@@ -1,6 +1,7 @@
+import json
 import logging
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
@@ -16,12 +17,35 @@ class BulkDeleteArgs:
     confirm: bool
 
 
+def _emit_delete_json(return_code: int, **data: Any) -> None:
+    """Emit structured JSON for the delete command."""
+    envelope: Dict[str, Any] = {
+        "command": "delete",
+        "return_code": return_code,
+        "status": "success" if return_code == 0 else "error",
+    }
+    if data:
+        envelope["data"] = data
+    print(json.dumps(envelope, default=str))
+
+
 def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
+    """Execute bulk deletion of detections and/or saved queries.
+
+    Args:
+        backend: API backend client.
+        args: Bulk delete arguments.
+
+    Returns:
+        Tuple of (return_code, message_string).
+    """
     # pylint: disable=too-many-return-statements
+    from panther_analysis_tool.main import is_json_mode
+
+    json_mode = is_json_mode()
 
     logging.info("preparing bulk delete...")
 
-    # Get lists of detection ids and query names from args
     query_name_list = args.query_id
     detection_id_list = args.analysis_id
 
@@ -33,20 +57,23 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
         logging.error("Run panther_analysis_tool -h for help statement")
         return 1, ""
 
-    # Dry Run: Detections
+    dry_run_results: Dict[str, Any] = {}
+
     if targets_detections:
         code, msg = _delete_detections_dry_run(backend, detection_id_list)
         if code != 0:
             return code, msg
+        dry_run_results["detections_requested"] = detection_id_list
 
-    # Dry Run: Saved Queries
     if targets_saved_queries:
         code, msg = _delete_queries_dry_run(backend, query_name_list)
         if code != 0:
             return code, msg
+        dry_run_results["queries_requested"] = query_name_list
 
-    # Prompt for user confirmation (unless bypassed)
-    if args.confirm:
+    if json_mode and args.confirm:
+        logging.info("JSON mode: skipping interactive confirmation")
+    if not json_mode and args.confirm:
         confirm = input("\nContinue? (y/n) ")
 
         if confirm.lower() != "y":
@@ -55,23 +82,27 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
 
         print("")
 
-    # Delete Detections
+    deleted: Dict[str, Any] = {}
+
     if targets_detections:
         code, msg = _delete_detections(backend, detection_id_list)
         if code != 0:
             logging.warning("error deleting detections: %s", msg)
             return code, msg
-
         logging.info("successfully deleted detections.")
+        deleted["detections"] = detection_id_list
 
-    # Delete Saved Queries
     if targets_saved_queries:
         code, msg = _delete_queries(backend, query_name_list)
         if code != 0:
             logging.warning("error deleting saved queries: %s", msg)
             return code, msg
-
         logging.info("successfully deleted saved queries.")
+        deleted["queries"] = query_name_list
+
+    if json_mode:
+        _emit_delete_json(0, **deleted)
+        return 0, ""
 
     logging.info("done")
     return 0, ""

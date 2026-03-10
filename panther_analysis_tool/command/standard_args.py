@@ -162,21 +162,12 @@ WorkersType: TypeAlias = Annotated[
 
 
 class OutputFormat(str, Enum):
-    """Output format choices for the test command."""
+    """Output format choices for CLI commands.
+
+    When 'json' is selected via the global ``--output-format`` flag (or the
+    ``PANTHER_OUTPUT_FORMAT`` environment variable), commands emit a single
+    JSON object to stdout and route all logging to stderr.
+    """
 
     text = "text"
     json = "json"
-
-
-OutputFormatType: TypeAlias = Annotated[
-    OutputFormat,
-    typer.Option(
-        "--output-format",
-        envvar="PANTHER_OUTPUT_FORMAT",
-        help=(
-            "Output format for test results. Only applies to the 'test' command. "
-            "'text' (default) prints human-readable colored output. "
-            "'json' prints a single JSON object to stdout suitable for CI/CD integration."
-        ),
-    ),
-]
