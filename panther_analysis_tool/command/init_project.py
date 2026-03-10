@@ -8,6 +8,7 @@ from typing import Tuple
 
 from panther_analysis_tool.constants import PAT_ROOT_FILE_NAME
 from panther_analysis_tool.core import analysis_cache, git_helpers
+from panther_analysis_tool.output import is_json_mode
 
 
 def run(working_dir: str) -> Tuple[int, str]:
@@ -19,8 +20,6 @@ def run(working_dir: str) -> Tuple[int, str]:
     Returns:
         Tuple of (return_code, message_string).
     """
-    from panther_analysis_tool.main import is_json_mode
-
     json_mode = is_json_mode()
 
     # In JSON mode, suppress stdout from helpers so only our JSON goes to stdout.

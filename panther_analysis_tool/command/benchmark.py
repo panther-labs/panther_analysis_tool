@@ -1,10 +1,11 @@
 import datetime
 import io
+import json
 import sys
 import zipfile
 from dataclasses import dataclass
 from statistics import mean, median
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
 
@@ -13,6 +14,7 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import MetricsParams, PerfTestParams
 from panther_analysis_tool.constants import AnalysisTypes, ReplayStatus
 from panther_analysis_tool.core.parse import Filter
+from panther_analysis_tool.output import is_json_mode
 from panther_analysis_tool.util import log_and_write_to_file
 from panther_analysis_tool.zip_chunker import (
     ZipArgs,
@@ -49,11 +51,9 @@ class BenchmarkArgs:
     hour: Optional[datetime.datetime]
 
 
-def run(  # pylint: disable=too-many-locals
+def run(  # pylint: disable=too-many-locals,too-many-return-statements
     backend: BackendClient, args: BenchmarkArgs
 ) -> Tuple[int, str]:
-    from panther_analysis_tool.main import is_json_mode
-
     if backend is None or not backend.supports_perf_test():
         return 1, "Invalid backend. `benchmark` is only supported via API token"
 
@@ -265,8 +265,8 @@ def validate_hour(
 
     max_data_hour = max(
         data_for_log_type.breakdown,
-        key=data_for_log_type.breakdown.get,
-        default=None,  # type: ignore
+        key=data_for_log_type.breakdown.get,  # type: ignore[arg-type]
+        default=None,
     )
     if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
         return err_msg

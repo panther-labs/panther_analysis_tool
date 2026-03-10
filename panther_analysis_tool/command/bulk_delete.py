@@ -8,6 +8,7 @@ from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
 )
+from panther_analysis_tool.output import is_json_mode
 
 
 @dataclass
@@ -40,8 +41,6 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
         Tuple of (return_code, message_string).
     """
     # pylint: disable=too-many-return-statements
-    from panther_analysis_tool.main import is_json_mode
-
     json_mode = is_json_mode()
 
     logging.info("preparing bulk delete...")

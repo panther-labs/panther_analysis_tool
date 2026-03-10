@@ -9,12 +9,11 @@ from panther_analysis_tool import cli_output
 from panther_analysis_tool.backend.client import (
     BulkUploadParams,
     BulkUploadValidateStatusResponse,
-)
-from panther_analysis_tool.backend.client import Client as BackendClient
-from panther_analysis_tool.backend.client import (
     UnsupportedEndpointError,
 )
+from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.core.parse import Filter
+from panther_analysis_tool.output import is_json_mode
 from panther_analysis_tool.zip_chunker import ZipArgs, analysis_chunks
 
 
@@ -45,7 +44,9 @@ def _emit_validate_json(return_code: int, result: Any = None, error: str | None 
     print(json.dumps(envelope, default=str))
 
 
-def run(backend: BackendClient, args: ValidateArgs) -> Tuple[int, str]:
+def run(  # pylint: disable=too-many-return-statements
+    backend: BackendClient, args: ValidateArgs
+) -> Tuple[int, str]:
     """Run bulk upload validation against a Panther deployment.
 
     Args:
@@ -55,7 +56,6 @@ def run(backend: BackendClient, args: ValidateArgs) -> Tuple[int, str]:
     Returns:
         Tuple of (return_code, message_string).
     """
-    from panther_analysis_tool.main import is_json_mode
 
     if backend is None or not backend.supports_bulk_validate():
         if is_json_mode():

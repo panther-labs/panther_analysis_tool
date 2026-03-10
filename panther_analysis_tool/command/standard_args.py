@@ -169,5 +169,5 @@ class OutputFormat(str, Enum):
     JSON object to stdout and route all logging to stderr.
     """
 
-    text = "text"
-    json = "json"
+    text = "text"  # pylint: disable=invalid-name
+    json = "json"  # pylint: disable=invalid-name

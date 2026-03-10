@@ -6,8 +6,6 @@ from io import StringIO
 from typing import Any, DefaultDict, Dict, List, Optional, Tuple
 from unittest import TestCase, mock
 
-from panther_core.testing import TestResult, TestResultsPerFunction
-
 from panther_analysis_tool.command.standard_args import OutputFormat
 from panther_analysis_tool.core.definitions import (
     TestResultContainer,
@@ -22,9 +20,9 @@ from panther_analysis_tool.main import (
     _print_json_output,
     _serialize_function_result,
     _serialize_test_result,
-    get_output_format,
-    is_json_mode,
 )
+from panther_analysis_tool.output import get_output_format, is_json_mode
+from panther_core.testing import TestResult, TestResultsPerFunction
 
 
 def _make_test_result(
@@ -287,30 +285,30 @@ class TestGlobalJsonMode(TestCase):
     """Tests for the global is_json_mode / get_output_format infrastructure."""
 
     def setUp(self) -> None:
-        import panther_analysis_tool.main as main_mod
+        import panther_analysis_tool.output as output_mod
 
-        self._orig = main_mod._output_format
-        main_mod._output_format = OutputFormat.text
+        self._orig = output_mod._output_format
+        output_mod._output_format = OutputFormat.text
 
     def tearDown(self) -> None:
-        import panther_analysis_tool.main as main_mod
+        import panther_analysis_tool.output as output_mod
 
-        main_mod._output_format = self._orig
+        output_mod._output_format = self._orig
 
     def test_is_json_mode_default_is_text(self) -> None:
         self.assertFalse(is_json_mode())
 
     def test_is_json_mode_when_json(self) -> None:
-        import panther_analysis_tool.main as main_mod
+        import panther_analysis_tool.output as output_mod
 
-        main_mod._output_format = OutputFormat.json
+        output_mod._output_format = OutputFormat.json
         self.assertTrue(is_json_mode())
 
     def test_get_output_format_returns_current(self) -> None:
         self.assertEqual(get_output_format(), OutputFormat.text)
-        import panther_analysis_tool.main as main_mod
+        import panther_analysis_tool.output as output_mod
 
-        main_mod._output_format = OutputFormat.json
+        output_mod._output_format = OutputFormat.json
         self.assertEqual(get_output_format(), OutputFormat.json)
 
 

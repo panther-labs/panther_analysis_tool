@@ -31,6 +31,7 @@ from panther_analysis_tool.core import (
     versions_file,
     yaml,
 )
+from panther_analysis_tool.output import is_json_mode
 
 
 @dataclasses.dataclass
@@ -244,8 +245,6 @@ def run(args: MigrateArgs) -> Tuple[int, str]:
     Returns:
         Tuple of (return_code, message_string).
     """
-    from panther_analysis_tool.main import is_json_mode
-
     root.chdir_to_project_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 

@@ -16,6 +16,7 @@ from panther_analysis_tool.core import (
     root,
     yaml,
 )
+from panther_analysis_tool.output import is_json_mode
 
 
 @dataclasses.dataclass
@@ -36,7 +37,7 @@ def run(args: MergeArgs) -> Tuple[int, str]:
         return 1, str(err)
 
 
-def merge_analysis(
+def merge_analysis(  # pylint: disable=too-many-return-statements
     analysis_id: str | None,
     editor: str | None,
     auto_accept: AutoAcceptOption | None = None,
@@ -53,8 +54,6 @@ def merge_analysis(
     Returns:
         Tuple of (return_code, message_string).
     """
-    from panther_analysis_tool.main import is_json_mode
-
     user_specs = list(load_analysis_specs_ex(["."], [], True))
 
     mergeable_items = get_mergeable_items(analysis_id, user_specs)
@@ -239,8 +238,6 @@ def merge_items(  # pylint: disable=too-many-arguments,too-many-positional-argum
 
         # consider updated if no conflict with both files
         updated_item_ids.append(mergeable_item.user_item.analysis_id())
-
-    from panther_analysis_tool.main import is_json_mode
 
     if analysis_id is not None:
         if is_json_mode():

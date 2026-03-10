@@ -144,6 +144,10 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.output import (
+    is_json_mode,
+    set_output_format,
+)
 from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA, SQL_LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -179,17 +183,6 @@ PantherCommand: TypeAlias = Callable[..., Tuple[int, list[Any]]] | Callable[...,
 
 _DISABLE_PANTHER_EXCEPTION_HANDLER = False
 _SKIP_HTTP_VERSION_CHECK = False
-_output_format: OutputFormat = OutputFormat.text
-
-
-def get_output_format() -> OutputFormat:
-    """Return the globally configured output format."""
-    return _output_format
-
-
-def is_json_mode() -> bool:
-    """Return True when the global output format is JSON."""
-    return _output_format == OutputFormat.json
 
 
 def _emit_json_result(command: str, return_code: int, out: Any) -> None:
@@ -983,7 +976,7 @@ def debug_analysis(
     return test_analysis(backend, args, debug_args=debug_args)
 
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-statements,too-many-nested-blocks
 def test_analysis(
     backend: Optional[BackendClient],
     args: TestAnalysisArgs,
@@ -1207,7 +1200,7 @@ def _print_json_error(test_path: str, invalid_specs: List[Any]) -> None:
     print(json.dumps(output, default=str))
 
 
-def _print_json_output(
+def _print_json_output(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     test_path: str,
     num_detections: int,
     failed_tests: DefaultDict[str, list],
@@ -1482,8 +1475,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
                 detection_args["body"] = found_base_detection.get("body")
             else:
                 detection_args["path"] = os.path.join(
-                    found_base_path,
-                    found_base_detection["Filename"],  # type: ignore
+                    found_base_path,  # type: ignore[arg-type]
+                    found_base_detection["Filename"],
                 )
         elif is_simple_detection(analysis_spec):
             # skip tests when the body is empty
@@ -1538,7 +1531,7 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     return failed_tests, invalid_specs, skipped_tests
 
 
-def print_summary(
+def print_summary(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     test_path: str,
     num_tests: int,
     failed_tests: Dict[str, list],
@@ -1759,7 +1752,7 @@ def _emit_check_packs_json(return_code: int, **data: Any) -> None:
 
 
 # pylint: disable=too-many-statements
-def check_packs(path: str) -> Tuple[int, str]:
+def check_packs(path: str) -> Tuple[int, str]:  # pylint: disable=too-many-return-statements
     """
     Checks each existing pack whether it includes all necessary rules and other items. Also checks
     if any detections, queries, etc. are not included in any packs
@@ -2055,7 +2048,7 @@ def _process_correlation_rule_test_results(
     return failed_tests
 
 
-def _buffer_error_result(
+def _buffer_error_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     all_test_results: Optional[TestResultsContainer],
     detection: Detection,
     unit_test: Dict[str, Any],
@@ -2342,8 +2335,7 @@ def global_options(
     """
     Panther Analysis Tool: A command line tool for managing Panther policies and rules.
     """
-    global _output_format  # noqa: PLW0603
-    _output_format = output_format
+    set_output_format(output_format)
 
     if output_format == OutputFormat.json:
         for handler in logging.root.handlers:
