@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Annotated, List, Optional, TypeAlias
 
 import typer
@@ -156,5 +157,26 @@ WorkersType: TypeAlias = Annotated[
     typer.Option(
         envvar="PANTHER_WORKERS",
         help="Number of parallel workers for schema validation. Default 1 (sequential).",
+    ),
+]
+
+
+class OutputFormat(str, Enum):
+    """Output format choices for the test command."""
+
+    text = "text"
+    json = "json"
+
+
+OutputFormatType: TypeAlias = Annotated[
+    OutputFormat,
+    typer.Option(
+        "--output-format",
+        envvar="PANTHER_OUTPUT_FORMAT",
+        help=(
+            "Output format for test results. Only applies to the 'test' command. "
+            "'text' (default) prints human-readable colored output. "
+            "'json' prints a single JSON object to stdout suitable for CI/CD integration."
+        ),
     ),
 ]

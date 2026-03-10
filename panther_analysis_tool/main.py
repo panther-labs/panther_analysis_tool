@@ -107,6 +107,8 @@ from panther_analysis_tool.command.standard_args import (
     IgnoreTableNamesType,
     KMSKeyType,
     MinimumTestsType,
+    OutputFormat,
+    OutputFormatType,
     OutType,
     PathType,
     ShowFailuresOnlyType,
@@ -319,6 +321,7 @@ class TestAnalysisArgs:
     skip_disabled_tests: bool
     test_names: List[str]
     workers: int = 1
+    output_format: OutputFormat = OutputFormat.text
 
 
 @dataclass
@@ -882,6 +885,14 @@ def test_analysis(
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
+    json_mode = args.output_format == OutputFormat.json
+
+    # In JSON mode, redirect logging to stderr so stdout is clean JSON
+    if json_mode:
+        for handler in logging.root.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                handler.setStream(sys.stderr)
+
     logging.info("Testing analysis items in %s", args.path)
 
     # First classify each file, always include globals and data models location
@@ -895,15 +906,23 @@ def test_analysis(
     )
     if specs.empty():
         if invalid_specs:
+            if json_mode:
+                _print_json_error(args.path, invalid_specs)
             return 1, invalid_specs
-        return 1, [f"Nothing to test in {args.path}"]
+        error_msg = f"Nothing to test in {args.path}"
+        if json_mode:
+            _print_json_error(args.path, [(args.path, error_msg)])
+        return 1, [error_msg]
 
     specs = specs.apply(lambda l: filter_analysis(l, args.filters, args.filters_inverted))
 
     if specs.empty():
-        return 1, [
+        error_msg = (
             f"No analysis in {args.path} matched filters {args.filters} - {args.filters_inverted}"
-        ]
+        )
+        if json_mode:
+            _print_json_error(args.path, [(args.path, error_msg)])
+        return 1, [error_msg]
 
     # enrich simple detections with transpiled python as necessary
     if len(specs.simple_detections) > 0:
@@ -933,10 +952,11 @@ def test_analysis(
     log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
     invalid_specs.extend(invalid_data_models)
 
+    # JSON mode always buffers results; text mode only buffers when sorting/filtering
     all_test_results = (
-        None
-        if not bool(args.sort_test_results | args.show_failures_only)
-        else TestResultsContainer(passed={}, errored={})
+        TestResultsContainer(passed={}, errored={})
+        if json_mode or bool(args.sort_test_results | args.show_failures_only)
+        else None
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detections, skipped_tests = setup_run_tests(
@@ -960,41 +980,184 @@ def test_analysis(
     # cleanup tmp global dir
     cleanup_global_helpers(specs.globals)
 
-    if all_test_results and (all_test_results.passed or all_test_results.errored):
-        for outcome in ["passed", "errored"]:
-            # Skip if test passed and we only want to print failed tests:
-            if args.show_failures_only and outcome != "errored":
-                continue
-            sorted_results = sorted(getattr(all_test_results, outcome).items())
-            for detection_id, test_result_packages in sorted_results:
-                if test_result_packages:
-                    print(detection_id)
-                for test_result_package in test_result_packages:
-                    if len(test_result_package.output) > 0:
-                        print(test_result_package.output)
-                    _print_test_result(
-                        detection=test_result_package.detection,
-                        test_result=test_result_package.result,
-                        failed_tests=test_result_package.failed_tests,
-                    )
-                    print("")
-
-    if debug_args is None:
-        debug_args = {}
-    if not debug_args.get("debug_mode", False):
-        print_summary(
-            args.path,
-            len(specs.detections + specs.simple_detections),
-            failed_tests,
-            invalid_specs,
-            skipped_tests,
+    if json_mode:
+        _print_json_output(
+            test_path=args.path,
+            num_detections=len(specs.detections + specs.simple_detections),
+            failed_tests=failed_tests,
+            invalid_specs=invalid_specs,
+            skipped_tests=skipped_tests,
+            all_test_results=all_test_results or TestResultsContainer(passed={}, errored={}),
         )
+    else:
+        if all_test_results and (all_test_results.passed or all_test_results.errored):
+            for outcome in ["passed", "errored"]:
+                # Skip if test passed and we only want to print failed tests:
+                if args.show_failures_only and outcome != "errored":
+                    continue
+                sorted_results = sorted(getattr(all_test_results, outcome).items())
+                for detection_id, test_result_packages in sorted_results:
+                    if test_result_packages:
+                        print(detection_id)
+                    for test_result_package in test_result_packages:
+                        if len(test_result_package.output) > 0:
+                            print(test_result_package.output)
+                        _print_test_result(
+                            detection=test_result_package.detection,
+                            test_result=test_result_package.result,
+                            failed_tests=test_result_package.failed_tests,
+                        )
+                        print("")
+
+        if debug_args is None:
+            debug_args = {}
+        if not debug_args.get("debug_mode", False):
+            print_summary(
+                args.path,
+                len(specs.detections + specs.simple_detections),
+                failed_tests,
+                invalid_specs,
+                skipped_tests,
+            )
 
     #  if the classic format was invalid, just exit
     if invalid_specs:
         return 1, invalid_specs
 
     return int(bool(failed_tests)), invalid_specs
+
+
+def _serialize_function_result(
+    function_name: str, function_result: Optional[dict]
+) -> Optional[dict]:
+    """Convert a single function test result dict to a JSON-safe representation."""
+    if function_result is None:
+        return None
+    entry: Dict[str, Any] = {"name": function_name.replace("Function", "")}
+    error_val = function_result.get("error")
+    if error_val:
+        entry["status"] = "error"
+        entry["error"] = error_val.get("message") if isinstance(error_val, dict) else str(error_val)
+    elif not function_result.get("matched", True):
+        entry["status"] = "fail"
+        entry["output"] = function_result.get("output")
+    else:
+        entry["status"] = "pass"
+        entry["output"] = function_result.get("output")
+    return entry
+
+
+def _serialize_test_result(container: TestResultContainer) -> Dict[str, Any]:
+    """Convert a TestResultContainer into a JSON-serializable dict."""
+    result = container.result
+    entry: Dict[str, Any] = {
+        "name": result.name,
+        "passed": result.passed,
+        "errored": result.errored,
+    }
+    if result.genericError:
+        entry["genericError"] = result.genericError
+    if result.functions is not None:
+        functions_dict = asdict(result.functions)
+        function_results = []
+        for func_name, func_result in functions_dict.items():
+            serialized = _serialize_function_result(func_name, func_result)
+            if serialized is not None:
+                if container.detection is not None and serialized["name"] == "detection":
+                    serialized["name"] = container.detection.matcher_function_name
+                function_results.append(serialized)
+        if function_results:
+            entry["functions"] = function_results
+    return entry
+
+
+def _print_json_error(test_path: str, invalid_specs: List[Any]) -> None:
+    """Print a JSON error envelope for early-exit error paths.
+
+    Ensures CI/CD consumers always receive valid JSON on stdout, even when
+    test_analysis exits before running any tests.
+    """
+    output: Dict[str, Any] = {
+        "summary": {
+            "path": test_path,
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "invalid": len(invalid_specs),
+            "skipped": 0,
+        },
+        "results": {},
+        "failed": {},
+        "invalid": [{"file": str(fname), "error": str(err)} for fname, err in invalid_specs],
+        "skipped": [],
+    }
+    print(json.dumps(output, default=str))
+
+
+def _print_json_output(
+    test_path: str,
+    num_detections: int,
+    failed_tests: DefaultDict[str, list],
+    invalid_specs: List[Any],
+    skipped_tests: List[Tuple[str, dict]],
+    all_test_results: TestResultsContainer,
+) -> None:
+    """Print structured JSON output for all test results.
+
+    The JSON schema is designed for CI/CD integration and programmatic parsing.
+    Output goes to stdout; all other output (logging) should be on stderr.
+    """
+    num_passed = max(
+        0, num_detections - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))
+    )
+
+    output: Dict[str, Any] = {
+        "summary": {
+            "path": test_path,
+            "total": num_detections,
+            "passed": num_passed,
+            "failed": len(failed_tests),
+            "invalid": len(invalid_specs),
+            "skipped": len(skipped_tests),
+        },
+        "results": {},
+        "failed": {},
+        "invalid": [],
+        "skipped": [],
+    }
+
+    # Build per-detection results from the buffered TestResultsContainer
+    for outcome_key in ("passed", "errored"):
+        for detection_id, containers in getattr(all_test_results, outcome_key).items():
+            if detection_id not in output["results"]:
+                output["results"][detection_id] = []
+            for container in containers:
+                output["results"][detection_id].append(_serialize_test_result(container))
+
+    # Failed tests with their failure reasons
+    for detection_id, failures in failed_tests.items():
+        output["failed"][detection_id] = failures
+
+    # Invalid specs
+    for spec_filename, spec_error in invalid_specs:
+        output["invalid"].append(
+            {
+                "file": str(spec_filename),
+                "error": str(spec_error),
+            }
+        )
+
+    # Skipped tests
+    for spec_filename, spec in skipped_tests:
+        rule_or_policy_id = spec.get("RuleID") or spec.get("PolicyID") or ""
+        output["skipped"].append(
+            {
+                "file": str(spec_filename),
+                "id": rule_or_policy_id,
+            }
+        )
+
+    print(json.dumps(output, default=str))
 
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
@@ -1085,7 +1248,7 @@ def setup_data_models(
             # check if the LogType already has an enabled data model
             for log_type in analysis_spec["LogTypes"]:
                 if log_type in log_type_to_data_model:
-                    print("\t[ERROR] Conflicting Enabled LogTypes\n")
+                    logging.error("Conflicting Enabled LogTypes")
                     invalid_specs.append(
                         (
                             analysis_spec_filename,
@@ -1138,12 +1301,13 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
 
         if test_names:
             if not set(test_names) & {t["Name"] for t in analysis_spec.get("Tests", [])}:
-                print(
-                    analysis_spec.get("RuleID")
-                    or analysis_spec.get("PolicyID")
-                    or analysis_spec_filename
-                )
-                print(f"\tNo tests match the provided test names: {test_names}\n")
+                if not all_test_results:
+                    print(
+                        analysis_spec.get("RuleID")
+                        or analysis_spec.get("PolicyID")
+                        or analysis_spec_filename
+                    )
+                    print(f"\tNo tests match the provided test names: {test_names}\n")
                 skipped_tests.append((analysis_spec_filename, analysis_spec))
                 continue
 
@@ -1187,7 +1351,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
                 detection_args["body"] = found_base_detection.get("body")
             else:
                 detection_args["path"] = os.path.join(
-                    found_base_path, found_base_detection["Filename"]  # type: ignore
+                    found_base_path,
+                    found_base_detection["Filename"],  # type: ignore
                 )
         elif is_simple_detection(analysis_spec):
             # skip tests when the body is empty
@@ -1218,7 +1383,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         # if there is a setup exception, no need to run tests
         if detection is not None and detection.setup_exception:
             invalid_specs.append((analysis_spec_filename, detection.setup_exception))
-            print("\n")
+            if not all_test_results:
+                print("\n")
             continue
 
         failed_tests = run_tests(
@@ -1617,12 +1783,13 @@ def run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argumen
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection_id].append(
-            f'Insufficient test coverage: {minimum_tests} tests required but only {len(analysis.get("Tests", []))} found'
+            f"Insufficient test coverage: {minimum_tests} tests required but only {len(analysis.get('Tests', []))} found"
         )
 
     # First check if any tests exist, so we can print a helpful message if not
     if "Tests" not in analysis:
-        print(f"\tNo tests configured for {detection_id}")
+        if not all_test_results:
+            print(f"\tNo tests configured for {detection_id}")
         return failed_tests
 
     failed_tests = _run_tests(
@@ -1694,6 +1861,41 @@ def _process_correlation_rule_test_results(
     return failed_tests
 
 
+def _buffer_error_result(
+    all_test_results: Optional[TestResultsContainer],
+    detection: Detection,
+    unit_test: Dict[str, Any],
+    failed_tests: DefaultDict[str, list],
+    test_output: str,
+    err: Exception,
+) -> None:
+    """Buffer an errored test result so JSON output includes entries for tests that threw exceptions."""
+    if all_test_results is None:
+        return
+    error_result = TestResult(
+        id=unit_test["Name"],
+        name=unit_test["Name"],
+        detectionId=detection.detection_id,
+        genericError=f"{type(err).__name__}: {err}",
+        error=None,
+        errored=True,
+        passed=False,
+        trigger_alert=None,
+        functions=TestResultsPerFunction(detectionFunction=None),
+    )
+    stored = all_test_results.errored
+    if detection.detection_id not in stored:
+        stored[detection.detection_id] = []
+    stored[detection.detection_id].append(
+        TestResultContainer(
+            detection=detection,
+            result=error_result,
+            failed_tests=failed_tests,
+            output=test_output,
+        )
+    )
+
+
 # pylint: disable=too-many-statements
 def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     analysis_data_models: Dict[str, DataModel],
@@ -1762,7 +1964,7 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                     result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
             test_output = ""
             if not debug_args or not debug_args.get("debug_mode", False):
-                test_output = cast(io.StringIO, test_output_buf).getvalue()
+                test_output = cast("io.StringIO", test_output_buf).getvalue()
             if debug_args and debug_args.get("debug_mode", False):
                 # Print excceptiosn relative to the rule.py file
                 if err := result.detection_exception:
@@ -1788,12 +1990,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             )
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
+            _buffer_error_result(
+                all_test_results, detection, unit_test, failed_tests, test_output, err
+            )
             continue
         except Exception as err:  # pylint: disable=broad-except
-            # Catch arbitrary exceptions raised by user code
             logging.warning("Unexpected exception: {%s}", err)
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
+            _buffer_error_result(
+                all_test_results, detection, unit_test, failed_tests, test_output, err
+            )
             continue
         finally:
             if len(test_output) > 0 and not all_test_results:
@@ -1876,14 +2083,14 @@ def _print_test_result(
                 # add this as output to the failed test spec as well
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
-                    f'\t\t[{status_fail}] [{printable_name}] {function_result.get("error", {}).get("message")}'
+                    f"\t\t[{status_fail}] [{printable_name}] {function_result.get('error', {}).get('message')}"
                 )
             # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
-                print(f'\t\t[{status_fail}] [{printable_name}] {function_result.get("output")}')
+                print(f"\t\t[{status_fail}] [{printable_name}] {function_result.get('output')}")
             else:
-                print(f'\t\t[{status_pass}] [{printable_name}] {function_result.get("output")}')
+                print(f"\t\t[{status_pass}] [{printable_name}] {function_result.get('output')}")
 
 
 def print_and_exit(message: str) -> None:
@@ -2038,6 +2245,7 @@ def test(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         ),
     ] = None,
     workers: WorkersType = 1,
+    output_format: OutputFormatType = OutputFormat.text,
 ) -> Tuple[int, list[Any]]:
     if ignore_files is None:
         ignore_files = []
@@ -2066,6 +2274,7 @@ def test(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         valid_table_names=valid_table_names,
         test_names=test_names,
         workers=workers,
+        output_format=output_format,
     )
 
     return test_analysis(pat_utils.get_optional_backend(api_token, api_host), args)
