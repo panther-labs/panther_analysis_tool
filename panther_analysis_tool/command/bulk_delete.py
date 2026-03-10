@@ -30,7 +30,9 @@ def _emit_delete_json(return_code: int, **data: Any) -> None:
     print(json.dumps(envelope, default=str))
 
 
-def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
+def run(  # pylint: disable=too-many-statements
+    backend: BackendClient, args: BulkDeleteArgs
+) -> Tuple[int, str]:
     """Execute bulk deletion of detections and/or saved queries.
 
     Args:
@@ -54,6 +56,8 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
     if not targets_detections and not targets_saved_queries:
         logging.error("Must specify a list of analysis or queries to delete")
         logging.error("Run panther_analysis_tool -h for help statement")
+        if json_mode:
+            _emit_delete_json(1, error="Must specify a list of analysis or queries to delete")
         return 1, ""
 
     dry_run_results: Dict[str, Any] = {}
@@ -61,12 +65,16 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
     if targets_detections:
         code, msg = _delete_detections_dry_run(backend, detection_id_list)
         if code != 0:
+            if json_mode:
+                _emit_delete_json(code, error=msg or "Detection dry-run failed")
             return code, msg
         dry_run_results["detections_requested"] = detection_id_list
 
     if targets_saved_queries:
         code, msg = _delete_queries_dry_run(backend, query_name_list)
         if code != 0:
+            if json_mode:
+                _emit_delete_json(code, error=msg or "Query dry-run failed")
             return code, msg
         dry_run_results["queries_requested"] = query_name_list
 
@@ -87,6 +95,8 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
         code, msg = _delete_detections(backend, detection_id_list)
         if code != 0:
             logging.warning("error deleting detections: %s", msg)
+            if json_mode:
+                _emit_delete_json(code, error=msg or "Detection deletion failed")
             return code, msg
         logging.info("successfully deleted detections.")
         deleted["detections"] = detection_id_list
@@ -95,6 +105,8 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
         code, msg = _delete_queries(backend, query_name_list)
         if code != 0:
             logging.warning("error deleting saved queries: %s", msg)
+            if json_mode:
+                _emit_delete_json(code, error=msg or "Query deletion failed")
             return code, msg
         logging.info("successfully deleted saved queries.")
         deleted["queries"] = query_name_list

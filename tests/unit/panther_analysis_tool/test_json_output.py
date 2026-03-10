@@ -6,6 +6,8 @@ from io import StringIO
 from typing import Any, DefaultDict, Dict, List, Optional, Tuple
 from unittest import TestCase, mock
 
+from panther_core.testing import TestResult, TestResultsPerFunction
+
 from panther_analysis_tool.command.standard_args import OutputFormat
 from panther_analysis_tool.core.definitions import (
     TestResultContainer,
@@ -22,7 +24,6 @@ from panther_analysis_tool.main import (
     _serialize_test_result,
 )
 from panther_analysis_tool.output import get_output_format, is_json_mode
-from panther_core.testing import TestResult, TestResultsPerFunction
 
 
 def _make_test_result(

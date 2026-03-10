@@ -51,14 +51,22 @@ class BenchmarkArgs:
     hour: Optional[datetime.datetime]
 
 
-def run(  # pylint: disable=too-many-locals,too-many-return-statements
+def run(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-statements
     backend: BackendClient, args: BenchmarkArgs
 ) -> Tuple[int, str]:
+    json_mode = is_json_mode()
+
     if backend is None or not backend.supports_perf_test():
-        return 1, "Invalid backend. `benchmark` is only supported via API token"
+        msg = "Invalid backend. `benchmark` is only supported via API token"
+        if json_mode:
+            _emit_benchmark_error_json(1, msg)
+        return 1, msg
 
     if args.iterations <= 0:
-        return 1, f"benchmark must perform at least 1 iteration, {args.iterations} requested"
+        msg = f"benchmark must perform at least 1 iteration, {args.iterations} requested"
+        if json_mode:
+            _emit_benchmark_error_json(1, msg)
+        return 1, msg
 
     zip_args = ZipArgs(
         out=args.out,
@@ -71,14 +79,21 @@ def run(  # pylint: disable=too-many-locals,too-many-return-statements
 
     rule_or_err = validate_rule_count(analyses)
     if isinstance(rule_or_err, str):
+        if json_mode:
+            _emit_benchmark_error_json(1, rule_or_err)
         return 1, rule_or_err
 
     log_type, err_msg = validate_log_type(args.log_type, rule_or_err)
     if err_msg is not None or not isinstance(log_type, str):
-        return 1, err_msg or "No log_type found"
+        msg = err_msg or "No log_type found"
+        if json_mode:
+            _emit_benchmark_error_json(1, msg)
+        return 1, msg
 
     hour_or_err = validate_hour(args.hour, log_type, backend)
     if isinstance(hour_or_err, str):
+        if json_mode:
+            _emit_benchmark_error_json(1, hour_or_err)
         return 1, hour_or_err
 
     chunks = chunk_analysis(analyses)
@@ -124,11 +139,21 @@ def run(  # pylint: disable=too-many-locals,too-many-return-statements
     if not logged:
         log_output(args.out, hour_or_err, iterations, rule_or_err, now)
 
-    if is_json_mode():
+    if json_mode:
         _emit_benchmark_json(iterations, rule_or_err, hour_or_err, logged)
         return 0, ""
 
     return 0, ""
+
+
+def _emit_benchmark_error_json(return_code: int, error: str) -> None:
+    """Emit a structured JSON error envelope for the benchmark command."""
+    print(
+        json.dumps(
+            {"command": "benchmark", "return_code": return_code, "status": "error", "error": error},
+            default=str,
+        )
+    )
 
 
 def _emit_benchmark_json(

@@ -256,6 +256,13 @@ def run(args: MigrateArgs) -> Tuple[int, str]:
             args.write_merge_conflicts,
         )
     except file_editor.EditorCommandNotFoundError as err:
+        if is_json_mode():
+            print(
+                json.dumps(
+                    {"command": "migrate", "return_code": 1, "status": "error", "error": str(err)},
+                    default=str,
+                )
+            )
         return 1, str(err)
 
     if is_json_mode():
