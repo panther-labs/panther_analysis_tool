@@ -248,6 +248,7 @@ LOG_TYPE_REGEX = Regex(
     r"PushSecurity\.Controls|"
     r"PushSecurity\.Entities|"
     r"Rapid7\.AuditLog|"
+    r"SOCRadar\.Incidents|"
     r"Salesforce\.Login|"
     r"Salesforce\.LoginAs|"
     r"Salesforce\.Logout|"
