@@ -51,6 +51,7 @@ from panther_core.testing import (
     TestCaseEvaluator,
     TestExpectations,
     TestResult,
+    TestResultsPerFunction,
     TestSpecification,
 )
 from ruamel.yaml import YAML, SafeConstructor, constructor
@@ -107,6 +108,7 @@ from panther_analysis_tool.command.standard_args import (
     IgnoreTableNamesType,
     KMSKeyType,
     MinimumTestsType,
+    OutputFormat,
     OutType,
     PathType,
     ShowFailuresOnlyType,
@@ -142,6 +144,10 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.output import (
+    is_json_mode,
+    set_output_format,
+)
 from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA, SQL_LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -179,10 +185,54 @@ _DISABLE_PANTHER_EXCEPTION_HANDLER = False
 _SKIP_HTTP_VERSION_CHECK = False
 
 
+def _emit_json_result(command: str, return_code: int, out: Any) -> None:
+    """Emit a structured JSON envelope to stdout for any command result.
+
+    This is the generic fallback used by call_and_exit for commands that
+    do not produce their own JSON output (e.g. test already handles its own).
+
+    Non-serializable values in ``out`` are coerced to their ``str()``
+    representation via ``json.dumps(default=str)``.  The resulting JSON is
+    always valid, but callers should prefer returning plain strings or
+    lists of ``(filename, error_message)`` tuples for best fidelity.
+    """
+    envelope: Dict[str, Any] = {
+        "command": command,
+        "return_code": return_code,
+    }
+    if return_code == 0:
+        envelope["status"] = "success"
+        if out:
+            envelope["message"] = str(out)
+    else:
+        envelope["status"] = "error"
+        if out and isinstance(out, list):
+            errors = []
+            for errspec in out:
+                if isinstance(errspec, tuple):
+                    fname, error = errspec
+                    errors.append({"file": str(fname), "error": str(error)})
+                else:
+                    errors.append({"error": str(errspec)})
+            envelope["errors"] = errors
+        elif out:
+            envelope["errors"] = [{"error": str(out)}]
+    print(json.dumps(envelope, default=str))
+
+
 def call_and_exit(func: PantherCommand) -> Callable[..., None]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> None:
         return_code, out = func(*args, **kwargs)
+
+        if is_json_mode():
+            # Commands that produce their own JSON (like test) set out=""
+            # on success to signal that output was already emitted.
+            # For all other commands, emit the generic JSON envelope.
+            command_name = func.__name__.replace("_cmd", "").replace("_command", "")
+            if not _command_emits_own_json(command_name):
+                _emit_json_result(command_name, return_code, out)
+            raise typer.Exit(code=return_code)
 
         if return_code == 1:
             # out is expected to be a list of tuples of (filename, error_message)
@@ -213,6 +263,34 @@ def call_and_exit(func: PantherCommand) -> Callable[..., None]:
     # invalid mypy error https://github.com/python/mypy/issues/12472
     wrapper.__signature__ = signature(func, eval_str=True)  # type: ignore[attr-defined]
     return wrapper
+
+
+_COMMANDS_WITH_OWN_JSON: frozenset[str] = frozenset(
+    {
+        "test",
+        "debug",
+        "upload",
+        "validate",
+        "benchmark",
+        "check_packs",
+        "migrate",
+        "delete",
+        "merge",
+        "update",
+        "enrich_test_data",
+        "update_custom_schemas",
+        "init",
+    }
+)
+
+
+def _command_emits_own_json(command_name: str) -> bool:
+    """Return True if the command already printed its own JSON to stdout.
+
+    Commands in _COMMANDS_WITH_OWN_JSON handle their own structured JSON output
+    and should not receive the generic envelope from call_and_exit.
+    """
+    return command_name in _COMMANDS_WITH_OWN_JSON
 
 
 def app_command_with_config(
@@ -506,6 +584,19 @@ def upload_zip(
                     del resp_dict["correlation_rules"]
 
                 logging.debug("API Response:\n%s", json.dumps(resp_dict, indent=4))
+                if is_json_mode():
+                    print(
+                        json.dumps(
+                            {
+                                "command": "upload",
+                                "return_code": 0,
+                                "status": "success",
+                                "data": resp_dict,
+                            },
+                            default=str,
+                        )
+                    )
+                    return 0, ""
                 print_upload_summary(resp_dict)
                 return 0, cli_output.success("Upload succeeded")
 
@@ -608,11 +699,12 @@ def test_lookup_table(path: str) -> Tuple[int, str]:
 
 
 def update_custom_schemas(backend: BackendClient, path: str) -> Tuple[int, str]:
-    """
-    Updates or creates custom schemas.
-    Returns 1 if any file failed to be updated.
+    """Update or create custom schemas on a Panther deployment.
+
     Args:
-        args: The populated Argparse namespace with parsed command-line arguments.
+        backend: API backend client.
+        path: Path containing schema definitions.
+
     Returns:
         A tuple of return code and a placeholder string.
     """
@@ -623,12 +715,28 @@ def update_custom_schemas(backend: BackendClient, path: str) -> Tuple[int, str]:
     uploader = user_defined.Uploader(normalized_path, backend)
     results = uploader.process()
     has_errors = False
+    summaries: list[Dict[str, Any]] = []
     for failed, summary in user_defined.report_summary(normalized_path, results):
         if failed:
             has_errors = True
             logging.error(summary)
         else:
             logging.info(summary)
+        summaries.append({"failed": failed, "summary": summary})
+
+    if is_json_mode():
+        print(
+            json.dumps(
+                {
+                    "command": "update-custom-schemas",
+                    "return_code": int(has_errors),
+                    "status": "error" if has_errors else "success",
+                    "data": {"results": summaries},
+                },
+                default=str,
+            )
+        )
+        return int(has_errors), ""
 
     return int(has_errors), ""
 
@@ -868,7 +976,7 @@ def debug_analysis(
     return test_analysis(backend, args, debug_args=debug_args)
 
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-statements,too-many-nested-blocks
 def test_analysis(
     backend: Optional[BackendClient],
     args: TestAnalysisArgs,
@@ -882,6 +990,8 @@ def test_analysis(
     Returns:
         A tuple of the return code, and a list of tuples containing invalid specs and their error.
     """
+    json_mode = is_json_mode()
+
     logging.info("Testing analysis items in %s", args.path)
 
     # First classify each file, always include globals and data models location
@@ -895,15 +1005,23 @@ def test_analysis(
     )
     if specs.empty():
         if invalid_specs:
+            if json_mode:
+                _print_json_error(args.path, invalid_specs)
             return 1, invalid_specs
-        return 1, [f"Nothing to test in {args.path}"]
+        error_msg = f"Nothing to test in {args.path}"
+        if json_mode:
+            _print_json_error(args.path, [(args.path, error_msg)])
+        return 1, [error_msg]
 
     specs = specs.apply(lambda l: filter_analysis(l, args.filters, args.filters_inverted))
 
     if specs.empty():
-        return 1, [
+        error_msg = (
             f"No analysis in {args.path} matched filters {args.filters} - {args.filters_inverted}"
-        ]
+        )
+        if json_mode:
+            _print_json_error(args.path, [(args.path, error_msg)])
+        return 1, [error_msg]
 
     # enrich simple detections with transpiled python as necessary
     if len(specs.simple_detections) > 0:
@@ -933,10 +1051,11 @@ def test_analysis(
     log_type_to_data_model, invalid_data_models = setup_data_models(specs.data_models)
     invalid_specs.extend(invalid_data_models)
 
+    # JSON mode always buffers results; text mode only buffers when sorting/filtering
     all_test_results = (
-        None
-        if not bool(args.sort_test_results | args.show_failures_only)
-        else TestResultsContainer(passed={}, errored={})
+        TestResultsContainer(passed={}, errored={})
+        if json_mode or bool(args.sort_test_results | args.show_failures_only)
+        else None
     )
     # then, import rules and policies; run tests
     failed_tests, invalid_detections, skipped_tests = setup_run_tests(
@@ -960,41 +1079,209 @@ def test_analysis(
     # cleanup tmp global dir
     cleanup_global_helpers(specs.globals)
 
-    if all_test_results and (all_test_results.passed or all_test_results.errored):
-        for outcome in ["passed", "errored"]:
-            # Skip if test passed and we only want to print failed tests:
-            if args.show_failures_only and outcome != "errored":
-                continue
-            sorted_results = sorted(getattr(all_test_results, outcome).items())
-            for detection_id, test_result_packages in sorted_results:
-                if test_result_packages:
-                    print(detection_id)
-                for test_result_package in test_result_packages:
-                    if len(test_result_package.output) > 0:
-                        print(test_result_package.output)
-                    _print_test_result(
-                        detection=test_result_package.detection,
-                        test_result=test_result_package.result,
-                        failed_tests=test_result_package.failed_tests,
-                    )
-                    print("")
+    # Only detection-related invalids should reduce the passed count.
+    # invalid_specs also contains data model errors, pack errors, etc. that
+    # are not counted in num_detections.
+    num_invalid_detections = len(invalid_detections)
 
-    if debug_args is None:
-        debug_args = {}
-    if not debug_args.get("debug_mode", False):
-        print_summary(
-            args.path,
-            len(specs.detections + specs.simple_detections),
-            failed_tests,
-            invalid_specs,
-            skipped_tests,
+    if json_mode:
+        _print_json_output(
+            test_path=args.path,
+            num_detections=len(specs.detections + specs.simple_detections),
+            failed_tests=failed_tests,
+            invalid_specs=invalid_specs,
+            num_invalid_detections=num_invalid_detections,
+            skipped_tests=skipped_tests,
+            all_test_results=all_test_results or TestResultsContainer(passed={}, errored={}),
         )
+    else:
+        if all_test_results and (all_test_results.passed or all_test_results.errored):
+            for outcome in ["passed", "errored"]:
+                # Skip if test passed and we only want to print failed tests:
+                if args.show_failures_only and outcome != "errored":
+                    continue
+                sorted_results = sorted(getattr(all_test_results, outcome).items())
+                for detection_id, test_result_packages in sorted_results:
+                    if test_result_packages:
+                        print(detection_id)
+                    for test_result_package in test_result_packages:
+                        if len(test_result_package.output) > 0:
+                            print(test_result_package.output)
+                        _print_test_result(
+                            detection=test_result_package.detection,
+                            test_result=test_result_package.result,
+                            failed_tests=test_result_package.failed_tests,
+                        )
+                        print("")
+
+        if debug_args is None:
+            debug_args = {}
+        if not debug_args.get("debug_mode", False):
+            print_summary(
+                args.path,
+                len(specs.detections + specs.simple_detections),
+                failed_tests,
+                invalid_specs,
+                num_invalid_detections,
+                skipped_tests,
+            )
 
     #  if the classic format was invalid, just exit
     if invalid_specs:
         return 1, invalid_specs
 
     return int(bool(failed_tests)), invalid_specs
+
+
+def _serialize_function_result(
+    function_name: str, function_result: Optional[dict]
+) -> Optional[dict]:
+    """Convert a single function test result dict to a JSON-safe representation."""
+    if function_result is None:
+        return None
+    entry: Dict[str, Any] = {"name": function_name.replace("Function", "")}
+    error_val = function_result.get("error")
+    if error_val:
+        entry["status"] = "error"
+        entry["error"] = error_val.get("message") if isinstance(error_val, dict) else str(error_val)
+    elif not function_result.get("matched", True):
+        entry["status"] = "fail"
+        entry["output"] = function_result.get("output")
+    else:
+        entry["status"] = "pass"
+        entry["output"] = function_result.get("output")
+    return entry
+
+
+def _serialize_test_result(container: TestResultContainer) -> Dict[str, Any]:
+    """Convert a TestResultContainer into a JSON-serializable dict."""
+    result = container.result
+    entry: Dict[str, Any] = {
+        "name": result.name,
+        "passed": result.passed,
+        "errored": result.errored,
+    }
+    if result.genericError:
+        entry["genericError"] = result.genericError
+    if result.functions is not None:
+        functions_dict = asdict(result.functions)
+        function_results = []
+        for func_name, func_result in functions_dict.items():
+            serialized = _serialize_function_result(func_name, func_result)
+            if serialized is not None:
+                if container.detection is not None and serialized["name"] == "detection":
+                    serialized["name"] = container.detection.matcher_function_name
+                function_results.append(serialized)
+        if function_results:
+            entry["functions"] = function_results
+    return entry
+
+
+def _print_json_error(test_path: str, invalid_specs: List[Any]) -> None:
+    """Print a JSON error envelope for early-exit error paths.
+
+    Ensures CI/CD consumers always receive valid JSON on stdout, even when
+    test_analysis exits before running any tests.
+    """
+    output: Dict[str, Any] = {
+        "summary": {
+            "path": test_path,
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "invalid": len(invalid_specs),
+            "skipped": 0,
+        },
+        "results": {},
+        "failed": {},
+        "invalid": [{"file": str(fname), "error": str(err)} for fname, err in invalid_specs],
+        "skipped": [],
+    }
+    print(json.dumps(output, default=str))
+
+
+def _print_json_output(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    test_path: str,
+    num_detections: int,
+    failed_tests: DefaultDict[str, list],
+    invalid_specs: List[Any],
+    num_invalid_detections: int,
+    skipped_tests: List[Tuple[str, dict]],
+    all_test_results: TestResultsContainer,
+) -> None:
+    """Print structured JSON output for all test results.
+
+    The JSON schema is designed for CI/CD integration and programmatic parsing.
+    Output goes to stdout; all other output (logging) should be on stderr.
+
+    Note: The test command uses a flat schema (``summary``, ``results``,
+    ``failed``, ``invalid``, ``skipped``) rather than the ``{command, status,
+    data}`` envelope used by other commands.  This is intentional -- the test
+    output predates the generic envelope and contains richer, domain-specific
+    structure.  A future major version could unify the schemas.
+
+    Args:
+        test_path: Path that was tested.
+        num_detections: Count of detections (rules + simple_detections).
+        failed_tests: Map of detection_id -> list of failed test names.
+        invalid_specs: All invalid specs (detections, data models, packs, etc.).
+        num_invalid_detections: Count of invalid specs that are actually detections.
+            Only these reduce the passed count since num_detections only counts
+            detections, not data models or packs.
+        skipped_tests: List of (filename, spec) tuples for skipped tests.
+        all_test_results: Buffered test results for per-detection breakdown.
+    """
+    num_passed = max(
+        0, num_detections - (len(failed_tests) + num_invalid_detections + len(skipped_tests))
+    )
+
+    output: Dict[str, Any] = {
+        "summary": {
+            "path": test_path,
+            "total": num_detections,
+            "passed": num_passed,
+            "failed": len(failed_tests),
+            "invalid": len(invalid_specs),
+            "skipped": len(skipped_tests),
+        },
+        "results": {},
+        "failed": {},
+        "invalid": [],
+        "skipped": [],
+    }
+
+    # Build per-detection results from the buffered TestResultsContainer
+    for outcome_key in ("passed", "errored"):
+        for detection_id, containers in getattr(all_test_results, outcome_key).items():
+            if detection_id not in output["results"]:
+                output["results"][detection_id] = []
+            for container in containers:
+                output["results"][detection_id].append(_serialize_test_result(container))
+
+    # Failed tests with their failure reasons
+    for detection_id, failures in failed_tests.items():
+        output["failed"][detection_id] = failures
+
+    # Invalid specs
+    for spec_filename, spec_error in invalid_specs:
+        output["invalid"].append(
+            {
+                "file": str(spec_filename),
+                "error": str(spec_error),
+            }
+        )
+
+    # Skipped tests
+    for spec_filename, spec in skipped_tests:
+        rule_or_policy_id = spec.get("RuleID") or spec.get("PolicyID") or ""
+        output["skipped"].append(
+            {
+                "file": str(spec_filename),
+                "id": rule_or_policy_id,
+            }
+        )
+
+    print(json.dumps(output, default=str))
 
 
 def setup_global_helpers(global_analysis: List[ClassifiedAnalysis]) -> None:
@@ -1085,7 +1372,7 @@ def setup_data_models(
             # check if the LogType already has an enabled data model
             for log_type in analysis_spec["LogTypes"]:
                 if log_type in log_type_to_data_model:
-                    print("\t[ERROR] Conflicting Enabled LogTypes\n")
+                    logging.error("Conflicting Enabled LogTypes")
                     invalid_specs.append(
                         (
                             analysis_spec_filename,
@@ -1138,12 +1425,13 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
 
         if test_names:
             if not set(test_names) & {t["Name"] for t in analysis_spec.get("Tests", [])}:
-                print(
-                    analysis_spec.get("RuleID")
-                    or analysis_spec.get("PolicyID")
-                    or analysis_spec_filename
-                )
-                print(f"\tNo tests match the provided test names: {test_names}\n")
+                if not all_test_results:
+                    print(
+                        analysis_spec.get("RuleID")
+                        or analysis_spec.get("PolicyID")
+                        or analysis_spec_filename
+                    )
+                    print(f"\tNo tests match the provided test names: {test_names}\n")
                 skipped_tests.append((analysis_spec_filename, analysis_spec))
                 continue
 
@@ -1187,7 +1475,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
                 detection_args["body"] = found_base_detection.get("body")
             else:
                 detection_args["path"] = os.path.join(
-                    found_base_path, found_base_detection["Filename"]  # type: ignore
+                    found_base_path,  # type: ignore[arg-type]
+                    found_base_detection["Filename"],
                 )
         elif is_simple_detection(analysis_spec):
             # skip tests when the body is empty
@@ -1218,7 +1507,8 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
         # if there is a setup exception, no need to run tests
         if detection is not None and detection.setup_exception:
             invalid_specs.append((analysis_spec_filename, detection.setup_exception))
-            print("\n")
+            if not all_test_results:
+                print("\n")
             continue
 
         failed_tests = run_tests(
@@ -1241,14 +1531,25 @@ def setup_run_tests(  # pylint: disable=too-many-locals,too-many-arguments,too-m
     return failed_tests, invalid_specs, skipped_tests
 
 
-def print_summary(
+def print_summary(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     test_path: str,
     num_tests: int,
     failed_tests: Dict[str, list],
     invalid_specs: List[Any],
+    num_invalid_detections: int,
     skipped_tests: List[Tuple[str, dict]],
 ) -> None:
-    """Print a summary of passed, failed, and invalid specs"""
+    """Print a summary of passed, failed, and invalid specs.
+
+    Args:
+        test_path: Path that was tested.
+        num_tests: Count of detections (rules + simple_detections).
+        failed_tests: Map of detection_id -> list of failed test names.
+        invalid_specs: All invalid specs (detections, data models, packs, etc.).
+        num_invalid_detections: Count of invalid specs that are detections.
+            Only these reduce the passed count.
+        skipped_tests: List of (filename, spec) tuples for skipped tests.
+    """
     err_message = "\t{}\n\t\t{}\n"
 
     if skipped_tests:
@@ -1272,7 +1573,9 @@ def print_summary(
     print("--------------------------")
     print("Test Summary")
     print(f"\tPath: {test_path}")
-    print(f"\tPassed: {num_tests - (len(failed_tests) + len(invalid_specs) + len(skipped_tests))}")
+    print(
+        f"\tPassed: {num_tests - (len(failed_tests) + num_invalid_detections + len(skipped_tests))}"
+    )
     print(f"\tSkipped: {len(skipped_tests)}")
     print(f"\tFailed: {len(failed_tests)}")
     print(f"\tInvalid: {len(invalid_specs)}\n")
@@ -1388,8 +1691,20 @@ def enrich_test_data(backend: BackendClient, args: EnrichTestDataArgs) -> Tuple[
     enricher = EnrichedEventGenerator(backend)
     result = enricher.enrich_test_data(list(filtered_raw_analysis_items_by_id.values()))
 
-    # just report the detection IDs that were enriched
     enriched_analysis_ids = [analysis_spec.analysis_id() for analysis_spec in result]
+    if is_json_mode():
+        print(
+            json.dumps(
+                {
+                    "command": "enrich-test-data",
+                    "return_code": 0,
+                    "status": "success",
+                    "data": {"enriched_ids": enriched_analysis_ids},
+                },
+                default=str,
+            )
+        )
+        return 0, ""
     result_str = "No analysis specs enriched"
     if any(enriched_analysis_ids):
         result_str = "Analysis specs enriched:\n\t" + "\n\t".join(enriched_analysis_ids)
@@ -1417,8 +1732,27 @@ def get_shallow_dependencies(spec_: ClassifiedAnalysis) -> set[str]:
     return set()
 
 
+def _check_packs_json_default(obj: Any) -> Any:
+    """JSON serializer fallback that sorts sets for deterministic output."""
+    if isinstance(obj, set):
+        return sorted(obj)
+    return str(obj)
+
+
+def _emit_check_packs_json(return_code: int, **data: Any) -> None:
+    """Emit structured JSON for the check-packs command."""
+    envelope: Dict[str, Any] = {
+        "command": "check-packs",
+        "return_code": return_code,
+        "status": "success" if return_code == 0 else "error",
+    }
+    if data:
+        envelope["data"] = data
+    print(json.dumps(envelope, default=_check_packs_json_default))
+
+
 # pylint: disable=too-many-statements
-def check_packs(path: str) -> Tuple[int, str]:
+def check_packs(path: str) -> Tuple[int, str]:  # pylint: disable=too-many-return-statements
     """
     Checks each existing pack whether it includes all necessary rules and other items. Also checks
     if any detections, queries, etc. are not included in any packs
@@ -1501,6 +1835,9 @@ def check_packs(path: str) -> Tuple[int, str]:
             )
 
     if missing_pack_items:
+        if is_json_mode():
+            _emit_check_packs_json(1, missing_items=missing_pack_items)
+            return 1, ""
         err_str = ["The following packs have missing items:\n"]
         for missing_entries in missing_pack_items:
             err_str += [str(missing_entries.pop("path"))]
@@ -1550,6 +1887,9 @@ def check_packs(path: str) -> Tuple[int, str]:
             all_items_not_in_packs.add(id_)
 
     if all_items_not_in_packs:
+        if is_json_mode():
+            _emit_check_packs_json(1, items_not_in_packs=sorted(all_items_not_in_packs))
+            return 1, ""
         err_str = ["The following items are not included in any packs:"]
         err_str += sorted(list(all_items_not_in_packs))
         return 1, "\n".join(err_str)
@@ -1583,21 +1923,34 @@ def check_packs(path: str) -> Tuple[int, str]:
                 )
 
     if experimental_items_in_packs:
+        if is_json_mode():
+            _emit_check_packs_json(1, experimental_in_packs=sorted(experimental_items_in_packs))
+            return 1, ""
         err_str = ["The following experimental items are not allowed in packs:"]
         err_str += sorted(experimental_items_in_packs)
         return 1, "\n".join(err_str)
 
     if deprecated_items_in_packs:
+        if is_json_mode():
+            _emit_check_packs_json(1, deprecated_in_packs=sorted(deprecated_items_in_packs))
+            return 1, ""
         err_str = ["The following deprecated items are not allowed in packs:"]
         err_str += sorted(deprecated_items_in_packs)
         return 1, "\n".join(err_str)
 
     if excluded_tag_items_in_packs:
+        if is_json_mode():
+            excluded = [{"id": i, "tags": t} for i, t in sorted(excluded_tag_items_in_packs)]
+            _emit_check_packs_json(1, excluded_tag_in_packs=excluded)
+            return 1, ""
         err_str = ["The following items with excluded tags are not allowed in packs:"]
         for item_id, tag_list in sorted(excluded_tag_items_in_packs):
             err_str.append(f"\t{item_id} (tags: {tag_list})")
         return 1, "\n".join(err_str)
 
+    if is_json_mode():
+        _emit_check_packs_json(0)
+        return 0, ""
     return 0, "Looks like packs are up to date"
 
 
@@ -1617,12 +1970,13 @@ def run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argumen
 ) -> DefaultDict[str, list]:
     if len(analysis.get("Tests", [])) < minimum_tests:
         failed_tests[detection_id].append(
-            f'Insufficient test coverage: {minimum_tests} tests required but only {len(analysis.get("Tests", []))} found'
+            f"Insufficient test coverage: {minimum_tests} tests required but only {len(analysis.get('Tests', []))} found"
         )
 
     # First check if any tests exist, so we can print a helpful message if not
     if "Tests" not in analysis:
-        print(f"\tNo tests configured for {detection_id}")
+        if not all_test_results:
+            print(f"\tNo tests configured for {detection_id}")
         return failed_tests
 
     failed_tests = _run_tests(
@@ -1694,6 +2048,41 @@ def _process_correlation_rule_test_results(
     return failed_tests
 
 
+def _buffer_error_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    all_test_results: Optional[TestResultsContainer],
+    detection: Detection,
+    unit_test: Dict[str, Any],
+    failed_tests: DefaultDict[str, list],
+    test_output: str,
+    err: Exception,
+) -> None:
+    """Buffer an errored test result so JSON output includes entries for tests that threw exceptions."""
+    if all_test_results is None:
+        return
+    error_result = TestResult(
+        id=unit_test["Name"],
+        name=unit_test["Name"],
+        detectionId=detection.detection_id,
+        genericError=f"{type(err).__name__}: {err}",
+        error=None,
+        errored=True,
+        passed=False,
+        trigger_alert=None,
+        functions=TestResultsPerFunction(detectionFunction=None),
+    )
+    stored = all_test_results.errored
+    if detection.detection_id not in stored:
+        stored[detection.detection_id] = []
+    stored[detection.detection_id].append(
+        TestResultContainer(
+            detection=detection,
+            result=error_result,
+            failed_tests=failed_tests,
+            output=test_output,
+        )
+    )
+
+
 # pylint: disable=too-many-statements
 def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     analysis_data_models: Dict[str, DataModel],
@@ -1762,7 +2151,7 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                     result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
             test_output = ""
             if not debug_args or not debug_args.get("debug_mode", False):
-                test_output = cast(io.StringIO, test_output_buf).getvalue()
+                test_output = cast("io.StringIO", test_output_buf).getvalue()
             if debug_args and debug_args.get("debug_mode", False):
                 # Print excceptiosn relative to the rule.py file
                 if err := result.detection_exception:
@@ -1788,12 +2177,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             )
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
+            _buffer_error_result(
+                all_test_results, detection, unit_test, failed_tests, test_output, err
+            )
             continue
         except Exception as err:  # pylint: disable=broad-except
-            # Catch arbitrary exceptions raised by user code
             logging.warning("Unexpected exception: {%s}", err)
             logging.debug(str(err), exc_info=err)
             failed_tests[detection.detection_id].append(unit_test["Name"])
+            _buffer_error_result(
+                all_test_results, detection, unit_test, failed_tests, test_output, err
+            )
             continue
         finally:
             if len(test_output) > 0 and not all_test_results:
@@ -1876,14 +2270,14 @@ def _print_test_result(
                 # add this as output to the failed test spec as well
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
                 print(
-                    f'\t\t[{status_fail}] [{printable_name}] {function_result.get("error", {}).get("message")}'
+                    f"\t\t[{status_fail}] [{printable_name}] {function_result.get('error', {}).get('message')}"
                 )
             # if it didn't error, we simply need to check if the output was as expected
             elif not function_result.get("matched", True):
                 failed_tests[detection.detection_id].append(f"{test_result.name}:{printable_name}")
-                print(f'\t\t[{status_fail}] [{printable_name}] {function_result.get("output")}')
+                print(f"\t\t[{status_fail}] [{printable_name}] {function_result.get('output')}")
             else:
-                print(f'\t\t[{status_pass}] [{printable_name}] {function_result.get("output")}')
+                print(f"\t\t[{status_pass}] [{printable_name}] {function_result.get('output')}")
 
 
 def print_and_exit(message: str) -> None:
@@ -1927,10 +2321,27 @@ def global_options(
     skip_version_check: bool = typer.Option(
         False, "--skip-version-check", help="Skip Panther version check"
     ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.text,
+        "--output-format",
+        envvar="PANTHER_OUTPUT_FORMAT",
+        help=(
+            "Output format for command results. "
+            "'text' (default) prints human-readable colored output. "
+            "'json' prints a single JSON object to stdout suitable for CI/CD integration."
+        ),
+    ),
 ) -> None:
     """
     Panther Analysis Tool: A command line tool for managing Panther policies and rules.
     """
+    set_output_format(output_format)
+
+    if output_format == OutputFormat.json:
+        for handler in logging.root.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                handler.setStream(sys.stderr)
+
     # These options run before any subcommand.
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)

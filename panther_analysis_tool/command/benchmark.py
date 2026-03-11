@@ -1,10 +1,11 @@
 import datetime
 import io
+import json
 import sys
 import zipfile
 from dataclasses import dataclass
 from statistics import mean, median
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
 
@@ -13,12 +14,16 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import MetricsParams, PerfTestParams
 from panther_analysis_tool.constants import AnalysisTypes, ReplayStatus
 from panther_analysis_tool.core.parse import Filter
+from panther_analysis_tool.output import is_json_mode
 from panther_analysis_tool.util import log_and_write_to_file
 from panther_analysis_tool.zip_chunker import (
     ZipArgs,
     analysis_for_chunks,
     chunk_analysis,
 )
+
+_HIGHLY_PERFORMANT_MINUTES = 1
+_AT_RISK_TIMEOUT_MINUTES = 10
 
 
 class PerformanceTestIteration:
@@ -46,14 +51,22 @@ class BenchmarkArgs:
     hour: Optional[datetime.datetime]
 
 
-def run(  # pylint: disable=too-many-locals
+def run(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-statements
     backend: BackendClient, args: BenchmarkArgs
 ) -> Tuple[int, str]:
+    json_mode = is_json_mode()
+
     if backend is None or not backend.supports_perf_test():
-        return 1, "Invalid backend. `benchmark` is only supported via API token"
+        msg = "Invalid backend. `benchmark` is only supported via API token"
+        if json_mode:
+            _emit_benchmark_error_json(1, msg)
+        return 1, msg
 
     if args.iterations <= 0:
-        return 1, f"benchmark must perform at least 1 iteration, {args.iterations} requested"
+        msg = f"benchmark must perform at least 1 iteration, {args.iterations} requested"
+        if json_mode:
+            _emit_benchmark_error_json(1, msg)
+        return 1, msg
 
     zip_args = ZipArgs(
         out=args.out,
@@ -66,14 +79,21 @@ def run(  # pylint: disable=too-many-locals
 
     rule_or_err = validate_rule_count(analyses)
     if isinstance(rule_or_err, str):
+        if json_mode:
+            _emit_benchmark_error_json(1, rule_or_err)
         return 1, rule_or_err
 
     log_type, err_msg = validate_log_type(args.log_type, rule_or_err)
     if err_msg is not None or not isinstance(log_type, str):
-        return 1, err_msg or "No log_type found"
+        msg = err_msg or "No log_type found"
+        if json_mode:
+            _emit_benchmark_error_json(1, msg)
+        return 1, msg
 
     hour_or_err = validate_hour(args.hour, log_type, backend)
     if isinstance(hour_or_err, str):
+        if json_mode:
+            _emit_benchmark_error_json(1, hour_or_err)
         return 1, hour_or_err
 
     chunks = chunk_analysis(analyses)
@@ -119,7 +139,68 @@ def run(  # pylint: disable=too-many-locals
     if not logged:
         log_output(args.out, hour_or_err, iterations, rule_or_err, now)
 
+    if json_mode:
+        _emit_benchmark_json(iterations, rule_or_err, hour_or_err, logged)
+        return 0, ""
+
     return 0, ""
+
+
+def _emit_benchmark_error_json(return_code: int, error: str) -> None:
+    """Emit a structured JSON error envelope for the benchmark command."""
+    print(
+        json.dumps(
+            {"command": "benchmark", "return_code": return_code, "status": "error", "error": error},
+            default=str,
+        )
+    )
+
+
+def _emit_benchmark_json(
+    iterations: List["PerformanceTestIteration"],
+    rule: ClassifiedAnalysis,
+    hour: datetime.datetime,
+    had_error: bool,
+) -> None:
+    """Emit structured JSON for the benchmark command."""
+    envelope: Dict[str, Any] = {
+        "command": "benchmark",
+        "return_code": 0,
+        "status": "success",
+        "data": {
+            "rule": rule.file_name,
+            "hour": hour.isoformat(),
+            "iterations_completed": len(iterations),
+            "had_error": had_error,
+        },
+    }
+    if iterations:
+        read_times = [i.read_time_nanos for i in iterations]
+        proc_times = [i.processing_time_nanos for i in iterations]
+        envelope["data"]["read_time_seconds"] = {
+            "mean": nanos_to_seconds(mean(read_times)),
+            "median": nanos_to_seconds(median(read_times)),
+            "max": nanos_to_seconds(max(read_times)),
+            "min": nanos_to_seconds(min(read_times)),
+        }
+        envelope["data"]["processing_time_seconds"] = {
+            "mean": nanos_to_seconds(mean(proc_times)),
+            "median": nanos_to_seconds(median(proc_times)),
+            "max": nanos_to_seconds(max(proc_times)),
+            "min": nanos_to_seconds(min(proc_times)),
+        }
+        total_median_minutes = nanos_to_seconds(median(read_times) + median(proc_times)) / 60
+        if total_median_minutes < _HIGHLY_PERFORMANT_MINUTES:
+            envelope["data"]["performance_rating"] = "highly_performant"
+        elif total_median_minutes >= _AT_RISK_TIMEOUT_MINUTES:
+            envelope["data"]["performance_rating"] = "at_risk_of_timeout"
+        else:
+            envelope["data"]["performance_rating"] = "less_performant"
+        envelope["data"]["iterations"] = [
+            {"read_time_nanos": i.read_time_nanos, "processing_time_nanos": i.processing_time_nanos}
+            for i in iterations
+        ]
+    print(json.dumps(envelope, default=str))
 
 
 def validate_rule_count(analyses: List[ClassifiedAnalysis]) -> Union[ClassifiedAnalysis, str]:
@@ -151,13 +232,12 @@ def validate_log_type(
                 f" --log-type arg to specify one.",
             )
         log_type = rule_log_types[0]
-    else:
-        if not str(log_type).casefold() in map(str.casefold, rule_log_types):
-            return (
-                log_type,
-                f"Provided log type {log_type} was not found in log types for {rule.file_name}:"
-                f" {rule_log_types}",
-            )
+    elif str(log_type).casefold() not in map(str.casefold, rule_log_types):
+        return (
+            log_type,
+            f"Provided log type {log_type} was not found in log types for {rule.file_name}:"
+            f" {rule_log_types}",
+        )
     return log_type, None
 
 
@@ -209,7 +289,9 @@ def validate_hour(
         )
 
     max_data_hour = max(
-        data_for_log_type.breakdown, key=data_for_log_type.breakdown.get, default=None  # type: ignore
+        data_for_log_type.breakdown,
+        key=data_for_log_type.breakdown.get,  # type: ignore[arg-type]
+        default=None,
     )
     if max_data_hour is None or data_for_log_type.breakdown[max_data_hour] == 0:
         return err_msg

@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Annotated, List, Optional, TypeAlias
 
 import typer
@@ -158,3 +159,15 @@ WorkersType: TypeAlias = Annotated[
         help="Number of parallel workers for schema validation. Default 1 (sequential).",
     ),
 ]
+
+
+class OutputFormat(str, Enum):
+    """Output format choices for CLI commands.
+
+    When 'json' is selected via the global ``--output-format`` flag (or the
+    ``PANTHER_OUTPUT_FORMAT`` environment variable), commands emit a single
+    JSON object to stdout and route all logging to stderr.
+    """
+
+    text = "text"  # pylint: disable=invalid-name
+    json = "json"  # pylint: disable=invalid-name

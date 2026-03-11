@@ -31,6 +31,7 @@ from panther_analysis_tool.core import (
     versions_file,
     yaml,
 )
+from panther_analysis_tool.output import is_json_mode
 
 
 @dataclasses.dataclass
@@ -236,6 +237,14 @@ class MigrationStatus:
 
 
 def run(args: MigrateArgs) -> Tuple[int, str]:
+    """Run the migration workflow.
+
+    Args:
+        args: Migration arguments.
+
+    Returns:
+        Tuple of (return_code, message_string).
+    """
     root.chdir_to_project_root()
     analysis_cache.update_with_latest_panther_analysis(show_progress_bar=True)
 
@@ -247,10 +256,20 @@ def run(args: MigrateArgs) -> Tuple[int, str]:
             args.write_merge_conflicts,
         )
     except file_editor.EditorCommandNotFoundError as err:
+        if is_json_mode():
+            print(
+                json.dumps(
+                    {"command": "migrate", "return_code": 1, "status": "error", "error": str(err)},
+                    default=str,
+                )
+            )
         return 1, str(err)
 
+    if is_json_mode():
+        _emit_migrate_json(migration_result, single_item=args.analysis_id is not None)
+        return 0, ""
+
     if args.analysis_id is not None:
-        # skip the completion message if the user specified an analysis id
         return 0, ""
 
     if not migration_result.empty():
@@ -275,6 +294,23 @@ def run(args: MigrateArgs) -> Tuple[int, str]:
         print("Run `pat --help` for more information.")
 
     return 0, ""
+
+
+def _emit_migrate_json(result: MigrationStatus, single_item: bool = False) -> None:
+    """Emit structured JSON for the migrate command."""
+    envelope = {
+        "command": "migrate",
+        "return_code": 0,
+        "status": "success",
+        "data": {
+            "single_item": single_item,
+            "has_conflicts": result.has_conflicts(),
+            "has_warnings": result.has_warnings(),
+            "empty": result.empty(),
+            **result.to_dict(),
+        },
+    }
+    print(json.dumps(envelope, default=str))
 
 
 def migrate(  # pylint: disable=too-many-locals
