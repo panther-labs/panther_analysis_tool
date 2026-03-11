@@ -1936,10 +1936,7 @@ def global_options(
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         aiohttp_logger.setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff").setLevel(logging.WARNING)
 
     if not skip_version_check and not _SKIP_HTTP_VERSION_CHECK:
         latest = pat_utils.get_latest_version()
