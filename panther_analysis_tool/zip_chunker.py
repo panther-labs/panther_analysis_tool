@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from fnmatch import fnmatch
-from typing import Any, Dict, Generator, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Set
 
 from panther_analysis_tool.analysis_utils import (
     ClassifiedAnalysis,
@@ -11,6 +11,10 @@ from panther_analysis_tool.analysis_utils import (
 )
 from panther_analysis_tool.constants import DATA_MODEL_LOCATION, HELPERS_LOCATION
 from panther_analysis_tool.core.parse import Filter
+from panther_analysis_tool.log_type_validator import filter_analysis_by_log_type_support
+
+if TYPE_CHECKING:
+    from panther_analysis_tool.backend.client import Client as BackendClient
 
 
 @dataclass
@@ -115,19 +119,40 @@ def create_additional_chunks_if_needed(chunk_files: List[ChunkFiles]) -> List[Ch
     return results
 
 
-def analysis_chunks(args: ZipArgs, chunks: Optional[List[ZipChunk]] = None) -> List[ChunkFiles]:
+def analysis_chunks(
+    args: ZipArgs,
+    chunks: Optional[List[ZipChunk]] = None,
+    backend: Optional["BackendClient"] = None,
+) -> List[ChunkFiles]:
     """Generates all files that should be added to a zip file. If no chunks are provided
     a single chunk will be returned. Note: a file can be in multiple chunks if both chunks
-    matches the file pattern
-    :param args:
-    :param chunks:
-    :return:
+    matches the file pattern.
+
+    :param args: ZipArgs with path and filter settings
+    :param chunks: Optional list of ZipChunk definitions
+    :param backend: Optional backend client for log type validation
+    :return: List of ChunkFiles ready for zipping
     """
-    analysis = analysis_for_chunks(args)
+    analysis = analysis_for_chunks(args, backend=backend)
     return chunk_analysis(analysis, chunks)
 
 
-def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[ClassifiedAnalysis]:
+def analysis_for_chunks(
+    args: ZipArgs,
+    no_helpers: bool = False,
+    backend: Optional["BackendClient"] = None,
+) -> List[ClassifiedAnalysis]:
+    """Load and filter analysis specs for chunking.
+
+    Args:
+        args: ZipArgs with path and filter settings
+        no_helpers: If True, skip loading helpers
+        backend: Optional backend client for log type validation. If provided,
+                 rules with unsupported log types will be skipped with a warning.
+
+    Returns:
+        List of ClassifiedAnalysis objects ready for chunking
+    """
     analysis = []
     files: Set[str] = set()
 
@@ -140,7 +165,13 @@ def analysis_for_chunks(args: ZipArgs, no_helpers: bool = False) -> List[Classif
             files.add(file_name)
             files.add("./" + file_name)
 
-    return filter_analysis(analysis, args.filters, args.filters_inverted)
+    filtered = filter_analysis(analysis, args.filters, args.filters_inverted)
+
+    # Apply log type filtering if backend is provided
+    if backend is not None:
+        filtered = filter_analysis_by_log_type_support(filtered, backend)
+
+    return filtered
 
 
 def chunk_analysis(

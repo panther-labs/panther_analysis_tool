@@ -810,9 +810,7 @@ def classify_analysis(
             err_str = str(err)
             first_half = err_str.split(":", maxsplit=1)[0]
             second_half = err_str.split(")", maxsplit=1)[-1]
-            if "LogTypes" in str(err):
-                error = schema.SchemaError(f"{first_half}: LOG_TYPE_REGEX{second_half}")
-            elif "ResourceTypes" in str(err):
+            if "ResourceTypes" in str(err):
                 error = schema.SchemaError(f"{first_half}: RESOURCE_TYPE_REGEX{second_half}")
             invalid_specs.append((analysis_spec_filename, error))
         except jsonschema.exceptions.ValidationError as err:
