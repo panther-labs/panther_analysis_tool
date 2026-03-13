@@ -37,7 +37,7 @@ def run(backend: BackendClient, args: ValidateArgs) -> Tuple[int, str]:
         filters=args.filters,
         filters_inverted=args.filters_inverted,
     )
-    chunks = analysis_chunks(zip_args)
+    chunks = analysis_chunks(zip_args, backend=backend)
     buffer = io.BytesIO()
 
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_out:

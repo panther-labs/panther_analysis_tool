@@ -142,6 +142,9 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
+from panther_analysis_tool.log_type_validator import (
+    split_analysis_by_log_type_support,
+)
 from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA, SQL_LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -258,13 +261,14 @@ def datetime_converted(obj: Any) -> Any:
     return obj
 
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
 def zip_analysis_chunks(
     out: str,
     path: str,
     ignore_files: List[str],
     filters: List[Filter],
     filters_inverted: List[Filter],
+    backend: Optional[BackendClient] = None,
 ) -> List[str]:
     logging.info("Zipping analysis items in %s to %s", path, out)
 
@@ -289,7 +293,7 @@ def zip_analysis_chunks(
         filters=filters,
         filters_inverted=filters_inverted,
     )
-    chunks = analysis_chunks(zip_args, zip_chunks)
+    chunks = analysis_chunks(zip_args, zip_chunks, backend=backend)
     batch_id = uuid4()
     for idx, chunk in enumerate(chunks):
         filename = f"panther-analysis-{current_time}-{batch_id}-batch-{idx + 1}.zip"
@@ -359,7 +363,7 @@ def zip_analysis(backend: Optional[BackendClient], args: ZipAnalysisArgs) -> Tup
         filters=args.test_analysis_args.filters,
         filters_inverted=args.test_analysis_args.filters_inverted,
     )
-    chunks = analysis_chunks(typed_args)
+    chunks = analysis_chunks(typed_args, backend=backend)
     if len(chunks) != 1:
         logging.error("something went wrong zipping batches.")
         return 1, ""
@@ -418,6 +422,7 @@ def upload_analysis(backend: BackendClient, args: UploadAnalysisArgs) -> Tuple[i
                 args.analysis_args.ignore_files,
                 args.analysis_args.filters,
                 args.analysis_args.filters_inverted,
+                backend=backend,
             )
         ):
             batch_idx = idx + 1
@@ -904,6 +909,15 @@ def test_analysis(
         return 1, [
             f"No analysis in {args.path} matched filters {args.filters} - {args.filters_inverted}"
         ]
+
+    # Validate log types against the Panther instance when a backend is available.
+    # Items with unsupported log types are treated as invalid specs (schema errors),
+    # preserving the same behavior as the prior static LOG_TYPE_REGEX validation.
+    if backend is not None:
+        for attr in ("detections", "simple_detections", "data_models"):
+            valid, errors = split_analysis_by_log_type_support(getattr(specs, attr), backend)
+            setattr(specs, attr, valid)
+            invalid_specs.extend(errors)
 
     # enrich simple detections with transpiled python as necessary
     if len(specs.simple_detections) > 0:
@@ -1936,10 +1950,7 @@ def global_options(
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         aiohttp_logger.setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.parser").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.linter").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.lexer").setLevel(logging.WARNING)
-        logging.getLogger("sqlfluff.templater").setLevel(logging.WARNING)
+        logging.getLogger("sqlfluff").setLevel(logging.WARNING)
 
     if not skip_version_check and not _SKIP_HTTP_VERSION_CHECK:
         latest = pat_utils.get_latest_version()

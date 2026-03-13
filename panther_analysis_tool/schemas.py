@@ -4,8 +4,6 @@ from typing import Any, Dict, Set
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
 
-from panther_analysis_tool.schema_regexs import LOG_TYPE_REGEX
-
 
 class QueryScheduleSchema(Schema):
     # pylint: disable=arguments-differ
@@ -26,13 +24,19 @@ class QueryScheduleSchema(Schema):
 
 
 NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
+
+# TODO: Implement dynamic resource type validation when a Panther API endpoint
+# becomes available for fetching supported resource types. Currently hardcoded
+# because there is no API to query resource types dynamically.
+# See log_type_validator.py for how log types are validated dynamically.
 RESOURCE_TYPE_REGEX = Regex(
     r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
     r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
     r"|EC2\.NetworkACL|EC2\.SecurityGroup|EC2\.Volume|EC2\.VPC|ECS\.Cluster|EKS\.Cluster|ELBV2"
     r"\.ApplicationLoadBalancer|GuardDuty\.Detector\.Meta|GuardDuty\.Detector|IAM\.Group|IAM"
     r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
-    r"\.Instance|Redshift\.Cluster|S3\.Bucket|WAF\.Regional\.WebACL|WAF\.WebACL)$"
+    r"\.Instance|Redshift\.Cluster|Route53\.HostedZone|Route53Domains|S3\.Bucket|WAF\.Regional"
+    r"\.WebACL|WAF\.WebACL)$"
 )
 
 TYPE_SCHEMA = Schema(
@@ -66,7 +70,7 @@ DATA_MODEL_SCHEMA = Schema(
         "AnalysisType": Or("datamodel"),
         "DataModelID": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
-        "LogTypes": And([str], [LOG_TYPE_REGEX]),
+        "LogTypes": [str],  # Log type validation happens at upload time, not schema validation
         "Mappings": [
             {
                 "Name": str,
@@ -148,7 +152,9 @@ RULE_SCHEMA = Schema(
         "Enabled": bool,
         Or("Filename", "Detection", only_one=True): Or(str, object),
         "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("LogTypes", "ScheduledQueries", only_one=True): And([str], [LOG_TYPE_REGEX]),
+        Or("LogTypes", "ScheduledQueries", only_one=True): [
+            str
+        ],  # Log type validation at upload time
         "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
         Optional("Description"): str,
         Optional("DedupPeriodMinutes"): int,
