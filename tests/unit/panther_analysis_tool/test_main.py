@@ -44,6 +44,8 @@ from panther_analysis_tool.main import app, upload_analysis
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 STATUS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "status")
+SYMLINKS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "symlinks")
+SYMLINKS_INCLUDE_PATH = os.path.join(SYMLINKS_FIXTURES_PATH, "include")
 
 print("Using fixtures path:", FIXTURES_PATH)
 
@@ -382,6 +384,56 @@ class TestPantherAnalysisTool(TestCase):
         )
         # stable detections are not filtered out by default
         # this should run and return a success
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
+    def test_rule_uses_local_and_remote_symlinked_global_helpers(self) -> None:
+        """Rule under include/ uses both local and remote (symlinked) global helpers."""
+        remote_symlink = os.path.join(SYMLINKS_INCLUDE_PATH, "global_helpers", "remote")
+        source_helper = os.path.join(
+            SYMLINKS_FIXTURES_PATH, "source", "global_helpers", "helper_remote.py"
+        )
+        local_helper = os.path.join(
+            SYMLINKS_INCLUDE_PATH, "global_helpers", "local", "local_helper.py"
+        )
+        # Run skip check on real filesystem so symlink is detected (pyfakefs may not preserve it)
+        with Pause(self.fs):
+            if not os.path.islink(remote_symlink) or not os.path.isfile(
+                source_helper
+            ) or not os.path.isfile(local_helper):
+                self.skipTest(
+                    "symlinks fixture not set up (include/global_helpers/local and remote required)"
+                )
+        expected_rule_ids = {
+            "AWS.CloudTrail.LocalRule.Symlinks",
+            "AWS.CloudTrail.RemoteRule.Symlinks",
+            "Test.Symlinks.BothHelpers",
+        }
+        expected_global_ids = {"symlinks_local_helper", "symlinks_helper_remote", "symlinks_panther"}
+        with Pause(self.fs):
+            specs, invalid_specs = analysis_utils.load_analysis(
+                SYMLINKS_INCLUDE_PATH,
+                ignore_table_names=True,
+                valid_table_names=[],
+                ignore_files=[],
+                ignore_extra_keys=False,
+            )
+            self.assertEqual(len(invalid_specs), 0)
+            loaded_rule_ids = {item.analysis_id() for item in specs.detections}
+            loaded_global_ids = {item.analysis_id() for item in specs.globals}
+            self.assertEqual(
+                loaded_rule_ids,
+                expected_rule_ids,
+                f"Loaded rules should be exactly {expected_rule_ids}",
+            )
+            self.assertEqual(
+                loaded_global_ids,
+                expected_global_ids,
+                f"Loaded globals should be exactly {expected_global_ids}",
+            )
+            return_code, invalid_specs = mock_test_analysis(
+                self, ["test", "--path", SYMLINKS_INCLUDE_PATH]
+            )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
