@@ -52,13 +52,13 @@ class TestParser(TestCase):
             self.assertIn(
                 Filter(key="RuleID", values=["abc"], inverted=True), parsed_filters_inverted
             )
-            # by default: experimental and deprecated should always be filtered out
-            self.assertIn(
-                Filter(key="Status", values=["experimental", "deprecated"], inverted=True),
-                parsed_filters_inverted,
-            )
+            # test command should NOT filter out experimental/deprecated
+            # (they should still be tested, just not uploaded)
+            status_filters = [f for f in parsed_filters_inverted if f.key == "Status"]
+            self.assertEqual(len(status_filters), 0)
 
-    def test_parse_filters_status_cannot_be_overridden(self) -> None:
+    def test_parse_filters_status_passed_through_for_test(self) -> None:
+        """Test that Status filters are passed through as-is for the test command."""
         with patch(
             "panther_analysis_tool.main.test_analysis", return_value=(0, [])
         ) as mock_test_analysis:
@@ -71,12 +71,6 @@ class TestParser(TestCase):
                     "--filter",
                     "AnalysisType=policy,global",
                     "--filter",
-                    "Severity=Critical",
-                    "--filter",
-                    "Enabled=true",
-                    "--filter",
-                    "RuleID!=abc",
-                    "--filter",
                     "Status=experimental",
                 ],
             )
@@ -86,20 +80,12 @@ class TestParser(TestCase):
 
             self.assertEqual(result.exit_code, 0)
 
-            mock_test_analysis.return_value = (0, [])
-
             args = mock_test_analysis.call_args[0][1]
 
             parsed_filters, parsed_filters_inverted = args.filters, args.filters_inverted
             self.assertIn(Filter(key="AnalysisType", values=["policy", "global"]), parsed_filters)
-            self.assertIn(Filter(key="Severity", values=["Critical"]), parsed_filters)
-            self.assertIn(Filter(key="Enabled", values=[True]), parsed_filters)
-            self.assertIn(
-                Filter(key="RuleID", values=["abc"], inverted=True), parsed_filters_inverted
-            )
-            # experimental/deprecated should always be excluded, even when user explicitly requests them
-            # experimental should be stripped from the positive filter
-            self.assertIn(Filter(key="Status", values=[]), parsed_filters)
+            # Status=experimental should be passed through without modification for test
+            self.assertIn(Filter(key="Status", values=["experimental"]), parsed_filters)
 
     def test_add_status_filters_no_status_filter(self):
         """Test that defaults are added when no Status filter is provided"""
