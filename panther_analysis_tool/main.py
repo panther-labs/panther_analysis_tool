@@ -2060,7 +2060,9 @@ def test(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     if test_names is None:
         test_names = []
 
-    filters, filters_inverted = get_filters_with_status_filters(_filter)
+    # test should parse filter as is, and not filter out Status: deprecated, Status: experimental
+    # so that experimental/deprecated detections still get tested (just not uploaded)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,
@@ -2108,7 +2110,9 @@ def debug_command(  # pylint: disable=too-many-arguments,too-many-positional-arg
     if available_destination is None:
         available_destination = []
 
-    filters, filters_inverted = get_filters_with_status_filters(_filter)
+    # debug should parse filter as is, and not filter out Status: deprecated, Status: experimental
+    # so that experimental/deprecated detections still get tested (just not uploaded)
+    filters, filters_inverted = parse_filter_args(_filter)
 
     args = TestAnalysisArgs(
         filters=filters,

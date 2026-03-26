@@ -351,29 +351,23 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
 
-    def test_status_deprecated_filtered_out(self) -> None:
+    def test_status_deprecated_not_filtered_out_for_test(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {STATUS_FIXTURES_PATH}/status_deprecated".split(),
         )
-        # by default deprecated status should have been filtered out
-        # so this should error since there was nothing to test
-        self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 1)
-        self.assertIn("No", invalid_specs[0])
-        self.assertIn("matched filters", invalid_specs[0])
+        # deprecated detections should still be tested (just not uploaded)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
-    def test_status_experimental_filtered_out(self) -> None:
+    def test_status_experimental_not_filtered_out_for_test(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self,
             f"test --path {STATUS_FIXTURES_PATH}/status_experimental".split(),
         )
-        # by default experimental status should have been filtered out
-        # so this should error since there was nothing to test
-        self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 1)
-        self.assertIn("No", invalid_specs[0])
-        self.assertIn("matched filters", invalid_specs[0])
+        # experimental detections should still be tested (just not uploaded)
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
 
     def test_status_stable_not_filtered_out(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
@@ -896,7 +890,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_test_analysis_command_no_args(self) -> None:
         return_code, invalid_specs = mock_test_analysis(self, ["test"])
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 26)
+        self.assertEqual(len(invalid_specs), 23)
 
     def test_available_destination_names_invalid_name_returned(self) -> None:
         """When an available destination is given but does not match the returned names"""
