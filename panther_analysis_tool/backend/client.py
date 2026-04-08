@@ -218,7 +218,7 @@ class BulkUploadResponse:  # pylint: disable=too-many-instance-attributes
     lookup_tables: BulkUploadStatistics
     global_helpers: BulkUploadStatistics
     correlation_rules: BulkUploadStatistics
-    skills: BulkUploadStatistics
+    skills: BulkUploadStatistics = field(default_factory=lambda: BulkUploadStatistics(total=0, new=0, modified=0))
 
 
 @dataclass(frozen=True)
