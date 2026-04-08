@@ -14,6 +14,7 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
+    SKILL_SCHEMA,
 )
 
 
@@ -770,3 +771,85 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
             }
         ]
         self.call_validate(case)
+
+
+class TestSkillSchema(unittest.TestCase):
+    def _valid_skill(self) -> Dict[str, Any]:
+        return {
+            "AnalysisType": "skill",
+            "SkillName": "test_skill",
+            "Description": "A test skill",
+            "Prompt": "Do something useful",
+        }
+
+    def test_valid_minimal_skill(self):
+        SKILL_SCHEMA.validate(self._valid_skill())
+
+    def test_valid_skill_all_optional_fields(self):
+        skill = self._valid_skill()
+        skill.update(
+            {
+                "DisplayName": "Test Skill",
+                "ToolMessage": "Processing your request...",
+                "Enabled": True,
+                "Tags": ["security", "test"],
+                "Reference": "https://docs.example.com",
+                "DependsOn": ["other_skill"],
+                "Namespace": "panther_ai",
+            }
+        )
+        SKILL_SCHEMA.validate(skill)
+
+    def test_missing_skill_name(self):
+        skill = self._valid_skill()
+        del skill["SkillName"]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_missing_description(self):
+        skill = self._valid_skill()
+        del skill["Description"]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_missing_prompt(self):
+        skill = self._valid_skill()
+        del skill["Prompt"]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_skill_name_uppercase(self):
+        skill = self._valid_skill()
+        skill["SkillName"] = "BadName"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_skill_name_starts_with_number(self):
+        skill = self._valid_skill()
+        skill["SkillName"] = "1bad_name"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_extra_keys_rejected(self):
+        skill = self._valid_skill()
+        skill["UnknownField"] = "should fail"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_enabled_must_be_bool(self):
+        skill = self._valid_skill()
+        skill["Enabled"] = "yes"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_tags_must_be_list_of_strings(self):
+        skill = self._valid_skill()
+        skill["Tags"] = [123]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_depends_on_must_be_list_of_strings(self):
+        skill = self._valid_skill()
+        skill["DependsOn"] = "not_a_list"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)

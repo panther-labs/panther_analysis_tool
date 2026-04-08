@@ -1,0 +1,12 @@
+AnalysisType: skill
+SkillName: example_test_skill
+DisplayName: Example Test Skill
+Description: A test skill for unit testing
+Prompt: |
+  You are a helpful assistant that does example things.
+  Follow these instructions carefully.
+Enabled: true
+Tags:
+  - test
+  - example
+Reference: https://docs.example.com

@@ -52,6 +52,7 @@ TYPE_SCHEMA = Schema(
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
+            "skill",
         ),
     },
     ignore_extra_keys=True,
@@ -327,6 +328,23 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+SKILL_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("skill"),
+        "SkillName": And(str, Regex(r"^[a-z][a-z0-9_]*$")),
+        "Description": str,
+        "Prompt": str,
+        Optional("DisplayName"): str,
+        Optional("ToolMessage"): str,
+        Optional("Enabled"): bool,
+        Optional("Tags"): [str],
+        Optional("Reference"): str,
+        Optional("DependsOn"): [str],
+        Optional("Namespace"): str,
+    },
+    ignore_extra_keys=False,
+)
 
 SQL_LOOKUP_TABLE_SCHEMA = Schema(
     {
