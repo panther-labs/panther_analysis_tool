@@ -54,7 +54,7 @@ python-dateutil==2.9.0.post0 ; python_version >= "3.11" and python_version < "4.
 pyyaml==6.0.3 ; python_version >= "3.11" and python_version < "4.0"
 referencing==0.37.0 ; python_version >= "3.11" and python_version < "4.0"
 regex==2025.11.3 ; python_version >= "3.11" and python_version < "4.0"
-requests==2.32.4 ; python_version >= "3.11" and python_version < "4.0"
+requests==2.33.1 ; python_version >= "3.11" and python_version < "4.0"
 rich==14.3.3 ; python_version >= "3.11" and python_version < "4.0"
 rpds-py==0.30.0 ; python_version >= "3.11" and python_version < "4.0"
 ruamel-yaml-clib==0.2.15 ; python_version >= "3.11" and python_version < "4.0"
