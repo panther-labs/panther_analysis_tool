@@ -210,7 +210,7 @@ class BulkUploadValidateStatusResponse(BackendMultipartError):
 
 
 @dataclass(frozen=True)
-class BulkUploadResponse:
+class BulkUploadResponse:  # pylint: disable=too-many-instance-attributes
     rules: BulkUploadStatistics
     queries: BulkUploadStatistics
     policies: BulkUploadStatistics
