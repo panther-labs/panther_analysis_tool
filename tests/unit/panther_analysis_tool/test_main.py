@@ -770,6 +770,7 @@ class TestPantherAnalysisTool(TestCase):
                     lookup_tables=stats,
                     global_helpers=stats,
                     correlation_rules=stats,
+                    skills=stats,
                 ),
                 status_code=200,
             )
@@ -803,6 +804,7 @@ class TestPantherAnalysisTool(TestCase):
                     lookup_tables=stats,
                     global_helpers=stats,
                     correlation_rules=stats,
+                    skills=stats,
                 ),
                 status_code=200,
             )
