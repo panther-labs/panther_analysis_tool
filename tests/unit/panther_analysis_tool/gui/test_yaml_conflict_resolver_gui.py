@@ -5,7 +5,7 @@ import pathlib
 import pytest
 from textual.widgets import Label
 
-from panther_analysis_tool.core import diff, yaml
+from panther_analysis_tool.core import merge_item, yaml
 from panther_analysis_tool.gui import widgets, yaml_conflict_resolver_gui
 
 conflict_files_path = (
@@ -21,7 +21,7 @@ raw_base_yaml = base_yaml_path.read_text()
 
 yaml_loader = yaml.BlockStyleYAML()
 customer_dict = yaml_loader.load(raw_customer_yaml)
-conflict_items = diff.Dict(customer_dict).merge_dict(
+conflict_items = merge_item.Dict(customer_dict).merge_dict(
     yaml_loader.load(raw_base_yaml), yaml_loader.load(raw_panther_yaml)
 )
 

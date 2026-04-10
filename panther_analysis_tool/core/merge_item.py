@@ -4,11 +4,11 @@ import logging
 import pathlib
 import shutil
 import tempfile
+from typing import Any
 
 from panther_analysis_tool import analysis_utils
 from panther_analysis_tool.constants import AutoAcceptOption
-from panther_analysis_tool.core import diff, file_editor, git_helpers, yaml
-from panther_analysis_tool.gui import yaml_conflict_resolver_gui
+from panther_analysis_tool.core import file_editor, git_helpers, yaml
 
 
 class MergeError(Exception):
@@ -197,7 +197,7 @@ def merge_file(
             user_python_path = temp_dir / "user_python.py"
             user_python_path.write_bytes(user_python)
 
-            merge_dict = diff.Dict(yaml_loader.load(user_path), auto_accept=auto_accept)
+            merge_dict = Dict(yaml_loader.load(user_path), auto_accept=auto_accept)
             conflicts = merge_dict.merge_dict(
                 yaml_loader.load(base_path), yaml_loader.load(latest_path)
             )
@@ -218,6 +218,10 @@ def merge_file(
 
             if not solve_merge:
                 return True, b""
+
+            from panther_analysis_tool.gui import (
+                yaml_conflict_resolver_gui,  # avoid circular import
+            )
 
             app = yaml_conflict_resolver_gui.YAMLConflictResolverApp(
                 customer_python=user_python.decode("utf-8"),
@@ -286,3 +290,197 @@ def make_long_lived_temp_dir(copy_dir: pathlib.Path) -> pathlib.Path:
         (pathlib.Path(temp_dir) / file_path.name).write_bytes(file_path.read_bytes())
 
     return pathlib.Path(temp_dir)
+
+
+@dataclasses.dataclass
+class DictMergeConflict:
+    key: str
+    cust_val: Any
+    latest_val: Any
+    base_val: Any
+
+
+class Dict:
+    """
+    A class to merge two dictionaries with a 3-way merge.
+
+    Attributes:
+        customer_dict (dict): The customer dictionary.
+        auto_accept (AutoAcceptOption | None): The auto accept option.
+            If None (default), the user will be prompted to resolve the merge conflict.
+            If AutoAcceptOption.YOURS, the customer value will be used.
+            If AutoAcceptOption.PANTHERS, the latest value will be used.
+    """
+
+    def __init__(self, customer_dict: dict, auto_accept: AutoAcceptOption | None = None):
+        self.customer_dict = customer_dict
+        self.auto_accept = auto_accept
+
+    def merge_dict(self, base_dict: dict, latest_dict: dict) -> list[DictMergeConflict]:
+        """
+        Merge the latest dict into the customer dict, using the base dict for a 3-way merge.
+        Recursively traverses nested dicts and lists to detect conflicts at any depth.
+
+        Args:
+            base_dict (dict): The base dictionary.
+            latest_dict (dict): The latest dictionary.
+
+        Returns:
+            list[DictMergeConflict]: A list of DictMergeConflict objects. Each object contains the key, customer value, latest value,
+            and base value for each key that has a merge conflict. For nested fields, the key uses dot notation (e.g. "parent.child").
+        """
+        return self._merge_dicts(self.customer_dict, base_dict, latest_dict, key_prefix="")
+
+    def _merge_dicts(
+        self,
+        customer_dict: dict,
+        base_dict: dict,
+        latest_dict: dict,
+        key_prefix: str,
+    ) -> list[DictMergeConflict]:
+        diff_keys = diff_dict_keys(customer_dict, latest_dict)
+
+        diff_items: list[DictMergeConflict] = []
+
+        for k, v in latest_dict.items():
+            full_key = f"{key_prefix}.{k}" if key_prefix else k
+            if k not in customer_dict:
+                if k in base_dict:
+                    # Key existed in base; customer removed it. Treat as conflict so the user
+                    # can choose to keep it removed (yours) or re-add Panther's value (panthers).
+                    if self.auto_accept == AutoAcceptOption.YOURS:
+                        pass  # keep key absent
+                    elif self.auto_accept == AutoAcceptOption.PANTHERS:
+                        customer_dict[k] = v.strip() if isinstance(v, str) else v
+                    else:
+                        diff_items.append(
+                            DictMergeConflict(
+                                key=full_key, cust_val=None, latest_val=v, base_val=base_dict[k]
+                            )
+                        )
+                else:
+                    # New key from Panther; safe to add.
+                    customer_dict[k] = v.strip() if isinstance(v, str) else v
+
+        for key in diff_keys:
+            full_key = f"{key_prefix}.{key}" if key_prefix else key
+            cust_val = customer_dict.get(key)
+            latest_val = latest_dict.get(key)
+            base_val = base_dict.get(key)
+
+            # Recurse into nested dicts to detect conflicts at any depth.
+            if isinstance(cust_val, dict) and isinstance(latest_val, dict):
+                base_sub = base_val if isinstance(base_val, dict) else {}
+                nested_conflicts = self._merge_dicts(
+                    cust_val, base_sub, latest_val, key_prefix=full_key
+                )
+                diff_items.extend(nested_conflicts)
+                continue
+
+            # Recurse into lists: for each position where both sides have a dict, merge recursively.
+            # If the lists have different lengths or a position holds a non-dict, treat that element atomically.
+            if isinstance(cust_val, list) and isinstance(latest_val, list):
+                base_list = base_val if isinstance(base_val, list) else []
+                list_conflicts = self._merge_lists(
+                    cust_val, base_list, latest_val, key_prefix=full_key
+                )
+                diff_items.extend(list_conflicts)
+                continue
+
+            if base_val == latest_val and base_val != cust_val:
+                # customer value changed but latest did not, use customer value
+                customer_dict[key] = cust_val
+                continue
+            elif base_val == cust_val and base_val != latest_val:
+                # latest value changed but customer did not, use latest value
+                customer_dict[key] = latest_val
+                continue
+
+            if self.auto_accept == AutoAcceptOption.YOURS:
+                customer_dict[key] = cust_val
+                continue
+            elif self.auto_accept == AutoAcceptOption.PANTHERS:
+                customer_dict[key] = latest_val
+                continue
+
+            # customer and latest values changed, add to diff items to be resolved by the user
+            diff_items.append(DictMergeConflict(full_key, cust_val, latest_val, base_val))
+
+        return diff_items
+
+    def _merge_lists(
+        self,
+        cust_list: list,
+        base_list: list,
+        latest_list: list,
+        key_prefix: str,
+    ) -> list[DictMergeConflict]:
+        """
+        Merge two lists using 3-way merge logic. For positions where all three versions contain
+        dicts, recurse into those dicts. All other positions are merged atomically.
+        """
+        diff_items: list[DictMergeConflict] = []
+        max_len = max(len(cust_list), len(latest_list), len(base_list))
+
+        for i in range(max_len):
+            element_key = f"{key_prefix}[{i}]"
+            cust_elem = cust_list[i] if i < len(cust_list) else None
+            latest_elem = latest_list[i] if i < len(latest_list) else None
+            base_elem = base_list[i] if i < len(base_list) else None
+
+            if isinstance(cust_elem, dict) and isinstance(latest_elem, dict):
+                base_sub = base_elem if isinstance(base_elem, dict) else {}
+                nested_conflicts = self._merge_dicts(
+                    cust_elem, base_sub, latest_elem, key_prefix=element_key
+                )
+                diff_items.extend(nested_conflicts)
+                continue
+
+            # Atomic 3-way merge for non-dict elements
+            if base_elem == latest_elem and base_elem != cust_elem:
+                # customer changed this element, keep it
+                if i < len(cust_list):
+                    cust_list[i] = cust_elem
+                continue
+            elif base_elem == cust_elem and base_elem != latest_elem:
+                # latest changed this element, apply it
+                if i < len(cust_list):
+                    cust_list[i] = latest_elem
+                else:
+                    cust_list.append(latest_elem)
+                continue
+
+            if cust_elem == latest_elem:
+                # both sides have the same value, no conflict
+                continue
+
+            if self.auto_accept == AutoAcceptOption.YOURS:
+                continue
+            elif self.auto_accept == AutoAcceptOption.PANTHERS:
+                if i < len(cust_list):
+                    cust_list[i] = latest_elem
+                else:
+                    cust_list.append(latest_elem)
+                continue
+
+            diff_items.append(DictMergeConflict(element_key, cust_elem, latest_elem, base_elem))
+
+        return diff_items
+
+
+def diff_dict_keys(dict1: dict, dict2: dict) -> list[str]:
+    """
+    Diff the keys of two dictionaries. A key counts as different if the values are in both dicts and are different.
+
+    Args:
+        dict1: The first dictionary.
+        dict2: The second dictionary.
+
+    Returns:
+        A list of keys that are different between the two dictionaries and are in both dicts.
+    """
+    diff = []
+    for key in dict1:
+        if key in dict2 and dict1[key] != dict2[key]:
+            diff.append(key)
+    return diff

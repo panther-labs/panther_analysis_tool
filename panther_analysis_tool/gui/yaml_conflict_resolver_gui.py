@@ -5,7 +5,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Footer, Label
 
-from panther_analysis_tool.core import diff
+from panther_analysis_tool.core import merge_item
 from panther_analysis_tool.gui import widgets
 
 
@@ -37,7 +37,7 @@ class YAMLConflictResolverApp(App):
         raw_panther_yaml: str,
         raw_base_yaml: str,
         customer_dict: dict,
-        conflict_items: list[diff.DictMergeConflict],
+        conflict_items: list[merge_item.DictMergeConflict],
     ) -> None:
         super().__init__()
         self.customer_python = customer_python
