@@ -245,7 +245,6 @@ def set_enabled_field(spec: dict[str, Any]) -> None:
         AnalysisTypes.POLICY,
         AnalysisTypes.DATA_MODEL,
         AnalysisTypes.LOOKUP_TABLE,
-        AnalysisTypes.SAVED_QUERY,
         AnalysisTypes.SCHEDULED_QUERY,
         AnalysisTypes.DERIVED,
         AnalysisTypes.SIMPLE_DETECTION,
