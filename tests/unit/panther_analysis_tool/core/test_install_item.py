@@ -148,7 +148,6 @@ _FAKE_SAVED_QUERY_1_V1 = yaml.dump(
     {
         "AnalysisType": "saved_query",
         "QueryName": "fake.saved_query.1",
-        "Enabled": False,
         "Description": "Fake saved query 1 v1",
     }
 )
@@ -606,7 +605,6 @@ def test_set_enabled_field() -> None:
         AnalysisTypes.POLICY,
         AnalysisTypes.DATA_MODEL,
         AnalysisTypes.LOOKUP_TABLE,
-        AnalysisTypes.SAVED_QUERY,
         AnalysisTypes.SCHEDULED_QUERY,
     ]:
         spec = {
@@ -621,6 +619,7 @@ def test_set_enabled_field_for_other_types() -> None:
     for analysis_type in [
         AnalysisTypes.PACK,
         AnalysisTypes.GLOBAL,
+        AnalysisTypes.SAVED_QUERY,
     ]:
         spec = {
             "AnalysisType": analysis_type,
