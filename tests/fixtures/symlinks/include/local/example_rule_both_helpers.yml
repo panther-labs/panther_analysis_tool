@@ -1,0 +1,15 @@
+AnalysisType: rule
+Filename: example_rule_both_helpers.py
+DisplayName: Rule using local and remote global helpers
+Description: Verifies both local_helper and a_helper (from symlinked remote) are discoverable.
+Severity: High
+RuleID: Test.Symlinks.BothHelpers
+Enabled: true
+LogTypes:
+  - AWS.CloudTrail
+Tests:
+  -
+    Name: Both helpers return expected values
+    ExpectedResult: true
+    Log:
+      {}

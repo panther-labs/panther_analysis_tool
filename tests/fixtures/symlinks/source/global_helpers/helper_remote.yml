@@ -1,0 +1,5 @@
+AnalysisType: global
+GlobalID: symlinks_helper_remote
+Filename: helper_remote.py
+Description: >
+  Remote global helper (reachable via symlinked include/global_helpers/remote).
