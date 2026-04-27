@@ -9,4 +9,5 @@ Enabled: true
 Tags:
   - test
   - example
-Reference: https://docs.example.com
+RequiredTools:
+  - panther_ai_alerts_list

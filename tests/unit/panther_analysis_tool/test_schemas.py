@@ -793,12 +793,30 @@ class TestSkillSchema(unittest.TestCase):
                 "ToolMessage": "Processing your request...",
                 "Enabled": True,
                 "Tags": ["security", "test"],
-                "Reference": "https://docs.example.com",
                 "DependsOn": ["other_skill"],
+                "RequiredTools": ["panther_ai_alerts_list"],
                 "Namespace": "panther_ai",
             }
         )
         SKILL_SCHEMA.validate(skill)
+
+    def test_reference_field_rejected(self):
+        skill = self._valid_skill()
+        skill["Reference"] = "https://docs.example.com"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_required_tools_must_be_list_of_strings(self):
+        skill = self._valid_skill()
+        skill["RequiredTools"] = "not_a_list"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_namespace_uppercase(self):
+        skill = self._valid_skill()
+        skill["Namespace"] = "BadNamespace"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
 
     def test_missing_skill_name(self):
         skill = self._valid_skill()

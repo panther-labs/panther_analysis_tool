@@ -339,9 +339,9 @@ SKILL_SCHEMA = Schema(
         Optional("ToolMessage"): str,
         Optional("Enabled"): bool,
         Optional("Tags"): [str],
-        Optional("Reference"): str,
         Optional("DependsOn"): [str],
-        Optional("Namespace"): str,
+        Optional("RequiredTools"): [str],
+        Optional("Namespace"): And(str, Regex(r"^[a-z][a-z0-9_]*$")),
     },
     ignore_extra_keys=False,
 )
