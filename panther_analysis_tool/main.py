@@ -283,6 +283,7 @@ def zip_analysis_chunks(
         ZipChunk(patterns=[], types=AnalysisTypes.SCHEDULED_RULE, max_size=200),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.LOOKUP_TABLE, max_size=100),  # type: ignore
         ZipChunk(patterns=[], types=AnalysisTypes.CORRELATION_RULE, max_size=200),  # type: ignore
+        ZipChunk(patterns=[], types=AnalysisTypes.SKILL, max_size=100),  # type: ignore
     ]
 
     filenames = []
@@ -469,6 +470,7 @@ def print_upload_summary(response: dict) -> None:
         "Global Helpers": response.get("global_helpers", {}),
         "Lookup Tables": response.get("lookup_tables", {}),
         "Correlation Rules": response.get("correlation_rules", {}),
+        "Skills": response.get("skills", {}),
     }
 
     for category, stats in categories.items():

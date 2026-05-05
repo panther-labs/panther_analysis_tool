@@ -178,6 +178,7 @@ def get_spec_id(spec: dict) -> str:
             "scheduled_query": "QueryName",
             "scheduled_rule": "RuleID",
             "rule": "RuleID",
+            "skill": "SkillName",
         }
         return spec[id_keys[analysis_type]]
     if schema_name := spec.get("schema", ""):

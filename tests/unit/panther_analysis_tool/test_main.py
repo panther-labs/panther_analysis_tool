@@ -693,7 +693,7 @@ class TestPantherAnalysisTool(TestCase):
             self.assertTrue(statinfo.st_size > 0)
             self.assertTrue(out_filename.endswith(".zip"))
 
-        self.assertEqual(7, len(results))
+        self.assertEqual(8, len(results))
 
     def test_generate_release_assets(self) -> None:
         # Note: This is a workaround for CI
@@ -770,6 +770,7 @@ class TestPantherAnalysisTool(TestCase):
                     lookup_tables=stats,
                     global_helpers=stats,
                     correlation_rules=stats,
+                    skills=stats,
                 ),
                 status_code=200,
             )
@@ -803,6 +804,7 @@ class TestPantherAnalysisTool(TestCase):
                     lookup_tables=stats,
                     global_helpers=stats,
                     correlation_rules=stats,
+                    skills=stats,
                 ),
                 status_code=200,
             )
