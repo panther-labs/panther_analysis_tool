@@ -792,6 +792,7 @@ class TestSkillSchema(unittest.TestCase):
                 "DisplayName": "Test Skill",
                 "ToolMessage": "Processing your request...",
                 "Enabled": True,
+                "EagerLoading": True,
                 "Tags": ["security", "test"],
                 "DependsOn": ["other_skill"],
                 "RequiredTools": ["panther_ai_alerts_list"],
@@ -857,6 +858,12 @@ class TestSkillSchema(unittest.TestCase):
     def test_enabled_must_be_bool(self):
         skill = self._valid_skill()
         skill["Enabled"] = "yes"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_eager_loading_must_be_bool(self):
+        skill = self._valid_skill()
+        skill["EagerLoading"] = "yes"
         with self.assertRaises(SchemaError):
             SKILL_SCHEMA.validate(skill)
 

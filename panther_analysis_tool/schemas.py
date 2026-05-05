@@ -338,6 +338,7 @@ SKILL_SCHEMA = Schema(
         Optional("DisplayName"): str,
         Optional("ToolMessage"): str,
         Optional("Enabled"): bool,
+        Optional("EagerLoading"): bool,
         Optional("Tags"): [str],
         Optional("DependsOn"): [str],
         Optional("RequiredTools"): [str],
