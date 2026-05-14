@@ -5,7 +5,6 @@ from pathlib import Path
 
 from panther_analysis_tool.command import fmt
 
-
 VALID_RULE_YAML = """AnalysisType: rule
 RuleID: Test.Rule
 LogTypes:
