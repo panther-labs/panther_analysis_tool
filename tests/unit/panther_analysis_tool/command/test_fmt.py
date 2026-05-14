@@ -33,8 +33,15 @@ def test_invalid_yaml_is_left_intact(tmp_path: Path, monkeypatch: pytest.MonkeyP
     code, msg = fmt.run()
 
     assert bad.read_bytes() == original
-    assert code != 0
-    assert "broken.yml" in msg
+    assert code == 1
+    expected = (
+        "fmt failed to parse the following files; they were left unchanged:\n"
+        f"  {bad}: while scanning a quoted scalar\n"
+        '  in "<file>", line 2, column 9\n'
+        "found unexpected end of stream\n"
+        '  in "<file>", line 5, column 1'
+    )
+    assert msg == expected
 
 
 def test_valid_yaml_is_formatted_and_succeeds(
