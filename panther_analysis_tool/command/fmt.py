@@ -24,9 +24,7 @@ def fmt() -> list[FmtError]:
     errors: list[FmtError] = []
     for item in analysis_utils.load_analysis_specs_ex(["."], [], True):
         if item.error is not None or item.analysis_spec is None:
-            errors.append(
-                FmtError(item.spec_filename, item.error or ValueError("empty spec"))
-            )
+            errors.append(FmtError(item.spec_filename, item.error or ValueError("empty spec")))
             continue
         item.yaml_ctx.dump(item.analysis_spec, pathlib.Path(item.spec_filename))
     return errors
