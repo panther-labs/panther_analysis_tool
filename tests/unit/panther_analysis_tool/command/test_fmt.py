@@ -1,7 +1,6 @@
-import os
-import tempfile
-import unittest
 from pathlib import Path
+
+import pytest
 
 from panther_analysis_tool.command import fmt
 
@@ -23,38 +22,32 @@ LogTypes:
 """
 
 
-class TestFmt(unittest.TestCase):
-    def _run_fmt_in(self, dirpath: str) -> tuple[int, str]:
-        cwd = os.getcwd()
-        os.chdir(dirpath)
-        try:
-            return fmt.run()
-        finally:
-            os.chdir(cwd)
+def test_invalid_yaml_is_left_intact(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    bad = rules_dir / "broken.yml"
+    bad.write_text(INVALID_RULE_YAML, encoding="utf-8")
+    original = bad.read_bytes()
 
-    def test_invalid_yaml_is_left_intact(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            rules_dir = Path(tmp) / "rules"
-            rules_dir.mkdir()
-            bad = rules_dir / "broken.yml"
-            bad.write_text(INVALID_RULE_YAML, encoding="utf-8")
-            original = bad.read_bytes()
+    monkeypatch.chdir(tmp_path)
+    code, msg = fmt.run()
 
-            code, msg = self._run_fmt_in(tmp)
+    assert bad.read_bytes() == original
+    assert code != 0
+    assert "broken.yml" in msg
 
-            self.assertEqual(bad.read_bytes(), original)
-            self.assertNotEqual(code, 0)
-            self.assertIn("broken.yml", msg)
 
-    def test_valid_yaml_is_formatted_and_succeeds(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            rules_dir = Path(tmp) / "rules"
-            rules_dir.mkdir()
-            good = rules_dir / "ok.yml"
-            good.write_text(VALID_RULE_YAML, encoding="utf-8")
+def test_valid_yaml_is_formatted_and_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    good = rules_dir / "ok.yml"
+    good.write_text(VALID_RULE_YAML, encoding="utf-8")
 
-            code, msg = self._run_fmt_in(tmp)
+    monkeypatch.chdir(tmp_path)
+    code, msg = fmt.run()
 
-            self.assertEqual(code, 0)
-            self.assertEqual(msg, "")
-            self.assertIn("AnalysisType: rule", good.read_text(encoding="utf-8"))
+    assert code == 0
+    assert msg == ""
+    assert "AnalysisType: rule" in good.read_text(encoding="utf-8")
