@@ -159,9 +159,7 @@ class LambdaClient(Client):
             ),
         )
 
-    def delete_globals(
-        self, params: DeleteGlobalsParams
-    ) -> BackendResponse[DeleteGlobalsResponse]:
+    def delete_globals(self, params: DeleteGlobalsParams) -> BackendResponse[DeleteGlobalsResponse]:
         entries = [{"id": id_to_delete} for id_to_delete in params.ids]
 
         res = self._parse_response(

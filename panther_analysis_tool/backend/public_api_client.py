@@ -386,9 +386,7 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
             ),
         )
 
-    def delete_globals(
-        self, params: DeleteGlobalsParams
-    ) -> BackendResponse[DeleteGlobalsResponse]:
+    def delete_globals(self, params: DeleteGlobalsParams) -> BackendResponse[DeleteGlobalsResponse]:
         # The deleteGlobalHelpers mutation has no server-side dryRun. When dry_run=True
         # we skip the call entirely; the dry-run branch in command/bulk_delete.py is
         # purely informational for this path.

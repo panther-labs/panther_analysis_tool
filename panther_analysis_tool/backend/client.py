@@ -520,9 +520,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    def delete_globals(
-        self, params: DeleteGlobalsParams
-    ) -> BackendResponse[DeleteGlobalsResponse]:
+    def delete_globals(self, params: DeleteGlobalsParams) -> BackendResponse[DeleteGlobalsResponse]:
         pass
 
     @abstractmethod
