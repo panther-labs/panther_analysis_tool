@@ -58,6 +58,12 @@ class DeleteDetectionsParams:
 
 
 @dataclass(frozen=True)
+class DeleteGlobalsParams:
+    ids: List[str]
+    dry_run: bool
+
+
+@dataclass(frozen=True)
 class ListSchemasParams:
     is_managed: bool
 
@@ -230,6 +236,11 @@ class DeleteSavedQueriesResponse:
 class DeleteDetectionsResponse:
     ids: List[str]
     saved_query_names: List[str]
+
+
+@dataclass(frozen=True)
+class DeleteGlobalsResponse:
+    ids: List[str]
 
 
 # pylint: disable=too-many-instance-attributes
@@ -506,6 +517,12 @@ class Client(ABC):
     def delete_detections(
         self, params: DeleteDetectionsParams
     ) -> BackendResponse[DeleteDetectionsResponse]:
+        pass
+
+    @abstractmethod
+    def delete_globals(
+        self, params: DeleteGlobalsParams
+    ) -> BackendResponse[DeleteGlobalsResponse]:
         pass
 
     @abstractmethod

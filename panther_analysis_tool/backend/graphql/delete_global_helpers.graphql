@@ -1,0 +1,3 @@
+mutation DeleteGlobalHelpers($input: DeleteGlobalHelpersInput!) {
+  deleteGlobalHelpers(input: $input)
+}

@@ -2269,7 +2269,9 @@ def upload(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     return upload_analysis(pat_utils.get_backend(api_token, api_host, aws_profile), args)
 
 
-@app_command_with_config(help="Delete policies, rules, or saved queries from a Panther deployment.")
+@app_command_with_config(
+    help="Delete policies, rules, saved queries, or global helpers from a Panther deployment."
+)
 def delete(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     # Shared dependencies
     api_token: APITokenType = None,
@@ -2285,16 +2287,25 @@ def delete(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         Optional[List[str]],
         typer.Option(help="List of saved query IDs. Repeat the flag to define more than one ID."),
     ] = None,
+    global_id: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            help="List of global helper IDs. Repeat the flag to define more than one ID. Does not check whether rules/policies import these helpers; broken imports will surface at engine reload."
+        ),
+    ] = None,
 ) -> Tuple[int, str]:
     if analysis_id is None:
         analysis_id = []
     if query_id is None:
         query_id = []
+    if global_id is None:
+        global_id = []
 
     args = bulk_delete.BulkDeleteArgs(
         confirm=confirm,
         analysis_id=analysis_id,
         query_id=query_id,
+        global_id=global_id,
     )
 
     return bulk_delete.run(pat_utils.get_backend(api_token, api_host, aws_profile), args)

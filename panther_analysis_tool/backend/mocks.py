@@ -10,6 +10,7 @@ from panther_analysis_tool.backend.client import (
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
+    DeleteGlobalsParams,
     DeleteSavedQueriesParams,
     FeatureFlagsParams,
     FeatureFlagsResponse,
@@ -51,6 +52,9 @@ class MockBackend(BackendClient):
         pass
 
     def delete_detections(self, params: DeleteDetectionsParams) -> BackendResponse[Any]:  # type: ignore
+        pass
+
+    def delete_globals(self, params: DeleteGlobalsParams) -> BackendResponse[Any]:  # type: ignore
         pass
 
     def supports_async_uploads(self) -> bool:  # type: ignore

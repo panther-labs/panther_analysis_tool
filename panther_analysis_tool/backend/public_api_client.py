@@ -25,6 +25,8 @@ from .client import (
     Client,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
+    DeleteGlobalsParams,
+    DeleteGlobalsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
     FeatureFlagsParams,
@@ -75,6 +77,9 @@ class PublicAPIRequests:  # pylint: disable=too-many-public-methods
 
     def delete_detections_query(self) -> GraphQLRequest:
         return self._load("delete_detections")
+
+    def delete_global_helpers(self) -> GraphQLRequest:
+        return self._load("delete_global_helpers")
 
     def async_bulk_upload_mutation(self) -> GraphQLRequest:
         return self._load("async_bulk_upload")
@@ -379,6 +384,44 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
                 ids=data.get("ids") or [],
                 saved_query_names=data.get("savedQueryNames") or [],
             ),
+        )
+
+    def delete_globals(
+        self, params: DeleteGlobalsParams
+    ) -> BackendResponse[DeleteGlobalsResponse]:
+        # The deleteGlobalHelpers mutation has no server-side dryRun. When dry_run=True
+        # we skip the call entirely; the dry-run branch in command/bulk_delete.py is
+        # purely informational for this path.
+        if params.dry_run:
+            return BackendResponse(
+                status_code=200,
+                data=DeleteGlobalsResponse(ids=list(params.ids)),
+            )
+
+        deleted_ids: List[str] = []
+        for id_batch in _batched(params.ids, self._DELETE_BATCH_SIZE):
+            gql_params = {
+                "input": {
+                    "globals": [{"id": id_} for id_ in id_batch],
+                }
+            }
+            res = self._execute(self._requests.delete_global_helpers(), gql_params)
+
+            if res.errors:
+                for err in res.errors:
+                    logging.error(err.message)
+
+                raise BackendError(res.errors)
+
+            if res.data is None:
+                raise BackendError("empty data")
+
+            # Mutation returns Boolean; assume all-or-nothing per batch on success.
+            deleted_ids.extend(id_batch)
+
+        return BackendResponse(
+            status_code=200,
+            data=DeleteGlobalsResponse(ids=deleted_ids),
         )
 
     def list_schemas(self, params: ListSchemasParams) -> BackendResponse[ListSchemasResponse]:

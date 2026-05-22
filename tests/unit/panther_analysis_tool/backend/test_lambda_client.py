@@ -6,6 +6,7 @@ from unittest import TestCase, mock
 from panther_analysis_tool.backend.client import (
     BulkUploadParams,
     DeleteDetectionsParams,
+    DeleteGlobalsParams,
     TranspileFiltersParams,
     TranspileToPythonParams,
 )
@@ -97,6 +98,19 @@ class TestLambdaClient(TestCase):
 
             self.assertEqual(["1", "2"], result.data.ids)
             self.assertEqual([], result.data.saved_query_names)
+
+    def test_delete_globals(self) -> None:
+        # Backend returns an empty body on success; client echoes the requested IDs.
+        mock_lambda_res = _make_mock_response_with_string_body(http_status=200, payload={})
+
+        with mock.patch("boto3.client", return_value=MockBoto(invoke_returns=mock_lambda_res)):
+            lc = LambdaClient(
+                LambdaClientOpts(datalake_lambda="x", user_id="user", aws_profile=None)
+            )
+            result = lc.delete_globals(DeleteGlobalsParams(dry_run=False, ids=["g1", "g2"]))
+
+            self.assertEqual(["g1", "g2"], result.data.ids)
+            self.assertEqual(200, result.status_code)
 
     def test_transpile_to_python(self) -> None:
         with self.assertRaises(BaseException):

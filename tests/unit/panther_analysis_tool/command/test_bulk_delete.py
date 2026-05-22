@@ -4,11 +4,13 @@ from unittest import mock
 from panther_analysis_tool.backend.client import (
     BackendResponse,
     DeleteDetectionsResponse,
+    DeleteGlobalsResponse,
     DeleteSavedQueriesResponse,
 )
 from panther_analysis_tool.backend.mocks import MockBackend
 from panther_analysis_tool.command.bulk_delete import (
     _delete_detections_dry_run,
+    _delete_globals_dry_run,
     _delete_queries_dry_run,
 )
 
@@ -39,5 +41,19 @@ class TestBulkDelete(unittest.TestCase):
         )
 
         code, msg = _delete_queries_dry_run(backend, mock_names)
+        self.assertEqual(code, 0)
+        self.assertEqual(msg, "")
+
+    def test_delete_globals_dry_run(self) -> None:
+        mock_ids = ["g1", "g2", "g3"]
+        backend = MockBackend()
+        backend.delete_globals = mock.MagicMock(
+            return_value=BackendResponse(
+                data=DeleteGlobalsResponse(ids=mock_ids),
+                status_code=200,
+            )
+        )
+
+        code, msg = _delete_globals_dry_run(backend, mock_ids)
         self.assertEqual(code, 0)
         self.assertEqual(msg, "")

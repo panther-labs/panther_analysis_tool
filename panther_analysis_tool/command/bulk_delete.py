@@ -5,6 +5,7 @@ from typing import List, Tuple
 from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
+    DeleteGlobalsParams,
     DeleteSavedQueriesParams,
 )
 
@@ -13,6 +14,7 @@ from panther_analysis_tool.backend.client import (
 class BulkDeleteArgs:
     query_id: List[str]
     analysis_id: List[str]
+    global_id: List[str]
     confirm: bool
 
 
@@ -21,15 +23,17 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
 
     logging.info("preparing bulk delete...")
 
-    # Get lists of detection ids and query names from args
+    # Get lists of detection ids, query names, and global ids from args
     query_name_list = args.query_id
     detection_id_list = args.analysis_id
+    global_id_list = args.global_id
 
     targets_detections = len(detection_id_list) != 0
     targets_saved_queries = len(query_name_list) != 0
+    targets_globals = len(global_id_list) != 0
 
-    if not targets_detections and not targets_saved_queries:
-        logging.error("Must specify a list of analysis or queries to delete")
+    if not targets_detections and not targets_saved_queries and not targets_globals:
+        logging.error("Must specify a list of analysis, queries, or globals to delete")
         logging.error("Run panther_analysis_tool -h for help statement")
         return 1, ""
 
@@ -42,6 +46,12 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
     # Dry Run: Saved Queries
     if targets_saved_queries:
         code, msg = _delete_queries_dry_run(backend, query_name_list)
+        if code != 0:
+            return code, msg
+
+    # Dry Run: Globals
+    if targets_globals:
+        code, msg = _delete_globals_dry_run(backend, global_id_list)
         if code != 0:
             return code, msg
 
@@ -72,6 +82,15 @@ def run(backend: BackendClient, args: BulkDeleteArgs) -> Tuple[int, str]:
             return code, msg
 
         logging.info("successfully deleted saved queries.")
+
+    # Delete Globals
+    if targets_globals:
+        code, msg = _delete_globals(backend, global_id_list)
+        if code != 0:
+            logging.warning("error deleting globals: %s", msg)
+            return code, msg
+
+        logging.info("successfully deleted globals.")
 
     logging.info("done")
     return 0, ""
@@ -154,6 +173,38 @@ def _delete_detections(backend: BackendClient, ids: List[str]) -> Tuple[int, str
         len(delete_detections_res.data.ids),
         len(delete_detections_res.data.saved_query_names),
     )
+
+    return 0, ""
+
+
+def _delete_globals_dry_run(backend: BackendClient, ids: List[str]) -> Tuple[int, str]:
+    if len(ids) == 0:
+        return 0, ""
+
+    res = backend.delete_globals(DeleteGlobalsParams(dry_run=True, ids=ids))
+
+    if res.status_code != 200:
+        logging.error("Error connecting to backend.")
+        return 1, ""
+
+    # The backend does not report which IDs were found in dry-run; surface intent only.
+    for global_id in ids:
+        logging.info("Global '%s' will be deleted (if it exists).", global_id)
+
+    return 0, ""
+
+
+def _delete_globals(backend: BackendClient, ids: List[str]) -> Tuple[int, str]:
+    if len(ids) == 0:
+        return 0, ""
+
+    delete_globals_res = backend.delete_globals(DeleteGlobalsParams(ids=ids, dry_run=False))
+
+    if delete_globals_res.status_code != 200:
+        logging.error("Error deleting globals")
+        return 1, ""
+
+    logging.info("%d globals deleted", len(delete_globals_res.data.ids))
 
     return 0, ""
 

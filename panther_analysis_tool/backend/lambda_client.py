@@ -17,6 +17,8 @@ from .client import (
     Client,
     DeleteDetectionsParams,
     DeleteDetectionsResponse,
+    DeleteGlobalsParams,
+    DeleteGlobalsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
     FeatureFlagsParams,
@@ -155,6 +157,34 @@ class LambdaClient(Client):
                 ids=body.get("ids") or [],
                 saved_query_names=body.get("savedQueryNames") or [],
             ),
+        )
+
+    def delete_globals(
+        self, params: DeleteGlobalsParams
+    ) -> BackendResponse[DeleteGlobalsResponse]:
+        entries = [{"id": id_to_delete} for id_to_delete in params.ids]
+
+        res = self._parse_response(
+            self._lambda_client.invoke(
+                FunctionName="panther-analysis-api",
+                InvocationType="RequestResponse",
+                LogType="None",
+                Payload=self._serialize_request(
+                    {
+                        "deleteGlobals": {
+                            "dryRun": params.dry_run,
+                            "userId": self._user_id,
+                            "entries": entries,
+                        }
+                    }
+                ),
+            )
+        )
+
+        # Backend returns 200 with an empty body on success; echo the requested IDs.
+        return BackendResponse(
+            status_code=res.status_code,
+            data=DeleteGlobalsResponse(ids=list(params.ids)),
         )
 
     def delete_saved_queries(
