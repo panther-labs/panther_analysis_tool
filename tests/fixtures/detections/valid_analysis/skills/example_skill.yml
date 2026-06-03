@@ -1,7 +1,7 @@
 AnalysisType: skill
-SkillName: example_test_skill
-DisplayName: Example Test Skill
-Description: A test skill for unit testing
+SkillName: valid_analysis_example_skill
+DisplayName: Valid Analysis Example Skill
+Description: A test skill for unit testing zip chunking under valid_analysis
 Prompt: |
   You are a helpful assistant that does example things.
   Follow these instructions carefully.

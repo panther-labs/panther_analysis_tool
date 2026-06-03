@@ -892,7 +892,7 @@ class TestPantherAnalysisTool(TestCase):
     def test_test_analysis_command_no_args(self) -> None:
         return_code, invalid_specs = mock_test_analysis(self, ["test"])
         self.assertEqual(return_code, 1)
-        self.assertEqual(len(invalid_specs), 24)
+        self.assertEqual(len(invalid_specs), 23)
 
     def test_available_destination_names_invalid_name_returned(self) -> None:
         """When an available destination is given but does not match the returned names"""
