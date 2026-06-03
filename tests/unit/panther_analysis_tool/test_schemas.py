@@ -878,3 +878,45 @@ class TestSkillSchema(unittest.TestCase):
         skill["DependsOn"] = "not_a_list"
         with self.assertRaises(SchemaError):
             SKILL_SCHEMA.validate(skill)
+
+    def test_enabled_omitted_is_valid(self):
+        skill = self._valid_skill()
+        skill.pop("Enabled", None)
+        SKILL_SCHEMA.validate(skill)
+
+    def test_eager_loading_omitted_is_valid(self):
+        skill = self._valid_skill()
+        skill.pop("EagerLoading", None)
+        SKILL_SCHEMA.validate(skill)
+
+    def test_enabled_false_is_valid(self):
+        skill = self._valid_skill()
+        skill["Enabled"] = False
+        SKILL_SCHEMA.validate(skill)
+
+    def test_empty_tags_list_is_valid(self):
+        skill = self._valid_skill()
+        skill["Tags"] = []
+        SKILL_SCHEMA.validate(skill)
+
+    def test_empty_depends_on_list_is_valid(self):
+        skill = self._valid_skill()
+        skill["DependsOn"] = []
+        SKILL_SCHEMA.validate(skill)
+
+    def test_empty_required_tools_list_is_valid(self):
+        skill = self._valid_skill()
+        skill["RequiredTools"] = []
+        SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_skill_name_with_hyphen(self):
+        skill = self._valid_skill()
+        skill["SkillName"] = "bad-name"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_namespace_starts_with_number(self):
+        skill = self._valid_skill()
+        skill["Namespace"] = "1bad_namespace"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)

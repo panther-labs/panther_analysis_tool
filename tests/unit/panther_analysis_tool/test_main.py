@@ -44,6 +44,7 @@ from panther_analysis_tool.main import app, upload_analysis
 FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../", "fixtures"))
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 STATUS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "status")
+SKILLS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "skills")
 
 print("Using fixtures path:", FIXTURES_PATH)
 
@@ -694,6 +695,60 @@ class TestPantherAnalysisTool(TestCase):
             self.assertTrue(out_filename.endswith(".zip"))
 
         self.assertEqual(8, len(results))
+
+        # Verify that the SKILL chunk actually contains the skill YAML — protects
+        # against a regression where skills are silently dropped from the upload.
+        all_zipped_files: list[str] = []
+        for out_filename in results:
+            with zipfile.ZipFile(out_filename, "r") as zf:
+                all_zipped_files.extend(zf.namelist())
+        skill_files = [name for name in all_zipped_files if "skills/" in name]
+        self.assertEqual(1, len(skill_files), msg=f"expected 1 skill in zips, got {skill_files}")
+        self.assertTrue(skill_files[0].endswith("example_skill.yml"))
+
+    def test_pat_test_with_skills_only(self) -> None:
+        # Skills aren't testable detections, but `pat test` against a directory
+        # of only skills should succeed cleanly — not error or report invalid specs.
+        return_code, invalid_specs = mock_test_analysis(
+            self, ["test", "--path", SKILLS_FIXTURES_PATH]
+        )
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
+    def test_print_upload_summary_includes_skills(self) -> None:
+        from contextlib import redirect_stdout
+
+        from panther_analysis_tool.main import print_upload_summary
+
+        response = {
+            "rules": {"total": 0, "new": 0, "modified": 0},
+            "skills": {"total": 5, "new": 3, "modified": 2},
+        }
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            print_upload_summary(response)
+
+        output = buf.getvalue()
+        self.assertIn("Skills", output)
+        self.assertIn("Total: 5", output)
+        self.assertIn("New: 3", output)
+        self.assertIn("Modified: 2", output)
+
+    def test_print_upload_summary_omits_skills_when_zero(self) -> None:
+        from contextlib import redirect_stdout
+
+        from panther_analysis_tool.main import print_upload_summary
+
+        # All zeros — the Skills section should be suppressed (matches behavior
+        # for other categories), but the summary header should still print.
+        response = {"skills": {"total": 0, "new": 0, "modified": 0}}
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            print_upload_summary(response)
+
+        output = buf.getvalue()
+        self.assertIn("Upload Summary", output)
+        self.assertNotIn("Skills", output)
 
     def test_generate_release_assets(self) -> None:
         # Note: This is a workaround for CI
