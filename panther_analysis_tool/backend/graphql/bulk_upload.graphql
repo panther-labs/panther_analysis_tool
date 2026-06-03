@@ -21,6 +21,9 @@ mutation UploadDetections($input: UploadDetectionEntitiesInput!) {
         correlationRules {
             ...UploadStatisticDetails
         }
+        skills {
+            ...UploadStatisticDetails
+        }
     }
 }
 
