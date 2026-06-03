@@ -84,9 +84,7 @@ def test_valid_skill_yaml_is_formatted_and_succeeds(
     assert "AnalysisType: skill" in good.read_text(encoding="utf-8")
 
 
-def test_invalid_skill_yaml_is_left_intact(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_invalid_skill_yaml_is_left_intact(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     skills_dir = tmp_path / "skills"
     skills_dir.mkdir()
     bad = skills_dir / "broken.yml"

@@ -8,7 +8,9 @@ the missing values to zero. These tests guard against that class of bug for the
 
 import unittest
 
-from panther_analysis_tool.backend.public_api_client import _get_graphql_content_filepath
+from panther_analysis_tool.backend.public_api_client import (
+    _get_graphql_content_filepath,
+)
 
 
 def _read_graphql(name: str) -> str:
