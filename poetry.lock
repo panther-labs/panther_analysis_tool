@@ -2855,29 +2855,32 @@ files = [
 
 [[package]]
 name = "sqlfluff"
-version = "3.5.0"
+version = "4.2.0"
 description = "The SQL Linter for Humans"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "sqlfluff-3.5.0-py3-none-any.whl", hash = "sha256:6e5fb7a0c491676ded68912245fc0627e88f8b0e6290bd4b54a65ce735f69716"},
-    {file = "sqlfluff-3.5.0.tar.gz", hash = "sha256:2d0a546078ffb021de7021b9a6c2a50e5eef590daa820d5f1b082d24a1d5e1d4"},
+    {file = "sqlfluff-4.2.0-py3-none-any.whl", hash = "sha256:43879d367b0a1bc9698417dbfb92f6dac8ebcd5de9c7c7ae6836a3378b260a1b"},
+    {file = "sqlfluff-4.2.0.tar.gz", hash = "sha256:691df205195ec7b1485482a3e4e8a862e69f603975fb6c5c77f03352d0a991a6"},
 ]
 
 [package.dependencies]
 chardet = "*"
-click = "<=8.3.0"
+click = "<8.4.0"
 colorama = ">=0.3"
 diff-cover = ">=2.5.0"
 Jinja2 = "*"
 pathspec = "*"
 platformdirs = "*"
-pytest = "*"
 pyyaml = ">=5.1"
 regex = "*"
 tblib = "*"
 tqdm = "*"
+
+[package.extras]
+rs = ["sqlfluffrs (==4.2.0)"]
+testutils = ["pytest"]
 
 [[package]]
 name = "stevedore"
@@ -3860,4 +3863,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <4.0"
-content-hash = "bb68a93bb029a7a0487680782840da5bebb3b15eb97ed030a44657e5072a91c1"
+content-hash = "817e6ba414319e28f6f8d7ade03c584038d7296e79c472b0b817b305d761e5a4"
