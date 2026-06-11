@@ -1694,13 +1694,13 @@ files = [
 
 [[package]]
 name = "panther-core"
-version = "0.16.1"
+version = "0.16.2"
 description = "Panther core library"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "panther_core-0.16.1.tar.gz", hash = "sha256:a94369067576b6d3061847ea4feb1c118947c7da78c8f951d2d990553ac5dbb4"},
+    {file = "panther_core-0.16.2.tar.gz", hash = "sha256:60c9f940a7f8bf4635a0468064c55ea9d67e6c37213c117e1a2f28039ae3b342"},
 ]
 
 [package.dependencies]
@@ -3863,4 +3863,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <4.0"
-content-hash = "78e4dd7fdedee49e5b934e60b6474cebfc9a21cdcb3c3dd62606a6cebc57faae"
+content-hash = "8fa23db77f92064e07b59b3fc3ea5e8acfa11ffcd39b4c720524db25e1c84175"
