@@ -16,6 +16,7 @@ from panther_analysis_tool.analysis_utils import (
     filters_match_analysis_item,
     get_simple_detections_as_python,
     load_analysis_specs,
+    pretty_analysis_type,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import (
@@ -726,3 +727,11 @@ class TestValidateTableNamesBatch(TestCase):
         self.assertEqual(invalid_seq[0][0], invalid_par[0][0])
         # Same valid queries remaining
         self.assertEqual(len(specs_seq.queries), len(specs_par.queries))
+
+
+class TestPrettyAnalysisTypeSkill(TestCase):
+    def test_pretty_analysis_type_skill_singular(self) -> None:
+        self.assertEqual(pretty_analysis_type("skill"), "Skill")
+
+    def test_pretty_analysis_type_skill_plural(self) -> None:
+        self.assertEqual(pretty_analysis_type("skill", plural=True), "Skills")

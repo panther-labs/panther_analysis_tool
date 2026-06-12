@@ -1,0 +1,13 @@
+AnalysisType: skill
+SkillName: valid_analysis_example_skill
+DisplayName: Valid Analysis Example Skill
+Description: A test skill for unit testing zip chunking under valid_analysis
+Prompt: |
+  You are a helpful assistant that does example things.
+  Follow these instructions carefully.
+Enabled: true
+Tags:
+  - test
+  - example
+RequiredTools:
+  - panther_ai_alerts_list

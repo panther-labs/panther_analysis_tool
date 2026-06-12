@@ -133,7 +133,8 @@ def validate_packs(analysis_specs: ClassifiedAnalysisContainer) -> List[Any]:
             or analysis_spec.get("GlobalID")
             or analysis_spec.get("PackID")
             or analysis_spec.get("QueryName")
-            or analysis_spec["LookupName"]
+            or analysis_spec.get("LookupName")
+            or analysis_spec.get("SkillName")
         )
         id_to_detection[analysis_id] = analysis_spec
     for item in analysis_specs.packs:

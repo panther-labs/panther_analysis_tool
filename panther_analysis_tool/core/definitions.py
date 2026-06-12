@@ -32,6 +32,8 @@ def analysis_id_field_name(analysis_type: str) -> str:
             return "PackID"
         case AnalysisTypes.LOOKUP_TABLE:
             return "LookupName"
+        case AnalysisTypes.SKILL:
+            return "SkillName"
         case _:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
@@ -74,6 +76,7 @@ class ClassifiedAnalysisContainer:
     queries: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    skills: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
 
     def _self_as_list(self) -> List[List[ClassifiedAnalysis]]:
         return [
@@ -84,6 +87,7 @@ class ClassifiedAnalysisContainer:
             self.queries,
             self.lookup_tables,
             self.packs,
+            self.skills,
         ]
 
     def empty(self) -> bool:
@@ -101,6 +105,7 @@ class ClassifiedAnalysisContainer:
         container.queries = func(self.queries)
         container.lookup_tables = func(self.lookup_tables)
         container.packs = func(self.packs)
+        container.skills = func(self.skills)
         return container
 
     def items(self) -> Generator[ClassifiedAnalysis, None, None]:
@@ -132,6 +137,8 @@ class ClassifiedAnalysisContainer:
             self.queries.append(classified_analysis)
         elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
             self.queries.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.SKILL:
+            self.skills.append(classified_analysis)
 
 
 @dataclasses.dataclass
