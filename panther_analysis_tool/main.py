@@ -94,6 +94,7 @@ from panther_analysis_tool.command import (
     migrate,
     update,
     validate,
+    validate_sql,
 )
 from panther_analysis_tool.command.standard_args import (
     APIHostType,
@@ -2351,6 +2352,44 @@ def validate_cmd(
     )
 
     return validate.run(pat_utils.get_api_backend(api_token, api_host), args)
+
+
+@app_command_with_config(
+    name="validate-sql",
+    help="Validate the SQL of scheduled queries, saved queries, and SQL-based lookup tables "
+    "by compiling them (via EXPLAIN) against your Panther data lake.",
+)
+def validate_sql_cmd(
+    api_token: APITokenType = None,
+    api_host: APIHostType = "",
+    _filter: FilterType = None,
+    ignore_files: IgnoreFilesType = None,
+    path: PathType = ".",
+    skip_missing_tables: Annotated[
+        bool,
+        typer.Option(
+            "--skip-missing-tables",
+            envvar="PANTHER_SKIP_MISSING_TABLES",
+            help="Skip enabled queries that reference tables that do not exist in the Panther "
+            "instance (e.g. log sources that are not onboarded) instead of failing them. "
+            "Disabled queries with missing tables are always skipped.",
+        ),
+    ] = False,
+) -> Tuple[int, str]:
+    if ignore_files is None:
+        ignore_files = []
+
+    filters, filters_inverted = get_filters_with_status_filters(_filter)
+
+    args = validate_sql.ValidateSqlArgs(
+        filters=filters,
+        filters_inverted=filters_inverted,
+        ignore_files=ignore_files,
+        path=path,
+        skip_missing_tables=skip_missing_tables,
+    )
+
+    return validate_sql.run(pat_utils.get_api_backend(api_token, api_host), args)
 
 
 @app_command_with_config(
