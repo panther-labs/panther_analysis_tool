@@ -87,6 +87,16 @@ Query: |
   WHERE p_occurs_since('<WINDOW>') AND actor:id = '<ACTOR_ID>'
 """
 
+PANTHERFLOW_QUERY_YAML = """
+AnalysisType: saved_query
+QueryName: My PantherFlow Query
+Query: |
+  --pragma: pantherflow
+  panther_logs.public.panther_audit
+  | where p_event_time > time.ago(7d)
+  | limit 100
+"""
+
 MISSING_TABLE_ERROR = (
     "SQL compilation error:\n"
     "Object 'PANTHER_LOGS.PUBLIC.SOME_TABLE' does not exist or not authorized."
@@ -125,6 +135,7 @@ class TestValidateSql(unittest.TestCase):
             ("rule.yml", RULE_YAML),
             ("macros.yml", MACRO_LIBRARY_YAML),
             ("placeholder_template.yml", PLACEHOLDER_TEMPLATE_YAML),
+            ("pantherflow_query.yml", PANTHERFLOW_QUERY_YAML),
         ]:
             with open(os.path.join(self.tmp_dir.name, name), "w", encoding="utf-8") as out:
                 out.write(content)

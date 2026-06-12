@@ -27,6 +27,10 @@ _MISSING_TABLE_ERROR = "does not exist or not authorized"
 # template queries, which are meant to be filled in by a human before running.
 _PLACEHOLDER_PATTERN = re.compile(r"<[A-Z][A-Z0-9_]*>")
 
+# The backend routes queries with this pragma to the PantherFlow engine, which
+# ignores the EXPLAIN prefix and executes the query for real.
+_PANTHERFLOW_PRAGMA = re.compile(r"--\s*pragma:\s*pantherflow", re.IGNORECASE)
+
 
 @dataclass
 class ValidateSqlArgs:
@@ -122,6 +126,13 @@ def _collect_targets(args: ValidateSqlArgs) -> List[SqlValidationTarget]:
         # nothing on their own and only compile when included from another query.
         if "{% macro" in sql:
             logging.info("Skipping %s: query only defines jinja macros", analysis_id)
+            continue
+
+        if _PANTHERFLOW_PRAGMA.search(sql):
+            logging.info(
+                "Skipping %s: PantherFlow queries cannot be compile-checked with EXPLAIN",
+                analysis_id,
+            )
             continue
 
         placeholder = _PLACEHOLDER_PATTERN.search(sql)
