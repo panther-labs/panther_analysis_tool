@@ -1,0 +1,5 @@
+AnalysisType: global
+GlobalID: symlinks_panther
+Filename: panther.py
+Description: >
+  Minimal panther helper for example_rule in symlinks fixture.

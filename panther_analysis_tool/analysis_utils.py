@@ -369,6 +369,52 @@ class _PyYAMLFastLoader:
         )  # nosec B506 - _PATSafeLoader extends CSafeLoader
 
 
+def safe_walk(
+    top: str, followlinks: bool = True
+) -> Iterator[Tuple[str, List[str], List[str]]]:
+    """Walk a directory tree like os.walk, following symlinks but avoiding cycles.
+
+    Yields (dirpath, dirnames, filenames) for each directory. When followlinks is True,
+    symlinked directories are followed; directories whose real path was already visited
+    are skipped to prevent infinite loops. Also skips hidden dirs (.) and __pycache__.
+
+    Args:
+        top: Root directory to walk.
+        followlinks: If True, follow symlinks to directories (default). Cycle detection
+            ensures the same real path is not visited twice.
+
+    Yields:
+        (dirpath, dirnames, filenames) same as os.walk (topdown=True). dirnames is
+        mutated in place so that skipping an entry prevents descent into that subdirectory.
+    """
+    visited_real_paths: set[str] = set()
+    for dirpath, dirnames, filenames in os.walk(
+        top, topdown=True, followlinks=followlinks
+    ):
+        try:
+            real_dirpath = os.path.realpath(dirpath)
+        except OSError:
+            real_dirpath = os.path.abspath(dirpath)
+        if real_dirpath in visited_real_paths:
+            continue
+        visited_real_paths.add(real_dirpath)
+        kept: List[str] = []
+        for dirname in dirnames:
+            if dirname.startswith(".") or dirname == "__pycache__":
+                continue
+            try:
+                sub_real = os.path.realpath(os.path.join(dirpath, dirname))
+            except OSError:
+                kept.append(dirname)
+                continue
+            if sub_real in visited_real_paths:
+                logging.debug("Skipping symlink cycle: %s -> %s", dirname, sub_real)
+                continue
+            kept.append(dirname)
+        dirnames[:] = kept
+        yield dirpath, dirnames, filenames
+
+
 # pylint: disable=too-many-locals
 def load_analysis_specs_ex(
     directories: List[str], ignore_files: List[str], roundtrip_yaml: bool
@@ -400,13 +446,7 @@ def load_analysis_specs_ex(
     # serialize_to_file() when multiple specs are loaded then some are written back.
     loaded_specs: List[Any] = []
     for directory in directories:
-        for dirpath, dirnames, filenames in os.walk(directory):
-            dirnames[:] = [
-                dirname
-                for dirname in dirnames
-                if not dirname.startswith(".") and dirname != "__pycache__"
-            ]
-
+        for dirpath, dirnames, filenames in safe_walk(directory, followlinks=True):
             # If the user runs with no path args, filter to make sure
             # we only run folders with valid analysis files. Ensure we test
             # files in the current directory by not skipping this iteration

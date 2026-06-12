@@ -1,0 +1,5 @@
+AnalysisType: global
+GlobalID: symlinks_local_helper
+Filename: local_helper.py
+Description: >
+  Local global helper (real directory under include/global_helpers/local).

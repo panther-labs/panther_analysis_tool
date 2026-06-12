@@ -2,6 +2,8 @@
 
 import io
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Any
 from unittest import TestCase, mock
 
@@ -16,6 +18,7 @@ from panther_analysis_tool.analysis_utils import (
     filters_match_analysis_item,
     get_simple_detections_as_python,
     load_analysis_specs,
+    safe_walk,
     transpile_inline_filters,
 )
 from panther_analysis_tool.backend.client import (
@@ -31,7 +34,10 @@ from panther_analysis_tool.core.definitions import (
     ClassifiedAnalysisContainer,
 )
 from panther_analysis_tool.core.parse import Filter
-from tests.unit.panther_analysis_tool.test_main import DETECTIONS_FIXTURES_PATH
+from tests.unit.panther_analysis_tool.test_main import (
+    DETECTIONS_FIXTURES_PATH,
+    FIXTURES_PATH,
+)
 
 
 class TestGetSimpleDetectionsAsPython(TestCase):
@@ -726,3 +732,134 @@ class TestValidateTableNamesBatch(TestCase):
         self.assertEqual(invalid_seq[0][0], invalid_par[0][0])
         # Same valid queries remaining
         self.assertEqual(len(specs_seq.queries), len(specs_par.queries))
+
+
+class TestSafeWalk(TestCase):
+    """Tests for safe_walk (cycle-safe directory walk with followlinks=True)."""
+
+    # Max yields allowed; if safe_walk exceeds this we treat as infinite loop and fail
+    MAX_YIELDS = 500
+    # Wall-clock timeout (seconds) for consuming the generator
+    WALK_TIMEOUT_SECONDS = 2
+
+    def _collect_with_timeout_and_cap(
+        self, top: str, followlinks: bool = True
+    ) -> list[tuple[str, list[str], list[str]]]:
+        """Consume safe_walk(top, followlinks), enforce timeout and max yields."""
+        results: list[tuple[str, list[str], list[str]]] = []
+        error_holder: list[BaseException] = []
+
+        def run() -> None:
+            try:
+                for triple in safe_walk(top, followlinks=followlinks):
+                    results.append(triple)
+                    if len(results) > self.MAX_YIELDS:
+                        raise AssertionError(
+                            f"safe_walk yielded more than {self.MAX_YIELDS} times; "
+                            "possible infinite loop"
+                        )
+            except BaseException as e:
+                error_holder.append(e)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(run)
+            try:
+                future.result(timeout=self.WALK_TIMEOUT_SECONDS)
+            except FuturesTimeoutError:
+                self.fail(
+                    f"safe_walk did not complete within {self.WALK_TIMEOUT_SECONDS}s; "
+                    "possible infinite loop (cycle not avoided)"
+                )
+        if error_holder:
+            raise error_holder[0]
+        return results
+
+    def _assert_no_duplicate_real_paths(
+        self, results: list[tuple[str, list[str], list[str]]]
+    ) -> None:
+        """Assert each yielded dirpath resolves to a unique real path (no duplicate visits)."""
+        real_paths: list[str] = []
+        for dirpath, _dirnames, _filenames in results:
+            try:
+                real_paths.append(os.path.realpath(dirpath))
+            except OSError:
+                real_paths.append(os.path.abspath(dirpath))
+        seen = set()
+        duplicates = [p for p in real_paths if p in seen or seen.add(p)]
+        self.assertEqual(
+            duplicates,
+            [],
+            f"safe_walk yielded duplicate real paths: {duplicates}",
+        )
+
+    def test_safe_walk_terminates_on_cycle_fixture(self) -> None:
+        """Walking the cycle fixture (subdir/back -> ..) yields exactly two dirs, no cycle."""
+        cycle_path = os.path.join(FIXTURES_PATH, "symlinks", "cycle")
+        if not os.path.isdir(cycle_path):
+            self.skipTest("symlinks/cycle fixture not present")
+        subdir_path = os.path.join(cycle_path, "subdir")
+        results = self._collect_with_timeout_and_cap(cycle_path, followlinks=True)
+        self._assert_no_duplicate_real_paths(results)
+        # Fixture: cycle/, cycle/subdir/, and subdir/back -> .. (pruned as cycle)
+        cycle_real = os.path.realpath(cycle_path)
+        subdir_real = os.path.realpath(subdir_path)
+        expected = [
+            (cycle_real, ["subdir"], ["top.yml"]),
+            (subdir_real, [], []),  # "back" pruned (same real path as cycle)
+        ]
+        self.assertEqual(
+            len(results),
+            len(expected),
+            f"Expected exactly {len(expected)} yields; got {len(results)}",
+        )
+        for i, (dirpath, dirnames, filenames) in enumerate(results):
+            exp_path, exp_dirnames, exp_filenames = expected[i]
+            self.assertEqual(
+                os.path.realpath(dirpath),
+                exp_path,
+                f"Yield {i} dirpath",
+            )
+            self.assertEqual(
+                dirnames,
+                exp_dirnames,
+                f"Yield {i} dirnames",
+            )
+            self.assertEqual(
+                sorted(filenames),
+                sorted(exp_filenames),
+                f"Yield {i} filenames",
+            )
+
+    def test_safe_walk_self_loop_terminates(self) -> None:
+        """A directory containing a symlink to itself must not cause infinite walk."""
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                loop_path = os.path.join(tmp, "loop")
+                try:
+                    os.symlink(tmp, loop_path)
+                except OSError as e:
+                    self.skipTest(f"symlinks not supported: {e}")
+                results = self._collect_with_timeout_and_cap(tmp, followlinks=True)
+                self._assert_no_duplicate_real_paths(results)
+                # Exactly one dir yielded: the top. The loop symlink is pruned (same real path).
+                self.assertEqual(
+                    len(results),
+                    1,
+                    "Expected exactly one yield (top only); loop should be pruned",
+                )
+                dirpath, dirnames, filenames = results[0]
+                self.assertEqual(
+                    os.path.realpath(dirpath),
+                    os.path.realpath(tmp),
+                    "Single yield should be the top dir",
+                )
+                self.assertEqual(
+                    dirnames,
+                    [],
+                    "loop subdir should be pruned (cycle), so dirnames must be empty",
+                )
+                self.assertEqual(filenames, [], "Top dir has no files")
+        except ImportError:
+            self.skipTest("tempfile not available")
