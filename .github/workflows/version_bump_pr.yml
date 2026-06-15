@@ -35,7 +35,7 @@ jobs:
         poetry version "${{ github.event.inputs.bump_type }}"
 
     - name: Import GPG key
-      uses: crazy-max/ghaction-import-gpg@v6
+      uses: crazy-max/ghaction-import-gpg@v7
       with:
         gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
         passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
