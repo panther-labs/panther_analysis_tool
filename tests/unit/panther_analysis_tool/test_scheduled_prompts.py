@@ -103,6 +103,13 @@ class TestScheduledPromptSchema(unittest.TestCase):
         with self.assertRaises(SchemaError):
             SCHEDULED_PROMPT_SCHEMA.validate(prompt)
 
+    def test_prompt_name_trailing_newline_rejected(self) -> None:
+        # Guards the \Z anchor: $ would match before a trailing newline and let this through.
+        prompt = _valid_prompt()
+        prompt["PromptName"] = "weekly_iam_review\n"
+        with self.assertRaises(SchemaError):
+            SCHEDULED_PROMPT_SCHEMA.validate(prompt)
+
     def test_invalid_output_length_rejected(self) -> None:
         prompt = _valid_prompt()
         prompt["OutputLength"] = "huge"

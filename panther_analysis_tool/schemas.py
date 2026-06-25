@@ -303,7 +303,7 @@ SCHEDULED_QUERY_SCHEMA = Schema(
 SCHEDULED_PROMPT_SCHEMA = Schema(
     {
         "AnalysisType": Or("scheduled_prompt"),
-        "PromptName": And(str, Regex(r"^[a-z][a-z0-9_]*$")),
+        "PromptName": And(str, Regex(r"^[a-z][a-z0-9_]*\Z")),
         "DisplayName": str,
         "PromptText": str,
         # Required, and polymorphic — a user email OR an API-token id (po_...), matching the
