@@ -76,7 +76,9 @@ class ClassifiedAnalysisContainer:
     queries: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
-    scheduled_prompts: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    scheduled_prompts: List[ClassifiedAnalysis] = dataclasses.field(
+        init=False, default_factory=list
+    )
 
     def _self_as_list(self) -> List[List[ClassifiedAnalysis]]:
         return [

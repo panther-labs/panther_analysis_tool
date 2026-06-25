@@ -131,9 +131,7 @@ class TestPrettyAnalysisTypeScheduledPrompt(unittest.TestCase):
         self.assertEqual(pretty_analysis_type("scheduled_prompt"), "Scheduled Prompt")
 
     def test_plural(self) -> None:
-        self.assertEqual(
-            pretty_analysis_type("scheduled_prompt", plural=True), "Scheduled Prompts"
-        )
+        self.assertEqual(pretty_analysis_type("scheduled_prompt", plural=True), "Scheduled Prompts")
 
 
 class TestValidatePacksWithScheduledPrompt(unittest.TestCase):
