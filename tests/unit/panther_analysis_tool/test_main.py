@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import zipfile
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta
 from typing import Any
 from unittest import mock
@@ -719,17 +720,13 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(len(invalid_specs), 0)
 
     def test_print_upload_summary_includes_scheduled_prompts(self) -> None:
-        from contextlib import redirect_stdout
-
-        from panther_analysis_tool.main import print_upload_summary
-
         response = {
             "rules": {"total": 0, "new": 0, "modified": 0},
             "scheduled_prompts": {"total": 5, "new": 3, "modified": 2},
         }
         buf = io.StringIO()
         with redirect_stdout(buf):
-            print_upload_summary(response)
+            pat.print_upload_summary(response)
 
         output = buf.getvalue()
         self.assertIn("Scheduled Prompts", output)
@@ -738,16 +735,12 @@ class TestPantherAnalysisTool(TestCase):
         self.assertIn("Modified: 2", output)
 
     def test_print_upload_summary_omits_scheduled_prompts_when_zero(self) -> None:
-        from contextlib import redirect_stdout
-
-        from panther_analysis_tool.main import print_upload_summary
-
         # All zeros — the Scheduled Prompts section should be suppressed (matches
         # behavior for other categories), but the summary header should still print.
         response = {"scheduled_prompts": {"total": 0, "new": 0, "modified": 0}}
         buf = io.StringIO()
         with redirect_stdout(buf):
-            print_upload_summary(response)
+            pat.print_upload_summary(response)
 
         output = buf.getvalue()
         self.assertIn("Upload Summary", output)
