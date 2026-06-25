@@ -52,6 +52,7 @@ TYPE_SCHEMA = Schema(
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
+            "scheduled_prompt",
         ),
     },
     ignore_extra_keys=True,
@@ -297,6 +298,31 @@ SCHEDULED_QUERY_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
     # Prevent user typos on optional fields
+)
+
+SCHEDULED_PROMPT_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("scheduled_prompt"),
+        "PromptName": And(str, Regex(r"^[a-z][a-z0-9_]*$")),
+        "DisplayName": str,
+        "PromptText": str,
+        # RunAsUser is required: every scheduled prompt declares the user it executes as, so a bulk
+        # import never falls back to the importer (e.g. a PAT/API token) as the execution identity.
+        # Client-side format check only; the server resolves the email to an active user at upload.
+        "RunAsUser": And(str, Regex(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")),
+        "Schedule": QueryScheduleSchema(
+            {
+                Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
+                "TimeoutMinutes": int,
+            }
+        ),
+        Optional("Description"): str,
+        Optional("OutputLength"): Or("small", "medium", "largest"),
+        Optional("Enabled"): bool,
+        # `Private` is intentionally not a field: prompts managed as code are org-shared (public).
+        # ignore_extra_keys=False rejects a stray `Private` (and any other typo).
+    },
+    ignore_extra_keys=False,
 )
 
 LOOKUP_TABLE_SCHEMA = Schema(
