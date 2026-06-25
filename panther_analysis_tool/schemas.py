@@ -306,10 +306,11 @@ SCHEDULED_PROMPT_SCHEMA = Schema(
         "PromptName": And(str, Regex(r"^[a-z][a-z0-9_]*$")),
         "DisplayName": str,
         "PromptText": str,
-        # RunAsUser is required: every scheduled prompt declares the user it executes as, so a bulk
-        # import never falls back to the importer (e.g. a PAT/API token) as the execution identity.
-        # Client-side format check only; the server resolves the email to an active user at upload.
-        "RunAsUser": And(str, Regex(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")),
+        # Required, and polymorphic — a user email OR an API-token id (po_...), matching the
+        # backend, which resolves it server-side. Format/existence is validated at validate/upload,
+        # so locally we only require a non-empty string (a strict email regex would wrongly reject
+        # a valid token id).
+        "RunAsUser": And(str, len),
         "Schedule": QueryScheduleSchema(
             {
                 Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
@@ -319,8 +320,10 @@ SCHEDULED_PROMPT_SCHEMA = Schema(
         Optional("Description"): str,
         Optional("OutputLength"): Or("small", "medium", "largest"),
         Optional("Enabled"): bool,
-        # `Private` is intentionally not a field: prompts managed as code are org-shared (public).
-        # ignore_extra_keys=False rejects a stray `Private` (and any other typo).
+        # Bulk upload is shared-only: `Private: false`/omitted is accepted; `Private: true` is
+        # rejected — mirrors the backend, which keeps the field but parse-rejects `true` so a
+        # downloaded private prompt fails loudly instead of silently flipping to shared.
+        Optional("Private"): False,
     },
     ignore_extra_keys=False,
 )

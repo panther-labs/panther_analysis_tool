@@ -1,10 +1,10 @@
 """Unit tests for the scheduled_prompt analysis type: schema validation + display label.
 
 Schema coverage focuses on the as-code contract divergences from other types:
-- RunAsUser is REQUIRED (execution identity; never the importer/token).
+- RunAsUser is REQUIRED and polymorphic (a user email OR an API-token id); format is
+  resolved server-side, so locally only non-empty is enforced.
 - DisplayName is REQUIRED (no fallback, unlike skills).
-- `Private` is NOT a valid field (prompts managed as code are org-shared/public);
-  ignore_extra_keys=False rejects it.
+- Bulk upload is shared-only: `Private: false`/omitted is accepted; `Private: true` rejected.
 """
 
 import unittest
@@ -47,25 +47,37 @@ class TestScheduledPromptSchema(unittest.TestCase):
         prompt["Schedule"] = {"RateMinutes": 60, "TimeoutMinutes": 10}
         SCHEDULED_PROMPT_SCHEMA.validate(prompt)
 
-    # --- contract: RunAsUser is required and email-shaped ---
+    # --- contract: RunAsUser is required; polymorphic (a user email OR a po_ token id) ---
     def test_missing_run_as_user_rejected(self) -> None:
         prompt = _valid_prompt()
         del prompt["RunAsUser"]
         with self.assertRaises(SchemaError):
             SCHEDULED_PROMPT_SCHEMA.validate(prompt)
 
-    def test_run_as_user_must_be_email(self) -> None:
+    def test_empty_run_as_user_rejected(self) -> None:
         prompt = _valid_prompt()
-        prompt["RunAsUser"] = "not-an-email"
+        prompt["RunAsUser"] = ""
         with self.assertRaises(SchemaError):
             SCHEDULED_PROMPT_SCHEMA.validate(prompt)
 
-    # --- contract: as-code is public; `Private` is not a valid field ---
-    def test_private_field_rejected(self) -> None:
+    def test_run_as_user_accepts_api_token_id(self) -> None:
+        # The backend accepts a po_ API-token id as the run-as identity; a strict email
+        # regex would wrongly reject it. Format/existence is validated server-side.
+        prompt = _valid_prompt()
+        prompt["RunAsUser"] = "po_abc123def456"
+        SCHEDULED_PROMPT_SCHEMA.validate(prompt)
+
+    # --- contract: shared-only — Private:false/omitted accepted, Private:true rejected ---
+    def test_private_true_rejected(self) -> None:
         prompt = _valid_prompt()
         prompt["Private"] = True
         with self.assertRaises(SchemaError):
             SCHEDULED_PROMPT_SCHEMA.validate(prompt)
+
+    def test_private_false_accepted(self) -> None:
+        prompt = _valid_prompt()
+        prompt["Private"] = False
+        SCHEDULED_PROMPT_SCHEMA.validate(prompt)
 
     # --- contract: DisplayName required (no fallback, unlike skills) ---
     def test_missing_display_name_rejected(self) -> None:
