@@ -1,0 +1,12 @@
+AnalysisType: scheduled_prompt
+PromptName: example_test_prompt
+DisplayName: Example Test Prompt
+Description: A test scheduled prompt for unit testing
+PromptText: |
+  Summarize notable IAM changes from the last week and flag any new admin users.
+OutputLength: medium
+Enabled: true
+RunAsUser: security-bot@example.com
+Schedule:
+  CronExpression: "0 9 * * 1"
+  TimeoutMinutes: 10

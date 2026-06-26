@@ -15,6 +15,7 @@ from panther_analysis_tool.schemas import (
     POLICY_SCHEMA,
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
+    SCHEDULED_PROMPT_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
 )
 
@@ -32,6 +33,7 @@ PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
 QUERIES_PATH_PATTERN = "*queries*"
 RULES_PATH_PATTERN = "*rules*"
+SCHEDULED_PROMPTS_PATH_PATTERN = "*scheduled_prompts*"
 
 
 class AnalysisTypes:
@@ -47,6 +49,7 @@ class AnalysisTypes:
     SCHEDULED_RULE = "scheduled_rule"
     SIMPLE_DETECTION = "simple_detection"
     CORRELATION_RULE = "correlation_rule"
+    SCHEDULED_PROMPT = "scheduled_prompt"
 
 
 # The UserID is required by Panther for some API calls, but we have no way of
@@ -66,6 +69,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.DERIVED: DERIVED_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
     AnalysisTypes.CORRELATION_RULE: CORRELATION_RULE_SCHEMA,
+    AnalysisTypes.SCHEDULED_PROMPT: SCHEDULED_PROMPT_SCHEMA,
 }
 
 SET_FIELDS = [

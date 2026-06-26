@@ -1,0 +1,12 @@
+AnalysisType: scheduled_prompt
+PromptName: valid_analysis_example_prompt
+DisplayName: Valid Analysis Example Prompt
+Description: A test scheduled prompt for unit testing zip chunking under valid_analysis
+PromptText: |
+  Summarize notable IAM changes from the last week and flag any new admin users.
+OutputLength: medium
+Enabled: true
+RunAsUser: security-bot@example.com
+Schedule:
+  CronExpression: "0 9 * * 1"
+  TimeoutMinutes: 10
