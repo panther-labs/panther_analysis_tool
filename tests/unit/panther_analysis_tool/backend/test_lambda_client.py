@@ -62,6 +62,7 @@ class TestLambdaClient(TestCase):
                 "global_helpers": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
                 "correlation_rules": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
                 "skills": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
+                "scheduled_prompts": {"total": 0, "new": 0, "modified": 0, "deleted": 0},
             },
         )
 

@@ -1467,7 +1467,8 @@
             "lookup_table",
             "saved_query",
             "correlation_rule",
-            "skill"
+            "skill",
+            "scheduled_prompt"
           ]
         },
         "Description": {

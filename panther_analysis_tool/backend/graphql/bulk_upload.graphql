@@ -24,6 +24,9 @@ mutation UploadDetections($input: UploadDetectionEntitiesInput!) {
         skills {
             ...UploadStatisticDetails
         }
+        scheduledPrompts {
+            ...UploadStatisticDetails
+        }
     }
 }
 

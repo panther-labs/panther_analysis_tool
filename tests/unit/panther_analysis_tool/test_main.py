@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import zipfile
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta
 from typing import Any
 from unittest import mock
@@ -45,6 +46,7 @@ FIXTURES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 DETECTIONS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "detections")
 STATUS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "status")
 SKILLS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "skills")
+SCHEDULED_PROMPTS_FIXTURES_PATH = os.path.join(FIXTURES_PATH, "scheduled_prompts")
 
 print("Using fixtures path:", FIXTURES_PATH)
 
@@ -694,10 +696,10 @@ class TestPantherAnalysisTool(TestCase):
             self.assertTrue(statinfo.st_size > 0)
             self.assertTrue(out_filename.endswith(".zip"))
 
-        self.assertEqual(8, len(results))
+        self.assertEqual(9, len(results))
 
-        # Verify that the SKILL chunk actually contains the skill YAML — protects
-        # against a regression where skills are silently dropped from the upload.
+        # Verify the SKILL and SCHEDULED_PROMPT chunks actually contain their YAML —
+        # guards against skills or scheduled prompts being silently dropped from the upload.
         all_zipped_files: list[str] = []
         for out_filename in results:
             with zipfile.ZipFile(out_filename, "r") as zf:
@@ -706,11 +708,27 @@ class TestPantherAnalysisTool(TestCase):
         self.assertEqual(1, len(skill_files), msg=f"expected 1 skill in zips, got {skill_files}")
         self.assertTrue(skill_files[0].endswith("example_skill.yml"))
 
+        prompt_files = [name for name in all_zipped_files if "scheduled_prompts/" in name]
+        self.assertEqual(
+            1, len(prompt_files), msg=f"expected 1 scheduled prompt in zips, got {prompt_files}"
+        )
+        self.assertTrue(prompt_files[0].endswith("example_prompt.yml"))
+
     def test_pat_test_with_skills_only(self) -> None:
         # Skills aren't testable detections, but `pat test` against a directory
         # of only skills should succeed cleanly — not error or report invalid specs.
         return_code, invalid_specs = mock_test_analysis(
             self, ["test", "--path", SKILLS_FIXTURES_PATH]
+        )
+        self.assertEqual(return_code, 0)
+        self.assertEqual(len(invalid_specs), 0)
+
+    def test_pat_test_with_scheduled_prompts_only(self) -> None:
+        # Scheduled prompts aren't testable detections, but `pat test` against a
+        # directory of only prompts should succeed cleanly — not error or report
+        # invalid specs (same behavior as scheduled_query / lookup_table).
+        return_code, invalid_specs = mock_test_analysis(
+            self, ["test", "--path", SCHEDULED_PROMPTS_FIXTURES_PATH]
         )
         self.assertEqual(return_code, 0)
         self.assertEqual(len(invalid_specs), 0)
@@ -734,6 +752,21 @@ class TestPantherAnalysisTool(TestCase):
         self.assertIn("New: 3", output)
         self.assertIn("Modified: 2", output)
 
+    def test_print_upload_summary_includes_scheduled_prompts(self) -> None:
+        response = {
+            "rules": {"total": 0, "new": 0, "modified": 0},
+            "scheduled_prompts": {"total": 5, "new": 3, "modified": 2},
+        }
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pat.print_upload_summary(response)
+
+        output = buf.getvalue()
+        self.assertIn("Scheduled Prompts", output)
+        self.assertIn("Total: 5", output)
+        self.assertIn("New: 3", output)
+        self.assertIn("Modified: 2", output)
+
     def test_print_upload_summary_omits_skills_when_zero(self) -> None:
         from contextlib import redirect_stdout
 
@@ -749,6 +782,18 @@ class TestPantherAnalysisTool(TestCase):
         output = buf.getvalue()
         self.assertIn("Upload Summary", output)
         self.assertNotIn("Skills", output)
+
+    def test_print_upload_summary_omits_scheduled_prompts_when_zero(self) -> None:
+        # All zeros — the Scheduled Prompts section should be suppressed (matches
+        # behavior for other categories), but the summary header should still print.
+        response = {"scheduled_prompts": {"total": 0, "new": 0, "modified": 0}}
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pat.print_upload_summary(response)
+
+        output = buf.getvalue()
+        self.assertIn("Upload Summary", output)
+        self.assertNotIn("Scheduled Prompts", output)
 
     def test_generate_release_assets(self) -> None:
         # Note: This is a workaround for CI
@@ -826,6 +871,7 @@ class TestPantherAnalysisTool(TestCase):
                     global_helpers=stats,
                     correlation_rules=stats,
                     skills=stats,
+                    scheduled_prompts=stats,
                 ),
                 status_code=200,
             )
@@ -860,6 +906,7 @@ class TestPantherAnalysisTool(TestCase):
                     global_helpers=stats,
                     correlation_rules=stats,
                     skills=stats,
+                    scheduled_prompts=stats,
                 ),
                 status_code=200,
             )

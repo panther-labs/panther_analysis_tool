@@ -22,6 +22,7 @@ from panther_analysis_tool.core.definitions import analysis_id_field_name
         (AnalysisTypes.PACK, "PackID"),
         (AnalysisTypes.LOOKUP_TABLE, "LookupName"),
         (AnalysisTypes.SKILL, "SkillName"),
+        (AnalysisTypes.SCHEDULED_PROMPT, "PromptName"),
     ],
 )
 def test_analysis_id_field_name(analysis_type: str, expected_field: str) -> None:

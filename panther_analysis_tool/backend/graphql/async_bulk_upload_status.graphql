@@ -27,6 +27,9 @@ query status($input: ID!) {
             skills {
                 ...UploadStatisticDetails
             }
+            scheduledPrompts {
+                ...UploadStatisticDetails
+            }
         }
     }
 }

@@ -39,6 +39,7 @@ from panther_analysis_tool.constants import (
     POLICIES_PATH_PATTERN,
     QUERIES_PATH_PATTERN,
     RULES_PATH_PATTERN,
+    SCHEDULED_PROMPTS_PATH_PATTERN,
     SCHEMAS,
     SKILLS_PATH_PATTERN,
     VERSION_STRING,
@@ -425,6 +426,7 @@ def load_analysis_specs_ex(
                             POLICIES_PATH_PATTERN,
                             QUERIES_PATH_PATTERN,
                             SKILLS_PATH_PATTERN,
+                            SCHEDULED_PROMPTS_PATH_PATTERN,
                         )
                     )
                 ):
@@ -1035,6 +1037,8 @@ def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
             return "Simple Detection" if not plural else "Simple Detections"
         case AnalysisTypes.SKILL:
             return "Skill" if not plural else "Skills"
+        case AnalysisTypes.SCHEDULED_PROMPT:
+            return "Scheduled Prompt" if not plural else "Scheduled Prompts"
         case _:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
