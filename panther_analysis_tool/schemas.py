@@ -370,7 +370,7 @@ SKILL_SCHEMA = Schema(
         Optional("EagerLoading"): bool,
         Optional("Tags"): [str],
         Optional("DependsOn"): [str],
-        Optional("RequiredTools"): [str],
+        Optional("RequiredTools"): [And(str, Regex(r"^[a-z][a-z0-9_]*$"))],
         Optional("Namespace"): And(str, Regex(r"^[a-z][a-z0-9_]*$")),
     },
     ignore_extra_keys=False,

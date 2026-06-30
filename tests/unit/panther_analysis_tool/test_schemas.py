@@ -813,6 +813,13 @@ class TestSkillSchema(unittest.TestCase):
         with self.assertRaises(SchemaError):
             SKILL_SCHEMA.validate(skill)
 
+    def test_required_tools_reject_invalid_format(self):
+        for bad_tool in ["panther_ai_*", "*", ".*", "[a-z]+_tool", "Bad_Tool", "1tool"]:
+            skill = self._valid_skill()
+            skill["RequiredTools"] = [bad_tool]
+            with self.assertRaises(SchemaError):
+                SKILL_SCHEMA.validate(skill)
+
     def test_invalid_namespace_uppercase(self):
         skill = self._valid_skill()
         skill["Namespace"] = "BadNamespace"
