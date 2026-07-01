@@ -23,6 +23,7 @@ _KNOWN_CATEGORIES = (
     "rules",
     "queries",
     "correlationRules",
+    "skills",
     "scheduledPrompts",
 )
 
@@ -33,6 +34,14 @@ def _read_graphql(name: str) -> str:
 
 
 class TestBulkUploadGraphQLQueries(unittest.TestCase):
+    def test_bulk_upload_requests_skills_field(self) -> None:
+        contents = _read_graphql("bulk_upload")
+        self.assertIn("skills {", contents)
+
+    def test_async_bulk_upload_status_requests_skills_field(self) -> None:
+        contents = _read_graphql("async_bulk_upload_status")
+        self.assertIn("skills {", contents)
+
     def test_bulk_upload_requests_scheduled_prompts_field(self) -> None:
         self.assertIn("scheduledPrompts {", _read_graphql("bulk_upload"))
 

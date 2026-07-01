@@ -14,6 +14,7 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
+    SKILL_SCHEMA,
 )
 
 
@@ -770,3 +771,176 @@ class TestSimpleDetectionSchemas(unittest.TestCase):
             }
         ]
         self.call_validate(case)
+
+
+class TestSkillSchema(unittest.TestCase):
+    def _valid_skill(self) -> Dict[str, Any]:
+        return {
+            "AnalysisType": "skill",
+            "SkillName": "test_skill",
+            "Description": "A test skill",
+            "Prompt": "Do something useful",
+        }
+
+    def test_valid_minimal_skill(self):
+        SKILL_SCHEMA.validate(self._valid_skill())
+
+    def test_valid_skill_all_optional_fields(self):
+        skill = self._valid_skill()
+        skill.update(
+            {
+                "DisplayName": "Test Skill",
+                "ToolMessage": "Processing your request...",
+                "Enabled": True,
+                "EagerLoading": True,
+                "Tags": ["security", "test"],
+                "DependsOn": ["other_skill"],
+                "RequiredTools": ["panther_ai_alerts_list"],
+                "Namespace": "panther_ai",
+            }
+        )
+        SKILL_SCHEMA.validate(skill)
+
+    def test_reference_field_rejected(self):
+        skill = self._valid_skill()
+        skill["Reference"] = "https://docs.example.com"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_required_tools_must_be_list_of_strings(self):
+        skill = self._valid_skill()
+        skill["RequiredTools"] = "not_a_list"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_required_tools_accept_regex_patterns(self):
+        # RequiredTools entries are regex patterns matched against registered
+        # tool names server-side, so wildcards and alternation are valid.
+        for good_tool in [
+            "panther_ai_alerts_list",
+            "panther_ai_.*",
+            ".*",
+            "[a-z]+_tool",
+            "panther_ai_(alerts|detections)_list",
+            "github_.*",
+        ]:
+            skill = self._valid_skill()
+            skill["RequiredTools"] = [good_tool]
+            SKILL_SCHEMA.validate(skill)
+
+    def test_required_tools_reject_invalid_regex(self):
+        # Only entries that fail to compile as a regex (or are empty) are
+        # rejected client-side; real existence checking stays server-side.
+        for bad_tool in ["*", "[unclosed", "(unclosed", ""]:
+            skill = self._valid_skill()
+            skill["RequiredTools"] = [bad_tool]
+            with self.assertRaises(SchemaError):
+                SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_namespace_uppercase(self):
+        skill = self._valid_skill()
+        skill["Namespace"] = "BadNamespace"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_missing_skill_name(self):
+        skill = self._valid_skill()
+        del skill["SkillName"]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_missing_description(self):
+        skill = self._valid_skill()
+        del skill["Description"]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_missing_prompt(self):
+        skill = self._valid_skill()
+        del skill["Prompt"]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_skill_name_uppercase(self):
+        skill = self._valid_skill()
+        skill["SkillName"] = "BadName"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_skill_name_starts_with_number(self):
+        skill = self._valid_skill()
+        skill["SkillName"] = "1bad_name"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_extra_keys_rejected(self):
+        skill = self._valid_skill()
+        skill["UnknownField"] = "should fail"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_enabled_must_be_bool(self):
+        skill = self._valid_skill()
+        skill["Enabled"] = "yes"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_eager_loading_must_be_bool(self):
+        skill = self._valid_skill()
+        skill["EagerLoading"] = "yes"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_tags_must_be_list_of_strings(self):
+        skill = self._valid_skill()
+        skill["Tags"] = [123]
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_depends_on_must_be_list_of_strings(self):
+        skill = self._valid_skill()
+        skill["DependsOn"] = "not_a_list"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_enabled_omitted_is_valid(self):
+        skill = self._valid_skill()
+        skill.pop("Enabled", None)
+        SKILL_SCHEMA.validate(skill)
+
+    def test_eager_loading_omitted_is_valid(self):
+        skill = self._valid_skill()
+        skill.pop("EagerLoading", None)
+        SKILL_SCHEMA.validate(skill)
+
+    def test_enabled_false_is_valid(self):
+        skill = self._valid_skill()
+        skill["Enabled"] = False
+        SKILL_SCHEMA.validate(skill)
+
+    def test_empty_tags_list_is_valid(self):
+        skill = self._valid_skill()
+        skill["Tags"] = []
+        SKILL_SCHEMA.validate(skill)
+
+    def test_empty_depends_on_list_is_valid(self):
+        skill = self._valid_skill()
+        skill["DependsOn"] = []
+        SKILL_SCHEMA.validate(skill)
+
+    def test_empty_required_tools_list_is_valid(self):
+        skill = self._valid_skill()
+        skill["RequiredTools"] = []
+        SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_skill_name_with_hyphen(self):
+        skill = self._valid_skill()
+        skill["SkillName"] = "bad-name"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)
+
+    def test_invalid_namespace_starts_with_number(self):
+        skill = self._valid_skill()
+        skill["Namespace"] = "1bad_namespace"
+        with self.assertRaises(SchemaError):
+            SKILL_SCHEMA.validate(skill)

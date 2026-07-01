@@ -218,6 +218,7 @@ class BulkUploadResponse:  # pylint: disable=too-many-instance-attributes
     lookup_tables: BulkUploadStatistics
     global_helpers: BulkUploadStatistics
     correlation_rules: BulkUploadStatistics
+    skills: BulkUploadStatistics
     scheduled_prompts: BulkUploadStatistics
 
 
@@ -595,6 +596,11 @@ def to_bulk_upload_response(data: Any) -> BackendResponse[BulkUploadResponse]:
                 total=data.get("correlationRules", default_stats).get("total"),
                 new=data.get("correlationRules", default_stats).get("new"),
                 modified=data.get("correlationRules", default_stats).get("modified"),
+            ),
+            skills=BulkUploadStatistics(
+                total=data.get("skills", default_stats).get("total"),
+                new=data.get("skills", default_stats).get("new"),
+                modified=data.get("skills", default_stats).get("modified"),
             ),
             scheduled_prompts=BulkUploadStatistics(
                 total=data.get("scheduledPrompts", default_stats).get("total"),

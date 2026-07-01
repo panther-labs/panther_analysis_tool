@@ -17,6 +17,7 @@ from panther_analysis_tool.schemas import (
     SAVED_QUERY_SCHEMA,
     SCHEDULED_PROMPT_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
+    SKILL_SCHEMA,
 )
 
 PACKAGE_NAME: Final = "panther_analysis_tool"
@@ -33,6 +34,7 @@ PACKS_PATH_PATTERN = "*/packs"
 POLICIES_PATH_PATTERN = "*policies*"
 QUERIES_PATH_PATTERN = "*queries*"
 RULES_PATH_PATTERN = "*rules*"
+SKILLS_PATH_PATTERN = "*skills*"
 SCHEDULED_PROMPTS_PATH_PATTERN = "*scheduled_prompts*"
 
 
@@ -49,6 +51,7 @@ class AnalysisTypes:
     SCHEDULED_RULE = "scheduled_rule"
     SIMPLE_DETECTION = "simple_detection"
     CORRELATION_RULE = "correlation_rule"
+    SKILL = "skill"
     SCHEDULED_PROMPT = "scheduled_prompt"
 
 
@@ -69,6 +72,7 @@ SCHEMAS: Dict[str, Schema] = {
     AnalysisTypes.DERIVED: DERIVED_SCHEMA,
     AnalysisTypes.SCHEDULED_RULE: RULE_SCHEMA,
     AnalysisTypes.CORRELATION_RULE: CORRELATION_RULE_SCHEMA,
+    AnalysisTypes.SKILL: SKILL_SCHEMA,
     AnalysisTypes.SCHEDULED_PROMPT: SCHEDULED_PROMPT_SCHEMA,
 }
 
