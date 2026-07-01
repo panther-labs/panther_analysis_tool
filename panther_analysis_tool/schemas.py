@@ -22,7 +22,9 @@ def validate_required_tool_pattern(pattern: str) -> bool:
     try:
         re.compile("^" + pattern + "$")
     except re.error as err:
-        raise SchemaError(f"RequiredTools entry {pattern!r} is not a valid regex pattern: {err}")
+        raise SchemaError(
+            f"RequiredTools entry {pattern!r} is not a valid regex pattern: {err}"
+        ) from err
     return True
 
 
