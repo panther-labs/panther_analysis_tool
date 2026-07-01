@@ -813,8 +813,25 @@ class TestSkillSchema(unittest.TestCase):
         with self.assertRaises(SchemaError):
             SKILL_SCHEMA.validate(skill)
 
-    def test_required_tools_reject_invalid_format(self):
-        for bad_tool in ["panther_ai_*", "*", ".*", "[a-z]+_tool", "Bad_Tool", "1tool"]:
+    def test_required_tools_accept_regex_patterns(self):
+        # RequiredTools entries are regex patterns matched against registered
+        # tool names server-side, so wildcards and alternation are valid.
+        for good_tool in [
+            "panther_ai_alerts_list",
+            "panther_ai_.*",
+            ".*",
+            "[a-z]+_tool",
+            "panther_ai_(alerts|detections)_list",
+            "github_.*",
+        ]:
+            skill = self._valid_skill()
+            skill["RequiredTools"] = [good_tool]
+            SKILL_SCHEMA.validate(skill)
+
+    def test_required_tools_reject_invalid_regex(self):
+        # Only entries that fail to compile as a regex (or are empty) are
+        # rejected client-side; real existence checking stays server-side.
+        for bad_tool in ["*", "[unclosed", "(unclosed", ""]:
             skill = self._valid_skill()
             skill["RequiredTools"] = [bad_tool]
             with self.assertRaises(SchemaError):
