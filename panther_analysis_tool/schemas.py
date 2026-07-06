@@ -263,7 +263,7 @@ SAVED_QUERY_SCHEMA = Schema(
     {
         "AnalysisType": Or("saved_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
         Optional("Description"): str,
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
@@ -278,7 +278,7 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         "AnalysisType": Or("scheduled_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
-        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
         "Schedule": QueryScheduleSchema(
             {
                 Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
