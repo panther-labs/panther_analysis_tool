@@ -46,7 +46,7 @@ from panther_core.data_model import DataModel
 from panther_core.enriched_event import PantherEvent
 from panther_core.exceptions import UnknownDestinationError
 from panther_core.policy import TYPE_POLICY, Policy
-from panther_core.rule import Detection, Rule
+from panther_core.rule import TYPE_SCHEDULED_RULE, Detection, Rule
 from panther_core.testing import (
     TestCaseEvaluator,
     TestExpectations,
@@ -1757,7 +1757,12 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 }
             test_case: Mapping = entry
             if detection.detection_type.upper() != TYPE_POLICY.upper():
-                test_case = PantherEvent(entry, analysis_data_models.get(log_type))
+                # Scheduled rules run against scheduled-query output, not a log type, so data
+                # models never enrich them in production -- keep unit tests consistent with that.
+                data_model = None
+                if detection.detection_type.upper() != TYPE_SCHEDULED_RULE:
+                    data_model = analysis_data_models.get(log_type)
+                test_case = PantherEvent(entry, data_model)
             # Override buffer redirect if we're in debug mode
             test_output_buf: io.StringIO | TextIO = io.StringIO()
             if debug_args and debug_args.get("debug_mode", False):

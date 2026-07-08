@@ -619,5 +619,66 @@ class TestDebugFunctionality(TestCase):
             mock_print_summary.assert_not_called()
 
 
+class TestRunTestsDataModelHandling(unittest.TestCase):
+    """Scheduled rules run against scheduled-query output, not a log type, so data models
+    must never enrich their unit-test events -- matching production behavior."""
+
+    @staticmethod
+    def _data_model() -> "DataModel":
+        from panther_core.data_model import DataModel
+
+        return DataModel(
+            {
+                "id": "Test.DataModel",
+                "versionId": "test",
+                "mappings": [{"name": "user", "path": "user_field"}],
+            }
+        )
+
+    def _failed_tests(self, analysis_type: str) -> list:
+        from collections import defaultdict
+
+        from panther_core.rule import Rule
+
+        rule_args = {
+            "id": f"Test.{analysis_type}",
+            "analysisType": analysis_type,
+            "versionId": "test",
+            # Alerts only if the data model resolved "user" -- proof the model was applied.
+            "body": "def rule(event):\n    return event.udm('user') == 'alice'\n",
+        }
+        detection = Rule(rule_args)
+        detection.suppress_alert = False
+
+        tests = [
+            {
+                "Name": "data model resolves 'user'",
+                "ExpectedResult": True,
+                "Log": {"user_field": "alice", "p_log_type": "Custom.Log"},
+            }
+        ]
+
+        failed_tests: dict = defaultdict(list)
+        pat._run_tests(
+            analysis_data_models={"Custom.Log": self._data_model()},
+            detection=detection,
+            tests=tests,
+            failed_tests=failed_tests,
+            destinations_by_name={},
+            ignore_exception_types=[],
+            all_test_results=None,
+            correlation_rule_test_results=[],
+            detection_id=f"Test.{analysis_type}",
+        )
+        return failed_tests[f"Test.{analysis_type}"]
+
+    def test_scheduled_rule_does_not_apply_data_model(self) -> None:
+        # The data model must not resolve "user", so the test (which expects it to) fails.
+        self.assertEqual(self._failed_tests("SCHEDULED_RULE"), ["data model resolves 'user':rule"])
+
+    def test_rule_still_applies_data_model(self) -> None:
+        self.assertEqual(self._failed_tests("RULE"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
