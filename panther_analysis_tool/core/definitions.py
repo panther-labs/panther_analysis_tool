@@ -32,6 +32,8 @@ def analysis_id_field_name(analysis_type: str) -> str:
             return "PackID"
         case AnalysisTypes.LOOKUP_TABLE:
             return "LookupName"
+        case AnalysisTypes.SCHEDULED_PROMPT:
+            return "PromptName"
         case _:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
@@ -74,6 +76,9 @@ class ClassifiedAnalysisContainer:
     queries: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     lookup_tables: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
     packs: List[ClassifiedAnalysis] = dataclasses.field(init=False, default_factory=list)
+    scheduled_prompts: List[ClassifiedAnalysis] = dataclasses.field(
+        init=False, default_factory=list
+    )
 
     def _self_as_list(self) -> List[List[ClassifiedAnalysis]]:
         return [
@@ -84,6 +89,7 @@ class ClassifiedAnalysisContainer:
             self.queries,
             self.lookup_tables,
             self.packs,
+            self.scheduled_prompts,
         ]
 
     def empty(self) -> bool:
@@ -101,6 +107,7 @@ class ClassifiedAnalysisContainer:
         container.queries = func(self.queries)
         container.lookup_tables = func(self.lookup_tables)
         container.packs = func(self.packs)
+        container.scheduled_prompts = func(self.scheduled_prompts)
         return container
 
     def items(self) -> Generator[ClassifiedAnalysis, None, None]:
@@ -132,6 +139,8 @@ class ClassifiedAnalysisContainer:
             self.queries.append(classified_analysis)
         elif analysis_type == AnalysisTypes.SCHEDULED_QUERY:
             self.queries.append(classified_analysis)
+        elif analysis_type == AnalysisTypes.SCHEDULED_PROMPT:
+            self.scheduled_prompts.append(classified_analysis)
 
 
 @dataclasses.dataclass

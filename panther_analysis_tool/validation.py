@@ -125,17 +125,9 @@ def validate_packs(analysis_specs: ClassifiedAnalysisContainer) -> List[Any]:
     # first, setup dictionary of id to detection item
     id_to_detection = {}
     for item in analysis_specs.items():
-        analysis_spec = item.analysis_spec
-        analysis_id = (
-            analysis_spec.get("PolicyID")
-            or analysis_spec.get("RuleID")
-            or analysis_spec.get("DataModelID")
-            or analysis_spec.get("GlobalID")
-            or analysis_spec.get("PackID")
-            or analysis_spec.get("QueryName")
-            or analysis_spec["LookupName"]
-        )
-        id_to_detection[analysis_id] = analysis_spec
+        # analysis_id() resolves the per-type ID field (PolicyID/RuleID/PromptName/...)
+        # via the central analysis_id_field_name map, instead of re-listing every field here.
+        id_to_detection[item.analysis_id()] = item.analysis_spec
     for item in analysis_specs.packs:
         analysis_spec = item.analysis_spec
         analysis_spec_filename = item.file_name

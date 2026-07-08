@@ -52,6 +52,7 @@ TYPE_SCHEMA = Schema(
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
+            "scheduled_prompt",
         ),
     },
     ignore_extra_keys=True,
@@ -262,7 +263,7 @@ SAVED_QUERY_SCHEMA = Schema(
     {
         "AnalysisType": Or("saved_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
-        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
         Optional("Description"): str,
         Optional("Tags"): [str],
         Optional("Lookback"): bool,
@@ -277,7 +278,7 @@ SCHEDULED_QUERY_SCHEMA = Schema(
         "AnalysisType": Or("scheduled_query"),
         "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
         "Enabled": bool,
-        Or("Query", "AthenaQuery", "SnowflakeQuery"): str,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
         "Schedule": QueryScheduleSchema(
             {
                 Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
@@ -297,6 +298,34 @@ SCHEDULED_QUERY_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
     # Prevent user typos on optional fields
+)
+
+SCHEDULED_PROMPT_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("scheduled_prompt"),
+        "PromptName": And(str, Regex(r"^[a-z][a-z0-9_]*\Z")),
+        "DisplayName": str,
+        "PromptText": str,
+        # Required, and polymorphic — a user email OR an API-token id (po_...), matching the
+        # backend, which resolves it server-side. Format/existence is validated at validate/upload,
+        # so locally we only require a non-empty string (a strict email regex would wrongly reject
+        # a valid token id).
+        "RunAsUser": And(str, len),
+        "Schedule": QueryScheduleSchema(
+            {
+                Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
+                "TimeoutMinutes": int,
+            }
+        ),
+        Optional("Description"): str,
+        Optional("OutputLength"): Or("small", "medium", "largest"),
+        Optional("Enabled"): bool,
+        # Bulk upload is shared-only: `Private: false`/omitted is accepted; `Private: true` is
+        # rejected — mirrors the backend, which keeps the field but parse-rejects `true` so a
+        # downloaded private prompt fails loudly instead of silently flipping to shared.
+        Optional("Private"): False,
+    },
+    ignore_extra_keys=False,
 )
 
 LOOKUP_TABLE_SCHEMA = Schema(

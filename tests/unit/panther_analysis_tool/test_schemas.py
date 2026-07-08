@@ -153,6 +153,24 @@ class TestPATSchemas(unittest.TestCase):
                 }
             )
 
+    def test_databricks_query_validate_schema(self):
+        SAVED_QUERY_SCHEMA.validate(
+            {
+                "QueryName": "my.query.id",
+                "AnalysisType": "saved_query",
+                "DatabricksQuery": "select 1",
+            }
+        )
+        SCHEDULED_QUERY_SCHEMA.validate(
+            {
+                "QueryName": "my.query.id",
+                "AnalysisType": "scheduled_query",
+                "DatabricksQuery": "select 1",
+                "Enabled": False,
+                "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
+            }
+        )
+
     def test_query_rateminutes(self):
         sample_query = {
             "QueryName": "my.query.id",

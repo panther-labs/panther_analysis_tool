@@ -24,6 +24,9 @@ query status($input: ID!) {
             correlationRules {
                 ...UploadStatisticDetails
             }
+            scheduledPrompts {
+                ...UploadStatisticDetails
+            }
         }
     }
 }
