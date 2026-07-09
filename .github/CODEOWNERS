@@ -3,4 +3,7 @@
 
 # These owners will be the default owners for everything in the repo.
 
-*       @panther-labs/detection-threat-hunting-experience @panther-labs/business-platform
+*       @panther-labs/detection-threat-hunting-experience
+
+# business-platform co-owns the .github repo to approve dependabot PRs for the auto triaging job
+/.github/       @panther-labs/detection-threat-hunting-experience @panther-labs/business-platform
