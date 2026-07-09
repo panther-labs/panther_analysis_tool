@@ -21,6 +21,7 @@ from panther_analysis_tool.core.definitions import analysis_id_field_name
         (AnalysisTypes.SAVED_QUERY, "QueryName"),
         (AnalysisTypes.PACK, "PackID"),
         (AnalysisTypes.LOOKUP_TABLE, "LookupName"),
+        (AnalysisTypes.SKILL, "SkillName"),
         (AnalysisTypes.SCHEDULED_PROMPT, "PromptName"),
     ],
 )

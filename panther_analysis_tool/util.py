@@ -178,6 +178,7 @@ def get_spec_id(spec: dict) -> str:
             "scheduled_query": "QueryName",
             "scheduled_rule": "RuleID",
             "rule": "RuleID",
+            "skill": "SkillName",
             "scheduled_prompt": "PromptName",
         }
         return spec[id_keys[analysis_type]]

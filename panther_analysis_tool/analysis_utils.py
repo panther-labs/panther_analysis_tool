@@ -41,6 +41,7 @@ from panther_analysis_tool.constants import (
     RULES_PATH_PATTERN,
     SCHEDULED_PROMPTS_PATH_PATTERN,
     SCHEMAS,
+    SKILLS_PATH_PATTERN,
     VERSION_STRING,
     AnalysisTypes,
 )
@@ -424,6 +425,7 @@ def load_analysis_specs_ex(
                             PACKS_PATH_PATTERN,
                             POLICIES_PATH_PATTERN,
                             QUERIES_PATH_PATTERN,
+                            SKILLS_PATH_PATTERN,
                             SCHEDULED_PROMPTS_PATH_PATTERN,
                         )
                     )
@@ -1033,6 +1035,8 @@ def pretty_analysis_type(analysis_type: str, plural: bool = False) -> str:
             return "Derived Detection" if not plural else "Derived Detections"
         case AnalysisTypes.SIMPLE_DETECTION:
             return "Simple Detection" if not plural else "Simple Detections"
+        case AnalysisTypes.SKILL:
+            return "Skill" if not plural else "Skills"
         case AnalysisTypes.SCHEDULED_PROMPT:
             return "Scheduled Prompt" if not plural else "Scheduled Prompts"
         case _:

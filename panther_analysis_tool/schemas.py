@@ -1,8 +1,31 @@
 import json
 import pkgutil
+import re
 from typing import Any, Dict, Set
 
 from schema import And, Optional, Or, Regex, Schema, SchemaError
+
+
+def validate_required_tool_pattern(pattern: str) -> bool:
+    """Validate a single RequiredTools entry.
+
+    RequiredTools entries are regex patterns matched against registered tool
+    names server-side, not literal tool names, so wildcards and alternation
+    (e.g. ``github_.*`` or ``panther_ai_(alerts|detections)_list``) are valid.
+    This mirrors the server's toolnames.CompileRequiredToolPattern, which
+    compiles each entry as ``^<pattern>$``; anything that fails to compile is
+    rejected. Real existence checking against the tool registry stays
+    server-side.
+    """
+    if not pattern:
+        raise SchemaError("RequiredTools entry cannot be empty")
+    try:
+        re.compile("^" + pattern + "$")
+    except re.error as err:
+        raise SchemaError(
+            f"RequiredTools entry {pattern!r} is not a valid regex pattern: {err}"
+        ) from err
+    return True
 
 
 class QueryScheduleSchema(Schema):
@@ -52,6 +75,7 @@ TYPE_SCHEMA = Schema(
             "scheduled_rule",
             "scheduled_query",
             "lookup_table",
+            "skill",
             "scheduled_prompt",
         ),
     },
@@ -356,6 +380,24 @@ LOOKUP_TABLE_SCHEMA = Schema(
     },
     ignore_extra_keys=False,
 )  # Prevent user typos on optional fields
+
+SKILL_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("skill"),
+        "SkillName": And(str, Regex(r"^[a-z][a-z0-9_]*$")),
+        "Description": str,
+        "Prompt": str,
+        Optional("DisplayName"): str,
+        Optional("ToolMessage"): str,
+        Optional("Enabled"): bool,
+        Optional("EagerLoading"): bool,
+        Optional("Tags"): [str],
+        Optional("DependsOn"): [str],
+        Optional("RequiredTools"): [And(str, validate_required_tool_pattern)],
+        Optional("Namespace"): And(str, Regex(r"^[a-z][a-z0-9_]*$")),
+    },
+    ignore_extra_keys=False,
+)
 
 SQL_LOOKUP_TABLE_SCHEMA = Schema(
     {
