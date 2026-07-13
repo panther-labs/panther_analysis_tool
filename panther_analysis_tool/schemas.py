@@ -362,7 +362,7 @@ SQL_LOOKUP_TABLE_SCHEMA = Schema(
         "AnalysisType": Or("lookup_table"),
         "LookupName": str,
         "Enabled": bool,
-        "Query": str,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
         "LogTypeMap": {
             "PrimaryKey": str,
             Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],

@@ -14,6 +14,7 @@ from panther_analysis_tool.schemas import (
     RULE_SCHEMA,
     SAVED_QUERY_SCHEMA,
     SCHEDULED_QUERY_SCHEMA,
+    SQL_LOOKUP_TABLE_SCHEMA,
 )
 
 
@@ -170,6 +171,30 @@ class TestPATSchemas(unittest.TestCase):
                 "Schedule": {"RateMinutes": 10, "TimeoutMinutes": 5},
             }
         )
+
+    def test_sql_lookup_table_query_keys(self):
+        base_spec = {
+            "AnalysisType": "lookup_table",
+            "LookupName": "my_lookup_table",
+            "Enabled": True,
+            "LogTypeMap": {"PrimaryKey": "id"},
+            "Refresh": {"PeriodMinutes": 1440},
+        }
+        for query_key in ("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"):
+            SQL_LOOKUP_TABLE_SCHEMA.validate({**base_spec, query_key: "select 1"})
+
+        # multiple query engines for the same lookup table are allowed
+        SQL_LOOKUP_TABLE_SCHEMA.validate(
+            {
+                **base_spec,
+                "SnowflakeQuery": "select 1",
+                "DatabricksQuery": "select 1",
+            }
+        )
+
+        # at least one query key is still required
+        with self.assertRaises(SchemaError):
+            SQL_LOOKUP_TABLE_SCHEMA.validate(base_spec)
 
     def test_query_rateminutes(self):
         sample_query = {
