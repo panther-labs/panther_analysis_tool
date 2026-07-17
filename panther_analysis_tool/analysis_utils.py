@@ -732,7 +732,10 @@ def classify_analysis(
             analysis_type = analysis_spec["AnalysisType"]
             if analysis_spec.get("BaseDetection"):
                 analysis_schema = SCHEMAS["derived"]
-            elif analysis_type == AnalysisTypes.LOOKUP_TABLE and ("Query" in analysis_spec):
+            elif analysis_type == AnalysisTypes.LOOKUP_TABLE and any(
+                key in analysis_spec
+                for key in ("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery")
+            ):
                 analysis_schema = SQL_LOOKUP_TABLE_SCHEMA
             else:
                 analysis_schema = SCHEMAS[analysis_type]

@@ -569,7 +569,10 @@ def parse_lookup_table(path: str) -> dict:
         try:
             if lookup_spec is None:
                 raise schema.SchemaError("Lookup Table spec is empty")
-            if "Query" in lookup_spec:
+            if any(
+                key in lookup_spec
+                for key in ("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery")
+            ):
                 SQL_LOOKUP_TABLE_SCHEMA.validate(lookup_spec)
             else:
                 LOOKUP_TABLE_SCHEMA.validate(lookup_spec)

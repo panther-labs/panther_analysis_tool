@@ -49,6 +49,24 @@ class TestLookupTable(TestCase):  # pylint: disable=too-many-public-methods
         self.assertEqual(0, rc)
         self.assertEqual(file_path, "")
 
+    def test_valid_sql_lookup_table_athena_query(self):
+        path = f"{LUTS_FIXTURES_PATH}/valid/lookup-table-sql-6.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(0, rc)
+        self.assertEqual(file_path, "")
+
+    def test_valid_sql_lookup_table_snowflake_query(self):
+        path = f"{LUTS_FIXTURES_PATH}/valid/lookup-table-sql-7.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(0, rc)
+        self.assertEqual(file_path, "")
+
+    def test_valid_sql_lookup_table_databricks_query(self):
+        path = f"{LUTS_FIXTURES_PATH}/valid/lookup-table-sql-8.yml"
+        rc, file_path = pat.test_lookup_table(path)
+        self.assertEqual(0, rc)
+        self.assertEqual(file_path, "")
+
     def test_invalid_sql_lookup_table_with_schema_field(self):
         path = f"{LUTS_FIXTURES_PATH}/invalid/lookup-table-sql-invalid-1.yml"
         rc, file_path = pat.test_lookup_table(path)
