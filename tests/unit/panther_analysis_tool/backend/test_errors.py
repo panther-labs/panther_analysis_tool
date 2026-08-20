@@ -40,7 +40,5 @@ class TestIsRetryableError(TestCase):
 
     def test_generic_bulk_upload_timeout_is_not_retryable(self) -> None:
         self.assertFalse(
-            is_retryable_error(
-                {"message": "unknown error occurred during bulk upload process"}
-            )
+            is_retryable_error({"message": "unknown error occurred during bulk upload process"})
         )
