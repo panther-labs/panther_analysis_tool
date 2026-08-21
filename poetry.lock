@@ -736,14 +736,14 @@ profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
 name = "dynaconf"
-version = "3.2.12"
+version = "3.2.13"
 description = "The dynamic configurator for your Python Project"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "dynaconf-3.2.12-py2.py3-none-any.whl", hash = "sha256:eb2a11865917dff8810c6098cd736b8f4d2f4e39ad914500e2dfbe064b82c499"},
-    {file = "dynaconf-3.2.12.tar.gz", hash = "sha256:29cea583b007d890e6031fa89c0ac489b631c73dbee83bcd5e6f97602c26354e"},
+    {file = "dynaconf-3.2.13-py2.py3-none-any.whl", hash = "sha256:4305527aef4834bdba3e39479b23c005186e83fb85f65bcaa4bcea58fa26759b"},
+    {file = "dynaconf-3.2.13.tar.gz", hash = "sha256:d79e0189d97b3f226b8ebb1717e2ce05d1a05cdf6ea05de66d24625fdb5a0cbd"},
 ]
 
 [package.extras]
@@ -3863,4 +3863,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <4.0"
-content-hash = "8fa23db77f92064e07b59b3fc3ea5e8acfa11ffcd39b4c720524db25e1c84175"
+content-hash = "6fcfd89b7decb4a3539ebdc3d12115acae958df0d2f223235027ea0c0889d02c"
