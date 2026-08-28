@@ -48,6 +48,7 @@ from panther_core.exceptions import UnknownDestinationError
 from panther_core.policy import TYPE_POLICY, Policy
 from panther_core.rule import TYPE_SCHEDULED_RULE, Detection, Rule
 from panther_core.testing import (
+    FunctionTestResult,
     TestCaseEvaluator,
     TestExpectations,
     TestResult,
@@ -1748,6 +1749,16 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 continue
             found_debug_unit_test = True
 
+        expected_destinations = unit_test.get("ExpectedDestinations")
+        if expected_destinations is not None:
+            for destination_name in expected_destinations:
+                destinations_by_name.setdefault(
+                    destination_name,
+                    FakeDestination(
+                        destination_id=str(uuid4()), destination_display_name=destination_name
+                    ),
+                )
+
         test_output = ""
         try:
             entry: dict = unit_test["Resource"] if "Resource" in unit_test else unit_test["Log"]
@@ -1825,6 +1836,15 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 print(test_output)
 
         # print results
+        expected_destination_ids = (
+            None
+            if expected_destinations is None
+            else (
+                ["SKIP"]
+                if not expected_destinations
+                else [destinations_by_name[name].destination_id for name in expected_destinations]
+            )
+        )
         spec = TestSpecification(
             id=unit_test["Name"],
             name=unit_test["Name"],
@@ -1836,6 +1856,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
         test_result = TestCaseEvaluator(spec, result).interpret(
             ignore_exception_types=ignore_exception_types
         )
+        if (
+            expected_destination_ids is not None
+            and expected_destination_ids != result.destinations_output
+        ):
+            test_result.passed = False
+            if test_result.functions.destinationsFunction is None:
+                test_result.functions.destinationsFunction = FunctionTestResult(
+                    output="null", error=None, matched=False
+                )
+            else:
+                test_result.functions.destinationsFunction.matched = False
         if detection.suppress_alert:
             # only keep alert context function
             test_result.functions.dedupFunction = None
