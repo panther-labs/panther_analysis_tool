@@ -143,9 +143,7 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.log_type_validator import (
-    split_analysis_by_log_type_support,
-)
+from panther_analysis_tool.log_type_validator import split_analysis_by_log_type_support
 from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA, SQL_LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -1750,9 +1748,10 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             found_debug_unit_test = True
 
         expected_destinations = unit_test.get("ExpectedDestinations")
+        test_destinations_by_name = destinations_by_name.copy()
         if expected_destinations is not None:
             for destination_name in expected_destinations:
-                destinations_by_name.setdefault(
+                test_destinations_by_name.setdefault(
                     destination_name,
                     FakeDestination(
                         destination_id=str(uuid4()), destination_display_name=destination_name
@@ -1791,10 +1790,12 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
                         result = detection.run(
-                            test_case, {}, destinations_by_name, batch_mode=False
+                            test_case, {}, test_destinations_by_name, batch_mode=False
                         )
                 else:
-                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
+                    result = detection.run(
+                        test_case, {}, test_destinations_by_name, batch_mode=False
+                    )
             test_output = ""
             if not debug_args or not debug_args.get("debug_mode", False):
                 test_output = cast(io.StringIO, test_output_buf).getvalue()
@@ -1842,7 +1843,9 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             else (
                 ["SKIP"]
                 if not expected_destinations
-                else [destinations_by_name[name].destination_id for name in expected_destinations]
+                else [
+                    test_destinations_by_name[name].destination_id for name in expected_destinations
+                ]
             )
         )
         spec = TestSpecification(
@@ -1856,6 +1859,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
         test_result = TestCaseEvaluator(spec, result).interpret(
             ignore_exception_types=ignore_exception_types
         )
+        if detection.suppress_alert:
+            # only keep alert context function
+            test_result.functions.dedupFunction = None
+            test_result.functions.destinationsFunction = None
+            test_result.functions.runbookFunction = None
+            test_result.functions.titleFunction = None
+            test_result.functions.severityFunction = None
+            test_result.functions.descriptionFunction = None
+            test_result.functions.referenceFunction = None
+            test_result.functions.uniqueFunction = None
+
         if (
             expected_destination_ids is not None
             and expected_destination_ids != result.destinations_output
@@ -1867,16 +1881,6 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 )
             else:
                 test_result.functions.destinationsFunction.matched = False
-        if detection.suppress_alert:
-            # only keep alert context function
-            test_result.functions.dedupFunction = None
-            test_result.functions.destinationsFunction = None
-            test_result.functions.runbookFunction = None
-            test_result.functions.titleFunction = None
-            test_result.functions.severityFunction = None
-            test_result.functions.descriptionFunction = None
-            test_result.functions.referenceFunction = None
-            test_result.functions.uniqueFunction = None
 
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored

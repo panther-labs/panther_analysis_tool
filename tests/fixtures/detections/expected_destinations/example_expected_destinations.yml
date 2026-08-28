@@ -21,3 +21,9 @@ Tests:
       {
         "route_alert": false,
       }
+  - Name: Uses destination without expectation
+    ExpectedResult: true
+    Log:
+      {
+        "route_alert": true,
+      }

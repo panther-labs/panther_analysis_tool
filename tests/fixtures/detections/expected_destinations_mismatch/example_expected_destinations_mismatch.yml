@@ -2,6 +2,7 @@ AnalysisType: rule
 Enabled: true
 Filename: example_expected_destinations_mismatch.py
 RuleID: Example.Rule.Expected.Destinations.Mismatch
+CreateAlert: false
 LogTypes:
   - AWS.CloudTrail
 Severity: Low
