@@ -19,10 +19,14 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    ExecuteDataLakeQueryParams,
+    ExecuteDataLakeQueryResponse,
     FeatureFlagsParams,
     FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
+    GetDataLakeQueryParams,
+    GetDataLakeQueryResponse,
     GetRuleBodyParams,
     GetRuleBodyResponse,
     ListSchemasParams,
@@ -65,7 +69,7 @@ class LambdaClientOpts:
     datalake_lambda: str
 
 
-class LambdaClient(Client):
+class LambdaClient(Client):  # pylint: disable=too-many-public-methods
     _user_id: str
     _lambda_client: boto3.client
 
@@ -337,3 +341,18 @@ class LambdaClient(Client):
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
         # pylint: disable=broad-exception-raised
         raise BaseException("feature-flags is not supported with lambda client")
+
+    def supports_data_lake_queries(self) -> bool:
+        return False
+
+    def execute_data_lake_query(
+        self, params: ExecuteDataLakeQueryParams
+    ) -> BackendResponse[ExecuteDataLakeQueryResponse]:
+        # pylint: disable=broad-exception-raised
+        raise BaseException("data lake queries are not supported with lambda client")
+
+    def get_data_lake_query(
+        self, params: GetDataLakeQueryParams
+    ) -> BackendResponse[GetDataLakeQueryResponse]:
+        # pylint: disable=broad-exception-raised
+        raise BaseException("data lake queries are not supported with lambda client")
