@@ -108,6 +108,14 @@ AWS.IAM.AccessKeyCompromised
         [PASS] An AWS Access Key was Uploaded to Github
 ```
 
+Speed up tests using parallel workers for schema validation:
+
+```bash
+$ panther_analysis_tool test --path tests/fixtures/valid_policies/ --workers 4
+```
+
+The `--workers` flag (or `PANTHER_WORKERS` env var) controls the number of parallel workers for schema validation. Defaults to 1 (sequential).
+
 Run specific unit tests of a rule:
 
 ```bash
