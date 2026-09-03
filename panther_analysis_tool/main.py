@@ -1871,7 +1871,7 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             test_result.functions.uniqueFunction = None
 
         if expected_destination_ids is not None and sorted(expected_destination_ids) != sorted(
-            result.destinations_output
+            result.destinations_output or []
         ):
             test_result.passed = False
             if test_result.functions.destinationsFunction is None:

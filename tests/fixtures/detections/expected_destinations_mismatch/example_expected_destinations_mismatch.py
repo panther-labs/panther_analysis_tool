@@ -3,4 +3,4 @@ def rule(_event):
 
 
 def destinations(_event):
-    return []
+    return None
