@@ -1,0 +1,38 @@
+AnalysisType: rule
+Enabled: true
+Filename: example_expected_destinations.py
+RuleID: Example.Rule.Expected.Destinations
+LogTypes:
+  - AWS.CloudTrail
+Severity: Low
+Tests:
+  - Name: Routes alert
+    ExpectedResult: true
+    ExpectedDestinations:
+      - test-destination
+    Log:
+      {
+        "route_alert": true,
+      }
+  - Name: Routes alert regardless of destination order
+    ExpectedResult: true
+    ExpectedDestinations:
+      - test-destination
+      - secondary-destination
+    Log:
+      {
+        "route_to_multiple_destinations": true,
+      }
+  - Name: Routes signal
+    ExpectedResult: true
+    ExpectedDestinations: []
+    Log:
+      {
+        "route_alert": false,
+      }
+  - Name: Uses destination without expectation
+    ExpectedResult: true
+    Log:
+      {
+        "route_alert": true,
+      }

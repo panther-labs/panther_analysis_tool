@@ -178,6 +178,7 @@ RULE_SCHEMA = Schema(
                     "LogType"
                 ): str,  # Not needed anymore, optional for backwards compatibility
                 "ExpectedResult": bool,
+                Optional("ExpectedDestinations"): [str],
                 "Log": object,
                 Optional("Mocks"): [MOCK_SCHEMA],
             }

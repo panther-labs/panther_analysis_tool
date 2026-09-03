@@ -973,6 +973,41 @@ class TestPantherAnalysisTool(TestCase):
         )
         self.assertEqual(return_code, 0)
 
+    def test_expected_destinations(self) -> None:
+        return_code, _ = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/expected_destinations",
+            ],
+        )
+        self.assertEqual(return_code, 0)
+
+    def test_expected_destinations_mismatch(self) -> None:
+        return_code, _ = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/expected_destinations_mismatch",
+            ],
+        )
+        self.assertEqual(return_code, 1)
+
+    def test_expected_destinations_do_not_leak(self) -> None:
+        return_code, _ = mock_test_analysis(
+            self,
+            [
+                "test",
+                "--path",
+                f"{DETECTIONS_FIXTURES_PATH}/expected_destinations",
+                "--available-destination",
+                "allowed-destination",
+            ],
+        )
+        self.assertEqual(return_code, 1)
+
     def test_invalid_query(self) -> None:
         return_code, invalid_specs = mock_test_analysis(
             self, f"test --path {FIXTURES_PATH}/queries/invalid".split()
