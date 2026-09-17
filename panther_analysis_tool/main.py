@@ -48,6 +48,7 @@ from panther_core.exceptions import UnknownDestinationError
 from panther_core.policy import TYPE_POLICY, Policy
 from panther_core.rule import TYPE_SCHEDULED_RULE, Detection, Rule
 from panther_core.testing import (
+    FunctionTestResult,
     TestCaseEvaluator,
     TestExpectations,
     TestResult,
@@ -142,9 +143,7 @@ from panther_analysis_tool.destination import FakeDestination
 from panther_analysis_tool.directory import setup_temp
 from panther_analysis_tool.enriched_event_generator import EnrichedEventGenerator
 from panther_analysis_tool.log_schemas import user_defined
-from panther_analysis_tool.log_type_validator import (
-    split_analysis_by_log_type_support,
-)
+from panther_analysis_tool.log_type_validator import split_analysis_by_log_type_support
 from panther_analysis_tool.schemas import LOOKUP_TABLE_SCHEMA, SQL_LOOKUP_TABLE_SCHEMA
 from panther_analysis_tool.util import (
     BackendNotFoundException,
@@ -1748,6 +1747,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 continue
             found_debug_unit_test = True
 
+        expected_destinations = unit_test.get("ExpectedDestinations")
+        test_destinations_by_name = destinations_by_name.copy()
+        if expected_destinations is not None:
+            for destination_name in expected_destinations:
+                test_destinations_by_name.setdefault(
+                    destination_name,
+                    FakeDestination(
+                        destination_id=str(uuid4()), destination_display_name=destination_name
+                    ),
+                )
+
         test_output = ""
         try:
             entry: dict = unit_test["Resource"] if "Resource" in unit_test else unit_test["Log"]
@@ -1780,10 +1790,12 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 if mock_methods:
                     with patch.multiple(detection.module, **mock_methods):
                         result = detection.run(
-                            test_case, {}, destinations_by_name, batch_mode=False
+                            test_case, {}, test_destinations_by_name, batch_mode=False
                         )
                 else:
-                    result = detection.run(test_case, {}, destinations_by_name, batch_mode=False)
+                    result = detection.run(
+                        test_case, {}, test_destinations_by_name, batch_mode=False
+                    )
             test_output = ""
             if not debug_args or not debug_args.get("debug_mode", False):
                 test_output = cast(io.StringIO, test_output_buf).getvalue()
@@ -1825,6 +1837,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 print(test_output)
 
         # print results
+        expected_destination_ids = (
+            None
+            if expected_destinations is None
+            else (
+                ["SKIP"]
+                if not expected_destinations
+                else [
+                    test_destinations_by_name[name].destination_id for name in expected_destinations
+                ]
+            )
+        )
         spec = TestSpecification(
             id=unit_test["Name"],
             name=unit_test["Name"],
@@ -1846,6 +1869,17 @@ def _run_tests(  # pylint: disable=too-many-arguments,too-many-positional-argume
             test_result.functions.descriptionFunction = None
             test_result.functions.referenceFunction = None
             test_result.functions.uniqueFunction = None
+
+        if expected_destination_ids is not None and sorted(expected_destination_ids) != sorted(
+            result.destinations_output or []
+        ):
+            test_result.passed = False
+            if test_result.functions.destinationsFunction is None:
+                test_result.functions.destinationsFunction = FunctionTestResult(
+                    output="null", error=None, matched=False
+                )
+            else:
+                test_result.functions.destinationsFunction.matched = False
 
         if all_test_results:
             test_result_str = status_passed if test_result.passed else status_errored

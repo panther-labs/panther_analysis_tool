@@ -1674,6 +1674,12 @@
         "ExpectedResult": {
           "type": "boolean"
         },
+        "ExpectedDestinations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "LogType": {
           "type": "string"
         },

@@ -1,6 +1,6 @@
 [project]
 name = "panther_analysis_tool"
-version = "1.8.1"
+version = "1.9.0"
 description = "Panther command line interface for writing, testing, and packaging policies/rules."
 authors = [{ name = "Panther Labs Inc", email = "pypi@runpanther.io" }]
 readme = "README.md"
@@ -20,7 +20,7 @@ dependencies = [
     "certifi~=2025.11.12",
     "chardet~=5.2.0",
     "charset-normalizer~=3.4.4",
-    "click~=8.3.0",
+    "click~=8.3.3",
     "colorama~=0.4.6",
     "contextlib2~=21.6.0",
     "decorator~=5.2.1",
