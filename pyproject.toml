@@ -41,7 +41,6 @@ dependencies = [
     "jsonschema-specifications~=2025.9.1",
     "markupsafe~=3.0.2",
     "multidict~=6.7.0",
-    "nested-lookup~=0.2.25",
     "packaging~=25.0",
     "panther-core~=0.16.2",
     "pathspec~=1.0.0",
