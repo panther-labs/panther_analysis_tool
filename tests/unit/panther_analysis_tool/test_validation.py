@@ -3,6 +3,7 @@ import unittest
 from panther_analysis_tool.validation import (
     contains_invalid_table_names,
     matches_valid_table_name,
+    nested_lookup,
 )
 
 
@@ -136,6 +137,36 @@ class TestContainsInvalidTableNames(unittest.TestCase):
 
         output = contains_invalid_table_names(analysis_spec, analysis_id, ["*.account_usage.*"])
         self.assertFalse(output)
+
+
+class TestNestedLookup(unittest.TestCase):
+    def test_top_level_key_match(self):
+        self.assertEqual(nested_lookup("a", {"a": 1, "b": 2}), [1])
+
+    def test_no_match_returns_empty(self):
+        self.assertEqual(nested_lookup("missing", {"a": 1, "b": [2, 3]}), [])
+
+    def test_recurses_into_nested_dict(self):
+        self.assertEqual(nested_lookup("a", {"outer": {"a": 1}}), [1])
+
+    def test_recurses_into_list_of_dicts(self):
+        self.assertEqual(nested_lookup("a", {"items": [{"a": 1}, {"a": 2}]}), [1, 2])
+
+    def test_top_level_list(self):
+        self.assertEqual(nested_lookup("a", [{"a": 1}, {"a": 2}, [{"a": 3}]]), [1, 2, 3])
+
+    def test_collects_multiple_matches_in_traversal_order(self):
+        document = {"a": 1, "nested": {"a": 2, "deeper": {"a": 3}}}
+        self.assertEqual(nested_lookup("a", document), [1, 2, 3])
+
+    def test_matched_value_is_also_searched(self):
+        # A matching value that itself contains the key yields both the value and its match.
+        document = {"a": {"a": "inner"}}
+        self.assertEqual(nested_lookup("a", document), [{"a": "inner"}, "inner"])
+
+    def test_scalar_leaves_are_ignored(self):
+        self.assertEqual(nested_lookup("a", "just a string"), [])
+        self.assertEqual(nested_lookup("a", 42), [])
 
 
 class TestMatchesValidTableName(unittest.TestCase):

@@ -1655,20 +1655,6 @@ files = [
 ]
 
 [[package]]
-name = "nested-lookup"
-version = "0.2.25"
-description = "Python functions for working with deeply nested documents (lists and dicts)"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "nested-lookup-0.2.25.tar.gz", hash = "sha256:6fa832748c90381f2291d850809e32492519ee5f253d6a5acbc29d937eca02e8"},
-]
-
-[package.dependencies]
-six = "*"
-
-[[package]]
 name = "nose2"
 version = "0.13.0"
 description = "unittest with plugins"
@@ -3867,4 +3853,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <4.0"
-content-hash = "0e950b59847644ac590be113e59da396e186d0e3dda3537a50ceef3139042c75"
+content-hash = "9277138b123c3f310862c2119706915556eb19848810502cefd37ba8beaae8e5"

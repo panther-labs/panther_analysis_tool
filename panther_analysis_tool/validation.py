@@ -2,14 +2,32 @@ import logging
 import re
 from typing import Any, List, Optional
 
-from nested_lookup import nested_lookup
-
 from panther_analysis_tool.constants import SET_FIELDS
 from panther_analysis_tool.core.definitions import ClassifiedAnalysisContainer
 
 # This file was generated in whole or in part by GitHub Copilot.
 
 SQLFLUFF_CONFIG = None
+
+
+def nested_lookup(key: str, document: Any) -> List[Any]:
+    """Return every value stored under an exact key anywhere in a nested dict/list.
+
+    :param key: the key to search for
+    :param document: a possibly-nested structure of dicts and lists
+    :return: values found under key, in traversal order; empty if none.
+    """
+    results: List[Any] = []
+    if isinstance(document, list):
+        for item in document:
+            results.extend(nested_lookup(key, item))
+    elif isinstance(document, dict):
+        for current_key, value in document.items():
+            if current_key == key:
+                results.append(value)
+            if isinstance(value, (dict, list)):
+                results.extend(nested_lookup(key, value))
+    return results
 
 
 def contains_invalid_field_set(analysis_spec: Any) -> List[str]:
