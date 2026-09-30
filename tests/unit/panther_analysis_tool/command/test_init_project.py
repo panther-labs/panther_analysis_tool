@@ -33,9 +33,7 @@ def test_init_project_with_no_gitignore(
     assert "Project is ready to use!" in mock_print.call_args_list[1][0][0]
 
     gitignore_content = (tmp_path / ".gitignore").read_text()
-    assert (
-        gitignore_content
-        == """# Panther settings
+    assert gitignore_content == """# Panther settings
 .panther_settings.*
 
 # Python
@@ -53,7 +51,6 @@ panther-analysis-*.zip
 .idea/
 
 """
-    )
 
 
 def test_init_project_with_gitignore(
@@ -83,9 +80,7 @@ def test_init_project_with_gitignore(
     assert "Project is ready to use!" in mock_print.call_args_list[0][0][0]
 
     gitignore_content = gitignore_path.read_text()
-    assert (
-        gitignore_content
-        == """# something aleady here
+    assert gitignore_content == """# something aleady here
 ./stuff
 .vscode/
 stuff
@@ -107,7 +102,6 @@ panther-analysis-*.zip
 .idea/
 
 """
-    )
 
 
 def test_init_project_with_gitignore_end_with_newline(
@@ -137,9 +131,7 @@ def test_init_project_with_gitignore_end_with_newline(
     assert "Project is ready to use!" in mock_print.call_args_list[0][0][0]
 
     gitignore_content = gitignore_path.read_text()
-    assert (
-        gitignore_content
-        == """# something aleady here
+    assert gitignore_content == """# something aleady here
 ./stuff
 .vscode/
 stuff
@@ -161,7 +153,6 @@ panther-analysis-*.zip
 .idea/
 
 """
-    )
 
 
 def test_init_project_with_pat_root(
@@ -328,8 +319,7 @@ def test_setup_git_ignore_does_not_duplicate_comments_when_sections_exist(
     monkeypatch.chdir(tmp_path)
 
     gitignore_path = tmp_path / ".gitignore"
-    gitignore_path.write_text(
-        """# Panther settings
+    gitignore_path.write_text("""# Panther settings
 .panther_settings.*
 
 # Python
@@ -346,8 +336,7 @@ panther-analysis-*.zip
 .vscode/
 .idea/
 
-"""
-    )
+""")
 
     init_project.run(str(tmp_path))
     init_project.run(str(tmp_path))
@@ -381,13 +370,11 @@ def test_setup_git_ignore_adds_missing_values_to_existing_section(
     monkeypatch.chdir(tmp_path)
 
     gitignore_path = tmp_path / ".gitignore"
-    gitignore_path.write_text(
-        """# Python
+    gitignore_path.write_text("""# Python
 __pycache__/
 *.pyc
 
-"""
-    )
+""")
 
     init_project.run(str(tmp_path))
 
@@ -496,8 +483,7 @@ def test_setup_git_ignore_existing_sections_no_trailing_newline_re_run(
 
     gitignore_path = tmp_path / ".gitignore"
     # Full PAT content but no trailing newline (or only one)
-    gitignore_path.write_text(
-        """# Panther settings
+    gitignore_path.write_text("""# Panther settings
 .panther_settings.*
 
 # Python
@@ -512,8 +498,7 @@ panther-analysis-*.zip
 
 # IDEs
 .vscode/
-.idea/"""
-    )
+.idea/""")
 
     init_project.run(str(tmp_path))
 
