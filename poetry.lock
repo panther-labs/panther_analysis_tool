@@ -358,7 +358,7 @@ name = "boto3"
 version = "1.42.9"
 description = "The AWS SDK for Python"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">= 3.9"
 groups = ["main"]
 files = [
     {file = "boto3-1.42.9-py3-none-any.whl", hash = "sha256:d21d22af9aeb1bad8e9b670a221d6534c0120f7e7baf523dafaca83f1f5c3f90"},
@@ -378,7 +378,7 @@ name = "botocore"
 version = "1.42.9"
 description = "Low-level, data-driven core of boto 3."
 optional = false
-python-versions = ">=3.9"
+python-versions = ">= 3.9"
 groups = ["main"]
 files = [
     {file = "botocore-1.42.9-py3-none-any.whl", hash = "sha256:f99ba2ca34e24c4ebec150376c815646970753c032eb84f230874b2975a185a8"},
@@ -950,7 +950,7 @@ name = "graphql-core"
 version = "3.2.7"
 description = "GraphQL implementation for Python, a port of GraphQL.js, the JavaScript reference implementation for GraphQL."
 optional = false
-python-versions = "<4,>=3.7"
+python-versions = ">=3.7,<4"
 groups = ["main"]
 files = [
     {file = "graphql_core-3.2.7-py3-none-any.whl", hash = "sha256:17fc8f3ca4a42913d8e24d9ac9f08deddf0a0b2483076575757f6c412ead2ec0"},
@@ -1684,13 +1684,13 @@ files = [
 
 [[package]]
 name = "panther-core"
-version = "0.16.2"
+version = "0.16.3"
 description = "Panther core library"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "panther_core-0.16.2.tar.gz", hash = "sha256:60c9f940a7f8bf4635a0468064c55ea9d67e6c37213c117e1a2f28039ae3b342"},
+    {file = "panther_core-0.16.3.tar.gz", hash = "sha256:383ad60caf57499729f652695a345720b112f1416788af32654eebe0d294510f"},
 ]
 
 [package.dependencies]
@@ -2789,7 +2789,7 @@ name = "s3transfer"
 version = "0.16.0"
 description = "An Amazon S3 Transfer Manager"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">= 3.9"
 groups = ["main"]
 files = [
     {file = "s3transfer-0.16.0-py3-none-any.whl", hash = "sha256:18e25d66fed509e3868dc1572b3f427ff947dd2c56f844a5bf09481ad3f3b2fe"},
@@ -2864,7 +2864,7 @@ name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
 optional = false
-python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 groups = ["main"]
 files = [
     {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
@@ -2944,7 +2944,7 @@ name = "textual"
 version = "6.3.0"
 description = "Modern Text User Interface framework"
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = ">=3.9,<4.0"
 groups = ["main", "dev"]
 files = [
     {file = "textual-6.3.0-py3-none-any.whl", hash = "sha256:ec908b4b008662e7670af4a3e7c773847066b0950b1c50126c72fa939b514c97"},
@@ -2982,7 +2982,7 @@ name = "textual-dev"
 version = "1.8.0"
 description = "Development tools for working with Textual"
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = ">=3.9,<4.0"
 groups = ["dev"]
 files = [
     {file = "textual_dev-1.8.0-py3-none-any.whl", hash = "sha256:227b6d24a485fbbc77e302aa21f4fdf3083beb57eb45cd95bae082c81cbeddeb"},
@@ -3893,4 +3893,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11, <4.0"
-content-hash = "2fd22286f0fb3b6c774beaeb6adb6f7811cbb8e021fc56497b172ccde6b26149"
+content-hash = "6f2dc70e70f84e9d5bb301c74692b6d4ed03cf53ed7973ed3b1d6267ce6da2b9"
