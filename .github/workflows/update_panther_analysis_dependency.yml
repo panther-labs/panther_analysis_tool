@@ -5,14 +5,24 @@ on:
     types: [published]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update_dependency:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
+        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
+        owner: panther-labs
+        repositories: panther-analysis
+        permission-contents: write
+        permission-pull-requests: write
+
     - name: Extract version from release tag
       id: get_version
       run: |
@@ -31,7 +41,8 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: panther-labs/panther-analysis
-        token: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
+        token: ${{ steps.app-token.outputs.token }}
+        persist-credentials: false
         path: panther-analysis
 
     - name: Wait for PyPI availability
@@ -72,37 +83,17 @@ jobs:
         rm -f Pipfile.bak Pipfile.lock
         pipenv lock
 
-    - name: Import GPG key
-      id: import_gpg
-      uses: crazy-max/ghaction-import-gpg@v7
-      with:
-        gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
-        passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
-        git_user_signingkey: true
-        git_commit_gpgsign: true
-        workdir: panther-analysis
-
     - name: Create Pull Request
-      run: |
-        cd panther-analysis
-        git config --global user.email "github-service-account-automation@panther.io"
-        git config --global user.name "panther-bot-automation"
-        git config --global user.signingkey "${{ steps.import_gpg.outputs.keyid }}"
-        git config --global commit.gpgsign true
-        
-        git checkout -b "update-panther-analysis-tool-${{ steps.get_version.outputs.version }}"
-        git add Pipfile Pipfile.lock
-        git diff --cached --quiet && exit 0
-        
-        git commit -S -m "Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}" || \
-        (git config --global commit.gpgsign false && git commit -m "Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}")
-        
-        git push --set-upstream origin "update-panther-analysis-tool-${{ steps.get_version.outputs.version }}"
-        
-        gh pr create \
-          --title "Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}" \
-          --body "Automated dependency update to panther-analysis-tool v${{ steps.get_version.outputs.version }}" \
-          --head "update-panther-analysis-tool-${{ steps.get_version.outputs.version }}" \
-          --base develop
-      env:
-        GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+      with:
+        token: ${{ steps.app-token.outputs.token }}
+        path: panther-analysis
+        sign-commits: true
+        add-paths: |
+          Pipfile
+          Pipfile.lock
+        base: develop
+        branch: update-panther-analysis-tool-${{ steps.get_version.outputs.version }}
+        commit-message: Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}
+        title: Update panther-analysis-tool to v${{ steps.get_version.outputs.version }}
+        body: Automated dependency update to panther-analysis-tool v${{ steps.get_version.outputs.version }}

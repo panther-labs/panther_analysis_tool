@@ -9,17 +9,26 @@ on:
         default: 'minor'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   version_bump_pr:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
+        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
+        permission-contents: write
+        permission-pull-requests: write
+
     - name: Check out the repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        fetch-depth: 0
+        persist-credentials: false
 
     - name: Setup Python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -33,23 +42,16 @@ jobs:
       id: bump_version
       run: |
         poetry version "${{ github.event.inputs.bump_type }}"
+        echo "new_version=$(poetry version -s)" >> "$GITHUB_OUTPUT"
 
-    - name: Import GPG key
-      uses: crazy-max/ghaction-import-gpg@v7
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
-        gpg_private_key: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY }}
-        passphrase: ${{ secrets.PANTHER_BOT_GPG_PRIVATE_KEY_PASSPHRASE }}
-        git_user_signingkey: true
-        git_commit_gpgsign: true
-
-    - name: Create Branch and Pull Request
-      run: |
-        NEW_VERSION="$(poetry version -s)"
-        git config --global user.email "github-service-account-automation@panther.io"
-        git config --global user.name "panther-bot-automation"
-        git checkout -b "$NEW_VERSION"
-        git commit -a -S -m "Bump version to $NEW_VERSION"
-        git push --set-upstream origin "$NEW_VERSION"
-        gh pr create -t "Version bump to v$NEW_VERSION" -b "Bumping Version to v$NEW_VERSION ahead of release."
-      env:
-        GH_TOKEN: ${{ secrets.PANTHER_BOT_AUTOMATION_TOKEN }}
+        token: ${{ steps.app-token.outputs.token }}
+        sign-commits: true
+        add-paths: pyproject.toml
+        base: main
+        branch: bump-version-to-${{ steps.bump_version.outputs.new_version }}
+        commit-message: Bump version to ${{ steps.bump_version.outputs.new_version }}
+        title: Version bump to v${{ steps.bump_version.outputs.new_version }}
+        body: Bumping Version to v${{ steps.bump_version.outputs.new_version }} ahead of release.
