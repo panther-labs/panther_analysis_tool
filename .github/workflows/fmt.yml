@@ -16,6 +16,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          # Format the PR head rather than the merge commit
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -29,11 +31,54 @@ jobs:
         if: ${{ github.actor != 'dependabot[bot]' }}
         run: make reqs
       - name: Check for changes
+        id: check_changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::Formatting or dependency changes required. Run 'make fmt && make reqs' locally and commit the result."
             git status --porcelain
-            git diff --stat
-            exit 1
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No formatting changes needed"
           fi
-          echo "No formatting changes needed"
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
+          private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Commit formatting changes
+        if: ${{ steps.app-token.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # createCommitOnBranch commits are signed by GitHub
+          additions=$(
+            { git diff --name-only --diff-filter=d; git ls-files --others --exclude-standard; } |
+              while IFS= read -r path; do
+                jq --null-input --arg path "$path" --rawfile contents <(base64 -w0 "$path") '{$path, $contents}'
+              done | jq --slurp .
+          )
+          deletions=$(git diff --name-only --diff-filter=D | jq --raw-input '{path: .}' | jq --slurp .)
+          jq --null-input \
+            --arg repo "$REPO" --arg branch "$BRANCH" --arg oid "$HEAD_SHA" \
+            --argjson additions "$additions" --argjson deletions "$deletions" \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { url } } }",
+              variables: {input: {
+                branch: {repositoryNameWithOwner: $repo, branchName: $branch},
+                expectedHeadOid: $oid,
+                message: {headline: "Auto-format files"},
+                fileChanges: {additions: $additions, deletions: $deletions}
+              }}
+            }' |
+            gh api graphql --input -
+      - name: Fail if formatting changes cannot be committed
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && steps.app-token.outcome == 'skipped' }}
+        run: |
+          echo "::error::Formatting or dependency changes required. Run 'make fmt && make reqs' locally and commit the result."
+          git diff --stat
+          exit 1
