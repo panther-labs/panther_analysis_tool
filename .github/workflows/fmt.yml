@@ -12,6 +12,8 @@ permissions:
 jobs:
   fmt:
     runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.patch.outputs.commit }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -39,16 +41,55 @@ jobs:
           else
             echo "No formatting changes needed"
           fi
+      - name: Create formatting patch
+        id: patch
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
+        run: |
+          git add -A
+          git diff --cached --binary > "$RUNNER_TEMP/fmt.patch"
+          echo "commit=true" >> "$GITHUB_OUTPUT"
+      - name: Upload formatting patch
+        if: ${{ steps.patch.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fmt-patch
+          path: ${{ runner.temp }}/fmt.patch
+          retention-days: 1
+      - name: Fail if formatting changes cannot be committed
+        if: ${{ steps.check_changes.outputs.has_changes == 'true' && steps.patch.outcome == 'skipped' }}
+        run: |
+          echo "::error::Formatting or dependency changes required. Run 'make fmt && make reqs' locally and commit the result."
+          git diff --stat
+          exit 1
+
+  # Separate runner so the App key is never exposed to code from the PR
+  commit:
+    needs: fmt
+    if: ${{ needs.fmt.outputs.commit == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Download formatting patch
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: fmt-patch
+          path: ${{ runner.temp }}/fmt-patch
+      - name: Apply formatting patch
+        run: git apply "$RUNNER_TEMP/fmt-patch/fmt.patch"
       - name: Generate GitHub App token
         id: app-token
-        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
           private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
           permission-contents: write
       - name: Commit formatting changes
-        if: ${{ steps.app-token.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -76,9 +117,3 @@ jobs:
               }}
             }' |
             gh api graphql --input -
-      - name: Fail if formatting changes cannot be committed
-        if: ${{ steps.check_changes.outputs.has_changes == 'true' && steps.app-token.outcome == 'skipped' }}
-        run: |
-          echo "::error::Formatting or dependency changes required. Run 'make fmt && make reqs' locally and commit the result."
-          git diff --stat
-          exit 1
