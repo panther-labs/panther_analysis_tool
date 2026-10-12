@@ -96,17 +96,23 @@ jobs:
           BRANCH: ${{ github.event.pull_request.head.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # createCommitOnBranch commits are signed by GitHub
-          additions=$(
-            { git diff --name-only --diff-filter=d; git ls-files --others --exclude-standard; } |
-              while IFS= read -r path; do
-                jq --null-input --arg path "$path" --rawfile contents <(base64 -w0 "$path") '{$path, $contents}'
-              done | jq --slurp .
-          )
-          deletions=$(git diff --name-only --diff-filter=D | jq --raw-input '{path: .}' | jq --slurp .)
+          # createCommitOnBranch commits are signed by GitHub.
+          # File contents go through temp files: argv is capped at ~128 KB per string.
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/fmt-commit"
+          mkdir -p "$tmp"
+          { git diff -z --name-only --diff-filter=d; git ls-files -z --others --exclude-standard; } |
+            while IFS= read -r -d '' path; do
+              base64 -w0 "$path" > "$tmp/contents"
+              jq --null-input --arg path "$path" --rawfile contents "$tmp/contents" '{$path, $contents}'
+            done > "$tmp/additions.json"
+          git diff -z --name-only --diff-filter=D |
+            while IFS= read -r -d '' path; do
+              jq --null-input --arg path "$path" '{$path}'
+            done > "$tmp/deletions.json"
           jq --null-input \
             --arg repo "$REPO" --arg branch "$BRANCH" --arg oid "$HEAD_SHA" \
-            --argjson additions "$additions" --argjson deletions "$deletions" \
+            --slurpfile additions "$tmp/additions.json" --slurpfile deletions "$tmp/deletions.json" \
             '{
               query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { url } } }",
               variables: {input: {
@@ -115,5 +121,5 @@ jobs:
                 message: {headline: "Auto-format files"},
                 fileChanges: {additions: $additions, deletions: $deletions}
               }}
-            }' |
-            gh api graphql --input -
+            }' > "$tmp/request.json"
+          gh api graphql --input "$tmp/request.json"
