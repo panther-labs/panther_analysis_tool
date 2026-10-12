@@ -86,6 +86,7 @@ jobs:
       - name: Install Poetry
         run: pipx install poetry
       - name: Setup Python
+        id: setup-python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: 3.11
@@ -102,7 +103,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.local/share/virtualenvs
-          key: pipenv-${{ hashFiles('panther-analysis/Pipfile.lock') }}
+          key: pipenv-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('panther-analysis/Pipfile.lock') }}
       - name: Run panther-analysis integration tests
         run: |
           cd panther-analysis
