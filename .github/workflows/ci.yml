@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   mypy:
+    if: ${{ github.actor != 'panther-app-automation[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,6 +29,7 @@ jobs:
         run: poetry run mypy panther_analysis_tool
 
   bandit:
+    if: ${{ github.actor != 'panther-app-automation[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,6 +47,7 @@ jobs:
         run: poetry run bandit -r panther_analysis_tool
 
   pylint:
+    if: ${{ github.actor != 'panther-app-automation[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -62,6 +65,7 @@ jobs:
         run: poetry run pylint panther_analysis_tool
 
   test:
+    if: ${{ github.actor != 'panther-app-automation[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -79,6 +83,7 @@ jobs:
         run: poetry run pytest --cov=panther_analysis_tool --cov-report=html
 
   integration:
+    if: ${{ github.actor != 'panther-app-automation[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

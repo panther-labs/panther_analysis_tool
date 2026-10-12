@@ -9,26 +9,17 @@ on:
         default: 'minor'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   version_bump_pr:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Generate GitHub App token
-      id: app-token
-      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-      with:
-        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
-        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
-        permission-contents: write
-        permission-pull-requests: write
-
     - name: Check out the repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        persist-credentials: false
+        fetch-depth: 0
 
     - name: Setup Python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -44,14 +35,23 @@ jobs:
         poetry version "${{ github.event.inputs.bump_type }}"
         echo "new_version=$(poetry version -s)" >> "$GITHUB_OUTPUT"
 
-    - name: Create Pull Request
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
+        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
+        permission-contents: write
+        permission-pull-requests: write
+
+    - name: Create Branch and Pull Request
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
         token: ${{ steps.app-token.outputs.token }}
         sign-commits: true
         add-paths: pyproject.toml
         base: main
-        branch: bump-version-to-${{ steps.bump_version.outputs.new_version }}
+        branch: ${{ steps.bump_version.outputs.new_version }}
         commit-message: Bump version to ${{ steps.bump_version.outputs.new_version }}
         title: Version bump to v${{ steps.bump_version.outputs.new_version }}
         body: Bumping Version to v${{ steps.bump_version.outputs.new_version }} ahead of release.

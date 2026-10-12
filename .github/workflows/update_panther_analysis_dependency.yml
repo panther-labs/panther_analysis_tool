@@ -5,24 +5,14 @@ on:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   update_dependency:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Generate GitHub App token
-      id: app-token
-      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-      with:
-        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
-        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
-        owner: panther-labs
-        repositories: panther-analysis
-        permission-contents: write
-        permission-pull-requests: write
-
     - name: Extract version from release tag
       id: get_version
       run: |
@@ -37,12 +27,22 @@ jobs:
       with:
         python-version: '3.11'
 
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
+        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
+        owner: panther-labs
+        repositories: panther-analysis
+        permission-contents: write
+        permission-pull-requests: write
+
     - name: Checkout panther-analysis Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: panther-labs/panther-analysis
         token: ${{ steps.app-token.outputs.token }}
-        persist-credentials: false
         path: panther-analysis
 
     - name: Wait for PyPI availability
