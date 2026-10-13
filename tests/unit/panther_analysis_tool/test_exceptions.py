@@ -20,7 +20,7 @@ class TestPantherError(unittest.TestCase):
             self.assertIs(other.equals(instance), case["expected"])
 
     def test_has_message_prefix(self) -> None:
-        exc = PantherError("something", "went wrong")
+        exc  = PantherError("something",  "went wrong")
         self.assertTrue(exc.has_message_prefix("something"))
         self.assertFalse(exc.has_message_prefix("something went"))
 
