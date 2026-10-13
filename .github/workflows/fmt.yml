@@ -17,6 +17,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          # Build the auto-format commit from the PR head rather than the merge commit
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -48,28 +50,36 @@ jobs:
           exit 1
       - name: Commit formatting and any dependency updates
         if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BRANCH=${{ github.head_ref }}
-            git fetch; git checkout ${{ github.head_ref }}
-          else
-            BRANCH=${{ github.ref }}
-          fi
-
-          git add -A .
-
-          REQUIRES_COMMIT=1
-          git commit -m "Auto-format files" || REQUIRES_COMMIT=0
-
-          if [[ $REQUIRES_COMMIT -eq 0 ]]; then
-            echo "No auto-formatting needed"
-          else
-            echo "Committing auto-formatted files and any dependency updates"
-            gh auth setup-git
-            git push origin HEAD:$BRANCH
-          fi
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # createCommitOnBranch commits are signed by GitHub.
+          # File contents go through temp files: argv is capped at ~128 KB per string.
+          set -euo pipefail
+          tmp="$RUNNER_TEMP/fmt-commit"
+          mkdir -p "$tmp"
+          { git diff -z --name-only --diff-filter=d; git ls-files -z --others --exclude-standard; } |
+            while IFS= read -r -d '' path; do
+              base64 -w0 "$path" > "$tmp/contents"
+              jq --null-input --arg path "$path" --rawfile contents "$tmp/contents" '{$path, $contents}'
+            done > "$tmp/additions.json"
+          git diff -z --name-only --diff-filter=D |
+            while IFS= read -r -d '' path; do
+              jq --null-input --arg path "$path" '{$path}'
+            done > "$tmp/deletions.json"
+          jq --null-input \
+            --arg repo "$REPO" --arg branch "$BRANCH" --arg oid "$HEAD_SHA" \
+            --slurpfile additions "$tmp/additions.json" --slurpfile deletions "$tmp/deletions.json" \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { url } } }",
+              variables: {input: {
+                branch: {repositoryNameWithOwner: $repo, branchName: $branch},
+                expectedHeadOid: $oid,
+                message: {headline: "Auto-format files"},
+                fileChanges: {additions: $additions, deletions: $deletions}
+              }}
+            }' > "$tmp/request.json"
+          gh api graphql --input "$tmp/request.json"
