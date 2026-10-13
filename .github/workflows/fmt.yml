@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
@@ -47,18 +45,27 @@ jobs:
         run: |
           echo "::error::This PR requires formatting changes but was opened from a fork, so auto-formatting cannot be applied. Please run 'make fmt' and 'make reqs' locally and push the changes."
           exit 1
-      - name: Generate GitHub App token
-        if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
-          private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
-          permission-contents: write
       - name: Commit formatting and any dependency updates
         if: ${{ steps.check_changes.outputs.has_changes == 'true' && github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' }}
-        uses: panther-labs/github-actions/push-with-app@canagno123/LW-6743-reusable-app-signed-commit
-        with:
-          github_token: ${{ steps.app-token.outputs.token }}
-          branch: ${{ github.head_ref || github.ref_name }}
-          message: Auto-format files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH=${{ github.head_ref }}
+            git fetch; git checkout ${{ github.head_ref }}
+          else
+            BRANCH=${{ github.ref }}
+          fi
+
+          git add -A .
+
+          REQUIRES_COMMIT=1
+          git commit -m "Auto-format files" || REQUIRES_COMMIT=0
+
+          if [[ $REQUIRES_COMMIT -eq 0 ]]; then
+            echo "No auto-formatting needed"
+          else
+            echo "Committing auto-formatted files and any dependency updates"
+            git push origin HEAD:$BRANCH
+          fi
