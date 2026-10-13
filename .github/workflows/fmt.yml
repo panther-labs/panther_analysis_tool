@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   fmt:
@@ -17,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
@@ -67,5 +68,8 @@ jobs:
             echo "No auto-formatting needed"
           else
             echo "Committing auto-formatted files and any dependency updates"
+            gh auth setup-git
             git push origin HEAD:$BRANCH
           fi
+        env:
+          GH_TOKEN: ${{ github.token }}
