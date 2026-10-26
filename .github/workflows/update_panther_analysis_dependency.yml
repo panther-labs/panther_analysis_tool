@@ -40,7 +40,7 @@ jobs:
       id: app-token
       uses: ./panther-analysis-tool/.github/actions/github-automation-token
       with:
-        broker_url: ${{ secrets.PANTHER_GITHUB_TOKEN_BROKER_URL }}
+        token_url: ${{ secrets.GITHUB_APP_TOKEN_URL }}
         repository: panther-labs/panther-analysis
         permissions: '{"contents":"write","pull_requests":"write"}'
 
