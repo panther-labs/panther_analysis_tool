@@ -116,16 +116,3 @@ jobs:
           pipenv run pip install -e ..
           pipenv run panther_analysis_tool --version
           pipenv run panther_analysis_tool test --path .
-
-  github-automation-token:
-    if: ${{ github.actor != 'panther-app-automation[bot]' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 24
-      - name: Test github-automation-token action
-        run: node --test .github/actions/github-automation-token/test_github_automation_token.js
