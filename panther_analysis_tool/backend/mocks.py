@@ -11,10 +11,14 @@ from panther_analysis_tool.backend.client import Client as BackendClient
 from panther_analysis_tool.backend.client import (
     DeleteDetectionsParams,
     DeleteSavedQueriesParams,
+    ExecuteDataLakeQueryParams,
+    ExecuteDataLakeQueryResponse,
     FeatureFlagsParams,
     FeatureFlagsResponse,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
+    GetDataLakeQueryParams,
+    GetDataLakeQueryResponse,
     GetRuleBodyParams,
     GetRuleBodyResponse,
     ListSchemasParams,
@@ -31,7 +35,7 @@ from panther_analysis_tool.backend.client import (
 )
 
 
-class MockBackend(BackendClient):
+class MockBackend(BackendClient):  # pylint: disable=too-many-public-methods
     def async_bulk_upload(self, params: BulkUploadParams) -> BackendResponse[BulkUploadResponse]:  # type: ignore
         pass
 
@@ -98,4 +102,17 @@ class MockBackend(BackendClient):
         pass
 
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:  # type: ignore
+        pass
+
+    def supports_data_lake_queries(self) -> bool:  # type: ignore
+        pass
+
+    def execute_data_lake_query(  # type: ignore
+        self, params: ExecuteDataLakeQueryParams
+    ) -> BackendResponse[ExecuteDataLakeQueryResponse]:
+        pass
+
+    def get_data_lake_query(  # type: ignore
+        self, params: GetDataLakeQueryParams
+    ) -> BackendResponse[GetDataLakeQueryResponse]:
         pass

@@ -27,11 +27,15 @@ from .client import (
     DeleteDetectionsResponse,
     DeleteSavedQueriesParams,
     DeleteSavedQueriesResponse,
+    ExecuteDataLakeQueryParams,
+    ExecuteDataLakeQueryResponse,
     FeatureFlagsParams,
     FeatureFlagsResponse,
     FeatureFlagTreatment,
     GenerateEnrichedEventParams,
     GenerateEnrichedEventResponse,
+    GetDataLakeQueryParams,
+    GetDataLakeQueryResponse,
     GetRuleBodyParams,
     GetRuleBodyResponse,
     ListSchemasParams,
@@ -132,6 +136,12 @@ class PublicAPIRequests:  # pylint: disable=too-many-public-methods
 
     def feature_flags_query(self) -> GraphQLRequest:
         return self._load("feature_flags")
+
+    def execute_data_lake_query_mutation(self) -> GraphQLRequest:
+        return self._load("execute_data_lake_query")
+
+    def get_data_lake_query_query(self) -> GraphQLRequest:
+        return self._load("get_data_lake_query")
 
     def _load(self, name: str) -> GraphQLRequest:
         if name not in self._cache:
@@ -596,6 +606,40 @@ class PublicAPIClient(Client):  # pylint: disable=too-many-public-methods
                     FeatureFlagTreatment(flag=flag.get("flag"), treatment=flag.get("treatment"))
                     for flag in data.get("flags") or []
                 ]
+            ),
+        )
+
+    def supports_data_lake_queries(self) -> bool:
+        return True
+
+    def execute_data_lake_query(
+        self, params: ExecuteDataLakeQueryParams
+    ) -> BackendResponse[ExecuteDataLakeQueryResponse]:
+        query = self._requests.execute_data_lake_query_mutation()
+        query_input: Dict[str, Any] = {"input": {"sql": params.sql}}
+        if params.database_name:
+            query_input["input"]["databaseName"] = params.database_name
+
+        res = self._potentially_supported_execute(query, variable_values=query_input)
+        data = res.data.get("executeDataLakeQuery", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=ExecuteDataLakeQueryResponse(id=data.get("id", "")),
+        )
+
+    def get_data_lake_query(
+        self, params: GetDataLakeQueryParams
+    ) -> BackendResponse[GetDataLakeQueryResponse]:
+        query = self._requests.get_data_lake_query_query()
+        res = self._safe_execute(query, variable_values={"id": params.id})
+        data = res.data.get("dataLakeQuery", {})  # type: ignore
+
+        return BackendResponse(
+            status_code=200,
+            data=GetDataLakeQueryResponse(
+                status=data.get("status", ""),
+                message=data.get("message", ""),
             ),
         )
 
