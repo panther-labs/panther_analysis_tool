@@ -5,12 +5,14 @@ on:
     types: [published]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update_dependency:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
     - name: Extract version from release tag
@@ -27,16 +29,20 @@ jobs:
       with:
         python-version: '3.11'
 
+    # The local token action must exist before the cross-repo checkout below.
+    - name: Checkout panther_analysis_tool Repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        path: panther-analysis-tool
+        persist-credentials: false
+
     - name: Generate GitHub App token
       id: app-token
-      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      uses: ./panther-analysis-tool/.github/actions/github-automation-token
       with:
-        app-id: ${{ secrets.PANTHER_BOT_APP_ID }}
-        private-key: ${{ secrets.PANTHER_BOT_APP_PRIVATE_KEY }}
-        owner: panther-labs
-        repositories: panther-analysis
-        permission-contents: write
-        permission-pull-requests: write
+        token_url: ${{ secrets.APP_TOKEN_SERVICE_URL }}
+        repository: panther-labs/panther-analysis
+        permissions: '{"contents":"write","pull_requests":"write"}'
 
     - name: Checkout panther-analysis Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
