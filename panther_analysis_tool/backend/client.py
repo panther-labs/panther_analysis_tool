@@ -458,7 +458,36 @@ class FeatureFlagsResponse:
     flags: List[FeatureFlagTreatment]
 
 
-class Client(ABC):
+class DataLakeQueryStatus:
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+@dataclass(frozen=True)
+class ExecuteDataLakeQueryParams:
+    sql: str
+    database_name: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ExecuteDataLakeQueryResponse:
+    id: str  # pylint: disable=invalid-name
+
+
+@dataclass(frozen=True)
+class GetDataLakeQueryParams:
+    id: str  # pylint: disable=invalid-name
+
+
+@dataclass(frozen=True)
+class GetDataLakeQueryResponse:
+    status: str
+    message: str
+
+
+class Client(ABC):  # pylint: disable=too-many-public-methods
     @abstractmethod
     def check(self) -> BackendCheckResponse:
         pass
@@ -549,6 +578,22 @@ class Client(ABC):
 
     @abstractmethod
     def feature_flags(self, params: FeatureFlagsParams) -> BackendResponse[FeatureFlagsResponse]:
+        pass
+
+    @abstractmethod
+    def supports_data_lake_queries(self) -> bool:
+        pass
+
+    @abstractmethod
+    def execute_data_lake_query(
+        self, params: ExecuteDataLakeQueryParams
+    ) -> BackendResponse[ExecuteDataLakeQueryResponse]:
+        pass
+
+    @abstractmethod
+    def get_data_lake_query(
+        self, params: GetDataLakeQueryParams
+    ) -> BackendResponse[GetDataLakeQueryResponse]:
         pass
 
 
