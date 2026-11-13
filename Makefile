@@ -74,7 +74,7 @@ integration: ## Run panther_analysis_tool integration tests (from included fixtu
 
 .PHONY: build
 build: ## Builds the package
-	poetry build --clean --format sdist
+	poetry build --clean
 
 .PHONY: publish
 release:
