@@ -23,12 +23,12 @@ jobs:
 
     - name: Setup Virtual Environment
       run: make venv
-    
+
     - name: Export dependencies
       run: |
         make reqs
 
-    - name: Build Release tar.gz
+    - name: Build Release sdist and wheel
       run: |
         make build
 
