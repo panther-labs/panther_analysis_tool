@@ -1,0 +1,7 @@
+query GetDataLakeQuery($id: ID!) {
+    dataLakeQuery(id: $id) {
+        id
+        status
+        message
+    }
+}
